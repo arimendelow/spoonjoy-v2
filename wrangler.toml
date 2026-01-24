@@ -1,0 +1,24 @@
+name = "spoonjoy-v2"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "./build/client"
+
+# For production, you'll need to set up a D1 database or external Postgres
+# Uncomment and configure as needed:
+
+# Option 1: Use Cloudflare D1 (SQLite)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "spoonjoy"
+# database_id = "your-database-id"
+
+# Option 2: Use external Postgres (via Hyperdrive for connection pooling)
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "your-hyperdrive-id"
+
+# Environment variables (set via wrangler secret put or dashboard)
+# - DATABASE_URL: Your database connection string
+
+[vars]
+# Non-secret environment variables can go here
+NODE_ENV = "production"

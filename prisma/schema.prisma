@@ -1,0 +1,224 @@
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = "native"
+}
+
+// Define your own datamodels here and run `yarn redwood prisma migrate dev`
+// to create migrations for them and apply to your dev DB.
+
+model User {
+  id                  String             @id @default(cuid())
+  email               String             @unique
+  username            String             @unique
+  // this and salt are optional because we allow OAuth only users to not have a password
+  hashedPassword      String?
+  salt                String?
+  resetToken          String?
+  resetTokenExpiresAt DateTime?
+  webAuthnChallenge   String?            @unique
+  credentials         UserCredential[]
+  OAuth               OAuth[]
+  recipes             Recipe[]
+  shoppingList        ShoppingList?
+  cookbooks           Cookbook[]
+  addedToCookbooks    RecipeInCookbook[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model UserCredential {
+  id         String  @id
+  userId     String
+  user       User    @relation(fields: [userId], references: [id])
+  publicKey  Bytes
+  transports String?
+  counter    BigInt
+
+  @@index([userId])
+}
+
+model OAuth {
+  provider         String
+  // The ID of the user on the OAuth provider's system
+  providerUserId   String
+  // The username of the user on the OAuth provider's system. Useful for helping users identify their linked accounts
+  providerUsername String
+  user             User   @relation(fields: [userId], references: [id])
+  userId           String
+
+  createdAt DateTime @default(now())
+
+  @@unique([provider, providerUserId])
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+model Recipe {
+  id          String             @id @default(cuid())
+  title       String             @db.VarChar(60)
+  description String?            @db.VarChar(140)
+  imageUrl    String             @default("https://res.cloudinary.com/dpjmyc4uz/image/upload/v1674541350/clbe7wr180009tkhggghtl1qd.png")
+  servings    String?            @db.VarChar(40)
+  chefId      String
+  chef        User               @relation(fields: [chefId], references: [id], onDelete: Cascade)
+  deletedAt   DateTime?
+  steps       RecipeStep[]
+  cookbooks   RecipeInCookbook[]
+
+  sourceRecipeId String?
+  sourceRecipe   Recipe? @relation("SourceRecipe", fields: [sourceRecipeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceUrl      String?
+
+  recipeForks Recipe[] @relation("SourceRecipe")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  // Allow users to create a second recipe with the same title *if* the other one is deleted
+  // TODO this is currently broken, see here: https://github.com/spoonjoy/spoonjoy-requests-issues/issues/1
+  @@unique([chefId, title, deletedAt])
+  @@index([chefId])
+  @@index([sourceRecipeId])
+}
+
+model RecipeStep {
+  id          String          @id @default(cuid())
+  recipeId    String
+  recipe      Recipe          @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  stepNum     Int
+  stepTitle   String?
+  description String          @db.VarChar(1000)
+  ingredients Ingredient[]
+  usingSteps  StepOutputUse[] @relation("input")
+  usedBySteps StepOutputUse[] @relation("output")
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([recipeId, stepNum])
+  @@index([recipeId])
+}
+
+/// Allow a step to refer to the output of another step. AKA, in step 3, use the outputs from step 1 and 2
+model StepOutputUse {
+  id            String     @id @default(cuid())
+  recipeId      String
+  outputStepNum Int
+  outputOfStep  RecipeStep @relation(name: "output", fields: [recipeId, outputStepNum], references: [recipeId, stepNum], onDelete: Cascade)
+  inputStepNum  Int
+  inputOfStep   RecipeStep @relation(name: "input", fields: [recipeId, inputStepNum], references: [recipeId, stepNum], onDelete: Cascade)
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([recipeId, outputStepNum, inputStepNum])
+  @@index([recipeId, outputStepNum, inputStepNum])
+  @@index([recipeId, outputStepNum])
+  @@index([recipeId, inputStepNum])
+}
+
+model Ingredient {
+  id              String        @id @default(cuid())
+  recipeId        String
+  stepNum         Int
+  recipeStep      RecipeStep    @relation(fields: [recipeId, stepNum], references: [recipeId, stepNum], onDelete: Cascade)
+  quantity        Float
+  unitId          String
+  unit            Unit          @relation(fields: [unitId], references: [id])
+  ingredientRefId String
+  ingredientRef   IngredientRef @relation(fields: [ingredientRefId], references: [id])
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([recipeId, stepNum])
+  @@index([recipeId])
+  @@index([unitId])
+  @@index([ingredientRefId])
+}
+
+model IngredientRef {
+  id               String             @id @default(cuid())
+  name             String             @unique
+  ingredients      Ingredient[]
+  shoppingListIems ShoppingListItem[]
+
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Unit {
+  id               String             @id @default(cuid())
+  name             String             @unique
+  ingredients      Ingredient[]
+  shoppingListIems ShoppingListItem[]
+
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Cookbook {
+  id       String             @id @default(cuid())
+  title    String             @db.VarChar(60)
+  authorId String
+  author   User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  recipes  RecipeInCookbook[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([authorId, title])
+  @@index([authorId])
+}
+
+model RecipeInCookbook {
+  id         String   @id @default(cuid())
+  cookbookId String
+  cookbook   Cookbook @relation(fields: [cookbookId], references: [id], onDelete: Cascade)
+  recipeId   String
+  recipe     Recipe   @relation(fields: [recipeId], references: [id])
+  addedById  String
+  addedBy    User     @relation(fields: [addedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([cookbookId, recipeId])
+  @@index([cookbookId])
+  @@index([recipeId])
+  @@index([addedById])
+  @@index([cookbookId, recipeId])
+  @@index([addedById, recipeId])
+}
+
+model ShoppingList {
+  id       String             @id @default(cuid())
+  authorId String             @unique
+  author   User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  items    ShoppingListItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([authorId])
+}
+
+model ShoppingListItem {
+  id              String        @id @default(cuid())
+  shoppingListId  String
+  shoppingList    ShoppingList  @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  quantity        Float?
+  unitId          String?
+  unit            Unit?         @relation(fields: [unitId], references: [id])
+  ingredientRefId String
+  ingredientRef   IngredientRef @relation(fields: [ingredientRefId], references: [id])
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([shoppingListId, unitId, ingredientRefId])
+  @@index([shoppingListId])
+  @@index([unitId])
+  @@index([ingredientRefId])
+}
