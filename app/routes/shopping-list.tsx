@@ -214,6 +214,23 @@ export async function action({ request, context }: Route.ActionArgs) {
     }
   }
 
+  if (intent === "toggleCheck") {
+    const itemId = formData.get("itemId")?.toString();
+    if (itemId) {
+      const item = await database.shoppingListItem.findUnique({
+        where: { id: itemId },
+        select: { checked: true },
+      });
+      if (item) {
+        await database.shoppingListItem.update({
+          where: { id: itemId },
+          data: { checked: !item.checked },
+        });
+        return data({ success: true });
+      }
+    }
+  }
+
   if (intent === "removeItem") {
     const itemId = formData.get("itemId")?.toString();
     if (itemId) {
@@ -222,6 +239,16 @@ export async function action({ request, context }: Route.ActionArgs) {
       });
       return data({ success: true });
     }
+  }
+
+  if (intent === "clearCompleted") {
+    await database.shoppingListItem.deleteMany({
+      where: {
+        shoppingListId: shoppingList.id,
+        checked: true,
+      },
+    });
+    return data({ success: true });
   }
 
   if (intent === "clearAll") {
@@ -237,6 +264,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function ShoppingList() {
   const { shoppingList, recipes } = useLoaderData<typeof loader>();
 
+  const checkedCount = shoppingList.items.filter((item) => item.checked).length;
+  const uncheckedCount = shoppingList.items.length - checkedCount;
+
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
       <div style={{ maxWidth: "900px", margin: "0 auto" }}>
@@ -245,6 +275,9 @@ export default function ShoppingList() {
             <h1>Shopping List</h1>
             <p style={{ color: "#666", margin: "0.5rem 0 0 0" }}>
               {shoppingList.items.length} {shoppingList.items.length === 1 ? "item" : "items"}
+              {checkedCount > 0 && (
+                <span> ({checkedCount} checked, {uncheckedCount} remaining)</span>
+              )}
             </p>
           </div>
           <div style={{ display: "flex", gap: "1rem" }}>
@@ -260,6 +293,24 @@ export default function ShoppingList() {
             >
               Home
             </Link>
+            {checkedCount > 0 && (
+              <Form method="post">
+                <input type="hidden" name="intent" value="clearCompleted" />
+                <button
+                  type="submit"
+                  style={{
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#ffc107",
+                    color: "#212529",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Clear Completed
+                </button>
+              </Form>
+            )}
             {shoppingList.items.length > 0 && (
               <Form method="post">
                 <input type="hidden" name="intent" value="clearAll" />
@@ -447,15 +498,47 @@ export default function ShoppingList() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  opacity: item.checked ? 0.6 : 1,
                 }}
               >
-                <span style={{ fontSize: "1.125rem" }}>
-                  {item.quantity && <strong>{item.quantity}</strong>}
-                  {item.quantity && item.unit && " "}
-                  {item.unit?.name && <span>{item.unit.name}</span>}
-                  {(item.quantity || item.unit) && " "}
-                  {item.ingredientRef.name}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1 }}>
+                  <Form method="post" style={{ margin: 0 }}>
+                    <input type="hidden" name="intent" value="toggleCheck" />
+                    <input type="hidden" name="itemId" value={item.id} />
+                    <button
+                      type="submit"
+                      style={{
+                        width: "24px",
+                        height: "24px",
+                        border: "2px solid #0066cc",
+                        borderRadius: "4px",
+                        backgroundColor: item.checked ? "#0066cc" : "white",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                      }}
+                      aria-label={item.checked ? "Uncheck item" : "Check item"}
+                    >
+                      {item.checked && (
+                        <span style={{ color: "white", fontSize: "1rem", lineHeight: 1 }}>✓</span>
+                      )}
+                    </button>
+                  </Form>
+                  <span
+                    style={{
+                      fontSize: "1.125rem",
+                      textDecoration: item.checked ? "line-through" : "none",
+                    }}
+                  >
+                    {item.quantity && <strong>{item.quantity}</strong>}
+                    {item.quantity && item.unit && " "}
+                    {item.unit?.name && <span>{item.unit.name}</span>}
+                    {(item.quantity || item.unit) && " "}
+                    {item.ingredientRef.name}
+                  </span>
+                </div>
                 <Form method="post" style={{ margin: 0 }}>
                   <input type="hidden" name="intent" value="removeItem" />
                   <input type="hidden" name="itemId" value={item.id} />

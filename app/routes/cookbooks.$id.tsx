@@ -2,6 +2,7 @@ import type { Route } from "./+types/cookbooks.$id";
 import { Link, redirect, useLoaderData, Form, data } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
+import { useState } from "react";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -102,6 +103,25 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     throw new Response("Unauthorized", { status: 403 });
   }
 
+  if (intent === "updateTitle") {
+    const title = formData.get("title")?.toString() || "";
+    if (!title.trim()) {
+      return data({ error: "Title is required" }, { status: 400 });
+    }
+    try {
+      await database.cookbook.update({
+        where: { id },
+        data: { title: title.trim() },
+      });
+      return data({ success: true });
+    } catch (error: any) {
+      if (error.code === "P2002") {
+        return data({ error: "You already have a cookbook with this title" }, { status: 400 });
+      }
+      throw error;
+    }
+  }
+
   if (intent === "delete") {
     await database.cookbook.delete({
       where: { id },
@@ -145,6 +165,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
 export default function CookbookDetail() {
   const { cookbook, isOwner, availableRecipes } = useLoaderData<typeof loader>();
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
@@ -162,8 +183,73 @@ export default function CookbookDetail() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
-          <div>
-            <h1 style={{ margin: "0 0 0.5rem 0" }}>{cookbook.title}</h1>
+          <div style={{ flex: 1 }}>
+            {isEditingTitle && isOwner ? (
+              <Form method="post" style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.5rem" }}>
+                <input type="hidden" name="intent" value="updateTitle" />
+                <input
+                  type="text"
+                  name="title"
+                  defaultValue={cookbook.title}
+                  required
+                  autoFocus
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    padding: "0.25rem 0.5rem",
+                    border: "2px solid #0066cc",
+                    borderRadius: "4px",
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTitle(false)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </Form>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.5rem" }}>
+                <h1 style={{ margin: 0 }}>{cookbook.title}</h1>
+                {isOwner && (
+                  <button
+                    onClick={() => setIsEditingTitle(true)}
+                    style={{
+                      padding: "0.25rem 0.75rem",
+                      fontSize: "0.875rem",
+                      backgroundColor: "#0066cc",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Edit Title
+                  </button>
+                )}
+              </div>
+            )}
             <p style={{ color: "#666", margin: 0 }}>
               By <strong>{cookbook.author.username}</strong>
             </p>

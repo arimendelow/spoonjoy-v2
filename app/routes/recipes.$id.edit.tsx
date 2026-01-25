@@ -55,6 +55,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const userId = await requireUserId(request);
   const { id } = params;
   const formData = await request.formData();
+  const intent = formData.get("intent")?.toString();
 
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
@@ -72,6 +73,55 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   if (recipe.chefId !== userId) {
     throw new Response("Unauthorized", { status: 403 });
+  }
+
+  // Handle reorder step intent
+  if (intent === "reorderStep") {
+    const stepId = formData.get("stepId")?.toString();
+    const direction = formData.get("direction")?.toString();
+
+    if (stepId && (direction === "up" || direction === "down")) {
+      const step = await database.recipeStep.findUnique({
+        where: { id: stepId },
+        select: { stepNum: true, recipeId: true },
+      });
+
+      if (step && step.recipeId === id) {
+        const targetStepNum = direction === "up" ? step.stepNum - 1 : step.stepNum + 1;
+
+        // Find the step to swap with
+        const targetStep = await database.recipeStep.findUnique({
+          where: {
+            recipeId_stepNum: {
+              recipeId: id,
+              stepNum: targetStepNum,
+            },
+          },
+        });
+
+        if (targetStep) {
+          // Swap step numbers using a temporary number to avoid unique constraint violation
+          const tempStepNum = -1;
+
+          await database.recipeStep.update({
+            where: { id: stepId },
+            data: { stepNum: tempStepNum },
+          });
+
+          await database.recipeStep.update({
+            where: { id: targetStep.id },
+            data: { stepNum: step.stepNum },
+          });
+
+          await database.recipeStep.update({
+            where: { id: stepId },
+            data: { stepNum: targetStepNum },
+          });
+
+          return data({ success: true });
+        }
+      }
+    }
   }
 
   const title = formData.get("title")?.toString() || "";
@@ -302,7 +352,7 @@ export default function EditRecipe() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              {recipe.steps.map((step) => (
+              {recipe.steps.map((step, index) => (
                 <div
                   key={step.id}
                   style={{
@@ -338,6 +388,52 @@ export default function EditRecipe() {
                         <div style={{ fontSize: "0.875rem", color: "#999" }}>
                           {step.ingredients.length} ingredient{step.ingredients.length !== 1 ? "s" : ""}
                         </div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                      {index > 0 && (
+                        <Form method="post">
+                          <input type="hidden" name="intent" value="reorderStep" />
+                          <input type="hidden" name="stepId" value={step.id} />
+                          <input type="hidden" name="direction" value="up" />
+                          <button
+                            type="submit"
+                            style={{
+                              padding: "0.25rem 0.5rem",
+                              backgroundColor: "#6c757d",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "0.75rem",
+                            }}
+                            title="Move up"
+                          >
+                            ↑
+                          </button>
+                        </Form>
+                      )}
+                      {index < recipe.steps.length - 1 && (
+                        <Form method="post">
+                          <input type="hidden" name="intent" value="reorderStep" />
+                          <input type="hidden" name="stepId" value={step.id} />
+                          <input type="hidden" name="direction" value="down" />
+                          <button
+                            type="submit"
+                            style={{
+                              padding: "0.25rem 0.5rem",
+                              backgroundColor: "#6c757d",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "0.75rem",
+                            }}
+                            title="Move down"
+                          >
+                            ↓
+                          </button>
+                        </Form>
                       )}
                     </div>
                     <Link
