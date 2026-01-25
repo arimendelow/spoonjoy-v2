@@ -1,5 +1,5 @@
 import type { Route } from "./+types/_index";
-import { redirect, useLoaderData } from "react-router";
+import { Link, useLoaderData, Form } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { getUserId } from "~/lib/session.server";
 import { getUserById } from "~/lib/auth.server";
@@ -15,7 +15,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await getUserId(request);
 
   if (!userId) {
-    throw redirect("/login");
+    return { user: null };
   }
 
   const database = context?.cloudflare?.env?.DB
@@ -23,16 +23,77 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     : db;
 
   const user = await getUserById(database, userId);
-
-  if (!user) {
-    throw redirect("/login");
-  }
-
   return { user };
 }
 
 export default function Index() {
   const { user } = useLoaderData<typeof loader>();
+
+  if (!user) {
+    return (
+      <div
+        style={{
+          fontFamily: "system-ui, sans-serif",
+          lineHeight: "1.8",
+          padding: "2rem",
+          maxWidth: "800px",
+          margin: "0 auto",
+        }}
+      >
+        <h1>Welcome to Spoonjoy v2</h1>
+        <p style={{ fontSize: "1.125rem", color: "#666" }}>
+          Your personal recipe management system
+        </p>
+
+        <div
+          style={{
+            marginTop: "3rem",
+            padding: "2rem",
+            backgroundColor: "#f8f9fa",
+            borderRadius: "8px",
+          }}
+        >
+          <h2>Get Started</h2>
+          <p style={{ marginBottom: "1.5rem" }}>
+            Sign up or log in to start managing your recipes
+          </p>
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <Link
+              to="/signup"
+              style={{
+                padding: "0.75rem 1.5rem",
+                fontSize: "1rem",
+                backgroundColor: "#0066cc",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "4px",
+              }}
+            >
+              Sign Up
+            </Link>
+            <Link
+              to="/login"
+              style={{
+                padding: "0.75rem 1.5rem",
+                fontSize: "1rem",
+                backgroundColor: "white",
+                color: "#0066cc",
+                textDecoration: "none",
+                borderRadius: "4px",
+                border: "1px solid #0066cc",
+              }}
+            >
+              Log In
+            </Link>
+          </div>
+        </div>
+
+        <div style={{ marginTop: "2rem", fontSize: "0.875rem", color: "#888" }}>
+          <p>Built with React Router v7 on Cloudflare</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
@@ -44,18 +105,21 @@ export default function Index() {
               Logged in as <strong>{user.username}</strong> ({user.email})
             </p>
           </div>
-          <a
-            href="/logout"
-            style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: "#dc3545",
-              color: "white",
-              textDecoration: "none",
-              borderRadius: "4px",
-            }}
-          >
-            Logout
-          </a>
+          <Form method="post" action="/logout">
+            <button
+              type="submit"
+              style={{
+                padding: "0.5rem 1rem",
+                backgroundColor: "#dc3545",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              Logout
+            </button>
+          </Form>
         </div>
 
         <div style={{ backgroundColor: "#f8f9fa", padding: "1.5rem", borderRadius: "8px", marginBottom: "1.5rem" }}>
@@ -64,6 +128,25 @@ export default function Index() {
           <p><strong>Email:</strong> {user.email}</p>
           <p><strong>Username:</strong> {user.username}</p>
           <p><strong>Member since:</strong> {new Date(user.createdAt).toLocaleDateString()}</p>
+        </div>
+
+        <div style={{ marginBottom: "2rem" }}>
+          <h2>Quick Links</h2>
+          <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem" }}>
+            <Link
+              to="/recipes"
+              style={{
+                padding: "1rem 1.5rem",
+                backgroundColor: "#0066cc",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "4px",
+                display: "inline-block",
+              }}
+            >
+              Recipes
+            </Link>
+          </div>
         </div>
 
         <div>

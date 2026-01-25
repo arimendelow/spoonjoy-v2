@@ -32,10 +32,17 @@ export async function getUserId(request: Request): Promise<string | null> {
 }
 
 // Helper to require user ID (throws if not authenticated)
-export async function requireUserId(request: Request): Promise<string> {
+export async function requireUserId(request: Request, redirectTo: string = "/login"): Promise<string> {
   const userId = await getUserId(request);
   if (!userId) {
-    throw new Response("Unauthorized", { status: 401 });
+    const url = new URL(request.url);
+    const searchParams = new URLSearchParams([["redirectTo", url.pathname]]);
+    throw new Response(null, {
+      status: 302,
+      headers: {
+        Location: `${redirectTo}?${searchParams}`,
+      },
+    });
   }
   return userId;
 }

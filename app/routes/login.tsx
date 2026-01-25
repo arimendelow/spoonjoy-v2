@@ -27,6 +27,9 @@ export async function action({ request, context }: Route.ActionArgs) {
   const email = formData.get("email")?.toString() || "";
   const password = formData.get("password")?.toString() || "";
 
+  const url = new URL(request.url);
+  const redirectTo = url.searchParams.get("redirectTo") || "/recipes";
+
   const errors: ActionData["errors"] = {};
 
   // Validation
@@ -58,7 +61,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   // Create session and redirect
-  return createUserSession(user.id, "/");
+  return createUserSession(user.id, redirectTo);
 }
 
 export default function Login() {

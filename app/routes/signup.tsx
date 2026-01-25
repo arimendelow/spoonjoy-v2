@@ -77,7 +77,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const user = await createUser(database, email, username, password);
 
   // Create session and redirect
-  return createUserSession(user.id, "/");
+  return createUserSession(user.id, "/recipes");
 }
 
 export default function Signup() {
