@@ -13,4 +13,10 @@ export default [
     route(":id/steps/new", "routes/recipes.$id.steps.new.tsx"),
     route(":id/steps/:stepId/edit", "routes/recipes.$id.steps.$stepId.edit.tsx"),
   ]),
+  route("cookbooks", "routes/cookbooks.tsx", [
+    index("routes/cookbooks._index.tsx"),
+    route("new", "routes/cookbooks.new.tsx"),
+    route(":id", "routes/cookbooks.$id.tsx"),
+  ]),
+  route("shopping-list", "routes/shopping-list.tsx"),
 ] satisfies RouteConfig;

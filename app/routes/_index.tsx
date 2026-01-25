@@ -132,12 +132,14 @@ export default function Index() {
 
         <div>
           <h2>Quick Links</h2>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "1rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
             <Link
               to="/recipes"
               style={{
-                display: "inline-block",
-                padding: "1rem 1.5rem",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                padding: "1.5rem 1rem",
                 backgroundColor: "#0066cc",
                 color: "white",
                 textDecoration: "none",
@@ -145,13 +147,50 @@ export default function Index() {
                 fontWeight: "bold",
               }}
             >
+              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🍳</span>
               My Recipes
+            </Link>
+            <Link
+              to="/cookbooks"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                padding: "1.5rem 1rem",
+                backgroundColor: "#17a2b8",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "8px",
+                fontWeight: "bold",
+              }}
+            >
+              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📖</span>
+              Cookbooks
+            </Link>
+            <Link
+              to="/shopping-list"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                padding: "1.5rem 1rem",
+                backgroundColor: "#ffc107",
+                color: "#333",
+                textDecoration: "none",
+                borderRadius: "8px",
+                fontWeight: "bold",
+              }}
+            >
+              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🛒</span>
+              Shopping List
             </Link>
             <Link
               to="/recipes/new"
               style={{
-                display: "inline-block",
-                padding: "1rem 1.5rem",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                padding: "1.5rem 1rem",
                 backgroundColor: "#28a745",
                 color: "white",
                 textDecoration: "none",
@@ -159,6 +198,7 @@ export default function Index() {
                 fontWeight: "bold",
               }}
             >
+              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>➕</span>
               Create Recipe
             </Link>
           </div>
@@ -170,9 +210,9 @@ export default function Index() {
             Features coming soon:
           </p>
           <ul>
-            <li>Cookbooks</li>
-            <li>Shopping lists</li>
             <li>Recipe sharing and forking</li>
+            <li>Image upload</li>
+            <li>Mobile app</li>
           </ul>
         </div>
       </div>
