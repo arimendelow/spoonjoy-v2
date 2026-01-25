@@ -213,6 +213,7 @@ model ShoppingListItem {
   unit            Unit?         @relation(fields: [unitId], references: [id])
   ingredientRefId String
   ingredientRef   IngredientRef @relation(fields: [ingredientRefId], references: [id])
+  checked         Boolean       @default(false)
 
   updatedAt DateTime @default(now()) @updatedAt
 
