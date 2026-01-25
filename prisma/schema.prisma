@@ -1,7 +1,6 @@
 datasource db {
-  provider     = "postgresql"
-  url          = env("DATABASE_URL")
-  relationMode = "prisma"
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -62,10 +61,10 @@ model OAuth {
 
 model Recipe {
   id          String             @id @default(cuid())
-  title       String             @db.VarChar(60)
-  description String?            @db.VarChar(140)
+  title       String             
+  description String?            
   imageUrl    String             @default("https://res.cloudinary.com/dpjmyc4uz/image/upload/v1674541350/clbe7wr180009tkhggghtl1qd.png")
-  servings    String?            @db.VarChar(40)
+  servings    String?            
   chefId      String
   chef        User               @relation(fields: [chefId], references: [id], onDelete: Cascade)
   deletedAt   DateTime?
@@ -94,7 +93,7 @@ model RecipeStep {
   recipe      Recipe          @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   stepNum     Int
   stepTitle   String?
-  description String          @db.VarChar(1000)
+  description String          
   ingredients Ingredient[]
   usingSteps  StepOutputUse[] @relation("input")
   usedBySteps StepOutputUse[] @relation("output")
@@ -161,7 +160,7 @@ model Unit {
 
 model Cookbook {
   id       String             @id @default(cuid())
-  title    String             @db.VarChar(60)
+  title    String             
   authorId String
   author   User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
   recipes  RecipeInCookbook[]

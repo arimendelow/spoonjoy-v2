@@ -23,7 +23,7 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/adapter-d1": "^7.3.0",
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "6.19.2",
     "@react-router/cloudflare": "^7.13.0",
     "@react-router/dev": "^7.13.0",
     "@react-router/node": "^7.13.0",
@@ -36,7 +36,7 @@
     "@cloudflare/workers-types": "^4.20260124.0",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
-    "prisma": "^7.3.0",
+    "prisma": "6.19.2",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "wrangler": "^4.60.0"
