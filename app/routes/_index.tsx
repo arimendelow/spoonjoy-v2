@@ -130,33 +130,46 @@ export default function Index() {
           <p><strong>Member since:</strong> {new Date(user.createdAt).toLocaleDateString()}</p>
         </div>
 
-        <div style={{ marginBottom: "2rem" }}>
+        <div>
           <h2>Quick Links</h2>
-          <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "1rem" }}>
             <Link
               to="/recipes"
               style={{
+                display: "inline-block",
                 padding: "1rem 1.5rem",
                 backgroundColor: "#0066cc",
                 color: "white",
                 textDecoration: "none",
-                borderRadius: "4px",
-                display: "inline-block",
+                borderRadius: "8px",
+                fontWeight: "bold",
               }}
             >
-              Recipes
+              My Recipes
+            </Link>
+            <Link
+              to="/recipes/new"
+              style={{
+                display: "inline-block",
+                padding: "1rem 1.5rem",
+                backgroundColor: "#28a745",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "8px",
+                fontWeight: "bold",
+              }}
+            >
+              Create Recipe
             </Link>
           </div>
         </div>
 
-        <div>
+        <div style={{ marginTop: "2rem" }}>
           <h2>What's Next?</h2>
           <p>
-            This is the foundation for the Spoonjoy rebuild. Features coming soon:
+            Features coming soon:
           </p>
           <ul>
-            <li>Recipe creation and management</li>
-            <li>Recipe steps and ingredients</li>
             <li>Cookbooks</li>
             <li>Shopping lists</li>
             <li>Recipe sharing and forking</li>
