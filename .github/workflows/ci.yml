@@ -35,5 +35,10 @@ jobs:
         env:
           DATABASE_URL: file:./test.db
       
+      - name: Check test coverage
+        run: npm run test:coverage
+        env:
+          DATABASE_URL: file:./test.db
+      
       - name: Build
         run: npm run build
