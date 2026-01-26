@@ -1,10 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createUserSession, requireUserId, destroyUserSession, getUserId, sessionStorage } from "~/lib/session.server";
 import { Request } from "undici";
 
 describe("session.server", () => {
+  let originalSessionSecret: string | undefined;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    originalSessionSecret = process.env.SESSION_SECRET;
+  });
+
+  afterEach(() => {
+    // Restore original SESSION_SECRET
+    if (originalSessionSecret !== undefined) {
+      process.env.SESSION_SECRET = originalSessionSecret;
+    } else {
+      delete process.env.SESSION_SECRET;
+    }
   });
 
   describe("getUserId", () => {
