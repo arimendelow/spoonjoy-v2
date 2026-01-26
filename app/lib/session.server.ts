@@ -1,7 +1,7 @@
 import { createCookie, createCookieSessionStorage } from "react-router";
 
 // Session cookie configuration
-/* v8 ignore next -- fallback evaluated at module load time */
+/* istanbul ignore next -- fallback evaluated at module load time */
 const SESSION_SECRET = process.env.SESSION_SECRET || "default-dev-secret-please-change-in-production";
 
 // Create a cookie for session management

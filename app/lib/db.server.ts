@@ -21,8 +21,8 @@ if (process.env.NODE_ENV !== "production") {
     global.__db = new PrismaClient();
   }
   db = global.__db;
-  /* v8 ignore next 3 -- production-only code path */
 } else {
+  /* istanbul ignore next */
   db = new PrismaClient();
 }
 
