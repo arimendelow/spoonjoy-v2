@@ -25,8 +25,15 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate
       
+      - name: Setup test database
+        run: npx prisma db push
+        env:
+          DATABASE_URL: file:./test.db
+      
       - name: Run tests
         run: npm test
+        env:
+          DATABASE_URL: file:./test.db
       
       - name: Build
         run: npm run build
