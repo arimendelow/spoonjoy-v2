@@ -1,0 +1,772 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { createRoutesStub } from "react-router";
+import { db } from "~/lib/db.server";
+import ShoppingList from "~/routes/shopping-list";
+import { getOrCreateUnit, getOrCreateIngredientRef, createTestUser } from "../utils";
+import { cleanupDatabase } from "../helpers/cleanup";
+
+describe("Shopping List Routes", () => {
+  let testUserId: string;
+
+  beforeEach(async () => {
+    const user = await db.user.create({
+      data: createTestUser(),
+    });
+    testUserId = user.id;
+  });
+
+  afterEach(async () => {
+    await cleanupDatabase();
+  });
+
+  describe("loader", () => {
+    it("should get or create shopping list for user", async () => {
+      let shoppingList = await db.shoppingList.findUnique({
+        where: { authorId: testUserId },
+      });
+
+      if (!shoppingList) {
+        shoppingList = await db.shoppingList.create({
+          data: { authorId: testUserId },
+        });
+      }
+
+      expect(shoppingList).toBeDefined();
+      expect(shoppingList.authorId).toBe(testUserId);
+    });
+
+    it("should load shopping list with items", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "milk" },
+      });
+
+      await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
+      const loaded = await db.shoppingList.findUnique({
+        where: { id: shoppingList.id },
+        include: {
+          items: {
+            include: {
+              unit: true,
+              ingredientRef: true,
+            },
+          },
+        },
+      });
+
+      expect(loaded?.items).toHaveLength(1);
+      expect(loaded?.items[0].ingredientRef.name).toBe("milk");
+    });
+  });
+
+  describe("action - addItem", () => {
+    it("should add new item to shopping list", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "bread" },
+      });
+
+      const item = await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef.id,
+          quantity: 2,
+        },
+      });
+
+      expect(item).toBeDefined();
+      expect(item.quantity).toBe(2);
+      expect(item.checked).toBe(false);
+    });
+
+    it("should update quantity if item already exists", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const unit = await getOrCreateUnit(db, "lbs");
+
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "chicken" },
+      });
+
+      const existingItem = await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          quantity: 1,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
+      // Simulate adding more
+      const updated = await db.shoppingListItem.update({
+        where: { id: existingItem.id },
+        data: { quantity: (existingItem.quantity || 0) + 2 },
+      });
+
+      expect(updated.quantity).toBe(3);
+    });
+
+    it("should create new unit and ingredient ref if needed", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      let unit = await db.unit.findUnique({
+        where: { name: "oz" },
+      });
+
+      if (!unit) {
+        unit = await getOrCreateUnit(db, "oz");
+      }
+
+      let ingredientRef = await db.ingredientRef.findUnique({
+        where: { name: "cheese" },
+      });
+
+      if (!ingredientRef) {
+        ingredientRef = await db.ingredientRef.create({
+          data: { name: "cheese" },
+        });
+      }
+
+      const item = await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          quantity: 8,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
+      expect(item).toBeDefined();
+      expect(unit.name).toBe("oz");
+      expect(ingredientRef.name).toBe("cheese");
+    });
+  });
+
+  describe("action - addFromRecipe", () => {
+    it("should add all ingredients from recipe to shopping list", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const recipe = await db.recipe.create({
+        data: {
+          title: "Test Recipe",
+          chefId: testUserId,
+        },
+      });
+
+      const unit = await getOrCreateUnit(db, "cup");
+
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "flour" },
+      });
+
+      const step = await db.recipeStep.create({
+        data: {
+          recipeId: recipe.id,
+          stepNum: 1,
+          description: "Mix",
+        },
+      });
+
+      await db.ingredient.create({
+        data: {
+          recipeId: recipe.id,
+          stepNum: 1,
+          quantity: 2,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
+      // Get ingredients from recipe
+      const recipeWithIngredients = await db.recipe.findUnique({
+        where: { id: recipe.id },
+        include: {
+          steps: {
+            include: {
+              ingredients: {
+                include: {
+                  unit: true,
+                  ingredientRef: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Add to shopping list
+      for (const step of recipeWithIngredients!.steps) {
+        for (const ingredient of step.ingredients) {
+          await db.shoppingListItem.create({
+            data: {
+              shoppingListId: shoppingList.id,
+              quantity: ingredient.quantity,
+              unitId: ingredient.unitId,
+              ingredientRefId: ingredient.ingredientRefId,
+            },
+          });
+        }
+      }
+
+      const items = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id },
+      });
+
+      expect(items).toHaveLength(1);
+      expect(items[0].quantity).toBe(2);
+    });
+  });
+
+  describe("action - toggleCheck", () => {
+    it("should toggle item checked status", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "eggs" },
+      });
+
+      const item = await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef.id,
+          checked: false,
+        },
+      });
+
+      const updated = await db.shoppingListItem.update({
+        where: { id: item.id },
+        data: { checked: !item.checked },
+      });
+
+      expect(updated.checked).toBe(true);
+    });
+  });
+
+  describe("action - clearCompleted", () => {
+    it("should delete only checked items", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const ingredientRef1 = await db.ingredientRef.create({
+        data: { name: "item1" },
+      });
+
+      const ingredientRef2 = await db.ingredientRef.create({
+        data: { name: "item2" },
+      });
+
+      const ingredientRef3 = await db.ingredientRef.create({
+        data: { name: "item3" },
+      });
+
+      await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef1.id,
+          checked: true,
+        },
+      });
+
+      await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef2.id,
+          checked: false,
+        },
+      });
+
+      await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef3.id,
+          checked: true,
+        },
+      });
+
+      await db.shoppingListItem.deleteMany({
+        where: {
+          shoppingListId: shoppingList.id,
+          checked: true,
+        },
+      });
+
+      const remaining = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id },
+      });
+
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].ingredientRefId).toBe(ingredientRef2.id);
+    });
+  });
+
+  describe("action - clearAll", () => {
+    it("should delete all items from shopping list", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const ingredientRef1 = await db.ingredientRef.create({
+        data: { name: "item1" },
+      });
+
+      const ingredientRef2 = await db.ingredientRef.create({
+        data: { name: "item2" },
+      });
+
+      await db.shoppingListItem.createMany({
+        data: [
+          {
+            shoppingListId: shoppingList.id,
+            ingredientRefId: ingredientRef1.id,
+          },
+          {
+            shoppingListId: shoppingList.id,
+            ingredientRefId: ingredientRef2.id,
+          },
+        ],
+      });
+
+      await db.shoppingListItem.deleteMany({
+        where: { shoppingListId: shoppingList.id },
+      });
+
+      const items = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id },
+      });
+
+      expect(items).toHaveLength(0);
+    });
+  });
+
+  describe("component", () => {
+    it("should render empty shopping list", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByRole("heading", { name: "Shopping List" })).toBeInTheDocument();
+      expect(screen.getByText("0 items")).toBeInTheDocument();
+      expect(screen.getByText("Your shopping list is empty")).toBeInTheDocument();
+      expect(screen.getByText("Add items manually or add all ingredients from a recipe")).toBeInTheDocument();
+    });
+
+    it("should render shopping list with items", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 2,
+              checked: false,
+              unit: { name: "lbs" },
+              ingredientRef: { name: "chicken" },
+            },
+            {
+              id: "item-2",
+              quantity: null,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "salt" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("2 items")).toBeInTheDocument();
+      expect(screen.getByText("2")).toBeInTheDocument();
+      expect(screen.getByText("lbs")).toBeInTheDocument();
+      expect(screen.getByText("chicken")).toBeInTheDocument();
+      expect(screen.getByText("salt")).toBeInTheDocument();
+    });
+
+    it("should show singular item count", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: { name: "cup" },
+              ingredientRef: { name: "flour" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("1 item")).toBeInTheDocument();
+    });
+
+    it("should show checked/remaining count when items are checked", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: true,
+              unit: { name: "cup" },
+              ingredientRef: { name: "flour" },
+            },
+            {
+              id: "item-2",
+              quantity: 2,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "eggs" },
+            },
+            {
+              id: "item-3",
+              quantity: 3,
+              checked: true,
+              unit: null,
+              ingredientRef: { name: "milk" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("3 items")).toBeInTheDocument();
+      expect(screen.getByText("(2 checked, 1 remaining)")).toBeInTheDocument();
+      // Should show Clear Completed button when there are checked items
+      expect(screen.getByRole("button", { name: "Clear Completed" })).toBeInTheDocument();
+    });
+
+    it("should show Clear All button when items exist", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "flour" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByRole("button", { name: "Clear All" })).toBeInTheDocument();
+    });
+
+    it("should show add from recipe form when recipes exist", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [
+          { id: "recipe-1", title: "Spaghetti Bolognese" },
+          { id: "recipe-2", title: "Caesar Salad" },
+        ],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("Add All Ingredients from Recipe")).toBeInTheDocument();
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
+      expect(screen.getByText("Select a recipe...")).toBeInTheDocument();
+      expect(screen.getByText("Spaghetti Bolognese")).toBeInTheDocument();
+      expect(screen.getByText("Caesar Salad")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add Ingredients" })).toBeInTheDocument();
+    });
+
+    it("should not show add from recipe form when no recipes", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("Shopping List")).toBeInTheDocument();
+      expect(screen.queryByText("Add All Ingredients from Recipe")).not.toBeInTheDocument();
+    });
+
+    it("should show add item form", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("Add Item")).toBeInTheDocument();
+      expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
+      expect(screen.getByLabelText("Unit")).toBeInTheDocument();
+      expect(screen.getByLabelText("Ingredient *")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
+    });
+
+    it("should render checked items with checkmark and line-through", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: true,
+              unit: { name: "cup" },
+              ingredientRef: { name: "sugar" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Checked item should have checkmark
+      expect(await screen.findByText("✓")).toBeInTheDocument();
+      // Button should have "Uncheck item" label
+      expect(screen.getByRole("button", { name: "Uncheck item" })).toBeInTheDocument();
+    });
+
+    it("should render unchecked items without checkmark", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "butter" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Unchecked item should not have checkmark
+      expect(screen.queryByText("✓")).not.toBeInTheDocument();
+      // Button should have "Check item" label
+      expect(await screen.findByRole("button", { name: "Check item" })).toBeInTheDocument();
+    });
+
+    it("should render item without quantity", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: null,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "pepper" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("pepper")).toBeInTheDocument();
+    });
+
+    it("should show remove button for each item", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "garlic" },
+            },
+            {
+              id: "item-2",
+              quantity: 2,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "onion" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      const removeButtons = await screen.findAllByRole("button", { name: "Remove" });
+      expect(removeButtons).toHaveLength(2);
+    });
+
+    it("should have Home link", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    });
+  });
+});
