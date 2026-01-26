@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
+import { render, screen } from "@testing-library/react";
+import { createRoutesStub } from "react-router";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id";
+import RecipeDetail from "~/routes/recipes.$id";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
@@ -319,6 +322,288 @@ describe("Recipes $id Route", () => {
       } as any);
 
       expect(response).toBeNull();
+    });
+
+    it("should throw 404 for soft-deleted recipe in action", async () => {
+      // Soft delete the recipe
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: { deletedAt: new Date() },
+      });
+
+      const request = await createFormRequest({ intent: "delete" }, testUserId);
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any)
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(404);
+        return true;
+      });
+    });
+  });
+
+  describe("component", () => {
+    it("should render recipe with no steps (empty state) as owner", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Test Recipe",
+          description: "A delicious test dish",
+          servings: "4",
+          imageUrl: "https://example.com/recipe.jpg",
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByRole("heading", { name: "Test Recipe" })).toBeInTheDocument();
+      expect(screen.getByText(/By/)).toBeInTheDocument();
+      expect(screen.getByText("testchef")).toBeInTheDocument();
+      expect(screen.getByText("A delicious test dish")).toBeInTheDocument();
+      expect(screen.getByText(/Servings:/)).toBeInTheDocument();
+      expect(screen.getByText("4")).toBeInTheDocument();
+      expect(screen.getByText("No steps added yet")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Add Steps" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
+      expect(screen.getByRole("link", { name: "← Back to recipes" })).toHaveAttribute("href", "/recipes");
+    });
+
+    it("should render recipe with no steps (empty state) as non-owner", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Someone Elses Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-2", username: "otherchef" },
+          steps: [],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByText("Someone Elses Recipe")).toBeInTheDocument();
+      expect(screen.getByText("No steps added yet")).toBeInTheDocument();
+      // Non-owner should not see edit/delete buttons
+      expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Add Steps" })).not.toBeInTheDocument();
+    });
+
+    it("should render recipe with steps and ingredients", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Spaghetti Bolognese",
+          description: "Classic Italian pasta",
+          servings: "4",
+          imageUrl: "https://example.com/spaghetti.jpg",
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Prep the Sauce",
+              description: "Heat oil in a pan and sauté the onions",
+              ingredients: [
+                {
+                  id: "ing-1",
+                  quantity: 2,
+                  unit: { name: "tbsp" },
+                  ingredientRef: { name: "olive oil" },
+                },
+                {
+                  id: "ing-2",
+                  quantity: 1,
+                  unit: { name: "medium" },
+                  ingredientRef: { name: "onion" },
+                },
+              ],
+            },
+            {
+              id: "step-2",
+              stepNum: 2,
+              stepTitle: null,
+              description: "Cook the pasta according to package instructions",
+              ingredients: [],
+            },
+          ],
+        },
+        isOwner: true,
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByRole("heading", { name: "Spaghetti Bolognese" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Prep the Sauce" })).toBeInTheDocument();
+      expect(screen.getByText("Heat oil in a pan and sauté the onions")).toBeInTheDocument();
+      expect(screen.getByText("2 tbsp olive oil")).toBeInTheDocument();
+      expect(screen.getByText("1 medium onion")).toBeInTheDocument();
+      expect(screen.getByText("Cook the pasta according to package instructions")).toBeInTheDocument();
+      // Step numbers
+      expect(screen.getByText("1")).toBeInTheDocument();
+      expect(screen.getByText("2")).toBeInTheDocument();
+    });
+
+    it("should show owner controls (edit, delete)", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "My Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
+      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    });
+
+    it("should not render description when null", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "No Desc Recipe",
+          description: null,
+          servings: "2",
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByText("No Desc Recipe")).toBeInTheDocument();
+      // Servings should be rendered
+      expect(screen.getByText(/Servings:/)).toBeInTheDocument();
+      // No description block should be present
+      const descriptionBlocks = screen.queryAllByText(/description/i);
+      expect(descriptionBlocks.length).toBe(0);
+    });
+
+    it("should not render servings when null", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "No Servings Recipe",
+          description: "Has a description",
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByText("No Servings Recipe")).toBeInTheDocument();
+      expect(screen.getByText("Has a description")).toBeInTheDocument();
+      // Servings should not be rendered
+      expect(screen.queryByText(/Servings:/)).not.toBeInTheDocument();
+    });
+
+    it("should render step without title", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Simple Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: null,
+              description: "Just do the thing",
+              ingredients: [],
+            },
+          ],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByText("Simple Recipe")).toBeInTheDocument();
+      expect(screen.getByText("Just do the thing")).toBeInTheDocument();
+      // Only the Steps heading h2 should exist, no h3 for step title
+      expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
     });
   });
 });
