@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
-import { getOrCreateUnit } from "../utils";
+import { getOrCreateUnit, getOrCreateIngredientRef } from "../utils";
 
 describe("ShoppingList Model", () => {
   let testUserId: string;
@@ -64,9 +64,7 @@ describe("ShoppingList Model", () => {
 
       const unit = await getOrCreateUnit(db, "lbs");
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "chicken" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "chicken");
 
       const item = await db.shoppingListItem.create({
         data: {
@@ -89,9 +87,7 @@ describe("ShoppingList Model", () => {
         },
       });
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "eggs" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "eggs");
 
       const item = await db.shoppingListItem.create({
         data: {
@@ -113,9 +109,7 @@ describe("ShoppingList Model", () => {
 
       const unit = await getOrCreateUnit(db, "cup");
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "flour" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "flour");
 
       await db.shoppingListItem.create({
         data: {
@@ -143,9 +137,7 @@ describe("ShoppingList Model", () => {
         },
       });
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "milk" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "milk");
 
       const item = await db.shoppingListItem.create({
         data: {
@@ -169,13 +161,9 @@ describe("ShoppingList Model", () => {
         },
       });
 
-      const ingredientRef1 = await db.ingredientRef.create({
-        data: { name: "item1" },
-      });
+      const ingredientRef1 = await getOrCreateIngredientRef(db, "item1");
 
-      const ingredientRef2 = await db.ingredientRef.create({
-        data: { name: "item2" },
-      });
+      const ingredientRef2 = await getOrCreateIngredientRef(db, "item2");
 
       await db.shoppingListItem.create({
         data: {
@@ -217,9 +205,7 @@ describe("ShoppingList Model", () => {
         },
       });
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "butter" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "butter");
 
       await db.shoppingListItem.create({
         data: {
