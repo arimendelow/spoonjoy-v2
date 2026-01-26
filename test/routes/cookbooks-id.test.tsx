@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { createRoutesStub } from "react-router";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/cookbooks.$id";
+import CookbookDetail from "~/routes/cookbooks.$id";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
@@ -597,6 +600,321 @@ describe("Cookbooks $id Route", () => {
       expect(result.cookbook.recipes).toHaveLength(1);
       expect(result.cookbook.recipes[0].recipe.id).toBe(recipe.id);
       expect(result.cookbook.recipes[0].recipe.title).toBe(recipe.title);
+    });
+  });
+
+  describe("component", () => {
+    it("should render cookbook with no recipes (empty state) as owner", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "My Test Cookbook",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      expect(await screen.findByText("My Test Cookbook")).toBeInTheDocument();
+      expect(screen.getByText(/By/)).toBeInTheDocument();
+      expect(screen.getByText("testchef")).toBeInTheDocument();
+      expect(screen.getByText("0 recipes")).toBeInTheDocument();
+      expect(screen.getByText("No recipes yet")).toBeInTheDocument();
+      expect(screen.getByText("Add recipes to your cookbook using the form above")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "← Back to cookbooks" })).toHaveAttribute("href", "/cookbooks");
+    });
+
+    it("should render cookbook with no recipes (empty state) as non-owner", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Someone Elses Cookbook",
+          author: { id: "user-2", username: "otherchef" },
+          recipes: [],
+        },
+        isOwner: false,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      expect(await screen.findByText("Someone Elses Cookbook")).toBeInTheDocument();
+      expect(screen.getByText("This cookbook is empty")).toBeInTheDocument();
+      // Non-owner should not see edit/delete buttons
+      expect(screen.queryByText("Edit Title")).not.toBeInTheDocument();
+      expect(screen.queryByText("Delete Cookbook")).not.toBeInTheDocument();
+    });
+
+    it("should render cookbook with recipes", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Recipe Collection",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [
+            {
+              id: "ric-1",
+              recipe: {
+                id: "recipe-1",
+                title: "Spaghetti",
+                description: "Classic pasta",
+                imageUrl: "https://example.com/spaghetti.jpg",
+                chef: { username: "testchef" },
+              },
+            },
+            {
+              id: "ric-2",
+              recipe: {
+                id: "recipe-2",
+                title: "Salad",
+                description: null,
+                imageUrl: null,
+                chef: { username: "testchef" },
+              },
+            },
+          ],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      expect(await screen.findByText("Recipe Collection")).toBeInTheDocument();
+      expect(screen.getByText("2 recipes")).toBeInTheDocument();
+      expect(screen.getByText("Spaghetti")).toBeInTheDocument();
+      expect(screen.getByText("Classic pasta")).toBeInTheDocument();
+      expect(screen.getByText("Salad")).toBeInTheDocument();
+      // Links to recipe pages
+      expect(screen.getByRole("link", { name: /Spaghetti/ })).toHaveAttribute("href", "/recipes/recipe-1");
+    });
+
+    it("should render singular recipe count", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Single Recipe Book",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [
+            {
+              id: "ric-1",
+              recipe: {
+                id: "recipe-1",
+                title: "One Recipe",
+                description: null,
+                imageUrl: null,
+                chef: { username: "testchef" },
+              },
+            },
+          ],
+        },
+        isOwner: false,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      expect(await screen.findByText("1 recipe")).toBeInTheDocument();
+    });
+
+    it("should show add recipe form when owner has available recipes", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "My Cookbook",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [],
+        },
+        isOwner: true,
+        availableRecipes: [
+          { id: "recipe-1", title: "Available Recipe 1" },
+          { id: "recipe-2", title: "Available Recipe 2" },
+        ],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      expect(await screen.findByText("Add Recipe to Cookbook")).toBeInTheDocument();
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
+      expect(screen.getByText("Select a recipe...")).toBeInTheDocument();
+      expect(screen.getByText("Available Recipe 1")).toBeInTheDocument();
+      expect(screen.getByText("Available Recipe 2")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add Recipe" })).toBeInTheDocument();
+    });
+
+    it("should show owner controls (edit title, delete cookbook, remove recipe)", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Editable Cookbook",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [
+            {
+              id: "ric-1",
+              recipe: {
+                id: "recipe-1",
+                title: "Recipe in Book",
+                description: null,
+                imageUrl: null,
+                chef: { username: "testchef" },
+              },
+            },
+          ],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      expect(await screen.findByRole("button", { name: "Edit Title" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete Cookbook" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove from Cookbook" })).toBeInTheDocument();
+    });
+
+    it("should show edit title form when clicking edit title button", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Original Title",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      const editButton = await screen.findByRole("button", { name: "Edit Title" });
+      fireEvent.click(editButton);
+
+      // Now editing mode should show input and Save/Cancel buttons
+      expect(screen.getByRole("textbox")).toHaveValue("Original Title");
+      expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    });
+
+    it("should cancel edit title and return to view mode", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Original Title",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      // Enter edit mode
+      const editButton = await screen.findByRole("button", { name: "Edit Title" });
+      fireEvent.click(editButton);
+
+      // Cancel edit
+      const cancelButton = screen.getByRole("button", { name: "Cancel" });
+      fireEvent.click(cancelButton);
+
+      // Should be back to view mode
+      expect(screen.getByRole("button", { name: "Edit Title" })).toBeInTheDocument();
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    });
+
+    it("should not show edit title form when not editing as owner", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "My Cookbook",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      // Should show title as heading, not in input
+      expect(await screen.findByRole("heading", { name: "My Cookbook" })).toBeInTheDocument();
+      // But Edit Title button should be visible
+      expect(screen.getByRole("button", { name: "Edit Title" })).toBeInTheDocument();
     });
   });
 });
