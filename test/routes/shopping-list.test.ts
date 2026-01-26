@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
+import { getOrCreateUnit, getOrCreateIngredientRef } from "../utils";
 
 describe("Shopping List Routes", () => {
   let testUserId: string;
@@ -102,9 +103,7 @@ describe("Shopping List Routes", () => {
         data: { authorId: testUserId },
       });
 
-      const unit = await db.unit.create({
-        data: { name: "lbs" },
-      });
+      const unit = await getOrCreateUnit(db, "lbs");
 
       const ingredientRef = await db.ingredientRef.create({
         data: { name: "chicken" },
@@ -138,9 +137,7 @@ describe("Shopping List Routes", () => {
       });
 
       if (!unit) {
-        unit = await db.unit.create({
-          data: { name: "oz" },
-        });
+        unit = await getOrCreateUnit(db, "oz");
       }
 
       let ingredientRef = await db.ingredientRef.findUnique({
@@ -181,9 +178,7 @@ describe("Shopping List Routes", () => {
         },
       });
 
-      const unit = await db.unit.create({
-        data: { name: "cup" },
-      });
+      const unit = await getOrCreateUnit(db, "cup");
 
       const ingredientRef = await db.ingredientRef.create({
         data: { name: "flour" },

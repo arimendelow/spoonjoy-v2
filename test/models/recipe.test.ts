@@ -1,18 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
+import { createTestUser, createTestRecipe } from "../utils";
 
 describe("Recipe Model", () => {
   let testUserId: string;
 
   beforeEach(async () => {
-    // Create a test user
+    // Create a test user with unique data
     const user = await db.user.create({
-      data: {
-        email: "test@example.com",
-        username: "testuser",
-        hashedPassword: "hashedpassword",
-        salt: "salt",
-      },
+      data: createTestUser(),
     });
     testUserId = user.id;
   });
@@ -25,40 +21,40 @@ describe("Recipe Model", () => {
 
   describe("create", () => {
     it("should create a recipe with required fields", async () => {
+      const recipeData = createTestRecipe(testUserId);
       const recipe = await db.recipe.create({
         data: {
-          title: "Test Recipe",
+          title: recipeData.title,
           chefId: testUserId,
         },
       });
 
       expect(recipe).toBeDefined();
-      expect(recipe.title).toBe("Test Recipe");
+      expect(recipe.title).toBe(recipeData.title);
       expect(recipe.chefId).toBe(testUserId);
       expect(recipe.imageUrl).toBeDefined();
       expect(recipe.deletedAt).toBeNull();
     });
 
     it("should create a recipe with optional fields", async () => {
+      const recipeData = createTestRecipe(testUserId);
       const recipe = await db.recipe.create({
         data: {
-          title: "Test Recipe",
-          description: "A delicious test recipe",
-          servings: "4",
+          ...recipeData,
           imageUrl: "https://example.com/image.jpg",
-          chefId: testUserId,
         },
       });
 
-      expect(recipe.description).toBe("A delicious test recipe");
-      expect(recipe.servings).toBe("4");
+      expect(recipe.description).toBe(recipeData.description);
+      expect(recipe.servings).toBe(recipeData.servings);
       expect(recipe.imageUrl).toBe("https://example.com/image.jpg");
     });
 
     it("should enforce unique title per chef (when not deleted)", async () => {
+      const recipeData = createTestRecipe(testUserId);
       await db.recipe.create({
         data: {
-          title: "Duplicate Recipe",
+          title: recipeData.title,
           chefId: testUserId,
         },
       });
@@ -66,7 +62,7 @@ describe("Recipe Model", () => {
       await expect(
         db.recipe.create({
           data: {
-            title: "Duplicate Recipe",
+            title: recipeData.title,
             chefId: testUserId,
           },
         })
@@ -76,9 +72,10 @@ describe("Recipe Model", () => {
 
   describe("read", () => {
     it("should find recipe by id", async () => {
+      const recipeData = createTestRecipe(testUserId);
       const created = await db.recipe.create({
         data: {
-          title: "Find Me",
+          title: recipeData.title,
           chefId: testUserId,
         },
       });
@@ -88,14 +85,16 @@ describe("Recipe Model", () => {
       });
 
       expect(found).toBeDefined();
-      expect(found?.title).toBe("Find Me");
+      expect(found?.title).toBe(recipeData.title);
     });
 
     it("should find recipes by chef", async () => {
+      const recipe1 = createTestRecipe(testUserId);
+      const recipe2 = createTestRecipe(testUserId);
       await db.recipe.createMany({
         data: [
-          { title: "Recipe 1", chefId: testUserId },
-          { title: "Recipe 2", chefId: testUserId },
+          { title: recipe1.title, chefId: testUserId },
+          { title: recipe2.title, chefId: testUserId },
         ],
       });
 
@@ -107,9 +106,10 @@ describe("Recipe Model", () => {
     });
 
     it("should exclude soft-deleted recipes", async () => {
+      const recipeData = createTestRecipe(testUserId);
       const recipe = await db.recipe.create({
         data: {
-          title: "To Delete",
+          title: recipeData.title,
           chefId: testUserId,
         },
       });
@@ -129,31 +129,34 @@ describe("Recipe Model", () => {
 
   describe("update", () => {
     it("should update recipe fields", async () => {
+      const recipeData = createTestRecipe(testUserId);
       const recipe = await db.recipe.create({
         data: {
-          title: "Original Title",
+          title: recipeData.title,
           chefId: testUserId,
         },
       });
 
+      const updatedTitle = createTestRecipe(testUserId).title;
       const updated = await db.recipe.update({
         where: { id: recipe.id },
         data: {
-          title: "Updated Title",
+          title: updatedTitle,
           description: "New description",
         },
       });
 
-      expect(updated.title).toBe("Updated Title");
+      expect(updated.title).toBe(updatedTitle);
       expect(updated.description).toBe("New description");
     });
   });
 
   describe("delete", () => {
     it("should soft delete recipe", async () => {
+      const recipeData = createTestRecipe(testUserId);
       const recipe = await db.recipe.create({
         data: {
-          title: "To Soft Delete",
+          title: recipeData.title,
           chefId: testUserId,
         },
       });
@@ -171,9 +174,10 @@ describe("Recipe Model", () => {
     });
 
     it("should cascade delete steps when recipe is deleted", async () => {
+      const recipeData = createTestRecipe(testUserId);
       const recipe = await db.recipe.create({
         data: {
-          title: "Recipe with Steps",
+          title: recipeData.title,
           chefId: testUserId,
           steps: {
             create: {

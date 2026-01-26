@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
+import { getOrCreateUnit, getOrCreateIngredientRef } from "../utils";
 
 describe("RecipeStep Model", () => {
   let testUserId: string;
@@ -111,9 +112,7 @@ describe("RecipeStep Model", () => {
         },
       });
 
-      const unit = await db.unit.create({
-        data: { name: "cup" },
-      });
+      const unit = await getOrCreateUnit(db, "cup");
 
       const ingredientRef = await db.ingredientRef.create({
         data: { name: "flour" },
@@ -209,9 +208,7 @@ describe("RecipeStep Model", () => {
         },
       });
 
-      const unit = await db.unit.create({
-        data: { name: "cup" },
-      });
+      const unit = await getOrCreateUnit(db, "cup");
 
       const ingredientRef = await db.ingredientRef.create({
         data: { name: "flour" },

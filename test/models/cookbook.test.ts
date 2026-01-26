@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
+import { createTestUser, createTestRecipe, createCookbookTitle } from "../utils";
 
 describe("Cookbook Model", () => {
   let testUserId: string;
 
   beforeEach(async () => {
     const user = await db.user.create({
-      data: {
-        email: "test@example.com",
-        username: "testuser",
-        hashedPassword: "hashedpassword",
-        salt: "salt",
-      },
+      data: createTestUser(),
     });
     testUserId = user.id;
   });
@@ -25,22 +21,24 @@ describe("Cookbook Model", () => {
 
   describe("create", () => {
     it("should create a cookbook", async () => {
+      const title = createCookbookTitle();
       const cookbook = await db.cookbook.create({
         data: {
-          title: "My Favorites",
+          title,
           authorId: testUserId,
         },
       });
 
       expect(cookbook).toBeDefined();
-      expect(cookbook.title).toBe("My Favorites");
+      expect(cookbook.title).toBe(title);
       expect(cookbook.authorId).toBe(testUserId);
     });
 
     it("should enforce unique title per author", async () => {
+      const title = createCookbookTitle();
       await db.cookbook.create({
         data: {
-          title: "Duplicate Title",
+          title,
           authorId: testUserId,
         },
       });
@@ -48,7 +46,7 @@ describe("Cookbook Model", () => {
       await expect(
         db.cookbook.create({
           data: {
-            title: "Duplicate Title",
+            title,
             authorId: testUserId,
           },
         })
@@ -58,16 +56,18 @@ describe("Cookbook Model", () => {
 
   describe("read", () => {
     it("should find cookbook by id with recipes", async () => {
+      const cookbookTitle = createCookbookTitle();
       const cookbook = await db.cookbook.create({
         data: {
-          title: "Test Cookbook",
+          title: cookbookTitle,
           authorId: testUserId,
         },
       });
 
+      const recipeData = createTestRecipe(testUserId);
       const recipe = await db.recipe.create({
         data: {
-          title: "Test Recipe",
+          title: recipeData.title,
           chefId: testUserId,
         },
       });
@@ -90,10 +90,12 @@ describe("Cookbook Model", () => {
     });
 
     it("should find cookbooks by author", async () => {
+      const title1 = createCookbookTitle();
+      const title2 = createCookbookTitle();
       await db.cookbook.createMany({
         data: [
-          { title: "Cookbook 1", authorId: testUserId },
-          { title: "Cookbook 2", authorId: testUserId },
+          { title: title1, authorId: testUserId },
+          { title: title2, authorId: testUserId },
         ],
       });
 
@@ -107,19 +109,21 @@ describe("Cookbook Model", () => {
 
   describe("update", () => {
     it("should update cookbook title", async () => {
+      const originalTitle = createCookbookTitle();
       const cookbook = await db.cookbook.create({
         data: {
-          title: "Original Title",
+          title: originalTitle,
           authorId: testUserId,
         },
       });
 
+      const updatedTitle = createCookbookTitle();
       const updated = await db.cookbook.update({
         where: { id: cookbook.id },
-        data: { title: "Updated Title" },
+        data: { title: updatedTitle },
       });
 
-      expect(updated.title).toBe("Updated Title");
+      expect(updated.title).toBe(updatedTitle);
     });
   });
 

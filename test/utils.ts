@@ -1,0 +1,94 @@
+import { faker } from "@faker-js/faker";
+
+/**
+ * Generate unique test user data using Faker
+ */
+export function createTestUser() {
+  return {
+    email: faker.internet.email(),
+    username: faker.internet.username() + "_" + faker.string.alphanumeric(8),
+    hashedPassword: faker.string.alphanumeric(64),
+    salt: faker.string.alphanumeric(32),
+  };
+}
+
+/**
+ * Generate unique test recipe data using Faker
+ */
+export function createTestRecipe(chefId: string) {
+  return {
+    title: faker.food.dish() + " " + faker.string.alphanumeric(6),
+    description: faker.food.description(),
+    servings: faker.number.int({ min: 1, max: 12 }).toString(),
+    chefId,
+  };
+}
+
+/**
+ * Generate unique cookbook title using Faker
+ */
+export function createCookbookTitle() {
+  return faker.word.adjective() + " " + faker.word.noun() + " Cookbook " + faker.string.alphanumeric(6);
+}
+
+/**
+ * Generate unique unit name using Faker
+ */
+export function createUnitName() {
+  return faker.science.unit().name + "_" + faker.string.alphanumeric(6);
+}
+
+/**
+ * Generate unique ingredient name using Faker
+ */
+export function createIngredientName() {
+  return faker.food.ingredient() + " " + faker.string.alphanumeric(6);
+}
+
+/**
+ * Generate unique step description using Faker
+ */
+export function createStepDescription() {
+  return faker.lorem.sentence() + " " + faker.string.alphanumeric(6);
+}
+
+/**
+ * Generate unique step title using Faker
+ */
+export function createStepTitle() {
+  return faker.word.verb() + " " + faker.word.noun() + " " + faker.string.alphanumeric(6);
+}
+
+/**
+ * Get or create a unit by name to prevent unique constraint errors
+ */
+export async function getOrCreateUnit(db: any, name: string) {
+  let unit = await db.unit.findUnique({
+    where: { name },
+  });
+
+  if (!unit) {
+    unit = await db.unit.create({
+      data: { name },
+    });
+  }
+
+  return unit;
+}
+
+/**
+ * Get or create an ingredient ref by name to prevent unique constraint errors
+ */
+export async function getOrCreateIngredientRef(db: any, name: string) {
+  let ingredientRef = await db.ingredientRef.findUnique({
+    where: { name },
+  });
+
+  if (!ingredientRef) {
+    ingredientRef = await db.ingredientRef.create({
+      data: { name },
+    });
+  }
+
+  return ingredientRef;
+}
