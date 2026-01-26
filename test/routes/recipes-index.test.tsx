@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { createRoutesStub } from "react-router";
 import { db } from "~/lib/db.server";
 import { loader } from "~/routes/recipes._index";
+import RecipesList from "~/routes/recipes._index";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
@@ -225,6 +228,195 @@ describe("Recipes Index Route", () => {
       expect(recipe.imageUrl).toBe("https://example.com/image.jpg");
       expect(recipe.createdAt).toBeDefined();
       expect(recipe.updatedAt).toBeDefined();
+    });
+  });
+
+  describe("component", () => {
+    it("should render empty state when no recipes", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes",
+          Component: RecipesList,
+          loader: () => ({ recipes: [] }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes"]} />);
+
+      expect(await screen.findByText("My Recipes")).toBeInTheDocument();
+      expect(screen.getByText("0 recipes")).toBeInTheDocument();
+      expect(screen.getByText("No recipes yet")).toBeInTheDocument();
+      expect(screen.getByText("Create your first recipe to get started")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Create Recipe" })).toHaveAttribute("href", "/recipes/new");
+    });
+
+    it("should render recipe list when recipes exist", async () => {
+      const mockRecipes = [
+        {
+          id: "recipe-1",
+          title: "Spaghetti Bolognese",
+          description: "A classic Italian pasta dish",
+          servings: "4",
+          imageUrl: "https://example.com/spaghetti.jpg",
+        },
+        {
+          id: "recipe-2",
+          title: "Chicken Curry",
+          description: null,
+          servings: null,
+          imageUrl: null,
+        },
+      ];
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes",
+          Component: RecipesList,
+          loader: () => ({ recipes: mockRecipes }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes"]} />);
+
+      expect(await screen.findByText("My Recipes")).toBeInTheDocument();
+      expect(screen.getByText("2 recipes")).toBeInTheDocument();
+      expect(screen.getByText("Spaghetti Bolognese")).toBeInTheDocument();
+      expect(screen.getByText("A classic Italian pasta dish")).toBeInTheDocument();
+      expect(screen.getByText("Servings: 4")).toBeInTheDocument();
+      expect(screen.getByText("Chicken Curry")).toBeInTheDocument();
+    });
+
+    it("should show singular recipe count", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes",
+          Component: RecipesList,
+          loader: () => ({
+            recipes: [{ id: "1", title: "Single Recipe", description: null, servings: null, imageUrl: null }],
+          }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes"]} />);
+
+      expect(await screen.findByText("1 recipe")).toBeInTheDocument();
+    });
+
+    it("should have correct links to recipe details and actions", async () => {
+      const mockRecipes = [
+        {
+          id: "recipe-123",
+          title: "Test Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+        },
+      ];
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes",
+          Component: RecipesList,
+          loader: () => ({ recipes: mockRecipes }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes"]} />);
+
+      expect(await screen.findByText("Test Recipe")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: "+ New Recipe" })).toHaveAttribute("href", "/recipes/new");
+      // Recipe card link
+      const recipeLink = screen.getByRole("link", { name: /Test Recipe/ });
+      expect(recipeLink).toHaveAttribute("href", "/recipes/recipe-123");
+    });
+
+    it("should render recipe without optional description", async () => {
+      const mockRecipes = [
+        {
+          id: "recipe-1",
+          title: "No Desc Recipe",
+          description: null,
+          servings: "2",
+          imageUrl: "https://example.com/image.jpg",
+        },
+      ];
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes",
+          Component: RecipesList,
+          loader: () => ({ recipes: mockRecipes }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes"]} />);
+
+      expect(await screen.findByText("No Desc Recipe")).toBeInTheDocument();
+      expect(screen.getByText("Servings: 2")).toBeInTheDocument();
+      // There should be only 2 text elements in the card content: title and servings
+      // No description paragraph should be rendered
+      const servingsText = screen.getByText("Servings: 2");
+      expect(servingsText.previousElementSibling?.tagName).toBe("H3");
+    });
+
+    it("should render recipe without optional servings", async () => {
+      const mockRecipes = [
+        {
+          id: "recipe-1",
+          title: "Recipe Without Servings",
+          description: "Has a description",
+          servings: null,
+          imageUrl: "https://example.com/image.jpg",
+        },
+      ];
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes",
+          Component: RecipesList,
+          loader: () => ({ recipes: mockRecipes }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes"]} />);
+
+      expect(await screen.findByText("Recipe Without Servings")).toBeInTheDocument();
+      expect(screen.getByText("Has a description")).toBeInTheDocument();
+      // Servings should not be rendered
+      expect(screen.queryByText(/Servings:/i)).not.toBeInTheDocument();
+    });
+
+    it("should handle mouse hover events on recipe cards", async () => {
+      const mockRecipes = [
+        {
+          id: "recipe-1",
+          title: "Hover Test Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+        },
+      ];
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes",
+          Component: RecipesList,
+          loader: () => ({ recipes: mockRecipes }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes"]} />);
+
+      const recipeLink = await screen.findByRole("link", { name: /Hover Test Recipe/ });
+
+      // Test mouseEnter event
+      fireEvent.mouseEnter(recipeLink);
+      expect(recipeLink.style.boxShadow).toBe("0 4px 8px rgba(0,0,0,0.1)");
+
+      // Test mouseLeave event
+      fireEvent.mouseLeave(recipeLink);
+      expect(recipeLink.style.boxShadow).toBe("none");
     });
   });
 });
