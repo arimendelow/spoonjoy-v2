@@ -319,5 +319,284 @@ describe("Cookbooks $id Route", () => {
       });
       expect(removed).toBeNull();
     });
+
+    it("should throw 404 for non-existent cookbook in action", async () => {
+      const request = await createFormRequest(
+        { intent: "delete" },
+        testUserId
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: "nonexistent-cookbook-id" },
+        } as any)
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(404);
+        return true;
+      });
+    });
+
+    it("should return error when adding duplicate recipe to cookbook", async () => {
+      // Create a recipe and add it to cookbook
+      const recipe = await db.recipe.create({
+        data: {
+          title: "Test Recipe " + faker.string.alphanumeric(6),
+          chefId: testUserId,
+        },
+      });
+
+      await db.recipeInCookbook.create({
+        data: {
+          cookbookId,
+          recipeId: recipe.id,
+          addedById: testUserId,
+        },
+      });
+
+      // Try to add same recipe again
+      const request = await createFormRequest(
+        { intent: "addRecipe", recipeId: recipe.id },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.error).toBe("Recipe already in cookbook");
+    });
+
+    it("should do nothing when addRecipe without recipeId", async () => {
+      const request = await createFormRequest(
+        { intent: "addRecipe" },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(response).toBeNull();
+    });
+
+    it("should do nothing when removeRecipe without recipeInCookbookId", async () => {
+      const request = await createFormRequest(
+        { intent: "removeRecipe" },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(response).toBeNull();
+    });
+
+    it("should return null for unknown intent", async () => {
+      const request = await createFormRequest(
+        { intent: "unknownIntent" },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(response).toBeNull();
+    });
+
+    it("should return error for whitespace-only title", async () => {
+      const request = await createFormRequest(
+        { intent: "updateTitle", title: "   " },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.error).toBe("Title is required");
+    });
+  });
+
+  describe("loader - availableRecipes", () => {
+    it("should return available recipes when owner has recipes not in cookbook", async () => {
+      // Create a recipe not in the cookbook
+      const recipe = await db.recipe.create({
+        data: {
+          title: "Available Recipe " + faker.string.alphanumeric(6),
+          chefId: testUserId,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/cookbooks/${cookbookId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(result.availableRecipes).toHaveLength(1);
+      expect(result.availableRecipes[0].id).toBe(recipe.id);
+    });
+
+    it("should not include deleted recipes in available recipes", async () => {
+      // Create a soft-deleted recipe
+      await db.recipe.create({
+        data: {
+          title: "Deleted Recipe " + faker.string.alphanumeric(6),
+          chefId: testUserId,
+          deletedAt: new Date(),
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/cookbooks/${cookbookId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(result.availableRecipes).toHaveLength(0);
+    });
+
+    it("should not include recipes already in cookbook", async () => {
+      // Create a recipe and add it to cookbook
+      const recipe = await db.recipe.create({
+        data: {
+          title: "In Cookbook Recipe " + faker.string.alphanumeric(6),
+          chefId: testUserId,
+        },
+      });
+
+      await db.recipeInCookbook.create({
+        data: {
+          cookbookId,
+          recipeId: recipe.id,
+          addedById: testUserId,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/cookbooks/${cookbookId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(result.availableRecipes).toHaveLength(0);
+    });
+
+    it("should return empty availableRecipes for non-owner", async () => {
+      // Create a recipe for the owner
+      await db.recipe.create({
+        data: {
+          title: "Owner Recipe " + faker.string.alphanumeric(6),
+          chefId: testUserId,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", otherUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/cookbooks/${cookbookId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(result.isOwner).toBe(false);
+      expect(result.availableRecipes).toHaveLength(0);
+    });
+
+    it("should include cookbook recipes in response", async () => {
+      // Create a recipe and add it to cookbook
+      const recipe = await db.recipe.create({
+        data: {
+          title: "Cookbook Recipe " + faker.string.alphanumeric(6),
+          description: "Test description",
+          chefId: testUserId,
+        },
+      });
+
+      await db.recipeInCookbook.create({
+        data: {
+          cookbookId,
+          recipeId: recipe.id,
+          addedById: testUserId,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/cookbooks/${cookbookId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      expect(result.cookbook.recipes).toHaveLength(1);
+      expect(result.cookbook.recipes[0].recipe.id).toBe(recipe.id);
+      expect(result.cookbook.recipes[0].recipe.title).toBe(recipe.title);
+    });
   });
 });
