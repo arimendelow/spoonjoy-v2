@@ -67,6 +67,12 @@ npm run prisma:studio # Database GUI
 
 ## Testing
 
+### Philosophy
+- **Full test coverage is required** — every feature needs tests
+- **Write tests alongside code** — not after, not "later", but as part of the same commit
+- **Use tests to validate your work** — run tests frequently to catch issues early
+- **Tests are documentation** — they show how code is meant to be used
+
 ### Conventions
 - Test files live alongside or in `test/` directory
 - Use faker-based helpers from `test/utils.ts` for test data
