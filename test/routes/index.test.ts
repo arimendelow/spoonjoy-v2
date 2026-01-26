@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { db } from "~/lib/db.server";
-import { loader } from "~/routes/_index";
+import { loader, meta } from "~/routes/_index";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
@@ -77,6 +77,17 @@ describe("Index Route", () => {
       } as any);
 
       expect(result.user).toBeNull();
+    });
+  });
+
+  describe("meta", () => {
+    it("should return page metadata", () => {
+      const result = meta({} as any);
+
+      expect(result).toBeInstanceOf(Array);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ title: "Spoonjoy - Recipe Management" });
+      expect(result[1]).toEqual({ name: "description", content: "Manage your recipes with ease" });
     });
   });
 });
