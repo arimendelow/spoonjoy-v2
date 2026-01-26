@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
+import { render, screen } from "@testing-library/react";
+import { createRoutesStub } from "react-router";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/login";
+import Login from "~/routes/login";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
@@ -232,6 +235,76 @@ describe("Login Route", () => {
       expect(status).toBe(400);
       expect(data.errors.email).toBe("Valid email is required");
       expect(data.errors.password).toBe("Password is required");
+    });
+  });
+
+  describe("component", () => {
+    it("should render login form", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/login",
+          Component: Login,
+          loader: () => null,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/login"]} />);
+
+      expect(await screen.findByRole("heading", { name: "Log In" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Password")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Log In" })).toBeInTheDocument();
+      expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/signup");
+    });
+
+    it("should have email input with correct attributes", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/login",
+          Component: Login,
+          loader: () => null,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/login"]} />);
+
+      const emailInput = await screen.findByLabelText("Email");
+      expect(emailInput).toHaveAttribute("type", "email");
+      expect(emailInput).toHaveAttribute("name", "email");
+      expect(emailInput).toHaveAttribute("required");
+    });
+
+    it("should have password input with correct attributes", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/login",
+          Component: Login,
+          loader: () => null,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/login"]} />);
+
+      const passwordInput = await screen.findByLabelText("Password");
+      expect(passwordInput).toHaveAttribute("type", "password");
+      expect(passwordInput).toHaveAttribute("name", "password");
+      expect(passwordInput).toHaveAttribute("required");
+    });
+
+    it("should have form with post method", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/login",
+          Component: Login,
+          loader: () => null,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/login"]} />);
+
+      const form = (await screen.findByRole("button", { name: "Log In" })).closest("form");
+      expect(form).toHaveAttribute("method", "post");
     });
   });
 });
