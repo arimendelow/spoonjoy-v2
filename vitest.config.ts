@@ -12,6 +12,8 @@ export default defineConfig({
     coverage: {
       provider: "istanbul",
       reporter: ["text", "json", "html"],
+      all: true,
+      include: ["app/lib/**/*.ts"],
       exclude: [
         "node_modules/**",
         "test/**",
