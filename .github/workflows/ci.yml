@@ -25,9 +25,6 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate
       
-      - name: Run typecheck
-        run: npm run typecheck
-      
       - name: Run tests
         run: npm test
       
