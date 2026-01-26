@@ -114,9 +114,7 @@ describe("RecipeStep Model", () => {
 
       const unit = await getOrCreateUnit(db, "cup");
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "flour" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "flour");
 
       await db.ingredient.create({
         data: {
@@ -210,9 +208,7 @@ describe("RecipeStep Model", () => {
 
       const unit = await getOrCreateUnit(db, "cup");
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "flour" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "flour");
 
       await db.ingredient.create({
         data: {
