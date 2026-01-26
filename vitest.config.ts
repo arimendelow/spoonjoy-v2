@@ -13,7 +13,7 @@ export default defineConfig({
       provider: "istanbul",
       reporter: ["text", "json", "html"],
       all: true,
-      include: ["app/lib/**/*.ts"],
+      include: ["app/lib/**/*.ts", "app/routes/**/*.tsx"],
       exclude: [
         "node_modules/**",
         "test/**",
