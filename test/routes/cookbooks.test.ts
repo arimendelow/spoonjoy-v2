@@ -1,26 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
+import { createTestUser } from "../utils";
+import { cleanupDatabase } from "../helpers/cleanup";
 
 describe("Cookbook Routes", () => {
   let testUserId: string;
 
   beforeEach(async () => {
     const user = await db.user.create({
-      data: {
-        email: "test@example.com",
-        username: "testuser",
-        hashedPassword: "hashedpassword",
-        salt: "salt",
-      },
+      data: createTestUser(),
     });
     testUserId = user.id;
   });
 
   afterEach(async () => {
-    await db.recipeInCookbook.deleteMany({});
-    await db.cookbook.deleteMany({});
-    await db.recipe.deleteMany({});
-    await db.user.deleteMany({});
+    await cleanupDatabase();
   });
 
   describe("cookbooks.new action", () => {
@@ -403,12 +397,7 @@ describe("Cookbook Routes", () => {
   describe("authorization", () => {
     it("should only allow owner to update cookbook", async () => {
       const otherUser = await db.user.create({
-        data: {
-          email: "other@example.com",
-          username: "otheruser",
-          hashedPassword: "hashedpassword",
-          salt: "salt",
-        },
+        data: createTestUser(),
       });
 
       const cookbook = await db.cookbook.create({

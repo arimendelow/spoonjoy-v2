@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
-import { getOrCreateUnit, getOrCreateIngredientRef } from "../utils";
+import { getOrCreateUnit, getOrCreateIngredientRef, createTestUser, createTestRecipe } from "../utils";
+import { cleanupDatabase } from "../helpers/cleanup";
 
 describe("RecipeStep Model", () => {
   let testUserId: string;
@@ -8,28 +9,18 @@ describe("RecipeStep Model", () => {
 
   beforeEach(async () => {
     const user = await db.user.create({
-      data: {
-        email: "test@example.com",
-        username: "testuser",
-        hashedPassword: "hashedpassword",
-        salt: "salt",
-      },
+      data: createTestUser(),
     });
     testUserId = user.id;
 
     const recipe = await db.recipe.create({
-      data: {
-        title: "Test Recipe",
-        chefId: testUserId,
-      },
+      data: createTestRecipe(testUserId),
     });
     testRecipeId = recipe.id;
   });
 
   afterEach(async () => {
-    await db.recipeStep.deleteMany({});
-    await db.recipe.deleteMany({});
-    await db.user.deleteMany({});
+    await cleanupDatabase();
   });
 
   describe("create", () => {

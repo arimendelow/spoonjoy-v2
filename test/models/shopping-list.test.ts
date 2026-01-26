@@ -1,28 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
-import { getOrCreateUnit, getOrCreateIngredientRef } from "../utils";
+import { getOrCreateUnit, getOrCreateIngredientRef, createTestUser } from "../utils";
+import { cleanupDatabase } from "../helpers/cleanup";
 
 describe("ShoppingList Model", () => {
   let testUserId: string;
 
   beforeEach(async () => {
     const user = await db.user.create({
-      data: {
-        email: "test@example.com",
-        username: "testuser",
-        hashedPassword: "hashedpassword",
-        salt: "salt",
-      },
+      data: createTestUser(),
     });
     testUserId = user.id;
   });
 
   afterEach(async () => {
-    await db.shoppingListItem.deleteMany({});
-    await db.shoppingList.deleteMany({});
-    await db.ingredientRef.deleteMany({});
-    await db.unit.deleteMany({});
-    await db.user.deleteMany({});
+    await cleanupDatabase();
   });
 
   describe("create", () => {

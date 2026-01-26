@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createUserSession, requireUserId, destroyUserSession, getUserId, sessionStorage } from "~/lib/session.server";
+import { Request } from "undici";
 
 describe("session.server", () => {
   beforeEach(() => {
@@ -17,10 +18,18 @@ describe("session.server", () => {
     it("should return userId from valid session", async () => {
       const session = await sessionStorage.getSession();
       session.set("userId", "test-user-id");
-      const cookie = await sessionStorage.commitSession(session);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+
+      // Extract just the cookie value from the Set-Cookie header
+      // Set-Cookie format: "name=value; Path=/; HttpOnly; ..."
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      // Create headers object explicitly
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
 
       const request = new Request("http://localhost:3000/test", {
-        headers: { Cookie: cookie },
+        headers,
       });
 
       const userId = await getUserId(request);
@@ -44,10 +53,17 @@ describe("session.server", () => {
     it("should return userId from valid session", async () => {
       const session = await sessionStorage.getSession();
       session.set("userId", "test-user-id");
-      const cookie = await sessionStorage.commitSession(session);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+
+      // Extract just the cookie value from the Set-Cookie header
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      // Create headers object explicitly
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
 
       const request = new Request("http://localhost:3000/test", {
-        headers: { Cookie: cookie },
+        headers,
       });
 
       const result = await requireUserId(request);
@@ -70,10 +86,17 @@ describe("session.server", () => {
     it("should destroy session and return redirect response", async () => {
       const session = await sessionStorage.getSession();
       session.set("userId", "test-user-id");
-      const cookie = await sessionStorage.commitSession(session);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+
+      // Extract just the cookie value from the Set-Cookie header
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      // Create headers object explicitly
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
 
       const request = new Request("http://localhost:3000/logout", {
-        headers: { Cookie: cookie },
+        headers,
       });
 
       const response = await destroyUserSession(request, "/");

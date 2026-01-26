@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "happy-dom",
     globals: true,
     setupFiles: ["./test/setup.ts"],
+    pool: "forks",
+    poolMatchGlobs: [["**/*.test.ts", "forks"]],
+    fileParallelism: false,
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
 import { createTestUser, createTestRecipe, createCookbookTitle } from "../utils";
+import { cleanupDatabase } from "../helpers/cleanup";
 
 describe("Cookbook Model", () => {
   let testUserId: string;
@@ -13,10 +14,7 @@ describe("Cookbook Model", () => {
   });
 
   afterEach(async () => {
-    await db.recipeInCookbook.deleteMany({});
-    await db.cookbook.deleteMany({});
-    await db.recipe.deleteMany({});
-    await db.user.deleteMany({});
+    await cleanupDatabase();
   });
 
   describe("create", () => {

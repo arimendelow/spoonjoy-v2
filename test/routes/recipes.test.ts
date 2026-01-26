@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { db } from "~/lib/db.server";
-import { getOrCreateUnit, getOrCreateIngredientRef } from "../utils";
+import { getOrCreateUnit, getOrCreateIngredientRef, createTestUser } from "../utils";
+import { cleanupDatabase } from "../helpers/cleanup";
 
 describe("Recipe Routes", () => {
   let testUserId: string;
@@ -8,12 +9,7 @@ describe("Recipe Routes", () => {
 
   beforeEach(async () => {
     const user = await db.user.create({
-      data: {
-        email: "test@example.com",
-        username: "testuser",
-        hashedPassword: "hashedpassword",
-        salt: "salt",
-      },
+      data: createTestUser(),
     });
     testUserId = user.id;
 
@@ -25,8 +21,7 @@ describe("Recipe Routes", () => {
   });
 
   afterEach(async () => {
-    await db.recipe.deleteMany({});
-    await db.user.deleteMany({});
+    await cleanupDatabase();
   });
 
   describe("recipes.new action", () => {
@@ -98,12 +93,7 @@ describe("Recipe Routes", () => {
 
     it("should not allow updating another user's recipe", async () => {
       const otherUser = await db.user.create({
-        data: {
-          email: "other@example.com",
-          username: "otheruser",
-          hashedPassword: "hashedpassword",
-          salt: "salt",
-        },
+        data: createTestUser(),
       });
 
       const recipe = await db.recipe.create({
