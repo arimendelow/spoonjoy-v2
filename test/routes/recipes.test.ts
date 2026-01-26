@@ -276,9 +276,7 @@ describe("Recipe Routes", () => {
 
       const unit = await getOrCreateUnit(db, "cup");
 
-      const ingredientRef = await db.ingredientRef.create({
-        data: { name: "flour" },
-      });
+      const ingredientRef = await getOrCreateIngredientRef(db, "flour");
 
       const ingredient = await db.ingredient.create({
         data: {
