@@ -32,3 +32,8 @@ Thumbs.db
 
 # React Router
 .react-router/
+
+# Test artifacts
+coverage/
+test.db
+*.ts-e

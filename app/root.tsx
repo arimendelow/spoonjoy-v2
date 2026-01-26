@@ -10,11 +10,7 @@ import {
   Link,
 } from "react-router";
 import { getUserId } from "~/lib/session.server";
-import styles from "~/styles/tailwind.css?url";
-
-export function links() {
-  return [{ rel: "stylesheet", href: styles }];
-}
+import "./styles/tailwind.css";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const userId = await getUserId(request);
