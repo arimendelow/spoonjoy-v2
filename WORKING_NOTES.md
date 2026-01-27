@@ -912,6 +912,40 @@ interface GoogleOAuthCallbackResult {
 
 **Total New Tests:** 48 failing (22 + 26) - all existing 1395 tests still pass.
 
+### 2026-01-27 - Google OAuth Callback Implementation (Unit 8b)
+
+**Implementation Complete:** Both functions fully implemented and all tests pass.
+
+**verifyGoogleCallback Implementation:**
+- Validates state, code, and codeVerifier parameters
+- Uses dynamic import for Arctic's `Google` class to enable test mocking
+- Creates Google client with `new Google(clientId, clientSecret, redirectUri)`
+- Exchanges authorization code for tokens with PKCE via `validateAuthorizationCode(code, codeVerifier)`
+- Fetches user info from `https://openidconnect.googleapis.com/v1/userinfo` using access token
+- Extracts user data: id (sub), email, email_verified, name, given_name, family_name, picture
+- Handles nullable fields with `?? null` fallbacks
+- Error handling: `invalid_state`, `invalid_code`, `invalid_code_verifier`, `oauth_error`, `network_error`, `userinfo_error`
+
+**handleGoogleOAuthCallback Implementation:**
+- Same flow as Apple OAuth callback handler (identical pattern)
+- Flow 1: If `currentUserId` is set → Link Google account using `linkOAuthAccount`
+- Flow 2: If Google account exists in DB → Return existing user with `user_logged_in` action
+- Flow 3: Case-insensitive email collision check using raw SQL (`LOWER(email)`) for SQLite
+- Flow 4: Create new user using `createOAuthUser` with `user_created` action
+- Sets `providerUsername` to name or email as fallback
+- Returns appropriate `redirectTo` based on flow
+
+**Key Differences from Apple OAuth:**
+| Feature | Apple | Google |
+|---------|-------|--------|
+| PKCE | Not used | Required (code_verifier in token exchange) |
+| Callback type | POST (form_post) | GET (standard redirect) |
+| User data source | ID token claims | Userinfo endpoint |
+| Name fields | firstName/lastName in user param | name/given_name/family_name in userinfo |
+| Scopes | email, name | openid, email, profile |
+
+**All 1443 tests passing with no warnings.**
+
 ---
 
 ## For Future Tasks
