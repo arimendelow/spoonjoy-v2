@@ -10,6 +10,11 @@
 
 import type { PrismaClient } from "@prisma/client";
 import type { GoogleUser } from "./google-oauth.server";
+import {
+  createOAuthUser,
+  findExistingOAuthAccount,
+  linkOAuthAccount,
+} from "./oauth-user.server";
 
 /**
  * Parameters for handling Google OAuth callback.
@@ -63,7 +68,93 @@ export interface GoogleOAuthCallbackResult {
  * @returns Result with userId on success, or error details on failure
  */
 export async function handleGoogleOAuthCallback(
-  _params: GoogleOAuthCallbackParams
+  params: GoogleOAuthCallbackParams
 ): Promise<GoogleOAuthCallbackResult> {
-  throw new Error("Not implemented");
+  const { db, googleUser, currentUserId, redirectTo } = params;
+
+  // Default redirect destination
+  const defaultRedirect = redirectTo ?? "/";
+
+  // Flow 1: User is logged in - link Google account to existing user
+  if (currentUserId) {
+    const linkResult = await linkOAuthAccount(db, currentUserId, {
+      provider: "google",
+      providerUserId: googleUser.id,
+      providerUsername: googleUser.name ?? googleUser.email,
+    });
+
+    if (!linkResult.success) {
+      return {
+        success: false,
+        error: linkResult.error,
+        message: linkResult.message,
+        redirectTo: defaultRedirect,
+      };
+    }
+
+    return {
+      success: true,
+      userId: currentUserId,
+      action: "account_linked",
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  // Flow 2: Check if Google account already exists (returning user)
+  const existingOAuthAccount = await findExistingOAuthAccount(
+    db,
+    "google",
+    googleUser.id
+  );
+
+  if (existingOAuthAccount) {
+    return {
+      success: true,
+      userId: existingOAuthAccount.userId,
+      action: "user_logged_in",
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  // Flow 3: Check if email exists (case-insensitive)
+  // Use raw SQL for case-insensitive email comparison in SQLite
+  const normalizedEmail = googleUser.email.toLowerCase();
+  const existingUsersByEmail = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM User WHERE LOWER(email) = ${normalizedEmail}
+  `;
+
+  if (existingUsersByEmail.length > 0) {
+    return {
+      success: false,
+      error: "account_exists",
+      message:
+        "An account with this email already exists. Please log in to link your Google account.",
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  // Flow 4: Create new user
+  const createResult = await createOAuthUser(db, {
+    provider: "google",
+    providerUserId: googleUser.id,
+    providerUsername: googleUser.name ?? googleUser.email,
+    email: googleUser.email,
+    name: googleUser.name,
+  });
+
+  if (!createResult.success) {
+    return {
+      success: false,
+      error: createResult.error,
+      message: createResult.message,
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  return {
+    success: true,
+    userId: createResult.user!.id,
+    action: "user_created",
+    redirectTo: defaultRedirect,
+  };
 }

@@ -217,6 +217,19 @@ export function createGoogleAuthorizationURL(
 }
 
 /**
+ * Interface for Google's userinfo endpoint response.
+ */
+interface GoogleUserinfoResponse {
+  sub: string;
+  email: string;
+  email_verified: boolean;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+}
+
+/**
  * Verifies Google OAuth callback and extracts user data.
  *
  * @param config - Google OAuth configuration (from env.server.ts)
@@ -228,9 +241,134 @@ export function createGoogleAuthorizationURL(
  * then fetches user info from the userinfo endpoint.
  */
 export async function verifyGoogleCallback(
-  _config: GoogleOAuthConfig,
-  _redirectUri: string,
-  _callbackData: GoogleCallbackData
+  config: GoogleOAuthConfig,
+  redirectUri: string,
+  callbackData: GoogleCallbackData
 ): Promise<GoogleCallbackResult> {
-  throw new Error("Not implemented");
+  // Validate state
+  if (!callbackData.state) {
+    return {
+      success: false,
+      error: "invalid_state",
+      message: "Missing state parameter",
+    };
+  }
+
+  // Validate code
+  if (!callbackData.code) {
+    return {
+      success: false,
+      error: "invalid_code",
+      message: "Missing authorization code",
+    };
+  }
+
+  // Validate codeVerifier
+  if (!callbackData.codeVerifier) {
+    return {
+      success: false,
+      error: "invalid_code_verifier",
+      message: "Missing code verifier",
+    };
+  }
+
+  try {
+    // Import Arctic's Google class dynamically to enable mocking
+    const { Google, OAuth2RequestError } = await import("arctic");
+
+    // Create Arctic Google client
+    const google = new Google(config.clientId, config.clientSecret, redirectUri);
+
+    // Exchange authorization code for tokens (PKCE)
+    const tokens = await google.validateAuthorizationCode(
+      callbackData.code,
+      callbackData.codeVerifier
+    );
+
+    // Fetch user info from Google's userinfo endpoint
+    const accessToken = tokens.accessToken();
+
+    let userinfo: GoogleUserinfoResponse;
+    try {
+      const response = await fetch(
+        "https://openidconnect.googleapis.com/v1/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: "userinfo_error",
+          message: "Failed to fetch user info from Google",
+        };
+      }
+
+      userinfo = (await response.json()) as GoogleUserinfoResponse;
+    } catch (error) {
+      // Handle network errors during userinfo fetch
+      if (
+        error instanceof Error &&
+        (error.message.includes("fetch") ||
+          error.message.includes("network") ||
+          error.name === "TypeError")
+      ) {
+        return {
+          success: false,
+          error: "network_error",
+          message:
+            "Network error occurred while fetching user info from Google",
+        };
+      }
+      throw error;
+    }
+
+    const googleUser: GoogleUser = {
+      id: userinfo.sub,
+      email: userinfo.email,
+      emailVerified: userinfo.email_verified,
+      name: userinfo.name ?? null,
+      givenName: userinfo.given_name ?? null,
+      familyName: userinfo.family_name ?? null,
+      picture: userinfo.picture ?? null,
+    };
+
+    return {
+      success: true,
+      googleUser,
+    };
+  } catch (error) {
+    // Handle OAuth2RequestError from Arctic (check name for mock compatibility)
+    if (error instanceof Error && error.name === "OAuth2RequestError") {
+      return {
+        success: false,
+        error: "oauth_error",
+        message: error.message || "OAuth error occurred",
+      };
+    }
+
+    // Handle network/fetch errors during token exchange
+    if (
+      error instanceof Error &&
+      (error.message.includes("fetch") ||
+        error.message.includes("network") ||
+        error.name === "TypeError")
+    ) {
+      return {
+        success: false,
+        error: "network_error",
+        message: "Network error occurred while validating authorization code",
+      };
+    }
+
+    // For invalid authorization code errors, return invalid_code
+    return {
+      success: false,
+      error: "invalid_code",
+      message: "Invalid authorization code",
+    };
+  }
 }
