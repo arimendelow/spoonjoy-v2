@@ -7,7 +7,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./test/setup.ts"],
     pool: "forks",
-    poolMatchGlobs: [["**/*.test.ts", "forks"]],
+    maxWorkers: 1,
     fileParallelism: false,
     coverage: {
       provider: "istanbul",
