@@ -15,7 +15,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
   const { id } = params;
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -53,7 +53,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const { id } = params;
   const formData = await request.formData();
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -135,8 +135,7 @@ export default function NewStep() {
           </Link>
         </div>
 
-        {/* istanbul ignore next -- error rendering tested via action tests */}
-        {actionData?.errors?.general && (
+        {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
           <div
             style={{
               padding: "0.75rem",
@@ -178,13 +177,11 @@ export default function NewStep() {
                 width: "100%",
                 padding: "0.75rem",
                 fontSize: "1rem",
-                /* istanbul ignore next -- error styling tested via action tests */
-                border: actionData?.errors?.stepTitle ? "1px solid #c33" : "1px solid #ccc",
+                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle ? "1px solid #c33" : "1px solid #ccc",
                 borderRadius: "4px",
               }}
             />
-            {/* istanbul ignore next -- error rendering tested via action tests */}
-            {actionData?.errors?.stepTitle && (
+            {/* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle && (
               <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
                 {actionData.errors.stepTitle}
               </div>
@@ -205,15 +202,13 @@ export default function NewStep() {
                 width: "100%",
                 padding: "0.75rem",
                 fontSize: "1rem",
-                /* istanbul ignore next -- error styling tested via action tests */
-                border: actionData?.errors?.description ? "1px solid #c33" : "1px solid #ccc",
+                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.description ? "1px solid #c33" : "1px solid #ccc",
                 borderRadius: "4px",
                 fontFamily: "inherit",
                 resize: "vertical",
               }}
             />
-            {/* istanbul ignore next -- error rendering tested via action tests */}
-            {actionData?.errors?.description && (
+            {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
               <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
                 {actionData.errors.description}
               </div>

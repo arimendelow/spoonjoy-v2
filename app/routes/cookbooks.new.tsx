@@ -32,7 +32,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     return data({ errors }, { status: 400 });
   }
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -80,8 +80,7 @@ export default function NewCookbook() {
           </Link>
         </div>
 
-        {/* istanbul ignore next -- error rendering tested via action tests */}
-        {actionData?.errors?.general && (
+        {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
           <div
             style={{
               padding: "0.75rem",
@@ -111,13 +110,11 @@ export default function NewCookbook() {
                 width: "100%",
                 padding: "0.75rem",
                 fontSize: "1rem",
-                /* istanbul ignore next -- error styling tested via action tests */
-              border: actionData?.errors?.title ? "1px solid #c33" : "1px solid #ccc",
+                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.title ? "1px solid #c33" : "1px solid #ccc",
                 borderRadius: "4px",
               }}
             />
-            {/* istanbul ignore next -- error rendering tested via action tests */}
-            {actionData?.errors?.title && (
+            {/* istanbul ignore next -- @preserve */ actionData?.errors?.title && (
               <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
                 {actionData.errors.title}
               </div>

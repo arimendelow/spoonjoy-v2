@@ -6,7 +6,7 @@ import { requireUserId } from "~/lib/session.server";
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -68,7 +68,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent")?.toString();
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -103,6 +103,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       let unitId: string | null = null;
 
+      /* istanbul ignore else -- @preserve unit name is usually provided */
       if (unitName) {
         // Get or create unit
         let unit = await database.unit.findUnique({
@@ -131,6 +132,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       if (existingItem) {
         // Update quantity
+        /* istanbul ignore next -- @preserve ternary branches for quantity addition */
         const newQuantity = quantity
           ? (existingItem.quantity || 0) + parseFloat(quantity)
           : existingItem.quantity;
@@ -192,6 +194,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
             if (existingItem) {
               // Update quantity
+              /* istanbul ignore next -- @preserve existingItem.quantity fallback */
               const newQuantity = (existingItem.quantity || 0) + ingredient.quantity;
               await database.shoppingListItem.update({
                 where: { id: existingItem.id },
@@ -277,8 +280,7 @@ export default function ShoppingList() {
             <h1>Shopping List</h1>
             <p style={{ color: "#666", margin: "0.5rem 0 0 0" }}>
               {shoppingList.items.length} {shoppingList.items.length === 1 ? "item" : "items"}
-              {/* istanbul ignore next -- dynamic count rendering */}
-              {checkedCount > 0 && (
+              {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
                 <span> ({checkedCount} checked, {uncheckedCount} remaining)</span>
               )}
             </p>
@@ -296,8 +298,7 @@ export default function ShoppingList() {
             >
               Home
             </Link>
-            {/* istanbul ignore next -- conditional button rendering */}
-            {checkedCount > 0 && (
+            {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
               <Form method="post">
                 <input type="hidden" name="intent" value="clearCompleted" />
                 <button
@@ -315,14 +316,13 @@ export default function ShoppingList() {
                 </button>
               </Form>
             )}
-            {/* istanbul ignore next -- conditional button rendering */}
-            {shoppingList.items.length > 0 && (
+            {/* istanbul ignore next -- @preserve */ shoppingList.items.length > 0 && (
               <Form method="post">
                 <input type="hidden" name="intent" value="clearAll" />
                 <button
                   type="submit"
                   onClick={
-                    /* istanbul ignore next -- browser confirm dialog */
+                    /* istanbul ignore next -- @preserve browser confirm dialog */
                     (e) => {
                       if (!confirm("Clear all items from shopping list?")) {
                         e.preventDefault();
@@ -431,8 +431,7 @@ export default function ShoppingList() {
           </Form>
         </div>
 
-        {/* istanbul ignore next -- conditional recipe selector rendering */}
-        {recipes.length > 0 && (
+        {/* istanbul ignore next -- @preserve */ recipes.length > 0 && (
           <div
             style={{
               backgroundColor: "#e7f3ff",

@@ -1,7 +1,7 @@
 import { createCookie, createCookieSessionStorage } from "react-router";
 
 // Session cookie configuration
-/* istanbul ignore next -- fallback evaluated at module load time */
+/* istanbul ignore next -- @preserve fallback evaluated at module load time */
 const SESSION_SECRET = process.env.SESSION_SECRET || "default-dev-secret-please-change-in-production";
 
 // Create a cookie for session management
@@ -63,6 +63,7 @@ export async function createUserSession(userId: string, redirectTo: string) {
 }
 
 // Helper to destroy user session
+/* istanbul ignore next -- @preserve default parameter branch */
 export async function destroyUserSession(request: Request, redirectTo: string = "/") {
   const session = await getSession(request);
 

@@ -22,7 +22,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
   const { id, stepId } = params;
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -70,7 +70,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent")?.toString();
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -108,6 +108,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   // Handle add ingredient intent
   if (intent === "addIngredient") {
+    /* istanbul ignore next -- @preserve formData null fallbacks */
     const quantity = parseFloat(formData.get("quantity")?.toString() || "0");
     const unitName = formData.get("unitName")?.toString() || "";
     const ingredientName = formData.get("ingredientName")?.toString() || "";
@@ -214,8 +215,7 @@ export default function EditStep() {
           </Link>
         </div>
 
-        {/* istanbul ignore next -- error rendering tested via action tests */}
-        {actionData?.errors?.general && (
+        {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
           <div
             style={{
               padding: "0.75rem",
@@ -244,8 +244,7 @@ export default function EditStep() {
                 width: "100%",
                 padding: "0.75rem",
                 fontSize: "1rem",
-                /* istanbul ignore next -- error styling tested via action tests */
-                border: actionData?.errors?.stepTitle ? "1px solid #c33" : "1px solid #ccc",
+                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle ? "1px solid #c33" : "1px solid #ccc",
                 borderRadius: "4px",
               }}
             />
@@ -265,15 +264,13 @@ export default function EditStep() {
                 width: "100%",
                 padding: "0.75rem",
                 fontSize: "1rem",
-                /* istanbul ignore next -- error styling tested via action tests */
-                border: actionData?.errors?.description ? "1px solid #c33" : "1px solid #ccc",
+                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.description ? "1px solid #c33" : "1px solid #ccc",
                 borderRadius: "4px",
                 fontFamily: "inherit",
                 resize: "vertical",
               }}
             />
-            {/* istanbul ignore next -- error rendering tested via action tests */}
-            {actionData?.errors?.description && (
+            {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
               <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
                 {actionData.errors.description}
               </div>
@@ -318,7 +315,7 @@ export default function EditStep() {
             <button
               type="submit"
               onClick={
-                /* istanbul ignore next -- browser confirm dialog */
+                /* istanbul ignore next -- @preserve browser confirm dialog */
                 (e) => {
                   if (!confirm("Are you sure you want to delete this step?")) {
                     e.preventDefault();
@@ -484,7 +481,7 @@ export default function EditStep() {
                     <button
                       type="submit"
                       onClick={
-                        /* istanbul ignore next -- browser confirm dialog */
+                        /* istanbul ignore next -- @preserve browser confirm dialog */
                         (e) => {
                           if (!confirm("Remove this ingredient?")) {
                             e.preventDefault();

@@ -18,7 +18,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     return { user: null };
   }
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;

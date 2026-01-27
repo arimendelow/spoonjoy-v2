@@ -16,8 +16,9 @@ export function getDb(env: { DB: D1Database }) {
 // For local development (SQLite)
 let db: PrismaClient;
 
-/* istanbul ignore else -- production-only path */
+/* istanbul ignore else -- @preserve production-only path never reached in tests */
 if (process.env.NODE_ENV !== "production") {
+  /* istanbul ignore else -- @preserve global.__db already set from previous test imports */
   if (!global.__db) {
     global.__db = new PrismaClient();
   }

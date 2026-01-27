@@ -8,7 +8,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
   const { id } = params;
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -86,7 +86,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -265,7 +265,7 @@ export default function CookbookDetail() {
               <button
                 type="submit"
                 onClick={
-                  /* istanbul ignore next -- browser confirm dialog */
+                  /* istanbul ignore next -- @preserve browser confirm dialog */
                   (e) => {
                     if (!confirm("Are you sure you want to delete this cookbook?")) {
                       e.preventDefault();
@@ -415,7 +415,7 @@ export default function CookbookDetail() {
                       <button
                         type="submit"
                         onClick={
-                          /* istanbul ignore next -- browser confirm dialog */
+                          /* istanbul ignore next -- @preserve browser confirm dialog */
                           (e) => {
                             if (!confirm("Remove this recipe from the cookbook?")) {
                               e.preventDefault();

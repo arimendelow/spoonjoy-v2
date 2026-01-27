@@ -46,7 +46,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   // Get the appropriate database instance
-  /* istanbul ignore next -- Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -72,8 +72,7 @@ export default function Login() {
     <div style={{ fontFamily: "system-ui, sans-serif", padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
       <h1>Log In</h1>
 
-      {/* istanbul ignore next -- error rendering tested via action tests */}
-      {actionData?.errors?.general && (
+      {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
         <div
           style={{
             padding: "0.75rem",
@@ -102,12 +101,10 @@ export default function Login() {
               width: "100%",
               padding: "0.5rem",
               fontSize: "1rem",
-              /* istanbul ignore next -- error styling tested via action tests */
-              border: actionData?.errors?.email ? "1px solid #c33" : "1px solid #ccc"
+              border: /* istanbul ignore next -- @preserve */ actionData?.errors?.email ? "1px solid #c33" : "1px solid #ccc"
             }}
           />
-          {/* istanbul ignore next -- error rendering tested via action tests */}
-          {actionData?.errors?.email && (
+          {/* istanbul ignore next -- @preserve */ actionData?.errors?.email && (
             <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
               {actionData.errors.email}
             </div>
@@ -127,12 +124,10 @@ export default function Login() {
               width: "100%",
               padding: "0.5rem",
               fontSize: "1rem",
-              /* istanbul ignore next -- error styling tested via action tests */
-              border: actionData?.errors?.password ? "1px solid #c33" : "1px solid #ccc"
+              border: /* istanbul ignore next -- @preserve */ actionData?.errors?.password ? "1px solid #c33" : "1px solid #ccc"
             }}
           />
-          {/* istanbul ignore next -- error rendering tested via action tests */}
-          {actionData?.errors?.password && (
+          {/* istanbul ignore next -- @preserve */ actionData?.errors?.password && (
             <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
               {actionData.errors.password}
             </div>
