@@ -1,11 +1,53 @@
 /**
- * Apple OAuth initiation utilities.
+ * Apple OAuth utilities.
  *
- * Functions for generating Apple Sign In authorization URLs.
+ * Functions for generating Apple Sign In authorization URLs and handling callbacks.
  * Uses Arctic library for OAuth flows.
  */
 
 import type { AppleOAuthConfig } from "./env.server";
+
+/**
+ * Data received from Apple's OAuth callback (POST request body).
+ */
+export interface AppleCallbackData {
+  /** Authorization code from Apple */
+  code: string;
+  /** CSRF protection state */
+  state: string;
+  /** User info JSON (only provided on first sign-in) */
+  user?: string;
+}
+
+/**
+ * Apple user data extracted from the callback.
+ */
+export interface AppleUser {
+  /** Apple's unique user identifier (sub claim from ID token) */
+  id: string;
+  /** User's email address */
+  email: string;
+  /** Whether the email is verified (always true for Apple) */
+  emailVerified: boolean;
+  /** Whether this is a private relay email (Hide My Email) */
+  isPrivateEmail: boolean;
+  /** User's first name (only on first sign-in, may be null) */
+  firstName: string | null;
+  /** User's last name (only on first sign-in, may be null) */
+  lastName: string | null;
+  /** Full name constructed from first and last name */
+  fullName: string | null;
+}
+
+/**
+ * Result of verifying Apple OAuth callback.
+ */
+export interface AppleCallbackResult {
+  success: boolean;
+  appleUser?: AppleUser;
+  error?: string;
+  message?: string;
+}
 
 /**
  * Generates a cryptographically random state string for CSRF protection.
@@ -47,4 +89,24 @@ export function createAppleAuthorizationURL(
   url.searchParams.set("scope", "email name");
 
   return url;
+}
+
+/**
+ * Verifies Apple OAuth callback and extracts user data.
+ *
+ * @param config - Apple OAuth configuration (from env.server.ts)
+ * @param redirectUri - The callback URL used in the initial authorization request
+ * @param callbackData - Data from Apple's POST callback (code, state, user)
+ * @returns Result with appleUser on success, or error details on failure
+ *
+ * Note: This function validates the authorization code with Apple,
+ * decodes the ID token, and extracts user information.
+ */
+export async function verifyAppleCallback(
+  config: AppleOAuthConfig,
+  redirectUri: string,
+  callbackData: AppleCallbackData
+): Promise<AppleCallbackResult> {
+  // Stub implementation - throws for TDD
+  throw new Error("Not implemented");
 }

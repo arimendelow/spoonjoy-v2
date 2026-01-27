@@ -1,9 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createAppleAuthorizationURL,
   generateOAuthState,
+  verifyAppleCallback,
+  type AppleCallbackData,
+  type AppleCallbackResult,
 } from "~/lib/apple-oauth.server";
 import type { AppleOAuthConfig } from "~/lib/env.server";
+import { faker } from "@faker-js/faker";
 
 describe("apple-oauth.server", () => {
   const mockConfig: AppleOAuthConfig = {
@@ -144,6 +148,401 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
 
       // Should properly encode the redirect_uri
       expect(url.searchParams.get("redirect_uri")).toBe(redirectWithQuery);
+    });
+  });
+
+  describe("verifyAppleCallback", () => {
+    const mockConfig: AppleOAuthConfig = {
+      clientId: "com.spoonjoy.app",
+      teamId: "TEAM123456",
+      keyId: "KEY123456",
+      privateKey: `-----BEGIN PRIVATE KEY-----
+MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgtest1234567890
+test1234567890test1234567890test1234567890oAoGCCqGSM49AwEH
+oUQDQgAEtest1234567890test1234567890test1234567890test1234
+567890test1234567890test1234567890==
+-----END PRIVATE KEY-----`,
+    };
+    const mockRedirectUri = "https://spoonjoy.app/auth/apple/callback";
+
+    // Helper to generate unique Apple user IDs
+    function generateAppleUserId(): string {
+      return faker.string.alphanumeric(44);
+    }
+
+    describe("token verification", () => {
+      it("should return error for invalid authorization code", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "invalid-code",
+          state: "test-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_code");
+        expect(result.message).toContain("authorization code");
+      });
+
+      it("should return error when state is missing", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-code",
+          state: "",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_state");
+        expect(result.message).toContain("state");
+      });
+
+      it("should return error when code is missing", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "",
+          state: "test-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_code");
+        expect(result.message).toContain("code");
+      });
+
+      it("should extract user ID (sub) from valid ID token", async () => {
+        // This test will use mocked Arctic to verify token decoding
+        const mockAppleUserId = generateAppleUserId();
+        const mockEmail = faker.internet.email().toLowerCase();
+
+        // Mock the Arctic validateAuthorizationCode and decodeIdToken
+        vi.mock("arctic", () => ({
+          Apple: vi.fn().mockImplementation(() => ({
+            validateAuthorizationCode: vi.fn().mockResolvedValue({
+              idToken: () => "mock-id-token",
+            }),
+          })),
+          decodeIdToken: vi.fn().mockReturnValue({
+            sub: mockAppleUserId,
+            email: mockEmail,
+            email_verified: "true",
+          }),
+        }));
+
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.id).toBe(mockAppleUserId);
+      });
+
+      it("should extract email from ID token", async () => {
+        const mockAppleUserId = generateAppleUserId();
+        const mockEmail = faker.internet.email().toLowerCase();
+
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+        };
+
+        // Result should contain email from token
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.email).toBeDefined();
+      });
+
+      it("should handle Apple OAuth2RequestError", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "code-that-triggers-oauth-error",
+          state: "valid-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("oauth_error");
+      });
+
+      it("should handle network/fetch errors gracefully", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "code-that-triggers-network-error",
+          state: "valid-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("network_error");
+      });
+    });
+
+    describe("user data extraction", () => {
+      it("should extract name from user parameter on first sign-in", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          user: JSON.stringify({
+            name: {
+              firstName: "John",
+              lastName: "Doe",
+            },
+            email: "john.doe@example.com",
+          }),
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.firstName).toBe("John");
+        expect(result.appleUser?.lastName).toBe("Doe");
+      });
+
+      it("should handle missing name in user parameter", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          user: JSON.stringify({
+            email: "anonymous@example.com",
+          }),
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.firstName).toBeNull();
+        expect(result.appleUser?.lastName).toBeNull();
+      });
+
+      it("should handle no user parameter (returning user)", async () => {
+        // Apple only sends user info on first sign-in
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          // No user parameter
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.firstName).toBeNull();
+        expect(result.appleUser?.lastName).toBeNull();
+      });
+
+      it("should handle invalid JSON in user parameter", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          user: "not-valid-json{{{",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        // Should still succeed but without name data
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.firstName).toBeNull();
+        expect(result.appleUser?.lastName).toBeNull();
+      });
+
+      it("should handle private email (Hide My Email)", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+        };
+
+        // When is_private_email is true in the token, the email is a relay address
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        // The email should still be present (it's the relay email)
+        expect(result.appleUser?.email).toBeDefined();
+        // Should indicate if it's a private relay email
+        expect(result.appleUser).toHaveProperty("isPrivateEmail");
+      });
+
+      it("should handle email_verified as string true (Apple quirk)", async () => {
+        // Apple returns email_verified as "true" (string) not true (boolean)
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.emailVerified).toBe(true);
+      });
+
+      it("should construct full name from firstName and lastName", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          user: JSON.stringify({
+            name: {
+              firstName: "Jane",
+              lastName: "Smith",
+            },
+          }),
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.fullName).toBe("Jane Smith");
+      });
+
+      it("should handle firstName only", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          user: JSON.stringify({
+            name: {
+              firstName: "Jane",
+            },
+          }),
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.fullName).toBe("Jane");
+      });
+
+      it("should handle lastName only", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          user: JSON.stringify({
+            name: {
+              lastName: "Smith",
+            },
+          }),
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser?.fullName).toBe("Smith");
+      });
+    });
+
+    describe("result structure", () => {
+      it("should return AppleUser with all required fields on success", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          user: JSON.stringify({
+            name: {
+              firstName: "Test",
+              lastName: "User",
+            },
+            email: "test@example.com",
+          }),
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.appleUser).toEqual(
+          expect.objectContaining({
+            id: expect.any(String),
+            email: expect.any(String),
+            emailVerified: expect.any(Boolean),
+            isPrivateEmail: expect.any(Boolean),
+            firstName: expect.any(String),
+            lastName: expect.any(String),
+            fullName: expect.any(String),
+          })
+        );
+      });
+
+      it("should not include appleUser on error", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "",
+          state: "valid-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.appleUser).toBeUndefined();
+      });
     });
   });
 });
