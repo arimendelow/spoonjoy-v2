@@ -518,6 +518,111 @@ createAppleAuthorizationURL(config: AppleOAuthConfig, redirectUri: string, state
 
 **Result:** Added 3 edge case tests for URL encoding and state length validation. Implementation was complete from Units 5a/5b.
 
+### 2026-01-27 - Apple OAuth Callback Tests (Unit 6a)
+
+**Tests Written:** 44 failing tests for Apple OAuth callback handling (TDD)
+
+**Files Created/Modified:**
+- `test/lib/apple-oauth.server.test.ts` - Added 18 tests for `verifyAppleCallback`
+- `test/lib/apple-oauth-callback.server.test.ts` - New file with 26 tests for `handleAppleOAuthCallback`
+- `app/lib/apple-oauth.server.ts` - Added types and stub for `verifyAppleCallback`
+- `app/lib/apple-oauth-callback.server.ts` - New file with types and stub for `handleAppleOAuthCallback`
+
+**Architecture Decision: Two-Layer Callback Handling**
+
+Split callback handling into two functions:
+1. `verifyAppleCallback` - Low-level token verification (Arctic integration)
+2. `handleAppleOAuthCallback` - High-level orchestration (user/session management)
+
+This separation allows:
+- Testing Arctic integration separately from business logic
+- Reusing `verifyAppleCallback` if needed elsewhere
+- Clear responsibility boundaries
+
+**verifyAppleCallback Interface:**
+```typescript
+interface AppleCallbackData {
+  code: string;      // Authorization code from Apple
+  state: string;     // CSRF state
+  user?: string;     // User JSON (first sign-in only)
+}
+
+interface AppleUser {
+  id: string;              // Apple's sub claim
+  email: string;
+  emailVerified: boolean;
+  isPrivateEmail: boolean; // Hide My Email
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string | null;
+}
+
+interface AppleCallbackResult {
+  success: boolean;
+  appleUser?: AppleUser;
+  error?: string;
+  message?: string;
+}
+```
+
+**verifyAppleCallback Tests (18 tests):**
+1. Token verification errors (invalid code, missing state/code)
+2. User ID extraction from ID token
+3. Email extraction from ID token
+4. Error handling (OAuth2RequestError, network errors)
+5. Name parsing from user parameter (first sign-in)
+6. Missing name handling (returning user)
+7. Invalid JSON in user parameter
+8. Private email (is_private_email claim)
+9. email_verified as string "true" (Apple quirk)
+10. Full name construction from parts
+
+**handleAppleOAuthCallback Interface:**
+```typescript
+interface AppleOAuthCallbackParams {
+  db: PrismaClient;
+  appleUser: AppleUser;
+  currentUserId: string | null;  // null = not logged in
+  redirectTo: string | null;
+}
+
+type AppleOAuthCallbackAction = "user_created" | "user_logged_in" | "account_linked";
+
+interface AppleOAuthCallbackResult {
+  success: boolean;
+  userId?: string;
+  action?: AppleOAuthCallbackAction;
+  redirectTo: string;
+  error?: string;
+  message?: string;
+}
+```
+
+**handleAppleOAuthCallback Flow:**
+1. If `currentUserId` set → Link Apple to existing user (account_linked)
+2. If Apple ID exists in DB → Log in returning user (user_logged_in)
+3. If email exists in DB → Error (account_exists - must log in to link)
+4. Otherwise → Create new user (user_created)
+
+**handleAppleOAuthCallback Tests (26 tests):**
+- New user creation (5 tests): username generation, providerUsername handling
+- Returning user login (2 tests): existing user, subsequent logins without name
+- Account linking (4 tests): success, different email, account taken, already linked
+- Email collision (2 tests): not logged in, case-insensitive
+- Session creation (3 tests): userId in result for session
+- Redirect logic (6 tests): default redirects, custom redirectTo, error redirects
+- Action types (4 tests): user_created, user_logged_in, account_linked
+
+**Apple OAuth Quirks Handled:**
+1. `email_verified` returns as string "true" instead of boolean true
+2. `is_private_email` indicates Hide My Email relay address
+3. User name only sent on first sign-in (subsequent logins have null)
+4. User parameter is JSON string that may be malformed
+
+**Stub Implementations:** Both functions throw "Not implemented" for TDD.
+
+**Total New Tests:** 44 failing (18 + 26) - all existing 1329 tests still pass.
+
 ---
 
 ## For Future Tasks
