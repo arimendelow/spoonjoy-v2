@@ -311,6 +311,52 @@ linkOAuthAccount(db: PrismaClient, userId: string, oauthData: LinkOAuthData): Pr
 
 **Result:** No changes needed - implementation was complete from Units 3a/3b.
 
+### 2026-01-27 - OAuth Account Unlinking Tests (Unit 4a)
+
+**Tests Written:** 7 failing tests for `unlinkOAuthAccount` function in `test/lib/oauth-user.server.test.ts`
+
+**Function Signature Defined:**
+```typescript
+unlinkOAuthAccount(db: PrismaClient, userId: string, provider: string): Promise<UnlinkOAuthResult>
+```
+
+**New Interface:**
+```typescript
+interface UnlinkOAuthResult {
+  success: boolean;
+  unlinkedProvider?: {
+    provider: string;
+    providerUserId: string;
+    providerUsername: string;
+  };
+  error?: string;
+  message?: string;
+}
+```
+
+**unlinkOAuthAccount Behavior (from tests):**
+1. Deletes OAuth record linking provider to user
+2. Returns `{success: true, unlinkedProvider: {...}}` on success
+3. Returns `{success: false, error: "only_auth_method", message: "..."}` if provider is the only way to log in (no password AND no other OAuth providers)
+4. Returns `{success: false, error: "provider_not_linked", message: "..."}` if provider is not linked to user
+5. Returns `{success: false, error: "user_not_found", message: "..."}` if userId doesn't exist
+
+**Auth Method Check Logic:**
+- User can unlink if they have a password (hashedPassword is not null)
+- User can unlink if they have other OAuth providers (OAuth.count > 1)
+- User CANNOT unlink if: no password AND only one OAuth provider
+
+**Difference from linkOAuthAccount:**
+- `linkOAuthAccount` - Adds OAuth record to existing user
+- `unlinkOAuthAccount` - Removes OAuth record, with safety check for "last auth method"
+
+**Error Types Defined:**
+- `user_not_found` - User ID doesn't exist in database
+- `provider_not_linked` - Provider is not linked to this user
+- `only_auth_method` - Cannot unlink because it's the user's only way to log in
+
+**Total Tests:** 41 (was 34) - 7 new failing tests for TDD
+
 ---
 
 ## For Future Tasks
