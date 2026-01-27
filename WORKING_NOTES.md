@@ -946,6 +946,56 @@ interface GoogleOAuthCallbackResult {
 
 **All 1443 tests passing with no warnings.**
 
+### 2026-01-27 - Google OAuth Refactored to Use Arctic Properly (Unit 8b REDO)
+
+**Problem Identified:** The original Google OAuth implementation had a ~100 line custom SHA-256 implementation for PKCE code_challenge generation, instead of using Arctic library's built-in methods.
+
+**Refactoring Complete:**
+
+1. **Removed custom SHA-256 implementation** (~100 lines deleted)
+   - Removed `K` constants array (SHA-256 cube roots of primes)
+   - Removed `sha256()` function
+   - Removed `generateCodeChallenge()` function
+
+2. **Now using Arctic's built-in methods:**
+   - `generateCodeVerifier()` - Now wraps `arctic.generateCodeVerifier()`
+   - `createGoogleAuthorizationURL()` - Now uses `Google.createAuthorizationURL(state, codeVerifier, scopes)`
+   - Arctic handles PKCE code_challenge generation internally
+
+3. **Updated test mocks:**
+   - Tests now use `importOriginal` to get real Arctic implementations
+   - Only `validateAuthorizationCode` is mocked (for controlled testing)
+   - `generateCodeVerifier` and `createAuthorizationURL` use real Arctic code
+
+**Code Changes:**
+```typescript
+// Before: Custom implementation
+const K = [...]; // 64 SHA-256 constants
+function sha256(message: Uint8Array): Uint8Array { ... } // ~80 lines
+function generateCodeChallenge(codeVerifier: string): string { ... }
+export function generateCodeVerifier(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))...
+}
+
+// After: Using Arctic
+import { Google, generateCodeVerifier as arcticGenerateCodeVerifier } from "arctic";
+export function generateCodeVerifier(): string {
+  return arcticGenerateCodeVerifier();
+}
+export function createGoogleAuthorizationURL(...): URL {
+  const google = new Google(config.clientId, config.clientSecret, redirectUri);
+  return google.createAuthorizationURL(state, codeVerifier, scopes);
+}
+```
+
+**Result:**
+- ~120 lines of code removed
+- Simpler, more maintainable implementation
+- Consistent with how Apple OAuth uses Arctic
+- All 1443 tests pass with no warnings
+
 ---
 
 ## For Future Tasks
