@@ -32,6 +32,7 @@
     "@react-router/cloudflare": "^7.13.0",
     "@react-router/dev": "^7.13.0",
     "@react-router/node": "^7.13.0",
+    "arctic": "^3.7.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "isbot": "^5.1.33",
