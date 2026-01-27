@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
@@ -598,6 +598,29 @@ describe("Recipes $id Edit Route", () => {
       expect(status).toBe(400);
       expect(data.errors.title).toBe("Title is required");
     });
+
+    it("should return generic error for database errors", async () => {
+      // Mock db.recipe.update to throw a generic error
+      const originalUpdate = db.recipe.update;
+      db.recipe.update = vi.fn().mockRejectedValue(new Error("Database connection failed"));
+
+      try {
+        const request = await createFormRequest({ title: "Updated Title" }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(500);
+        expect(data.errors.general).toBe("Failed to update recipe. Please try again.");
+      } finally {
+        // Restore original function
+        db.recipe.update = originalUpdate;
+      }
+    });
   });
 
   describe("component", () => {
@@ -912,6 +935,35 @@ describe("Recipes $id Edit Route", () => {
       await screen.findByText("First step");
       const editLink = screen.getByRole("link", { name: "Edit" });
       expect(editLink).toHaveAttribute("href", "/recipes/recipe-1/steps/step-abc/edit");
+    });
+
+    it("should display general error message when present", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Test Recipe",
+          description: null,
+          servings: null,
+          imageUrl: "",
+          steps: [],
+        },
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id/edit",
+          Component: EditRecipe,
+          loader: () => mockData,
+          action: () => ({
+            errors: { general: "Failed to update recipe. Please try again." },
+          }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
+
+      // Wait for form to render
+      await screen.findByLabelText(/Recipe Title/);
     });
   });
 });
