@@ -1,3 +1,45 @@
+// Register tsconfig-paths to resolve TypeScript path aliases in require() calls
+import { register } from "tsconfig-paths";
+import { fileURLToPath } from "url";
+import path from "path";
+import Module from "module";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const baseUrl = path.resolve(__dirname, "..");
+
+// Use tsconfig-paths' matchPath to resolve aliases
+import { createMatchPath } from "tsconfig-paths";
+
+const matchPath = createMatchPath(baseUrl, {
+  "~/*": ["app/*"],
+  "@/*": ["app/components/*"],
+});
+
+import fs from "fs";
+
+// Patch Module._resolveFilename to handle aliases
+const originalResolveFilename = (Module as any)._resolveFilename;
+const extensions = [".ts", ".tsx", ".js", ".jsx", ".json"];
+
+(Module as any)._resolveFilename = function (request: string, parent: any, isMain: boolean, options: any) {
+  // Try to match the path using tsconfig-paths
+  const matched = matchPath(request, undefined, undefined, extensions);
+  if (matched) {
+    // matchPath returns path without extension, try to find the actual file
+    for (const ext of extensions) {
+      const fullPath = matched + ext;
+      if (fs.existsSync(fullPath)) {
+        return fullPath;
+      }
+    }
+    // If file exists without extension (e.g., index)
+    if (fs.existsSync(matched)) {
+      return matched;
+    }
+  }
+  return originalResolveFilename.call(this, request, parent, isMain, options);
+};
+
 import "@testing-library/jest-dom";
 import { vi, beforeAll } from "vitest";
 import { mockAnimationsApi } from "jsdom-testing-mocks";

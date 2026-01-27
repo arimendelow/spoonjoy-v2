@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "happy-dom",
     globals: true,
     setupFiles: ["./test/setup.ts"],
-    pool: "forks",
+    pool: "threads",
     maxWorkers: 1,
     fileParallelism: false,
     coverage: {
