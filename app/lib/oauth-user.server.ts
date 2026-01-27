@@ -310,5 +310,68 @@ export async function unlinkOAuthAccount(
   userId: string,
   provider: string
 ): Promise<UnlinkOAuthResult> {
-  throw new Error("Not implemented");
+  // Check if user exists
+  const user = await db.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    return {
+      success: false,
+      error: "user_not_found",
+      message: "User not found.",
+    };
+  }
+
+  // Check if this provider is linked to the user
+  const oauthRecord = await db.oAuth.findUnique({
+    where: {
+      userId_provider: {
+        userId,
+        provider,
+      },
+    },
+  });
+
+  if (!oauthRecord) {
+    return {
+      success: false,
+      error: "provider_not_linked",
+      message: `${provider} is not linked to your account.`,
+    };
+  }
+
+  // Check if this is the only auth method
+  const hasPassword = user.hashedPassword !== null;
+  const oauthCount = await db.oAuth.count({
+    where: { userId },
+  });
+
+  if (!hasPassword && oauthCount === 1) {
+    return {
+      success: false,
+      error: "only_auth_method",
+      message:
+        "Cannot unlink this provider because it is your only way to log in. Please add a password or another OAuth provider first.",
+    };
+  }
+
+  // Delete the OAuth record
+  await db.oAuth.delete({
+    where: {
+      userId_provider: {
+        userId,
+        provider,
+      },
+    },
+  });
+
+  return {
+    success: true,
+    unlinkedProvider: {
+      provider: oauthRecord.provider,
+      providerUserId: oauthRecord.providerUserId,
+      providerUsername: oauthRecord.providerUsername,
+    },
+  };
 }
