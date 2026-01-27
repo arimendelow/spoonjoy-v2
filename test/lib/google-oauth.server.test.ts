@@ -18,15 +18,12 @@ const { mockGoogleState } = vi.hoisted(() => {
 });
 
 // Mock arctic at module level using a class for Google
-vi.mock("arctic", () => {
-  // Mock Google class
-  class MockGoogle {
-    constructor(
-      _clientId: string,
-      _clientSecret: string,
-      _redirectUri: string
-    ) {}
+// Use importOriginal to get the real implementations for generateCodeVerifier and Google.createAuthorizationURL
+vi.mock("arctic", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("arctic")>();
 
+  // Mock Google class that extends the real Google but mocks validateAuthorizationCode
+  class MockGoogle extends actual.Google {
     async validateAuthorizationCode(
       code: string,
       codeVerifier: string
@@ -66,6 +63,7 @@ vi.mock("arctic", () => {
   }
 
   return {
+    ...actual,
     Google: MockGoogle,
     OAuth2RequestError: MockOAuth2RequestError,
   };
