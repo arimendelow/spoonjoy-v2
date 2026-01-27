@@ -743,6 +743,49 @@ createGoogleAuthorizationURL(config: GoogleOAuthConfig, redirectUri: string, sta
 
 **Total New Tests:** 18 failing (TDD) - all 1376 existing tests still pass.
 
+### 2026-01-27 - Google OAuth Initiation Implementation (Unit 7b)
+
+**Implementation Complete:** Both functions in `app/lib/google-oauth.server.ts` fully implemented.
+
+**generateCodeVerifier Implementation:**
+- Uses `crypto.getRandomValues()` with 32 bytes (256 bits of entropy)
+- Converts to base64url encoding (URL-safe: A-Z, a-z, 0-9, -, _)
+- Removes padding characters (=) for cleaner URLs
+- Produces 43-character output (within RFC 7636 range of 43-128)
+
+**createGoogleAuthorizationURL Implementation:**
+- Creates URL to `https://accounts.google.com/o/oauth2/v2/auth`
+- Sets required OAuth 2.0 parameters:
+  - `client_id` - Google app identifier from config
+  - `redirect_uri` - Callback URL for OAuth flow
+  - `state` - CSRF protection token
+  - `response_type=code` - Standard authorization code flow
+  - `scope=openid email profile` - OpenID Connect + user profile
+- Sets PKCE parameters:
+  - `code_challenge` - base64url(SHA-256(code_verifier))
+  - `code_challenge_method=S256` - Indicates SHA-256 was used
+
+**Key Implementation Decision: Pure JS SHA-256**
+
+The tests expect `createGoogleAuthorizationURL` to be synchronous, but Web Crypto API's `crypto.subtle.digest()` is async. Options considered:
+1. Make function async - Would break test expectations
+2. Use a library like `js-sha256` - Adds dependency
+3. Implement SHA-256 in pure JavaScript - No deps, synchronous
+
+Chose option 3: Implemented pure JS SHA-256 following FIPS 180-4 spec. The implementation:
+- Uses standard SHA-256 constants K (cube roots of first 64 primes)
+- Uses standard initial hash values H (square roots of first 8 primes)
+- Processes messages in 512-bit chunks with proper padding
+- Produces correct 256-bit (32-byte) digests
+
+This is similar to how Apple OAuth generates state synchronously using `crypto.getRandomValues()`.
+
+**Difference from Apple OAuth:**
+- Apple: No PKCE, uses `response_mode=form_post` (POST callback)
+- Google: Uses PKCE, standard GET redirect callback
+
+**All 1394 tests passing with no warnings.**
+
 ---
 
 ## For Future Tasks
