@@ -1,4 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
+import {
+  getGoogleOAuthConfig,
+  getAppleOAuthConfig,
+  validateOAuthEnv,
+} from '~/lib/env.server'
 
 /**
  * Tests for OAuth environment configuration validation.
@@ -19,8 +24,6 @@ describe('Environment Config Validation', () => {
         GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
       }
 
-      // This function doesn't exist yet - TDD
-      const { getGoogleOAuthConfig } = require('~/lib/env.server')
       const config = getGoogleOAuthConfig(env)
 
       expect(config).toEqual({
@@ -34,8 +37,6 @@ describe('Environment Config Validation', () => {
         GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
       }
 
-      const { getGoogleOAuthConfig } = require('~/lib/env.server')
-
       expect(() => getGoogleOAuthConfig(env)).toThrow(
         'Missing required environment variable: GOOGLE_CLIENT_ID'
       )
@@ -46,8 +47,6 @@ describe('Environment Config Validation', () => {
         GOOGLE_CLIENT_ID: 'test-google-client-id',
       }
 
-      const { getGoogleOAuthConfig } = require('~/lib/env.server')
-
       expect(() => getGoogleOAuthConfig(env)).toThrow(
         'Missing required environment variable: GOOGLE_CLIENT_SECRET'
       )
@@ -56,23 +55,30 @@ describe('Environment Config Validation', () => {
     it('throws error when both Google OAuth env vars are missing', () => {
       const env = {}
 
-      const { getGoogleOAuthConfig } = require('~/lib/env.server')
+      expect(() => getGoogleOAuthConfig(env)).toThrow(
+        'Missing required environment variable: GOOGLE_CLIENT_ID'
+      )
+    })
+
+    it('throws error when GOOGLE_CLIENT_ID is empty string', () => {
+      const env = {
+        GOOGLE_CLIENT_ID: '',
+        GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
+      }
 
       expect(() => getGoogleOAuthConfig(env)).toThrow(
         'Missing required environment variable: GOOGLE_CLIENT_ID'
       )
     })
 
-    it('throws error when env vars are empty strings', () => {
+    it('throws error when GOOGLE_CLIENT_SECRET is empty string', () => {
       const env = {
-        GOOGLE_CLIENT_ID: '',
-        GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
+        GOOGLE_CLIENT_ID: 'test-google-client-id',
+        GOOGLE_CLIENT_SECRET: '',
       }
 
-      const { getGoogleOAuthConfig } = require('~/lib/env.server')
-
       expect(() => getGoogleOAuthConfig(env)).toThrow(
-        'Missing required environment variable: GOOGLE_CLIENT_ID'
+        'Missing required environment variable: GOOGLE_CLIENT_SECRET'
       )
     })
   })
@@ -86,7 +92,6 @@ describe('Environment Config Validation', () => {
         APPLE_PRIVATE_KEY: 'test-apple-private-key',
       }
 
-      const { getAppleOAuthConfig } = require('~/lib/env.server')
       const config = getAppleOAuthConfig(env)
 
       expect(config).toEqual({
@@ -104,8 +109,6 @@ describe('Environment Config Validation', () => {
         APPLE_PRIVATE_KEY: 'test-apple-private-key',
       }
 
-      const { getAppleOAuthConfig } = require('~/lib/env.server')
-
       expect(() => getAppleOAuthConfig(env)).toThrow(
         'Missing required environment variable: APPLE_CLIENT_ID'
       )
@@ -117,8 +120,6 @@ describe('Environment Config Validation', () => {
         APPLE_KEY_ID: 'test-apple-key-id',
         APPLE_PRIVATE_KEY: 'test-apple-private-key',
       }
-
-      const { getAppleOAuthConfig } = require('~/lib/env.server')
 
       expect(() => getAppleOAuthConfig(env)).toThrow(
         'Missing required environment variable: APPLE_TEAM_ID'
@@ -132,8 +133,6 @@ describe('Environment Config Validation', () => {
         APPLE_PRIVATE_KEY: 'test-apple-private-key',
       }
 
-      const { getAppleOAuthConfig } = require('~/lib/env.server')
-
       expect(() => getAppleOAuthConfig(env)).toThrow(
         'Missing required environment variable: APPLE_KEY_ID'
       )
@@ -146,8 +145,6 @@ describe('Environment Config Validation', () => {
         APPLE_KEY_ID: 'test-apple-key-id',
       }
 
-      const { getAppleOAuthConfig } = require('~/lib/env.server')
-
       expect(() => getAppleOAuthConfig(env)).toThrow(
         'Missing required environment variable: APPLE_PRIVATE_KEY'
       )
@@ -156,14 +153,25 @@ describe('Environment Config Validation', () => {
     it('throws error when all Apple OAuth env vars are missing', () => {
       const env = {}
 
-      const { getAppleOAuthConfig } = require('~/lib/env.server')
+      expect(() => getAppleOAuthConfig(env)).toThrow(
+        'Missing required environment variable: APPLE_CLIENT_ID'
+      )
+    })
+
+    it('throws error when APPLE_CLIENT_ID is empty string', () => {
+      const env = {
+        APPLE_CLIENT_ID: '',
+        APPLE_TEAM_ID: 'test-apple-team-id',
+        APPLE_KEY_ID: 'test-apple-key-id',
+        APPLE_PRIVATE_KEY: 'test-apple-private-key',
+      }
 
       expect(() => getAppleOAuthConfig(env)).toThrow(
         'Missing required environment variable: APPLE_CLIENT_ID'
       )
     })
 
-    it('throws error when env vars are empty strings', () => {
+    it('throws error when APPLE_TEAM_ID is empty string', () => {
       const env = {
         APPLE_CLIENT_ID: 'test-apple-client-id',
         APPLE_TEAM_ID: '',
@@ -171,10 +179,34 @@ describe('Environment Config Validation', () => {
         APPLE_PRIVATE_KEY: 'test-apple-private-key',
       }
 
-      const { getAppleOAuthConfig } = require('~/lib/env.server')
-
       expect(() => getAppleOAuthConfig(env)).toThrow(
         'Missing required environment variable: APPLE_TEAM_ID'
+      )
+    })
+
+    it('throws error when APPLE_KEY_ID is empty string', () => {
+      const env = {
+        APPLE_CLIENT_ID: 'test-apple-client-id',
+        APPLE_TEAM_ID: 'test-apple-team-id',
+        APPLE_KEY_ID: '',
+        APPLE_PRIVATE_KEY: 'test-apple-private-key',
+      }
+
+      expect(() => getAppleOAuthConfig(env)).toThrow(
+        'Missing required environment variable: APPLE_KEY_ID'
+      )
+    })
+
+    it('throws error when APPLE_PRIVATE_KEY is empty string', () => {
+      const env = {
+        APPLE_CLIENT_ID: 'test-apple-client-id',
+        APPLE_TEAM_ID: 'test-apple-team-id',
+        APPLE_KEY_ID: 'test-apple-key-id',
+        APPLE_PRIVATE_KEY: '',
+      }
+
+      expect(() => getAppleOAuthConfig(env)).toThrow(
+        'Missing required environment variable: APPLE_PRIVATE_KEY'
       )
     })
   })
@@ -190,8 +222,6 @@ describe('Environment Config Validation', () => {
         APPLE_PRIVATE_KEY: 'test-apple-private-key',
       }
 
-      const { validateOAuthEnv } = require('~/lib/env.server')
-
       expect(validateOAuthEnv(env)).toBe(true)
     })
 
@@ -201,8 +231,6 @@ describe('Environment Config Validation', () => {
         APPLE_CLIENT_ID: 'test-apple-client-id',
       }
 
-      const { validateOAuthEnv } = require('~/lib/env.server')
-
       expect(() => validateOAuthEnv(env)).toThrow(
         /Missing required environment variables:.*GOOGLE_CLIENT_SECRET.*APPLE_TEAM_ID.*APPLE_KEY_ID.*APPLE_PRIVATE_KEY/
       )
@@ -211,10 +239,23 @@ describe('Environment Config Validation', () => {
     it('throws error when all OAuth env vars are missing', () => {
       const env = {}
 
-      const { validateOAuthEnv } = require('~/lib/env.server')
-
       expect(() => validateOAuthEnv(env)).toThrow(
         /Missing required environment variables:/
+      )
+    })
+
+    it('treats empty strings as missing', () => {
+      const env = {
+        GOOGLE_CLIENT_ID: 'test-google-client-id',
+        GOOGLE_CLIENT_SECRET: '',
+        APPLE_CLIENT_ID: 'test-apple-client-id',
+        APPLE_TEAM_ID: 'test-apple-team-id',
+        APPLE_KEY_ID: '',
+        APPLE_PRIVATE_KEY: 'test-apple-private-key',
+      }
+
+      expect(() => validateOAuthEnv(env)).toThrow(
+        /Missing required environment variables:.*GOOGLE_CLIENT_SECRET.*APPLE_KEY_ID/
       )
     })
   })

@@ -107,7 +107,23 @@ Added `tsconfig-paths` and custom Module._resolveFilename patch in `test/setup.t
 - Vitest's ESM mode doesn't apply path aliases to runtime `require()` calls
 - Standard tsconfig-paths `register()` didn't work with Vitest's module resolution
 
-**Note:** Coverage reporting shows 0% for env.server.ts because Istanbul doesn't track code loaded via custom require resolution. The tests definitely run and validate the code (15 passing tests).
+### 2026-01-27 - Environment Config Work Check (Unit 1c)
+
+**Changes Made:**
+
+1. **Fixed coverage reporting** - Converted tests from dynamic `require()` to static ESM imports. The original TDD approach used `require()` so tests could load before the module existed, but this bypassed Istanbul's instrumentation, showing 0% coverage. Now properly reports 100% coverage.
+
+2. **Added missing edge cases** - The original 15 tests had gaps in empty string coverage:
+   - Added test for `GOOGLE_CLIENT_SECRET` as empty string
+   - Added tests for each Apple env var as empty string (`APPLE_CLIENT_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`)
+   - Added test for `validateOAuthEnv` treating empty strings as missing
+   - Total: 20 tests (was 15)
+
+**Coverage Result:** 100% statements, branches, functions, and lines on env.server.ts
+
+**Implementation Review:** Complete and correct for Arctic library requirements:
+- Google: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET ✓
+- Apple: APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY ✓
 
 ---
 
