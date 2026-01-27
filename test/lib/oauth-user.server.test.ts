@@ -9,6 +9,7 @@ import {
   createOAuthUser,
   generateUsername,
   findExistingOAuthAccount,
+  linkOAuthAccount,
 } from "~/lib/oauth-user.server";
 
 describe("oauth-user.server", () => {
@@ -411,6 +412,188 @@ describe("oauth-user.server", () => {
         faker.string.uuid()
       );
       expect(result).toBeNull();
+    });
+  });
+
+  describe("linkOAuthAccount", () => {
+    it("should link a new OAuth provider to an existing user", async () => {
+      // Create a regular user (no OAuth)
+      const testUser = createTestUser();
+      const user = await db.user.create({
+        data: testUser,
+      });
+
+      const oauthData = {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Google User",
+      };
+
+      const result = await linkOAuthAccount(db, user.id, oauthData);
+
+      expect(result.success).toBe(true);
+      expect(result.oauthRecord).toBeDefined();
+      expect(result.oauthRecord?.provider).toBe("google");
+      expect(result.oauthRecord?.providerUserId).toBe(oauthData.providerUserId);
+      expect(result.oauthRecord?.providerUsername).toBe("Google User");
+
+      // Verify OAuth record was created in database
+      const oauthRecord = await db.oAuth.findFirst({
+        where: {
+          userId: user.id,
+          provider: "google",
+        },
+      });
+      expect(oauthRecord).toBeDefined();
+      expect(oauthRecord?.providerUserId).toBe(oauthData.providerUserId);
+    });
+
+    it("should link Apple provider to existing user with Google", async () => {
+      // Create a user with Google OAuth
+      const googleOAuthData = {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Google User",
+        email: faker.internet.email().toLowerCase(),
+        name: "Test User",
+      };
+      const googleResult = await createOAuthUser(db, googleOAuthData);
+      expect(googleResult.success).toBe(true);
+
+      // Now link Apple
+      const appleOAuthData = {
+        provider: "apple",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Apple User",
+      };
+
+      const result = await linkOAuthAccount(
+        db,
+        googleResult.user!.id,
+        appleOAuthData
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.oauthRecord?.provider).toBe("apple");
+
+      // Verify user now has both providers
+      const oauthRecords = await db.oAuth.findMany({
+        where: { userId: googleResult.user!.id },
+      });
+      expect(oauthRecords).toHaveLength(2);
+      expect(oauthRecords.map((r) => r.provider).sort()).toEqual([
+        "apple",
+        "google",
+      ]);
+    });
+
+    it("should return error when same provider already linked to this user", async () => {
+      // Create a user with Google OAuth
+      const oauthData = {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Google User",
+        email: faker.internet.email().toLowerCase(),
+        name: "Test User",
+      };
+      const createResult = await createOAuthUser(db, oauthData);
+      expect(createResult.success).toBe(true);
+
+      // Try to link another Google account to the same user
+      const anotherGoogleData = {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Another Google User",
+      };
+
+      const result = await linkOAuthAccount(
+        db,
+        createResult.user!.id,
+        anotherGoogleData
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("provider_already_linked");
+      expect(result.message).toContain("already linked");
+      expect(result.oauthRecord).toBeUndefined();
+    });
+
+    it("should return error when provider account already linked to different user", async () => {
+      // Create first user with Google OAuth
+      const firstUserOAuthData = {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "First User Google",
+        email: faker.internet.email().toLowerCase(),
+        name: "First User",
+      };
+      await createOAuthUser(db, firstUserOAuthData);
+
+      // Create second user without OAuth
+      const secondUser = await db.user.create({
+        data: createTestUser(),
+      });
+
+      // Try to link the same Google provider account to second user
+      const result = await linkOAuthAccount(db, secondUser.id, {
+        provider: "google",
+        providerUserId: firstUserOAuthData.providerUserId,
+        providerUsername: "First User Google",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("provider_account_taken");
+      expect(result.message).toContain("different account");
+      expect(result.oauthRecord).toBeUndefined();
+    });
+
+    it("should return error when user does not exist", async () => {
+      const nonExistentUserId = faker.string.uuid();
+
+      const result = await linkOAuthAccount(db, nonExistentUserId, {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Google User",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("user_not_found");
+      expect(result.message).toContain("not found");
+      expect(result.oauthRecord).toBeUndefined();
+    });
+
+    it("should store provider username correctly", async () => {
+      const testUser = createTestUser();
+      const user = await db.user.create({
+        data: testUser,
+      });
+
+      const providerUsername = "my_google_display_name";
+      const result = await linkOAuthAccount(db, user.id, {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.oauthRecord?.providerUsername).toBe(providerUsername);
+    });
+
+    it("should handle special characters in provider username", async () => {
+      const testUser = createTestUser();
+      const user = await db.user.create({
+        data: testUser,
+      });
+
+      const providerUsername = "Héllo Wörld! 🌍";
+      const result = await linkOAuthAccount(db, user.id, {
+        provider: "apple",
+        providerUserId: faker.string.uuid(),
+        providerUsername,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.oauthRecord?.providerUsername).toBe(providerUsername);
     });
   });
 });

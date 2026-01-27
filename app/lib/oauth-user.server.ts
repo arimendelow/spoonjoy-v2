@@ -28,6 +28,23 @@ export interface ExistingOAuthAccount {
   providerUsername: string;
 }
 
+export interface LinkOAuthData {
+  provider: string;
+  providerUserId: string;
+  providerUsername: string;
+}
+
+export interface LinkOAuthResult {
+  success: boolean;
+  oauthRecord?: {
+    provider: string;
+    providerUserId: string;
+    providerUsername: string;
+  };
+  error?: string;
+  message?: string;
+}
+
 /**
  * Generate a username from a name or email address.
  * Handles collisions by appending numbers.
@@ -193,4 +210,16 @@ export async function findExistingOAuthAccount(
     providerUserId: oauthRecord.providerUserId,
     providerUsername: oauthRecord.providerUsername,
   };
+}
+
+/**
+ * Link an OAuth provider to an existing logged-in user.
+ * Use this when a user wants to add another OAuth provider to their account.
+ */
+export async function linkOAuthAccount(
+  _db: PrismaClient,
+  _userId: string,
+  _oauthData: LinkOAuthData
+): Promise<LinkOAuthResult> {
+  throw new Error("Not implemented");
 }
