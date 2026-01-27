@@ -4,6 +4,21 @@ import * as Headless from '@headlessui/react'
 import clsx from 'clsx'
 import { useState } from 'react'
 
+// Exported for testing - renders an option through the children callback
+export function renderOption<T>(
+  children: (value: NonNullable<T>) => React.ReactElement,
+  option: T
+): React.ReactElement {
+  return children(option as NonNullable<T>)
+}
+
+// Creates a virtual option renderer for HeadlessUI ComboboxOptions
+export function createVirtualOptionRenderer<T>(
+  children: (value: NonNullable<T>) => React.ReactElement
+) {
+  return ({ option }: { option: T }) => renderOption(children, option)
+}
+
 export function Combobox<T>({
   options,
   displayValue,
@@ -33,6 +48,9 @@ export function Combobox<T>({
       : options.filter((option) =>
           filter ? filter(option, query) : displayValue(option)?.toLowerCase().includes(query.toLowerCase())
         )
+
+  // Create the virtual option renderer
+  const renderVirtualOption = createVirtualOptionRenderer(children)
 
   return (
     <Headless.Combobox {...props} multiple={false} virtual={{ options: filteredOptions }} onClose={() => setQuery('')}>
@@ -115,7 +133,7 @@ export function Combobox<T>({
           'transition-opacity duration-100 ease-in data-closed:data-leave:opacity-0 data-transition:pointer-events-none'
         )}
       >
-        {({ option }) => children(option)}
+        {renderVirtualOption}
       </Headless.ComboboxOptions>
     </Headless.Combobox>
   )
