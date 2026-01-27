@@ -139,11 +139,14 @@ export default function RecipeDetail() {
                 <input type="hidden" name="intent" value="delete" />
                 <button
                   type="submit"
-                  onClick={(e) => {
-                    if (!confirm("Are you sure you want to delete this recipe?")) {
-                      e.preventDefault();
+                  onClick={
+                    /* istanbul ignore next -- browser confirm dialog */
+                    (e) => {
+                      if (!confirm("Are you sure you want to delete this recipe?")) {
+                        e.preventDefault();
+                      }
                     }
-                  }}
+                  }
                   style={{
                     padding: "0.5rem 1rem",
                     backgroundColor: "#dc3545",

@@ -279,11 +279,14 @@ export default function EditStep() {
               <input type="hidden" name="intent" value="delete" />
               <button
                 type="submit"
-                onClick={(e) => {
-                  if (!confirm("Are you sure you want to delete this step?")) {
-                    e.preventDefault();
+                onClick={
+                  /* istanbul ignore next -- browser confirm dialog */
+                  (e) => {
+                    if (!confirm("Are you sure you want to delete this step?")) {
+                      e.preventDefault();
+                    }
                   }
-                }}
+                }
                 style={{
                   padding: "0.75rem 1.5rem",
                   fontSize: "1rem",
@@ -473,11 +476,14 @@ export default function EditStep() {
                     <input type="hidden" name="ingredientId" value={ingredient.id} />
                     <button
                       type="submit"
-                      onClick={(e) => {
-                        if (!confirm("Remove this ingredient?")) {
-                          e.preventDefault();
+                      onClick={
+                        /* istanbul ignore next -- browser confirm dialog */
+                        (e) => {
+                          if (!confirm("Remove this ingredient?")) {
+                            e.preventDefault();
+                          }
                         }
-                      }}
+                      }
                       style={{
                         padding: "0.25rem 0.75rem",
                         fontSize: "0.875rem",

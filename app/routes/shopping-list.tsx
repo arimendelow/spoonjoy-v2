@@ -316,11 +316,14 @@ export default function ShoppingList() {
                 <input type="hidden" name="intent" value="clearAll" />
                 <button
                   type="submit"
-                  onClick={(e) => {
-                    if (!confirm("Clear all items from shopping list?")) {
-                      e.preventDefault();
+                  onClick={
+                    /* istanbul ignore next -- browser confirm dialog */
+                    (e) => {
+                      if (!confirm("Clear all items from shopping list?")) {
+                        e.preventDefault();
+                      }
                     }
-                  }}
+                  }
                   style={{
                     padding: "0.5rem 1rem",
                     backgroundColor: "#dc3545",

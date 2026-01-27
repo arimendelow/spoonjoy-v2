@@ -262,11 +262,14 @@ export default function CookbookDetail() {
               <input type="hidden" name="intent" value="delete" />
               <button
                 type="submit"
-                onClick={(e) => {
-                  if (!confirm("Are you sure you want to delete this cookbook?")) {
-                    e.preventDefault();
+                onClick={
+                  /* istanbul ignore next -- browser confirm dialog */
+                  (e) => {
+                    if (!confirm("Are you sure you want to delete this cookbook?")) {
+                      e.preventDefault();
+                    }
                   }
-                }}
+                }
                 style={{
                   padding: "0.5rem 1rem",
                   backgroundColor: "#dc3545",
@@ -409,11 +412,14 @@ export default function CookbookDetail() {
                       <input type="hidden" name="recipeInCookbookId" value={item.id} />
                       <button
                         type="submit"
-                        onClick={(e) => {
-                          if (!confirm("Remove this recipe from the cookbook?")) {
-                            e.preventDefault();
+                        onClick={
+                          /* istanbul ignore next -- browser confirm dialog */
+                          (e) => {
+                            if (!confirm("Remove this recipe from the cookbook?")) {
+                              e.preventDefault();
+                            }
                           }
-                        }}
+                        }
                         style={{
                           width: "100%",
                           padding: "0.5rem",
