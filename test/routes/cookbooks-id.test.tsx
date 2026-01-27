@@ -237,6 +237,33 @@ describe("Cookbooks $id Route", () => {
       expect(data.error).toBe("Title is required");
     });
 
+    it("should return error when updating to duplicate title", async () => {
+      // Create another cookbook with a known title
+      const existingTitle = "Existing Cookbook " + faker.string.alphanumeric(6);
+      await db.cookbook.create({
+        data: {
+          title: existingTitle,
+          authorId: testUserId,
+        },
+      });
+
+      // Try to update the test cookbook to have the same title
+      const request = await createFormRequest(
+        { intent: "updateTitle", title: existingTitle },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: cookbookId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.error).toBe("You already have a cookbook with this title");
+    });
+
     it("should delete cookbook and redirect", async () => {
       const request = await createFormRequest({ intent: "delete" }, testUserId);
 
