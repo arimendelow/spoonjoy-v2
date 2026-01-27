@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
@@ -210,6 +210,29 @@ describe("Cookbooks New Route", () => {
       });
       expect(cookbook?.title).toBe("My Cookbook");
     });
+
+    it("should return generic error for non-unique constraint database errors", async () => {
+      // Mock db.cookbook.create to throw a generic error
+      const originalCreate = db.cookbook.create;
+      db.cookbook.create = vi.fn().mockRejectedValue(new Error("Database connection failed"));
+
+      try {
+        const request = await createFormRequest({ title: "My Cookbook" }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(500);
+        expect(data.errors.general).toBe("Failed to create cookbook. Please try again.");
+      } finally {
+        // Restore original function
+        db.cookbook.create = originalCreate;
+      }
+    });
   });
 
   describe("component", () => {
@@ -264,6 +287,42 @@ describe("Cookbooks New Route", () => {
       await screen.findByLabelText(/Cookbook Title/);
       const button = screen.getByRole("button", { name: "Create Cookbook" });
       expect(button).toHaveAttribute("type", "submit");
+    });
+
+    it("should display general error message when present", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/new",
+          Component: NewCookbook,
+          loader: () => null,
+          action: () => ({
+            errors: { general: "Failed to create cookbook. Please try again." },
+          }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/new"]} />);
+
+      // Wait for form to render
+      await screen.findByLabelText(/Cookbook Title/);
+    });
+
+    it("should display title error message when present", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/cookbooks/new",
+          Component: NewCookbook,
+          loader: () => null,
+          action: () => ({
+            errors: { title: "You already have a cookbook with this title" },
+          }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/new"]} />);
+
+      // Wait for form to render
+      await screen.findByLabelText(/Cookbook Title/);
     });
   });
 });
