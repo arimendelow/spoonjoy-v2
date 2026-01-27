@@ -258,5 +258,22 @@ describe("google-oauth.server", () => {
         url2.searchParams.get("code_challenge")
       );
     });
+
+    it("should generate correct code_challenge per RFC 7636 test vector", () => {
+      const state = "test-state";
+      // RFC 7636 Appendix B test vector
+      const codeVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+      // Expected code_challenge from RFC 7636 Appendix B
+      const expectedCodeChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+
+      const url = createGoogleAuthorizationURL(
+        mockConfig,
+        mockRedirectUri,
+        state,
+        codeVerifier
+      );
+
+      expect(url.searchParams.get("code_challenge")).toBe(expectedCodeChallenge);
+    });
   });
 });
