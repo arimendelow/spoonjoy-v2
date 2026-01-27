@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
@@ -436,6 +436,60 @@ describe("Cookbooks $id Route", () => {
       const { data, status } = extractResponseData(response);
       expect(status).toBe(400);
       expect(data.error).toBe("Title is required");
+    });
+
+    it("should re-throw non-P2002 errors when updating title", async () => {
+      // Mock db.cookbook.update to throw a non-P2002 error
+      const originalUpdate = db.cookbook.update;
+      db.cookbook.update = vi.fn().mockRejectedValue({ code: "OTHER_ERROR", message: "Database error" });
+
+      try {
+        const request = await createFormRequest(
+          { intent: "updateTitle", title: "New Title" },
+          testUserId
+        );
+
+        await expect(
+          action({
+            request,
+            context: { cloudflare: { env: null } },
+            params: { id: cookbookId },
+          } as any)
+        ).rejects.toMatchObject({ code: "OTHER_ERROR" });
+      } finally {
+        db.cookbook.update = originalUpdate;
+      }
+    });
+
+    it("should re-throw non-P2002 errors when adding recipe", async () => {
+      // Create a recipe to add
+      const recipe = await db.recipe.create({
+        data: {
+          title: "Test Recipe " + faker.string.alphanumeric(6),
+          chefId: testUserId,
+        },
+      });
+
+      // Mock db.recipeInCookbook.create to throw a non-P2002 error
+      const originalCreate = db.recipeInCookbook.create;
+      db.recipeInCookbook.create = vi.fn().mockRejectedValue({ code: "OTHER_ERROR", message: "Database error" });
+
+      try {
+        const request = await createFormRequest(
+          { intent: "addRecipe", recipeId: recipe.id },
+          testUserId
+        );
+
+        await expect(
+          action({
+            request,
+            context: { cloudflare: { env: null } },
+            params: { id: cookbookId },
+          } as any)
+        ).rejects.toMatchObject({ code: "OTHER_ERROR" });
+      } finally {
+        db.recipeInCookbook.create = originalCreate;
+      }
     });
   });
 
