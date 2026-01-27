@@ -9,10 +9,16 @@ import type { AppleOAuthConfig } from "./env.server";
 
 /**
  * Generates a cryptographically random state string for CSRF protection.
- * Returns a URL-safe string.
+ * Returns a URL-safe string (alphanumeric, underscore, hyphen only).
  */
 export function generateOAuthState(): string {
-  throw new Error("Not implemented");
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  // Convert to base64url (URL-safe: A-Z, a-z, 0-9, -, _)
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
 }
 
 /**
@@ -31,5 +37,14 @@ export function createAppleAuthorizationURL(
   redirectUri: string,
   state: string
 ): URL {
-  throw new Error("Not implemented");
+  const url = new URL("https://appleid.apple.com/auth/authorize");
+
+  url.searchParams.set("client_id", config.clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("state", state);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("response_mode", "form_post");
+  url.searchParams.set("scope", "email name");
+
+  return url;
 }
