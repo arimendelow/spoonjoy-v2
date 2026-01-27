@@ -45,6 +45,17 @@ export interface LinkOAuthResult {
   message?: string;
 }
 
+export interface UnlinkOAuthResult {
+  success: boolean;
+  unlinkedProvider?: {
+    provider: string;
+    providerUserId: string;
+    providerUsername: string;
+  };
+  error?: string;
+  message?: string;
+}
+
 /**
  * Generate a username from a name or email address.
  * Handles collisions by appending numbers.
@@ -288,4 +299,16 @@ export async function linkOAuthAccount(
       providerUsername: oauthRecord.providerUsername,
     },
   };
+}
+
+/**
+ * Unlink an OAuth provider from an existing user.
+ * Prevents unlinking if it's the user's only authentication method.
+ */
+export async function unlinkOAuthAccount(
+  db: PrismaClient,
+  userId: string,
+  provider: string
+): Promise<UnlinkOAuthResult> {
+  throw new Error("Not implemented");
 }
