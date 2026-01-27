@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id.steps.new";
@@ -383,6 +383,29 @@ describe("Recipes $id Steps New Route", () => {
       expect(steps[0].stepNum).toBe(1);
       expect(steps[1].stepNum).toBe(2);
       expect(steps[1].description).toBe("New step");
+    });
+
+    it("should return generic error for database errors", async () => {
+      // Mock db.recipeStep.create to throw a generic error
+      const originalCreate = db.recipeStep.create;
+      db.recipeStep.create = vi.fn().mockRejectedValue(new Error("Database connection failed"));
+
+      try {
+        const request = await createFormRequest({ description: "Test step" }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(500);
+        expect(data.errors.general).toBe("Failed to create step. Please try again.");
+      } finally {
+        // Restore original function
+        db.recipeStep.create = originalCreate;
+      }
     });
   });
 });
