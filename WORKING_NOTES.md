@@ -91,6 +91,24 @@ Apple requires `response_mode=form_post` which sends a POST callback instead of 
 
 **Tests:** 15 failing tests written in `test/lib/env.server.test.ts` (TDD)
 
+### 2026-01-27 - Environment Config Implementation
+
+**Implementation Details:**
+
+Created `app/lib/env.server.ts` with:
+- `getGoogleOAuthConfig(env)` - Validates GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+- `getAppleOAuthConfig(env)` - Validates APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY
+- `validateOAuthEnv(env)` - Validates all OAuth vars at once, reports all missing in single error
+
+**Test Infrastructure Change:**
+
+Added `tsconfig-paths` and custom Module._resolveFilename patch in `test/setup.ts` to enable `require('~/lib/env.server')` in tests. This was needed because:
+- Tests use dynamic `require()` for TDD purposes (allows tests to load even when module doesn't exist)
+- Vitest's ESM mode doesn't apply path aliases to runtime `require()` calls
+- Standard tsconfig-paths `register()` didn't work with Vitest's module resolution
+
+**Note:** Coverage reporting shows 0% for env.server.ts because Istanbul doesn't track code loaded via custom require resolution. The tests definitely run and validate the code (15 passing tests).
+
 ---
 
 ## For Future Tasks
