@@ -282,6 +282,35 @@ linkOAuthAccount(db: PrismaClient, userId: string, oauthData: LinkOAuthData): Pr
 
 **All 34 tests passing with no warnings.**
 
+### 2026-01-27 - OAuth Account Linking Work Check (Unit 3c)
+
+**Verification Complete:** All acceptance criteria from Units 3a/3b verified.
+
+**Test Coverage:**
+- 34 tests for oauth-user.server.ts (all passing)
+- 100% statement, branch, function, and line coverage
+- No warnings
+
+**Functions Verified:**
+1. `generateUsername` (13 tests) - username derivation, collision handling, special chars
+2. `createOAuthUser` (12 tests) - user creation, email validation, collision errors
+3. `findExistingOAuthAccount` (4 tests) - lookup for returning users
+4. `linkOAuthAccount` (8 tests) - account linking with all error cases
+
+**linkOAuthAccount Edge Cases Verified:**
+- ✅ Success: link new provider to existing user
+- ✅ Success: link Apple to user with existing Google (multiple providers)
+- ✅ Error: `user_not_found` - user ID doesn't exist
+- ✅ Error: `provider_already_linked` - user already has this provider linked
+- ✅ Error: `provider_account_taken` - OAuth account linked to different user
+- ✅ Stores providerUsername correctly (including special chars/emoji)
+
+**Database Constraints Used:**
+- `@@unique([provider, providerUserId])` - one record per OAuth account
+- `@@unique([userId, provider])` - one record per user per provider
+
+**Result:** No changes needed - implementation was complete from Units 3a/3b.
+
 ---
 
 ## For Future Tasks
