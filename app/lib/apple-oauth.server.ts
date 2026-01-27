@@ -5,6 +5,7 @@
  * Uses Arctic library for OAuth flows.
  */
 
+import { Apple, decodeIdToken, OAuth2RequestError } from "arctic";
 import type { AppleOAuthConfig } from "./env.server";
 
 /**
@@ -92,6 +93,27 @@ export function createAppleAuthorizationURL(
 }
 
 /**
+ * Interface for Apple's ID token claims.
+ */
+interface AppleIdTokenClaims {
+  sub: string;
+  email: string;
+  email_verified: string | boolean;
+  is_private_email?: string | boolean;
+}
+
+/**
+ * Interface for user data from Apple's user parameter (first sign-in only).
+ */
+interface AppleUserParameter {
+  name?: {
+    firstName?: string;
+    lastName?: string;
+  };
+  email?: string;
+}
+
+/**
  * Verifies Apple OAuth callback and extracts user data.
  *
  * @param config - Apple OAuth configuration (from env.server.ts)
@@ -107,6 +129,122 @@ export async function verifyAppleCallback(
   redirectUri: string,
   callbackData: AppleCallbackData
 ): Promise<AppleCallbackResult> {
-  // Stub implementation - throws for TDD
-  throw new Error("Not implemented");
+  // Validate state
+  if (!callbackData.state) {
+    return {
+      success: false,
+      error: "invalid_state",
+      message: "Missing state parameter",
+    };
+  }
+
+  // Validate code
+  if (!callbackData.code) {
+    return {
+      success: false,
+      error: "invalid_code",
+      message: "Missing authorization code",
+    };
+  }
+
+  // Parse user parameter (only provided on first sign-in)
+  let userParam: AppleUserParameter | null = null;
+  if (callbackData.user) {
+    try {
+      userParam = JSON.parse(callbackData.user) as AppleUserParameter;
+    } catch {
+      // Invalid JSON in user parameter - continue without name info
+      userParam = null;
+    }
+  }
+
+  try {
+    // Create Arctic Apple client
+    const apple = new Apple(
+      config.clientId,
+      config.teamId,
+      config.keyId,
+      config.privateKey
+    );
+
+    // Exchange authorization code for tokens
+    const tokens = await apple.validateAuthorizationCode(
+      callbackData.code,
+      redirectUri
+    );
+
+    // Decode the ID token to get user claims
+    const idToken = tokens.idToken();
+    const claims = decodeIdToken(idToken) as AppleIdTokenClaims;
+
+    // Extract name from user parameter (first sign-in only)
+    const firstName = userParam?.name?.firstName ?? null;
+    const lastName = userParam?.name?.lastName ?? null;
+
+    // Construct full name
+    let fullName: string | null = null;
+    if (firstName && lastName) {
+      fullName = `${firstName} ${lastName}`;
+    } else if (firstName) {
+      fullName = firstName;
+    } else if (lastName) {
+      fullName = lastName;
+    }
+
+    // Handle Apple quirk: email_verified can be string "true" instead of boolean
+    const emailVerified =
+      claims.email_verified === true || claims.email_verified === "true";
+
+    // Handle private email (Hide My Email)
+    const isPrivateEmail =
+      claims.is_private_email === true || claims.is_private_email === "true";
+
+    const appleUser: AppleUser = {
+      id: claims.sub,
+      email: claims.email,
+      emailVerified,
+      isPrivateEmail,
+      firstName,
+      lastName,
+      fullName,
+    };
+
+    return {
+      success: true,
+      appleUser,
+    };
+  } catch (error) {
+    // Handle OAuth2RequestError from Arctic (check name for mock compatibility)
+    if (
+      error instanceof OAuth2RequestError ||
+      (error instanceof Error && error.name === "OAuth2RequestError")
+    ) {
+      return {
+        success: false,
+        error: "oauth_error",
+        message: error.message || "OAuth error occurred",
+      };
+    }
+
+    // Handle network/fetch errors
+    if (
+      error instanceof Error &&
+      (error.message.includes("fetch") ||
+        error.message.includes("network") ||
+        error.name === "TypeError")
+    ) {
+      return {
+        success: false,
+        error: "network_error",
+        message: "Network error occurred while validating authorization code",
+      };
+    }
+
+    // For invalid authorization code errors, return invalid_code
+    return {
+      success: false,
+      error: "invalid_code",
+      message: "Invalid authorization code",
+    };
+  }
 }
