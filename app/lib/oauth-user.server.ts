@@ -217,9 +217,75 @@ export async function findExistingOAuthAccount(
  * Use this when a user wants to add another OAuth provider to their account.
  */
 export async function linkOAuthAccount(
-  _db: PrismaClient,
-  _userId: string,
-  _oauthData: LinkOAuthData
+  db: PrismaClient,
+  userId: string,
+  oauthData: LinkOAuthData
 ): Promise<LinkOAuthResult> {
-  throw new Error("Not implemented");
+  // Check if user exists
+  const user = await db.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    return {
+      success: false,
+      error: "user_not_found",
+      message: "User not found.",
+    };
+  }
+
+  // Check if this user already has this provider linked
+  const existingProviderForUser = await db.oAuth.findUnique({
+    where: {
+      userId_provider: {
+        userId,
+        provider: oauthData.provider,
+      },
+    },
+  });
+
+  if (existingProviderForUser) {
+    return {
+      success: false,
+      error: "provider_already_linked",
+      message: `A ${oauthData.provider} account is already linked to your profile.`,
+    };
+  }
+
+  // Check if this OAuth account is already linked to a different user
+  const existingOAuthAccount = await db.oAuth.findUnique({
+    where: {
+      provider_providerUserId: {
+        provider: oauthData.provider,
+        providerUserId: oauthData.providerUserId,
+      },
+    },
+  });
+
+  if (existingOAuthAccount) {
+    return {
+      success: false,
+      error: "provider_account_taken",
+      message: "This OAuth account is already linked to a different account.",
+    };
+  }
+
+  // Create the OAuth record
+  const oauthRecord = await db.oAuth.create({
+    data: {
+      userId,
+      provider: oauthData.provider,
+      providerUserId: oauthData.providerUserId,
+      providerUsername: oauthData.providerUsername,
+    },
+  });
+
+  return {
+    success: true,
+    oauthRecord: {
+      provider: oauthRecord.provider,
+      providerUserId: oauthRecord.providerUserId,
+      providerUsername: oauthRecord.providerUsername,
+    },
+  };
 }
