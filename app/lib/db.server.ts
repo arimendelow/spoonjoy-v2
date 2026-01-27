@@ -16,13 +16,13 @@ export function getDb(env: { DB: D1Database }) {
 // For local development (SQLite)
 let db: PrismaClient;
 
+/* istanbul ignore else -- production-only path */
 if (process.env.NODE_ENV !== "production") {
   if (!global.__db) {
     global.__db = new PrismaClient();
   }
   db = global.__db;
 } else {
-  /* istanbul ignore next */
   db = new PrismaClient();
 }
 
