@@ -7,33 +7,34 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  quality:
+    name: 🍴 Quality Check
     runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
+      - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
       
-      - name: Install dependencies
+      - name: 📥 Install dependencies
         run: npm ci
       
-      - name: Generate Prisma client
+      - name: 🔧 Generate Prisma client
         run: npm run prisma:generate
       
-      - name: Setup test database
+      - name: 🗃️ Setup test database
         run: npx prisma db push
         env:
           DATABASE_URL: file:./test.db
       
-      - name: Check test coverage
+      - name: 🧪 Test & Coverage
         run: npm run test:coverage
         env:
           DATABASE_URL: file:./test.db
       
-      - name: Build
+      - name: 🏗️ Build
         run: npm run build
