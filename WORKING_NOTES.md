@@ -164,6 +164,28 @@ interface OAuthUserData {
 
 **Stub Implementation:** Created `app/lib/oauth-user.server.ts` with function stubs that throw "Not implemented" errors.
 
+### 2026-01-27 - OAuth User Creation Implementation (Unit 2b)
+
+**Implementation Complete:** Both functions in `app/lib/oauth-user.server.ts` now fully implemented.
+
+**generateUsername Implementation:**
+- Derives username from name first (lowercased, spaces → hyphens, special chars removed)
+- Falls back to email local part if no usable name
+- Handles `+` in email by taking only the part before `+`
+- Replaces dots with hyphens in email-derived usernames
+- Generates random `user-[alphanumeric]` fallback if no name/email
+- Checks for collisions via `db.user.findUnique` and appends `-1`, `-2`, etc.
+
+**createOAuthUser Implementation:**
+- Normalizes email to lowercase before storage and collision check
+- Uses `db.user.findFirst` with lowercase email for case-insensitive collision check
+- Returns `{success: false, error: "account_exists", message: "..."}` if email exists
+- Creates User with null hashedPassword/salt (OAuth-only user)
+- Creates OAuth record in same transaction via Prisma nested create
+- Returns `{success: true, user: {id, email, username}}`
+
+**All 21 tests passing with no warnings.**
+
 ---
 
 ## For Future Tasks
