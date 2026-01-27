@@ -692,6 +692,57 @@ Original tests had `vi.mock("arctic")` inside test functions (incorrect - Vitest
 
 **No warnings in test output.**
 
+### 2026-01-27 - Google OAuth Initiation Tests (Unit 7a)
+
+**Tests Written:** 18 failing tests for Google OAuth initiation in `test/lib/google-oauth.server.test.ts`
+
+**Function Signatures Defined:**
+```typescript
+generateCodeVerifier(): string
+createGoogleAuthorizationURL(config: GoogleOAuthConfig, redirectUri: string, state: string, codeVerifier: string): URL
+```
+
+**Key Differences from Apple OAuth:**
+
+| Feature | Apple | Google |
+|---------|-------|--------|
+| PKCE | Not used | Required (code_challenge + code_verifier) |
+| Callback type | POST (form_post) | GET (standard redirect) |
+| Scopes | email, name | openid, email, profile |
+| Auth endpoint | appleid.apple.com/auth/authorize | accounts.google.com/o/oauth2/v2/auth |
+
+**generateCodeVerifier Tests (4 tests):**
+1. Should generate a random code verifier string
+2. Should generate unique values on each call
+3. Should generate URL-safe values (RFC 7636: A-Z, a-z, 0-9, hyphen, period, underscore, tilde)
+4. Should generate between 43-128 characters per RFC 7636
+
+**createGoogleAuthorizationURL Tests (14 tests):**
+1. Should return valid Google authorization URL (accounts.google.com/o/oauth2/v2/auth)
+2. Should include client_id parameter
+3. Should include redirect_uri parameter
+4. Should include state parameter (CSRF protection)
+5. Should include response_type=code
+6. Should include code_challenge parameter (PKCE)
+7. Should include code_challenge_method=S256 (PKCE)
+8. Should request openid scope
+9. Should request email scope
+10. Should request profile scope
+11. Should include all required scopes (openid, email, profile)
+12. Should properly encode special characters in state
+13. Should properly encode redirect_uri with query parameters
+14. Should generate different code_challenge for different code_verifier
+
+**PKCE (RFC 7636) Notes:**
+- `code_verifier` is a cryptographically random string (43-128 chars)
+- `code_challenge` is base64url(SHA-256(code_verifier))
+- `code_challenge_method=S256` indicates SHA-256 was used
+- Verifier must be stored client-side to send during token exchange
+
+**Stub Implementation:** `app/lib/google-oauth.server.ts` with function stubs that throw "Not implemented".
+
+**Total New Tests:** 18 failing (TDD) - all 1376 existing tests still pass.
+
 ---
 
 ## For Future Tasks
