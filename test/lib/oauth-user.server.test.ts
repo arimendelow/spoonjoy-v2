@@ -8,6 +8,7 @@ import { createTestUser } from "../utils";
 import {
   createOAuthUser,
   generateUsername,
+  findExistingOAuthAccount,
 } from "~/lib/oauth-user.server";
 
 describe("oauth-user.server", () => {
@@ -300,6 +301,116 @@ describe("oauth-user.server", () => {
       expect(result.user).toBeDefined();
       // Username should be sanitized
       expect(result.user?.username).toMatch(/^[a-z0-9-]+$/);
+    });
+
+    it("should return error when email is null (provider hides email)", async () => {
+      const oauthData = {
+        provider: "apple",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Apple User",
+        email: null,
+        name: "Apple User",
+      };
+
+      const result = await createOAuthUser(db, oauthData);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("email_required");
+      expect(result.message).toContain("email");
+      expect(result.user).toBeUndefined();
+    });
+
+    it("should return error when email is empty string", async () => {
+      const oauthData = {
+        provider: "apple",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Apple User",
+        email: "",
+        name: "Apple User",
+      };
+
+      const result = await createOAuthUser(db, oauthData);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("email_required");
+      expect(result.message).toContain("email");
+      expect(result.user).toBeUndefined();
+    });
+  });
+
+  describe("findExistingOAuthAccount", () => {
+    it("should return null when no OAuth account exists", async () => {
+      const result = await findExistingOAuthAccount(
+        db,
+        "google",
+        faker.string.uuid()
+      );
+      expect(result).toBeNull();
+    });
+
+    it("should find existing OAuth account by provider and providerUserId", async () => {
+      // First create an OAuth user
+      const providerUserId = faker.string.uuid();
+      const oauthData = {
+        provider: "google",
+        providerUserId,
+        providerUsername: "Test User",
+        email: faker.internet.email().toLowerCase(),
+        name: "Test User",
+      };
+
+      const createResult = await createOAuthUser(db, oauthData);
+      expect(createResult.success).toBe(true);
+
+      // Now find the account
+      const result = await findExistingOAuthAccount(db, "google", providerUserId);
+
+      expect(result).not.toBeNull();
+      expect(result?.userId).toBe(createResult.user?.id);
+      expect(result?.email).toBe(oauthData.email);
+      expect(result?.username).toBe(createResult.user?.username);
+      expect(result?.provider).toBe("google");
+      expect(result?.providerUserId).toBe(providerUserId);
+      expect(result?.providerUsername).toBe("Test User");
+    });
+
+    it("should not find account with different provider", async () => {
+      // Create an OAuth user with Google
+      const providerUserId = faker.string.uuid();
+      const oauthData = {
+        provider: "google",
+        providerUserId,
+        providerUsername: "Test User",
+        email: faker.internet.email().toLowerCase(),
+        name: "Test User",
+      };
+
+      await createOAuthUser(db, oauthData);
+
+      // Try to find with Apple provider
+      const result = await findExistingOAuthAccount(db, "apple", providerUserId);
+      expect(result).toBeNull();
+    });
+
+    it("should not find account with different providerUserId", async () => {
+      // Create an OAuth user
+      const oauthData = {
+        provider: "google",
+        providerUserId: faker.string.uuid(),
+        providerUsername: "Test User",
+        email: faker.internet.email().toLowerCase(),
+        name: "Test User",
+      };
+
+      await createOAuthUser(db, oauthData);
+
+      // Try to find with different providerUserId
+      const result = await findExistingOAuthAccount(
+        db,
+        "google",
+        faker.string.uuid()
+      );
+      expect(result).toBeNull();
     });
   });
 });

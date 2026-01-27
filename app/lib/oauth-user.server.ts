@@ -4,7 +4,7 @@ export interface OAuthUserData {
   provider: string;
   providerUserId: string;
   providerUsername: string;
-  email: string;
+  email: string | null;
   name: string | null;
 }
 
@@ -17,6 +17,15 @@ export interface CreateOAuthUserResult {
   };
   error?: string;
   message?: string;
+}
+
+export interface ExistingOAuthAccount {
+  userId: string;
+  email: string;
+  username: string;
+  provider: string;
+  providerUserId: string;
+  providerUsername: string;
 }
 
 /**
@@ -83,6 +92,16 @@ export async function createOAuthUser(
   db: PrismaClient,
   oauthData: OAuthUserData
 ): Promise<CreateOAuthUserResult> {
+  // Handle missing email from provider (e.g., Apple "Hide My Email")
+  if (!oauthData.email) {
+    return {
+      success: false,
+      error: "email_required",
+      message:
+        "An email address is required to create an account. Please allow access to your email when signing in.",
+    };
+  }
+
   const normalizedEmail = oauthData.email.toLowerCase();
 
   // Check if email already exists (case-insensitive)
@@ -131,5 +150,47 @@ export async function createOAuthUser(
   return {
     success: true,
     user,
+  };
+}
+
+/**
+ * Find an existing OAuth account by provider and provider user ID.
+ * Returns user data if found, null otherwise.
+ * Use this to check if a returning user has already linked their OAuth account.
+ */
+export async function findExistingOAuthAccount(
+  db: PrismaClient,
+  provider: string,
+  providerUserId: string
+): Promise<ExistingOAuthAccount | null> {
+  const oauthRecord = await db.oAuth.findUnique({
+    where: {
+      provider_providerUserId: {
+        provider,
+        providerUserId,
+      },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  if (!oauthRecord) {
+    return null;
+  }
+
+  return {
+    userId: oauthRecord.user.id,
+    email: oauthRecord.user.email,
+    username: oauthRecord.user.username,
+    provider: oauthRecord.provider,
+    providerUserId: oauthRecord.providerUserId,
+    providerUsername: oauthRecord.providerUsername,
   };
 }

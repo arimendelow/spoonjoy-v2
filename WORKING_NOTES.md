@@ -186,6 +186,30 @@ interface OAuthUserData {
 
 **All 21 tests passing with no warnings.**
 
+### 2026-01-27 - OAuth User Creation Work Check (Unit 2c)
+
+**Changes Made:**
+
+1. **Added findExistingOAuthAccount function** - Function to look up existing OAuth accounts by provider + providerUserId for returning user scenarios. Uses Prisma's compound unique index `@@unique([provider, providerUserId])` for efficient lookups.
+
+2. **Added missing email handling** - Updated `OAuthUserData.email` to accept `string | null` and added validation to return `{success: false, error: "email_required", message: "..."}` when email is missing (e.g., Apple "Hide My Email" feature).
+
+3. **Added tests for new functionality:**
+   - 4 tests for `findExistingOAuthAccount` (found, not found, different provider, different providerUserId)
+   - 2 tests for missing email handling (null and empty string)
+   - Total: 27 tests (was 21)
+
+**Coverage Result:** 100% statements, branches, functions, and lines on oauth-user.server.ts
+
+**Functions Exported:**
+- `generateUsername(db, name, email)` - Generate unique username from name or email
+- `createOAuthUser(db, oauthData)` - Create new OAuth user with validation
+- `findExistingOAuthAccount(db, provider, providerUserId)` - Look up returning users
+
+**Error Types Returned by createOAuthUser:**
+- `email_required` - Email not provided by OAuth provider
+- `account_exists` - Email already exists in system (user should log in to link account)
+
 ---
 
 ## For Future Tasks
