@@ -255,6 +255,33 @@ interface LinkOAuthResult {
 
 **Total Tests:** 34 (was 27) - 7 new failing tests for TDD
 
+### 2026-01-27 - OAuth Account Linking Implementation (Unit 3b)
+
+**Implementation Complete:** `linkOAuthAccount` function in `app/lib/oauth-user.server.ts` fully implemented.
+
+**Function Signature:**
+```typescript
+linkOAuthAccount(db: PrismaClient, userId: string, oauthData: LinkOAuthData): Promise<LinkOAuthResult>
+```
+
+**Implementation Logic:**
+1. Verify user exists via `db.user.findUnique` → `user_not_found` error if not
+2. Check if user already has this provider linked via `db.oAuth.findUnique` on `userId_provider` compound index → `provider_already_linked` error if so
+3. Check if OAuth account (provider + providerUserId) is already linked to a different user via `db.oAuth.findUnique` on `provider_providerUserId` compound index → `provider_account_taken` error if so
+4. Create OAuth record with `db.oAuth.create`
+5. Return success with oauthRecord containing provider, providerUserId, providerUsername
+
+**Error Types Returned:**
+- `user_not_found` - User ID doesn't exist in database
+- `provider_already_linked` - User already has this OAuth provider linked (e.g., can't link two Google accounts)
+- `provider_account_taken` - OAuth account is already linked to a different user
+
+**Database Constraints Used:**
+- `@@unique([userId, provider])` - ensures one record per user per provider
+- `@@unique([provider, providerUserId])` - ensures one record per OAuth account
+
+**All 34 tests passing with no warnings.**
+
 ---
 
 ## For Future Tasks
