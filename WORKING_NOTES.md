@@ -492,6 +492,32 @@ createAppleAuthorizationURL(config: AppleOAuthConfig, redirectUri: string, state
 
 **All 12 tests passing with no warnings.**
 
+### 2026-01-27 - Apple OAuth Initiation Work Check (Unit 5c)
+
+**Verification Complete:** All acceptance criteria from Units 5a/5b verified.
+
+**Test Coverage:**
+- 15 tests for apple-oauth.server.ts (was 12, added 3)
+- 100% statement, branch, function, and line coverage
+- No warnings
+
+**Edge Cases Added:**
+1. **State length validation** - Ensures generated state is at least 32 characters (sufficient entropy for security)
+2. **State special character encoding** - Verifies URLSearchParams properly encodes special characters (&, =, +)
+3. **Redirect URI encoding** - Verifies redirect_uri with query parameters is properly encoded
+
+**Functions Verified:**
+1. `generateOAuthState` (4 tests) - random generation, uniqueness, URL-safety, minimum length
+2. `createAppleAuthorizationURL` (11 tests) - URL structure, all required parameters, scope handling, URL encoding
+
+**Implementation Review:**
+- `generateOAuthState` uses `crypto.getRandomValues()` with 32 bytes (256 bits entropy) - adequate security
+- `createAppleAuthorizationURL` constructs proper Apple authorize URL with all required params
+- `response_mode=form_post` correctly set (Apple requirement when requesting scopes)
+- Scopes correctly set to `email name`
+
+**Result:** Added 3 edge case tests for URL encoding and state length validation. Implementation was complete from Units 5a/5b.
+
 ---
 
 ## For Future Tasks
