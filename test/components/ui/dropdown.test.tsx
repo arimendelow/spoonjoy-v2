@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   Dropdown,
@@ -596,7 +596,10 @@ describe('Dropdown', () => {
 
       // Click on the outside element (use pointer events to bypass inert)
       await user.pointer({ target: screen.getByTestId('outside'), keys: '[MouseLeft]' })
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      // Wait for the menu to close (transition animation)
+      await waitFor(() => {
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      })
     })
 
     it('closes menu when pressing Escape', async () => {
