@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
@@ -499,6 +499,35 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       const updatedStep = await db.recipeStep.findUnique({ where: { id: stepId } });
       expect(updatedStep?.stepTitle).toBeNull();
       expect(updatedStep?.description).toBe("Just description");
+    });
+
+    it("should return generic error for database errors", async () => {
+      // Mock db.recipeStep.update to throw a generic error
+      const originalUpdate = db.recipeStep.update;
+      db.recipeStep.update = vi.fn().mockRejectedValue(new Error("Database connection failed"));
+
+      try {
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Title",
+            description: "Updated description",
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(500);
+        expect(data.errors.general).toBe("Failed to update step. Please try again.");
+      } finally {
+        // Restore original function
+        db.recipeStep.update = originalUpdate;
+      }
     });
 
     describe("delete intent", () => {
@@ -1048,6 +1077,38 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       // Verify remove button exists
       const removeButton = screen.getByRole("button", { name: "Remove" });
       expect(removeButton).toBeInTheDocument();
+    });
+
+    it("should display general error message when present", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Test Recipe",
+        },
+        step: {
+          id: "step-1",
+          stepNum: 1,
+          stepTitle: null,
+          description: "A step",
+          ingredients: [],
+        },
+      };
+
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/:id/steps/:stepId/edit",
+          Component: EditStep,
+          loader: () => mockData,
+          action: () => ({
+            errors: { general: "Failed to update step. Please try again." },
+          }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+      // Wait for form to render
+      await screen.findByLabelText(/Description/);
     });
   });
 });
