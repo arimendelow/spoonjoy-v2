@@ -40,6 +40,14 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
       // State should be URL-safe (alphanumeric, no special chars that need encoding)
       expect(state).toMatch(/^[a-zA-Z0-9_-]+$/);
     });
+
+    it("should generate state with sufficient length for security", () => {
+      const state = generateOAuthState();
+
+      // 32 bytes of randomness in base64url = ~43 characters
+      // Should be at least 32 chars for adequate entropy
+      expect(state.length).toBeGreaterThanOrEqual(32);
+    });
   });
 
   describe("createAppleAuthorizationURL", () => {
@@ -112,6 +120,30 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
       // Scope should include both email and name (space-separated)
       expect(scope).toMatch(/\bemail\b/);
       expect(scope).toMatch(/\bname\b/);
+    });
+
+    it("should properly encode special characters in state", () => {
+      const state = "state&with=special+chars";
+      const url = createAppleAuthorizationURL(mockConfig, mockRedirectUri, state);
+
+      // URLSearchParams should handle encoding
+      expect(url.searchParams.get("state")).toBe(state);
+      // The raw URL string should have the encoded value
+      expect(url.toString()).toContain("state=state%26with%3Dspecial%2Bchars");
+    });
+
+    it("should properly encode redirect_uri with query parameters", () => {
+      const state = "test-state";
+      const redirectWithQuery =
+        "https://spoonjoy.app/auth/apple/callback?foo=bar&baz=qux";
+      const url = createAppleAuthorizationURL(
+        mockConfig,
+        redirectWithQuery,
+        state
+      );
+
+      // Should properly encode the redirect_uri
+      expect(url.searchParams.get("redirect_uri")).toBe(redirectWithQuery);
     });
   });
 });
