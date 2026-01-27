@@ -388,6 +388,43 @@ unlinkOAuthAccount(db: PrismaClient, userId: string, provider: string): Promise<
 
 **All 41 tests passing with no warnings.**
 
+### 2026-01-27 - OAuth Account Unlinking Work Check (Unit 4c)
+
+**Verification Complete:** All acceptance criteria from Units 4a/4b verified.
+
+**Test Coverage:**
+- 41 tests for oauth-user.server.ts (all passing)
+- 100% statement, branch, function, and line coverage
+- No warnings
+
+**unlinkOAuthAccount Tests (7 tests):**
+1. ✅ Unlink when user has a password
+2. ✅ Unlink when user has multiple OAuth providers (no password)
+3. ✅ Error: `only_auth_method` - no password AND single OAuth
+4. ✅ Error: `provider_not_linked` - provider not linked to user
+5. ✅ Error: `user_not_found` - user ID doesn't exist
+6. ✅ Unlink correct provider when user has multiple OAuth + password
+7. ✅ Returns `unlinkedProvider` info on success
+
+**Functions Verified:**
+1. `generateUsername` (13 tests) - username derivation, collision handling, special chars
+2. `createOAuthUser` (12 tests) - user creation, email validation, collision errors
+3. `findExistingOAuthAccount` (4 tests) - lookup for returning users
+4. `linkOAuthAccount` (8 tests) - account linking with all error cases
+5. `unlinkOAuthAccount` (7 tests) - account unlinking with safety checks
+
+**Safety Check Logic Verified:**
+- User can unlink if they have a password (`hashedPassword` is not null)
+- User can unlink if they have multiple OAuth providers (`OAuth.count > 1`)
+- User CANNOT unlink if: no password AND only one OAuth provider
+
+**Error Types Returned by unlinkOAuthAccount:**
+- `user_not_found` - User ID doesn't exist in database
+- `provider_not_linked` - Provider is not linked to this user
+- `only_auth_method` - Cannot unlink because it's the user's only way to log in
+
+**Result:** No changes needed - implementation was complete from Units 4a/4b.
+
 ---
 
 ## For Future Tasks
