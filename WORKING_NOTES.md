@@ -210,6 +210,51 @@ interface OAuthUserData {
 - `email_required` - Email not provided by OAuth provider
 - `account_exists` - Email already exists in system (user should log in to link account)
 
+### 2026-01-27 - OAuth Account Linking Tests (Unit 3a)
+
+**Tests Written:** 7 failing tests for `linkOAuthAccount` function in `test/lib/oauth-user.server.test.ts`
+
+**Function Signature Defined:**
+```typescript
+linkOAuthAccount(db: PrismaClient, userId: string, oauthData: LinkOAuthData): Promise<LinkOAuthResult>
+```
+
+**New Interfaces:**
+```typescript
+interface LinkOAuthData {
+  provider: string;
+  providerUserId: string;
+  providerUsername: string;
+}
+
+interface LinkOAuthResult {
+  success: boolean;
+  oauthRecord?: {
+    provider: string;
+    providerUserId: string;
+    providerUsername: string;
+  };
+  error?: string;
+  message?: string;
+}
+```
+
+**linkOAuthAccount Behavior (from tests):**
+1. Creates OAuth record linking provider to existing user
+2. Returns `{success: true, oauthRecord: {...}}` on success
+3. Returns `{success: false, error: "provider_already_linked", message: "..."}` if same provider already linked to this user
+4. Returns `{success: false, error: "provider_account_taken", message: "..."}` if OAuth account already linked to different user
+5. Returns `{success: false, error: "user_not_found", message: "..."}` if userId doesn't exist
+6. Stores providerUsername correctly (including special characters)
+
+**Database Constraint Used:** `@@unique([userId, provider])` - each user can only have one record per provider
+
+**Difference from createOAuthUser:**
+- `createOAuthUser` - For signup flow: creates new User + OAuth record together
+- `linkOAuthAccount` - For logged-in users: adds OAuth record to existing user
+
+**Total Tests:** 34 (was 27) - 7 new failing tests for TDD
+
 ---
 
 ## For Future Tasks
