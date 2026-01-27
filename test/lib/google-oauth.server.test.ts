@@ -772,6 +772,31 @@ describe("google-oauth.server", () => {
         expect(result.success).toBe(false);
         expect(result.error).toBe("network_error");
       });
+
+      it("should handle unexpected errors during userinfo fetch as invalid_code", async () => {
+        // Throw an unexpected error (not a network/fetch error)
+        // The inner catch rethrows it, then outer catch converts to invalid_code
+        const unexpectedError = new Error("Unexpected internal error");
+        unexpectedError.name = "InternalError"; // Not TypeError, doesn't contain "fetch" or "network"
+        mockFetch.mockRejectedValueOnce(unexpectedError);
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        // Unexpected errors during userinfo fetch are rethrown from inner catch,
+        // then caught by outer catch which returns invalid_code
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_code");
+      });
     });
 
     describe("result structure", () => {
