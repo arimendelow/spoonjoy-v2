@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom";
 import { vi, beforeAll } from "vitest";
+import { mockAnimationsApi } from "jsdom-testing-mocks";
 import { db } from "~/lib/db.server";
+
+// Mock animations API for HeadlessUI components
+mockAnimationsApi();
 
 // Mock ResizeObserver for HeadlessUI virtual components
 class MockResizeObserver {
