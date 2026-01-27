@@ -1,4 +1,72 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { faker } from "@faker-js/faker";
+import type { AppleOAuthConfig } from "~/lib/env.server";
+
+// Use vi.hoisted to create mock state that's available at mock time
+const { mockArcticState } = vi.hoisted(() => {
+  return {
+    mockArcticState: {
+      appleUserId: "default-user-id",
+      email: "default@example.com",
+      emailVerified: "true" as string | boolean,
+      isPrivateEmail: false,
+    },
+  };
+});
+
+// Mock arctic at module level using a class for Apple
+vi.mock("arctic", () => {
+  // Mock Apple class
+  class MockApple {
+    constructor(
+      _clientId: string,
+      _teamId: string,
+      _keyId: string,
+      _privateKey: string
+    ) {}
+
+    async validateAuthorizationCode(
+      code: string,
+      _redirectUri: string
+    ): Promise<{ idToken: () => string }> {
+      if (code === "invalid-code") {
+        throw new Error("Invalid authorization code");
+      }
+      if (code === "code-that-triggers-oauth-error") {
+        const error = new Error("OAuth error");
+        error.name = "OAuth2RequestError";
+        throw error;
+      }
+      if (code === "code-that-triggers-network-error") {
+        const error = new TypeError("fetch failed");
+        throw error;
+      }
+      return {
+        idToken: () => "mock-id-token",
+      };
+    }
+  }
+
+  // Mock OAuth2RequestError class
+  class MockOAuth2RequestError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "OAuth2RequestError";
+    }
+  }
+
+  return {
+    Apple: MockApple,
+    decodeIdToken: () => ({
+      sub: mockArcticState.appleUserId,
+      email: mockArcticState.email,
+      email_verified: mockArcticState.emailVerified,
+      is_private_email: mockArcticState.isPrivateEmail,
+    }),
+    OAuth2RequestError: MockOAuth2RequestError,
+  };
+});
+
 import {
   createAppleAuthorizationURL,
   generateOAuthState,
@@ -6,8 +74,6 @@ import {
   type AppleCallbackData,
   type AppleCallbackResult,
 } from "~/lib/apple-oauth.server";
-import type { AppleOAuthConfig } from "~/lib/env.server";
-import { faker } from "@faker-js/faker";
 
 describe("apple-oauth.server", () => {
   const mockConfig: AppleOAuthConfig = {
@@ -224,22 +290,13 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
 
       it("should extract user ID (sub) from valid ID token", async () => {
         // This test will use mocked Arctic to verify token decoding
-        const mockAppleUserId = generateAppleUserId();
-        const mockEmail = faker.internet.email().toLowerCase();
+        const testAppleUserId = generateAppleUserId();
+        const testEmail = faker.internet.email().toLowerCase();
 
-        // Mock the Arctic validateAuthorizationCode and decodeIdToken
-        vi.mock("arctic", () => ({
-          Apple: vi.fn().mockImplementation(() => ({
-            validateAuthorizationCode: vi.fn().mockResolvedValue({
-              idToken: () => "mock-id-token",
-            }),
-          })),
-          decodeIdToken: vi.fn().mockReturnValue({
-            sub: mockAppleUserId,
-            email: mockEmail,
-            email_verified: "true",
-          }),
-        }));
+        // Set mock state for this test
+        mockArcticState.appleUserId = testAppleUserId;
+        mockArcticState.email = testEmail;
+        mockArcticState.emailVerified = "true";
 
         const callbackData: AppleCallbackData = {
           code: "valid-auth-code",
@@ -253,12 +310,16 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
         );
 
         expect(result.success).toBe(true);
-        expect(result.appleUser?.id).toBe(mockAppleUserId);
+        expect(result.appleUser?.id).toBe(testAppleUserId);
       });
 
       it("should extract email from ID token", async () => {
-        const mockAppleUserId = generateAppleUserId();
-        const mockEmail = faker.internet.email().toLowerCase();
+        const testAppleUserId = generateAppleUserId();
+        const testEmail = faker.internet.email().toLowerCase();
+
+        // Set mock state for this test
+        mockArcticState.appleUserId = testAppleUserId;
+        mockArcticState.email = testEmail;
 
         const callbackData: AppleCallbackData = {
           code: "valid-auth-code",
@@ -310,6 +371,14 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
     });
 
     describe("user data extraction", () => {
+      beforeEach(() => {
+        // Reset mock state before each user data extraction test
+        mockArcticState.appleUserId = generateAppleUserId();
+        mockArcticState.email = faker.internet.email().toLowerCase();
+        mockArcticState.emailVerified = "true";
+        mockArcticState.isPrivateEmail = false;
+      });
+
       it("should extract name from user parameter on first sign-in", async () => {
         const callbackData: AppleCallbackData = {
           code: "valid-auth-code",
@@ -495,6 +564,14 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
     });
 
     describe("result structure", () => {
+      beforeEach(() => {
+        // Reset mock state before each result structure test
+        mockArcticState.appleUserId = generateAppleUserId();
+        mockArcticState.email = faker.internet.email().toLowerCase();
+        mockArcticState.emailVerified = "true";
+        mockArcticState.isPrivateEmail = false;
+      });
+
       it("should return AppleUser with all required fields on success", async () => {
         const callbackData: AppleCallbackData = {
           code: "valid-auth-code",
