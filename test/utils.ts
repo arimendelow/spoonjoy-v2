@@ -1,4 +1,30 @@
 import { faker } from "@faker-js/faker";
+import { createRoutesStub } from "react-router";
+
+type StubRouteObject = Parameters<typeof createRoutesStub>[0][number];
+
+/**
+ * Add HydrateFallback to routes to suppress the warning:
+ * "No `HydrateFallback` element provided to render during initial hydration"
+ */
+function addHydrateFallback(routes: StubRouteObject[]): StubRouteObject[] {
+  return routes.map((route) => ({
+    ...route,
+    HydrateFallback: () => null,
+    children: route.children ? addHydrateFallback(route.children) : undefined,
+  }));
+}
+
+/**
+ * Create a routes stub with HydrateFallback pre-configured to suppress hydration warnings.
+ * Use this instead of createRoutesStub directly in tests.
+ */
+export function createTestRoutesStub(
+  routes: StubRouteObject[],
+  context?: Parameters<typeof createRoutesStub>[1]
+) {
+  return createRoutesStub(addHydrateFallback(routes), context);
+}
 
 /**
  * Generate unique test user data using Faker

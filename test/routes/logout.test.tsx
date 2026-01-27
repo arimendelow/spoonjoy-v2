@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { render } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { loader, action } from "~/routes/logout";
 import Logout from "~/routes/logout";
 import { sessionStorage } from "~/lib/session.server";
@@ -101,7 +101,7 @@ describe("Logout Route", () => {
 
   describe("component", () => {
     it("should render null (empty component)", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/logout",
           Component: Logout,

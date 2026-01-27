@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader } from "~/routes/recipes";
 import Recipes from "~/routes/recipes";
@@ -225,7 +225,7 @@ describe("Recipes Layout Route", () => {
 
   describe("component", () => {
     it("should render empty state when no recipes", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: Recipes,
@@ -263,7 +263,7 @@ describe("Recipes Layout Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: Recipes,
@@ -285,7 +285,7 @@ describe("Recipes Layout Route", () => {
     });
 
     it("should render logout button", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: Recipes,
@@ -314,7 +314,7 @@ describe("Recipes Layout Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: Recipes,
@@ -345,7 +345,7 @@ describe("Recipes Layout Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: Recipes,
@@ -375,7 +375,7 @@ describe("Recipes Layout Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: Recipes,

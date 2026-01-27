@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.new";
 import NewRecipe from "~/routes/recipes.new";
@@ -281,7 +281,7 @@ describe("Recipes New Route", () => {
 
   describe("component", () => {
     it("should render create recipe form", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/new",
           Component: NewRecipe,
@@ -302,7 +302,7 @@ describe("Recipes New Route", () => {
     });
 
     it("should have correct form structure", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/new",
           Component: NewRecipe,
@@ -330,7 +330,7 @@ describe("Recipes New Route", () => {
     });
 
     it("should display helper text for image URL", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/new",
           Component: NewRecipe,
@@ -345,7 +345,7 @@ describe("Recipes New Route", () => {
     });
 
     it("should have correct placeholders", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/new",
           Component: NewRecipe,
@@ -362,7 +362,7 @@ describe("Recipes New Route", () => {
     });
 
     it("should display general error message when present", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/new",
           Component: NewRecipe,

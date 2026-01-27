@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader } from "~/routes/recipes._index";
 import RecipesList from "~/routes/recipes._index";
@@ -233,7 +233,7 @@ describe("Recipes Index Route", () => {
 
   describe("component", () => {
     it("should render empty state when no recipes", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: RecipesList,
@@ -268,7 +268,7 @@ describe("Recipes Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: RecipesList,
@@ -287,7 +287,7 @@ describe("Recipes Index Route", () => {
     });
 
     it("should show singular recipe count", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: RecipesList,
@@ -313,7 +313,7 @@ describe("Recipes Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: RecipesList,
@@ -342,7 +342,7 @@ describe("Recipes Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: RecipesList,
@@ -371,7 +371,7 @@ describe("Recipes Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: RecipesList,
@@ -398,7 +398,7 @@ describe("Recipes Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes",
           Component: RecipesList,

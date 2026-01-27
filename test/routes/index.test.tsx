@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, meta } from "~/routes/_index";
 import Index from "~/routes/_index";
@@ -96,7 +96,7 @@ describe("Index Route", () => {
 
   describe("component", () => {
     it("should render guest view when not logged in", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/",
           Component: Index,
@@ -123,7 +123,7 @@ describe("Index Route", () => {
         createdAt: new Date("2024-01-15").toISOString(),
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/",
           Component: Index,
@@ -148,7 +148,7 @@ describe("Index Route", () => {
         createdAt: new Date("2024-06-20").toISOString(),
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/",
           Component: Index,
@@ -176,7 +176,7 @@ describe("Index Route", () => {
         createdAt: new Date().toISOString(),
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/",
           Component: Index,
@@ -201,7 +201,7 @@ describe("Index Route", () => {
         createdAt: new Date().toISOString(),
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/",
           Component: Index,
@@ -224,7 +224,7 @@ describe("Index Route", () => {
         createdAt: new Date().toISOString(),
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/",
           Component: Index,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/cookbooks.new";
 import NewCookbook from "~/routes/cookbooks.new";
@@ -237,7 +237,7 @@ describe("Cookbooks New Route", () => {
 
   describe("component", () => {
     it("should render create cookbook form", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/new",
           Component: NewCookbook,
@@ -255,7 +255,7 @@ describe("Cookbooks New Route", () => {
     });
 
     it("should have correct form structure", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/new",
           Component: NewCookbook,
@@ -273,7 +273,7 @@ describe("Cookbooks New Route", () => {
     });
 
     it("should have form with method post", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/new",
           Component: NewCookbook,
@@ -290,7 +290,7 @@ describe("Cookbooks New Route", () => {
     });
 
     it("should display general error message when present", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/new",
           Component: NewCookbook,
@@ -308,7 +308,7 @@ describe("Cookbooks New Route", () => {
     });
 
     it("should display title error message when present", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/new",
           Component: NewCookbook,

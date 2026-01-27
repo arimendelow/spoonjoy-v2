@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id";
 import RecipeDetail from "~/routes/recipes.$id";
@@ -362,7 +362,7 @@ describe("Recipes $id Route", () => {
         isOwner: true,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,
@@ -397,7 +397,7 @@ describe("Recipes $id Route", () => {
         isOwner: false,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,
@@ -457,7 +457,7 @@ describe("Recipes $id Route", () => {
         isOwner: true,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,
@@ -492,7 +492,7 @@ describe("Recipes $id Route", () => {
         isOwner: true,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,
@@ -520,7 +520,7 @@ describe("Recipes $id Route", () => {
         isOwner: false,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,
@@ -552,7 +552,7 @@ describe("Recipes $id Route", () => {
         isOwner: false,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,
@@ -590,7 +590,7 @@ describe("Recipes $id Route", () => {
         isOwner: false,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,

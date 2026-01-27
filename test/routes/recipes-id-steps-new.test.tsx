@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id.steps.new";
 import NewStep from "~/routes/recipes.$id.steps.new";
@@ -422,7 +422,7 @@ describe("Recipes $id Steps New Route", () => {
         nextStepNum: 1,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id/steps/new",
           Component: NewStep,
@@ -449,7 +449,7 @@ describe("Recipes $id Steps New Route", () => {
         nextStepNum: 5,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id/steps/new",
           Component: NewStep,
@@ -478,7 +478,7 @@ describe("Recipes $id Steps New Route", () => {
         },
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id/steps/new",
           Component: NewStep,
@@ -503,7 +503,7 @@ describe("Recipes $id Steps New Route", () => {
         nextStepNum: 1,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id/steps/new",
           Component: NewStep,
@@ -527,7 +527,7 @@ describe("Recipes $id Steps New Route", () => {
         nextStepNum: 1,
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id/steps/new",
           Component: NewStep,

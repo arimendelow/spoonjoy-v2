@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader } from "~/routes/cookbooks._index";
 import CookbooksList from "~/routes/cookbooks._index";
@@ -215,7 +215,7 @@ describe("Cookbooks Index Route", () => {
 
   describe("component", () => {
     it("should render empty state when no cookbooks", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks",
           Component: CookbooksList,
@@ -246,7 +246,7 @@ describe("Cookbooks Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks",
           Component: CookbooksList,
@@ -265,7 +265,7 @@ describe("Cookbooks Index Route", () => {
     });
 
     it("should show singular cookbook count", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks",
           Component: CookbooksList,
@@ -290,7 +290,7 @@ describe("Cookbooks Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks",
           Component: CookbooksList,
@@ -317,7 +317,7 @@ describe("Cookbooks Index Route", () => {
         },
       ];
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks",
           Component: CookbooksList,

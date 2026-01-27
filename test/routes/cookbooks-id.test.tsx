@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/cookbooks.$id";
 import CookbookDetail from "~/routes/cookbooks.$id";
@@ -697,7 +697,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -728,7 +728,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -778,7 +778,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -820,7 +820,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -848,7 +848,7 @@ describe("Cookbooks $id Route", () => {
         ],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -889,7 +889,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -916,7 +916,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -947,7 +947,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,
@@ -982,7 +982,7 @@ describe("Cookbooks $id Route", () => {
         availableRecipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/cookbooks/:id",
           Component: CookbookDetail,

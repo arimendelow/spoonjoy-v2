@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import ShoppingList from "~/routes/shopping-list";
 import { getOrCreateUnit, getOrCreateIngredientRef, createTestUser } from "../utils";
@@ -370,7 +370,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -410,7 +410,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -444,7 +444,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -488,7 +488,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -521,7 +521,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -546,7 +546,7 @@ describe("Shopping List Routes", () => {
         ],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -573,7 +573,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -596,7 +596,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -630,7 +630,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -663,7 +663,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -696,7 +696,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -733,7 +733,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,
@@ -756,7 +756,7 @@ describe("Shopping List Routes", () => {
         recipes: [],
       };
 
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/shopping-list",
           Component: ShoppingList,

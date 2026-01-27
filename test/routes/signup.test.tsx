@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { render, screen } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/signup";
 import Signup from "~/routes/signup";
@@ -401,7 +401,7 @@ describe("Signup Route", () => {
 
   describe("component", () => {
     it("should render signup form", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/signup",
           Component: Signup,
@@ -420,7 +420,7 @@ describe("Signup Route", () => {
     });
 
     it("should have correct form field attributes", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/signup",
           Component: Signup,
@@ -454,7 +454,7 @@ describe("Signup Route", () => {
     });
 
     it("should have login link", async () => {
-      const Stub = createRoutesStub([
+      const Stub = createTestRoutesStub([
         {
           path: "/signup",
           Component: Signup,
