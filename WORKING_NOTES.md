@@ -357,6 +357,37 @@ interface UnlinkOAuthResult {
 
 **Total Tests:** 41 (was 34) - 7 new failing tests for TDD
 
+### 2026-01-27 - OAuth Account Unlinking Implementation (Unit 4b)
+
+**Implementation Complete:** `unlinkOAuthAccount` function in `app/lib/oauth-user.server.ts` fully implemented.
+
+**Function Signature:**
+```typescript
+unlinkOAuthAccount(db: PrismaClient, userId: string, provider: string): Promise<UnlinkOAuthResult>
+```
+
+**Implementation Logic:**
+1. Verify user exists via `db.user.findUnique` → `user_not_found` error if not
+2. Check if provider is linked to user via `db.oAuth.findUnique` on `userId_provider` compound index → `provider_not_linked` error if not
+3. Check if this is the only auth method:
+   - Has password? (`user.hashedPassword !== null`)
+   - Has multiple OAuth providers? (`db.oAuth.count > 1`)
+   - If neither → `only_auth_method` error (cannot unlink)
+4. Delete OAuth record via `db.oAuth.delete`
+5. Return success with `unlinkedProvider` containing provider, providerUserId, providerUsername
+
+**Error Types Returned:**
+- `user_not_found` - User ID doesn't exist in database
+- `provider_not_linked` - Provider is not linked to this user
+- `only_auth_method` - Cannot unlink because it's the user's only way to log in
+
+**Safety Check Logic:**
+- User can unlink if they have a password (`hashedPassword` is not null) — they can still log in
+- User can unlink if they have other OAuth providers (OAuth.count > 1) — they can still log in with the other provider
+- User CANNOT unlink if: no password AND only one OAuth provider — they would be locked out
+
+**All 41 tests passing with no warnings.**
+
 ---
 
 ## For Future Tasks
