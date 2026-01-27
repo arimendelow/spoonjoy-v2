@@ -2,6 +2,14 @@ import "@testing-library/jest-dom";
 import { vi, beforeAll } from "vitest";
 import { db } from "~/lib/db.server";
 
+// Mock ResizeObserver for HeadlessUI virtual components
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.ResizeObserver = MockResizeObserver;
+
 // Mock environment variables
 process.env.DATABASE_URL = "file:./test.db?connection_limit=1&socket_timeout=60";
 process.env.SESSION_SECRET = "test-secret";
