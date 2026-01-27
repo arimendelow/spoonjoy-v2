@@ -818,6 +818,100 @@ This is similar to how Apple OAuth generates state synchronously using `crypto.g
 
 **Result:** Added 1 edge case test for SHA-256 correctness. Implementation was complete from Units 7a/7b.
 
+### 2026-01-27 - Google OAuth Callback Tests (Unit 8a)
+
+**Tests Written:** 48 failing tests for Google OAuth callback handling (TDD)
+
+**Files Created/Modified:**
+- `test/lib/google-oauth.server.test.ts` - Added 22 tests for `verifyGoogleCallback`
+- `test/lib/google-oauth-callback.server.test.ts` - New file with 26 tests for `handleGoogleOAuthCallback`
+- `app/lib/google-oauth.server.ts` - Added types and stub for `verifyGoogleCallback`
+- `app/lib/google-oauth-callback.server.ts` - New file with types and stub for `handleGoogleOAuthCallback`
+
+**Architecture Decision: Two-Layer Callback Handling (Same as Apple)**
+
+Split callback handling into two functions:
+1. `verifyGoogleCallback` - Low-level token verification with PKCE + userinfo fetch
+2. `handleGoogleOAuthCallback` - High-level orchestration (user/session management)
+
+**verifyGoogleCallback Interface:**
+```typescript
+interface GoogleCallbackData {
+  code: string;           // Authorization code from Google
+  state: string;          // CSRF state
+  codeVerifier: string;   // PKCE code verifier from initiation
+}
+
+interface GoogleUser {
+  id: string;             // Google's sub claim
+  email: string;
+  emailVerified: boolean;
+  name: string | null;
+  givenName: string | null;
+  familyName: string | null;
+  picture: string | null;
+}
+
+interface GoogleCallbackResult {
+  success: boolean;
+  googleUser?: GoogleUser;
+  error?: string;
+  message?: string;
+}
+```
+
+**verifyGoogleCallback Tests (22 tests):**
+1. Token verification with PKCE (8 tests): invalid code, missing state/code/codeVerifier, OAuth errors, network errors
+2. User info fetch (11 tests): user ID, email, name fields, picture, email_verified, userinfo errors, network errors
+3. Result structure (3 tests): success with all fields, error handling, null fields
+
+**Key Difference from Apple OAuth:**
+- Google uses PKCE (code_verifier required for token exchange)
+- Google uses GET callback (standard redirect, not POST)
+- Google uses userinfo endpoint for user data (not ID token claims)
+- Google returns name, given_name, family_name (not firstName/lastName in user parameter)
+
+**handleGoogleOAuthCallback Interface:**
+```typescript
+interface GoogleOAuthCallbackParams {
+  db: PrismaClient;
+  googleUser: GoogleUser;
+  currentUserId: string | null;  // null = not logged in
+  redirectTo: string | null;
+}
+
+type GoogleOAuthCallbackAction = "user_created" | "user_logged_in" | "account_linked";
+
+interface GoogleOAuthCallbackResult {
+  success: boolean;
+  userId?: string;
+  action?: GoogleOAuthCallbackAction;
+  redirectTo: string;
+  error?: string;
+  message?: string;
+}
+```
+
+**handleGoogleOAuthCallback Flow (Same as Apple):**
+1. If `currentUserId` set → Link Google to existing user (account_linked)
+2. If Google ID exists in DB → Log in returning user (user_logged_in)
+3. If email exists in DB → Error (account_exists - must log in to link)
+4. Otherwise → Create new user (user_created)
+
+**handleGoogleOAuthCallback Tests (26 tests):**
+- New user creation (5 tests): username generation, providerUsername handling
+- Returning user login (2 tests): existing user, subsequent logins
+- Account linking (5 tests): success, different email, account taken, already linked, email fallback
+- Error handling (1 test): createOAuthUser error propagation
+- Email collision (2 tests): not logged in, case-insensitive
+- Session creation (3 tests): userId in result for session
+- Redirect logic (6 tests): default redirects, custom redirectTo, error redirects
+- Action types (4 tests): user_created, user_logged_in, account_linked, none on error
+
+**Stub Implementations:** Both functions throw "Not implemented" for TDD.
+
+**Total New Tests:** 48 failing (22 + 26) - all existing 1395 tests still pass.
+
 ---
 
 ## For Future Tasks
