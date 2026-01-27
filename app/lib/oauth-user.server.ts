@@ -22,26 +22,114 @@ export interface CreateOAuthUserResult {
 /**
  * Generate a username from a name or email address.
  * Handles collisions by appending numbers.
- *
- * TODO: Implement this function
  */
 export async function generateUsername(
-  _db: PrismaClient,
-  _name: string | null,
-  _email: string | null
+  db: PrismaClient,
+  name: string | null,
+  email: string | null
 ): Promise<string> {
-  throw new Error("Not implemented: generateUsername");
+  let baseUsername = "";
+
+  // Try to derive username from name first
+  const trimmedName = name?.trim();
+  if (trimmedName) {
+    // Lowercase, replace spaces with hyphens, remove special characters (keep only alphanumeric and hyphens)
+    baseUsername = trimmedName
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+  }
+
+  // Fall back to email local part if no usable name
+  if (!baseUsername && email) {
+    const localPart = email.split("@")[0];
+    // Handle + in email (strip everything after +)
+    const beforePlus = localPart.split("+")[0];
+    // Replace dots with hyphens, remove special characters
+    baseUsername = beforePlus
+      .toLowerCase()
+      .replace(/\./g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+  }
+
+  // Random fallback if nothing else works
+  if (!baseUsername) {
+    baseUsername = `user-${Math.random().toString(36).substring(2, 10)}`;
+  }
+
+  // Check for collisions and append number if needed
+  let candidate = baseUsername;
+  let counter = 0;
+
+  while (true) {
+    const existing = await db.user.findUnique({
+      where: { username: candidate },
+    });
+
+    if (!existing) {
+      return candidate;
+    }
+
+    counter++;
+    candidate = `${baseUsername}-${counter}`;
+  }
 }
 
 /**
  * Create a new user from OAuth provider data.
  * Returns error if email already exists (user should log in to link account).
- *
- * TODO: Implement this function
  */
 export async function createOAuthUser(
-  _db: PrismaClient,
-  _oauthData: OAuthUserData
+  db: PrismaClient,
+  oauthData: OAuthUserData
 ): Promise<CreateOAuthUserResult> {
-  throw new Error("Not implemented: createOAuthUser");
+  const normalizedEmail = oauthData.email.toLowerCase();
+
+  // Check if email already exists (case-insensitive)
+  const existingUser = await db.user.findFirst({
+    where: {
+      email: {
+        equals: normalizedEmail,
+      },
+    },
+  });
+
+  if (existingUser) {
+    return {
+      success: false,
+      error: "account_exists",
+      message:
+        "An account with this email already exists. Please log in to link your OAuth account.",
+    };
+  }
+
+  // Generate a unique username
+  const username = await generateUsername(db, oauthData.name, oauthData.email);
+
+  // Create user and OAuth record in a transaction
+  const user = await db.user.create({
+    data: {
+      email: normalizedEmail,
+      username,
+      hashedPassword: null,
+      salt: null,
+      OAuth: {
+        create: {
+          provider: oauthData.provider,
+          providerUserId: oauthData.providerUserId,
+          providerUsername: oauthData.providerUsername,
+        },
+      },
+    },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+    },
+  });
+
+  return {
+    success: true,
+    user,
+  };
 }
