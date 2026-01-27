@@ -996,6 +996,51 @@ export function createGoogleAuthorizationURL(...): URL {
 - Consistent with how Apple OAuth uses Arctic
 - All 1443 tests pass with no warnings
 
+### 2026-01-27 - Google OAuth Callback Work Check (Unit 8c)
+
+**Verification Complete:** All acceptance criteria from Units 8a/8b verified.
+
+**Implementation Review:**
+- `google-oauth.server.ts` properly uses Arctic's `generateCodeVerifier()` and `Google.createAuthorizationURL()`
+- `verifyGoogleCallback` uses Arctic's `Google.validateAuthorizationCode()` for PKCE token exchange
+- `google-oauth-callback.server.ts` correctly orchestrates user flows (same pattern as Apple)
+- No custom crypto/PKCE code - Arctic handles PKCE code_challenge generation internally
+
+**Coverage Gap Fixed:**
+- Line 205 (`throw error;`) in `google-oauth.server.ts` was uncovered
+- This is the rethrow path for unexpected (non-network) errors during userinfo fetch
+- Added test that throws a custom error (not TypeError, no "fetch"/"network" in message)
+- The rethrown error is caught by the outer catch block and converted to `invalid_code`
+
+**Test Added:**
+`should handle unexpected errors during userinfo fetch as invalid_code` - Tests that unexpected errors during userinfo fetch are properly handled by the error flow.
+
+**Final Test Count:** 1444 tests (was 1443, added 1)
+
+**Coverage Result:** 100% statements, branches, functions, and lines on all OAuth files:
+- `google-oauth.server.ts` - 100% all metrics
+- `google-oauth-callback.server.ts` - 100% all metrics
+- `apple-oauth.server.ts` - 100% all metrics
+- `apple-oauth-callback.server.ts` - 100% all metrics
+- `oauth-user.server.ts` - 100% all metrics
+- `env.server.ts` - 100% all metrics
+
+**Functions Verified:**
+1. `generateCodeVerifier` (4 tests) - Uses Arctic's implementation, produces RFC 7636 compliant values
+2. `createGoogleAuthorizationURL` (15 tests) - Uses Arctic's `Google.createAuthorizationURL()` with PKCE
+3. `verifyGoogleCallback` (23 tests) - Token verification with PKCE, userinfo fetch, all error cases
+4. `handleGoogleOAuthCallback` (28 tests) - User creation, login, linking, redirects
+
+**Error Cases Covered by verifyGoogleCallback:**
+- `invalid_state` - Missing state parameter
+- `invalid_code` - Missing code, invalid code, or unexpected errors
+- `invalid_code_verifier` - Missing code verifier
+- `oauth_error` - OAuth2RequestError from Arctic
+- `network_error` - Network errors during token exchange or userinfo fetch
+- `userinfo_error` - Failed userinfo endpoint response
+
+**No warnings in test output.**
+
 ---
 
 ## For Future Tasks
