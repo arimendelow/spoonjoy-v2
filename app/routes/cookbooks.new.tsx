@@ -32,6 +32,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     return data({ errors }, { status: 400 });
   }
 
+  /* istanbul ignore next -- Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;

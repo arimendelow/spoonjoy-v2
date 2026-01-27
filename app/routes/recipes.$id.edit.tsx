@@ -17,6 +17,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
   const { id } = params;
 
+  /* istanbul ignore next -- Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -57,6 +58,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent")?.toString();
 
+  /* istanbul ignore next -- Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;

@@ -6,6 +6,7 @@ import { requireUserId } from "~/lib/session.server";
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
 
+  /* istanbul ignore next -- Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;

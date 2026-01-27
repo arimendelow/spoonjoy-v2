@@ -46,6 +46,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   // Get the appropriate database instance
+  /* istanbul ignore next -- Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
