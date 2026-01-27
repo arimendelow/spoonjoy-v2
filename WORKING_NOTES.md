@@ -786,6 +786,38 @@ This is similar to how Apple OAuth generates state synchronously using `crypto.g
 
 **All 1394 tests passing with no warnings.**
 
+### 2026-01-27 - Google OAuth Initiation Work Check (Unit 7c)
+
+**Verification Complete:** All acceptance criteria from Units 7a/7b verified.
+
+**Test Coverage:**
+- 19 tests for google-oauth.server.ts (was 18, added 1)
+- 100% statement, branch, function, and line coverage
+- No warnings
+
+**Edge Case Added:**
+1. **RFC 7636 test vector** - Added test verifying the SHA-256 implementation produces correct code_challenge using the RFC 7636 Appendix B test vector (`dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk` → `E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM`). This validates the pure JavaScript SHA-256 implementation is correct.
+
+**Functions Verified:**
+1. `generateCodeVerifier` (4 tests) - random generation, uniqueness, URL-safety, length (43-128 chars per RFC 7636)
+2. `createGoogleAuthorizationURL` (15 tests) - URL structure, all required parameters, PKCE code_challenge, scope handling, URL encoding, RFC 7636 test vector
+
+**Implementation Review:**
+- `generateCodeVerifier` uses `crypto.getRandomValues()` with 32 bytes (256 bits entropy) - produces 43-char base64url output
+- `createGoogleAuthorizationURL` constructs proper Google authorize URL with all required OAuth 2.0 + PKCE params
+- Pure JavaScript SHA-256 implementation validated against RFC 7636 Appendix B test vector
+- Scopes correctly set to `openid email profile`
+
+**Key Differences from Apple OAuth:**
+| Feature | Apple | Google |
+|---------|-------|--------|
+| PKCE | Not used | Required (code_challenge + code_verifier) |
+| Callback type | POST (form_post) | GET (standard redirect) |
+| Scopes | email, name | openid, email, profile |
+| Auth endpoint | appleid.apple.com | accounts.google.com |
+
+**Result:** Added 1 edge case test for SHA-256 correctness. Implementation was complete from Units 7a/7b.
+
 ---
 
 ## For Future Tasks
