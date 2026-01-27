@@ -623,6 +623,40 @@ interface AppleOAuthCallbackResult {
 
 **Total New Tests:** 44 failing (18 + 26) - all existing 1329 tests still pass.
 
+### 2026-01-27 - Apple OAuth Callback Implementation (Unit 6b)
+
+**Implementation Complete:** Both functions fully implemented and all tests pass.
+
+**verifyAppleCallback Implementation:**
+- Validates state and code parameters (returns `invalid_state` or `invalid_code` errors)
+- Uses Arctic library's `Apple` class to exchange authorization code for tokens
+- Calls `decodeIdToken` from Arctic to extract JWT claims (sub, email, email_verified, is_private_email)
+- Parses user parameter JSON for name info (first sign-in only)
+- Constructs fullName from firstName + lastName with proper null handling
+- Handles Apple quirks: `email_verified` as string "true", `is_private_email` claim
+- Error handling: `oauth_error` for OAuth2RequestError, `network_error` for fetch failures, `invalid_code` for other errors
+
+**handleAppleOAuthCallback Implementation:**
+- Flow 1: If `currentUserId` is set → Link Apple account using `linkOAuthAccount`
+- Flow 2: If Apple account exists in DB → Return existing user with `user_logged_in` action
+- Flow 3: Case-insensitive email collision check using raw SQL (`LOWER(email)`) for SQLite
+- Flow 4: Create new user using `createOAuthUser` with `user_created` action
+- Sets `providerUsername` to fullName or email as fallback
+- Returns appropriate `redirectTo` based on flow (custom, settings, or default "/")
+
+**Key Implementation Decisions:**
+1. **Raw SQL for email collision:** SQLite doesn't support Prisma's `mode: "insensitive"`, so used raw SQL with `LOWER(email)` for case-insensitive matching
+2. **Error propagation:** Errors from `linkOAuthAccount` and `createOAuthUser` are passed through directly (e.g., `provider_already_linked`, `provider_account_taken`, `account_exists`)
+3. **Arctic integration:** Used Arctic's classes directly rather than wrapping them further
+
+**Test Mock Fix:**
+Original tests had `vi.mock("arctic")` inside test functions (incorrect - Vitest hoists mocks). Fixed by:
+- Moving mock to module level using `vi.hoisted()` for state
+- Using class-based mock for `Apple` instead of `vi.fn().mockImplementation()`
+- Making mock state mutable so tests can configure return values
+
+**All 1373 tests pass with no warnings.**
+
 ---
 
 ## For Future Tasks
