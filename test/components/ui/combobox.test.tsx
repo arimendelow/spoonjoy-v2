@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Combobox, ComboboxOption, ComboboxLabel, ComboboxDescription } from '~/components/ui/combobox'
+import * as Headless from '@headlessui/react'
+import { Combobox, ComboboxOption, ComboboxLabel, ComboboxDescription, renderOption, createVirtualOptionRenderer } from '~/components/ui/combobox'
 
 interface TestOption {
   id: number
@@ -391,6 +392,145 @@ describe('Combobox', () => {
       // Arrow down skips disabled option (Apple) and selects Banana
       await user.keyboard('{ArrowDown}{Enter}')
       expect(onChange).toHaveBeenCalledWith(testOptions[1])
+    })
+  })
+
+  describe('renderOption helper', () => {
+    it('calls children callback with option value', () => {
+      const childrenFn = vi.fn((option: TestOption) => (
+        <ComboboxOption key={option.id} value={option}>
+          <ComboboxLabel>{option.name}</ComboboxLabel>
+        </ComboboxOption>
+      ))
+      const option = testOptions[0]
+      renderOption(childrenFn, option)
+      expect(childrenFn).toHaveBeenCalledWith(option)
+    })
+
+    it('returns the rendered element from children callback', () => {
+      const childrenFn = (option: TestOption) => (
+        <ComboboxOption key={option.id} value={option}>
+          <ComboboxLabel>{option.name}</ComboboxLabel>
+        </ComboboxOption>
+      )
+      const result = renderOption(childrenFn, testOptions[0])
+      expect(result).toBeDefined()
+      expect(result.type).toBe(ComboboxOption)
+    })
+  })
+
+  describe('createVirtualOptionRenderer', () => {
+    it('creates a renderer function that calls children with option', () => {
+      const childrenFn = vi.fn((option: TestOption) => (
+        <ComboboxOption key={option.id} value={option}>
+          <ComboboxLabel>{option.name}</ComboboxLabel>
+        </ComboboxOption>
+      ))
+      const renderer = createVirtualOptionRenderer(childrenFn)
+      renderer({ option: testOptions[0] })
+      expect(childrenFn).toHaveBeenCalledWith(testOptions[0])
+    })
+
+    it('returns the rendered element from the created renderer', () => {
+      const childrenFn = (option: TestOption) => (
+        <ComboboxOption key={option.id} value={option}>
+          <ComboboxLabel>{option.name}</ComboboxLabel>
+        </ComboboxOption>
+      )
+      const renderer = createVirtualOptionRenderer(childrenFn)
+      const result = renderer({ option: testOptions[1] })
+      expect(result).toBeDefined()
+      expect(result.type).toBe(ComboboxOption)
+    })
+  })
+
+  describe('ComboboxOption direct rendering', () => {
+    // These tests use HeadlessUI Combobox directly (non-virtual) to test ComboboxOption
+    it('renders ComboboxOption with checkmark SVG', async () => {
+      const user = userEvent.setup()
+      render(
+        <Headless.Combobox value={testOptions[0]}>
+          <Headless.ComboboxInput aria-label="Test" />
+          <Headless.ComboboxOptions static>
+            <ComboboxOption value={testOptions[0]}>
+              <ComboboxLabel>Apple</ComboboxLabel>
+            </ComboboxOption>
+            <ComboboxOption value={testOptions[1]}>
+              <ComboboxLabel>Banana</ComboboxLabel>
+            </ComboboxOption>
+          </Headless.ComboboxOptions>
+        </Headless.Combobox>
+      )
+      // With static option, options are always visible
+      const options = screen.getAllByRole('option')
+      expect(options).toHaveLength(2)
+      // Verify the checkmark SVG is rendered
+      const selectedOption = options[0]
+      const svg = selectedOption.querySelector('svg')
+      expect(svg).toBeInTheDocument()
+      expect(svg?.querySelector('path[d="M4 8.5l3 3L12 4"]')).toBeInTheDocument()
+    })
+
+
+    it('applies className to ComboboxOption inner span', async () => {
+      render(
+        <Headless.Combobox>
+          <Headless.ComboboxInput aria-label="Test" />
+          <Headless.ComboboxOptions static>
+            <ComboboxOption value="test" className="custom-option-class">
+              <ComboboxLabel>Test Option</ComboboxLabel>
+            </ComboboxOption>
+          </Headless.ComboboxOptions>
+        </Headless.Combobox>
+      )
+      const option = screen.getByRole('option')
+      const innerSpan = option.querySelector('span.custom-option-class')
+      expect(innerSpan).toBeInTheDocument()
+    })
+
+    it('renders children inside ComboboxOption', async () => {
+      render(
+        <Headless.Combobox>
+          <Headless.ComboboxInput aria-label="Test" />
+          <Headless.ComboboxOptions static>
+            <ComboboxOption value="test">
+              <span data-testid="child-content">Child Content</span>
+            </ComboboxOption>
+          </Headless.ComboboxOptions>
+        </Headless.Combobox>
+      )
+      expect(screen.getByTestId('child-content')).toBeInTheDocument()
+    })
+
+    it('renders ComboboxOption with no children', async () => {
+      render(
+        <Headless.Combobox>
+          <Headless.ComboboxInput aria-label="Test" />
+          <Headless.ComboboxOptions static>
+            <ComboboxOption value="test" />
+          </Headless.ComboboxOptions>
+        </Headless.Combobox>
+      )
+      const option = screen.getByRole('option')
+      expect(option).toBeInTheDocument()
+    })
+
+    it('applies shared styling classes to option span', async () => {
+      render(
+        <Headless.Combobox>
+          <Headless.ComboboxInput aria-label="Test" />
+          <Headless.ComboboxOptions static>
+            <ComboboxOption value="test">
+              <ComboboxLabel>Test</ComboboxLabel>
+            </ComboboxOption>
+          </Headless.ComboboxOptions>
+        </Headless.Combobox>
+      )
+      const option = screen.getByRole('option')
+      const innerSpan = option.querySelector('span')
+      expect(innerSpan?.className).toContain('flex')
+      expect(innerSpan?.className).toContain('min-w-0')
+      expect(innerSpan?.className).toContain('items-center')
     })
   })
 
