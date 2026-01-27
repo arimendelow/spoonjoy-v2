@@ -274,64 +274,65 @@ export default function EditStep() {
             )}
           </div>
 
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "space-between" }}>
-            <Form method="post">
-              <input type="hidden" name="intent" value="delete" />
-              <button
-                type="submit"
-                onClick={
-                  /* istanbul ignore next -- browser confirm dialog */
-                  (e) => {
-                    if (!confirm("Are you sure you want to delete this step?")) {
-                      e.preventDefault();
-                    }
-                  }
-                }
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  fontSize: "1rem",
-                  backgroundColor: "#dc3545",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Delete Step
-              </button>
-            </Form>
-            <div style={{ display: "flex", gap: "1rem" }}>
-              <Link
-                to={`/recipes/${recipe.id}/edit`}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  fontSize: "1rem",
-                  backgroundColor: "#6c757d",
-                  color: "white",
-                  textDecoration: "none",
-                  borderRadius: "4px",
-                  textAlign: "center",
-                }}
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  fontSize: "1rem",
-                  backgroundColor: "#0066cc",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Save Changes
-              </button>
-            </div>
+          <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+            <Link
+              to={`/recipes/${recipe.id}/edit`}
+              style={{
+                padding: "0.75rem 1.5rem",
+                fontSize: "1rem",
+                backgroundColor: "#6c757d",
+                color: "white",
+                textDecoration: "none",
+                borderRadius: "4px",
+                textAlign: "center",
+              }}
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              style={{
+                padding: "0.75rem 1.5rem",
+                fontSize: "1rem",
+                backgroundColor: "#0066cc",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              Save Changes
+            </button>
           </div>
         </Form>
+
+        <div style={{ marginTop: "1rem" }}>
+          <Form method="post">
+            <input type="hidden" name="intent" value="delete" />
+            <button
+              type="submit"
+              onClick={
+                /* istanbul ignore next -- browser confirm dialog */
+                (e) => {
+                  if (!confirm("Are you sure you want to delete this step?")) {
+                    e.preventDefault();
+                  }
+                }
+              }
+              style={{
+                padding: "0.75rem 1.5rem",
+                fontSize: "1rem",
+                backgroundColor: "#dc3545",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              Delete Step
+            </button>
+          </Form>
+        </div>
 
         <div style={{ marginTop: "3rem", paddingTop: "2rem", borderTop: "1px solid #dee2e6" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
