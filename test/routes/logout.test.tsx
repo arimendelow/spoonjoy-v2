@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest } from "undici";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { loader, action } from "~/routes/logout";
 import Logout from "~/routes/logout";
@@ -117,10 +117,10 @@ describe("Logout Route", () => {
 
       const { container } = render(<Stub initialEntries={["/logout"]} />);
 
-      // The logout component returns null, so container should be empty or have minimal content
-      // Since it redirects, we'll end up on login page
-      // Note: In actual rendering, the redirect happens and we see the login page
-      expect(container).toBeDefined();
+      // Wait for redirect navigation to complete to avoid act() warning
+      await waitFor(() => {
+        expect(container).toBeDefined();
+      });
     });
 
     it("should render nothing when component is called directly", () => {
