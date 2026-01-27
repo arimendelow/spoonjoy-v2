@@ -10,6 +10,11 @@
 
 import type { PrismaClient } from "@prisma/client";
 import type { AppleUser } from "./apple-oauth.server";
+import {
+  createOAuthUser,
+  findExistingOAuthAccount,
+  linkOAuthAccount,
+} from "./oauth-user.server";
 
 /**
  * Parameters for handling Apple OAuth callback.
@@ -65,6 +70,91 @@ export interface AppleOAuthCallbackResult {
 export async function handleAppleOAuthCallback(
   params: AppleOAuthCallbackParams
 ): Promise<AppleOAuthCallbackResult> {
-  // Stub implementation - throws for TDD
-  throw new Error("Not implemented");
+  const { db, appleUser, currentUserId, redirectTo } = params;
+
+  // Default redirect destination
+  const defaultRedirect = redirectTo ?? "/";
+
+  // Flow 1: User is logged in - link Apple account to existing user
+  if (currentUserId) {
+    const linkResult = await linkOAuthAccount(db, currentUserId, {
+      provider: "apple",
+      providerUserId: appleUser.id,
+      providerUsername: appleUser.fullName ?? appleUser.email,
+    });
+
+    if (!linkResult.success) {
+      return {
+        success: false,
+        error: linkResult.error,
+        message: linkResult.message,
+        redirectTo: defaultRedirect,
+      };
+    }
+
+    return {
+      success: true,
+      userId: currentUserId,
+      action: "account_linked",
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  // Flow 2: Check if Apple account already exists (returning user)
+  const existingOAuthAccount = await findExistingOAuthAccount(
+    db,
+    "apple",
+    appleUser.id
+  );
+
+  if (existingOAuthAccount) {
+    return {
+      success: true,
+      userId: existingOAuthAccount.userId,
+      action: "user_logged_in",
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  // Flow 3: Check if email exists (case-insensitive)
+  // Use raw SQL for case-insensitive email comparison in SQLite
+  const normalizedEmail = appleUser.email.toLowerCase();
+  const existingUsersByEmail = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM User WHERE LOWER(email) = ${normalizedEmail}
+  `;
+
+  if (existingUsersByEmail.length > 0) {
+    return {
+      success: false,
+      error: "account_exists",
+      message:
+        "An account with this email already exists. Please log in to link your Apple account.",
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  // Flow 4: Create new user
+  const createResult = await createOAuthUser(db, {
+    provider: "apple",
+    providerUserId: appleUser.id,
+    providerUsername: appleUser.fullName ?? appleUser.email,
+    email: appleUser.email,
+    name: appleUser.fullName,
+  });
+
+  if (!createResult.success) {
+    return {
+      success: false,
+      error: createResult.error,
+      message: createResult.message,
+      redirectTo: defaultRedirect,
+    };
+  }
+
+  return {
+    success: true,
+    userId: createResult.user!.id,
+    action: "user_created",
+    redirectTo: defaultRedirect,
+  };
 }
