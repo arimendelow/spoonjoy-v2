@@ -1,10 +1,88 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { faker } from "@faker-js/faker";
 import type { GoogleOAuthConfig } from "~/lib/env.server";
+
+// Use vi.hoisted to create mock state that's available at mock time
+const { mockGoogleState } = vi.hoisted(() => {
+  return {
+    mockGoogleState: {
+      googleUserId: "default-user-id",
+      email: "default@example.com",
+      emailVerified: true,
+      name: "Default User",
+      givenName: "Default",
+      familyName: "User",
+      picture: "https://lh3.googleusercontent.com/a-/default",
+    },
+  };
+});
+
+// Mock arctic at module level using a class for Google
+vi.mock("arctic", () => {
+  // Mock Google class
+  class MockGoogle {
+    constructor(
+      _clientId: string,
+      _clientSecret: string,
+      _redirectUri: string
+    ) {}
+
+    async validateAuthorizationCode(
+      code: string,
+      codeVerifier: string
+    ): Promise<{ accessToken: () => string }> {
+      if (code === "invalid-code") {
+        throw new Error("Invalid authorization code");
+      }
+      if (code === "code-that-triggers-oauth-error") {
+        const error = new Error("OAuth error");
+        error.name = "OAuth2RequestError";
+        throw error;
+      }
+      if (code === "code-that-triggers-oauth-error-no-message") {
+        const error = new Error("");
+        error.name = "OAuth2RequestError";
+        throw error;
+      }
+      if (code === "code-that-triggers-network-error") {
+        const error = new TypeError("fetch failed");
+        throw error;
+      }
+      if (!codeVerifier) {
+        throw new Error("PKCE code verifier required");
+      }
+      return {
+        accessToken: () => "mock-access-token",
+      };
+    }
+  }
+
+  // Mock OAuth2RequestError class
+  class MockOAuth2RequestError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "OAuth2RequestError";
+    }
+  }
+
+  return {
+    Google: MockGoogle,
+    OAuth2RequestError: MockOAuth2RequestError,
+  };
+});
+
+// Mock global fetch for userinfo endpoint
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
 
 // Import functions that don't exist yet (TDD - tests first)
 import {
   generateCodeVerifier,
   createGoogleAuthorizationURL,
+  verifyGoogleCallback,
+  type GoogleCallbackData,
+  type GoogleCallbackResult,
+  type GoogleUser,
 } from "~/lib/google-oauth.server";
 
 describe("google-oauth.server", () => {
@@ -274,6 +352,522 @@ describe("google-oauth.server", () => {
       );
 
       expect(url.searchParams.get("code_challenge")).toBe(expectedCodeChallenge);
+    });
+  });
+
+  describe("verifyGoogleCallback", () => {
+    const mockRedirectUri = "https://spoonjoy.app/auth/google/callback";
+
+    // Helper to generate unique Google user IDs
+    function generateGoogleUserId(): string {
+      return faker.string.numeric(21);
+    }
+
+    // Helper to set up mock fetch response for userinfo
+    function setupMockUserinfo(userinfo: {
+      sub: string;
+      email: string;
+      email_verified: boolean;
+      name?: string;
+      given_name?: string;
+      family_name?: string;
+      picture?: string;
+    }) {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(userinfo),
+      });
+    }
+
+    // Helper to set up mock fetch error
+    function setupMockUserinfoError(status: number = 401, message: string = "Unauthorized") {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status,
+        statusText: message,
+      });
+    }
+
+    // Helper to set up mock fetch network error
+    function setupMockNetworkError() {
+      mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
+    }
+
+    beforeEach(() => {
+      mockFetch.mockReset();
+      // Reset mock state
+      mockGoogleState.googleUserId = generateGoogleUserId();
+      mockGoogleState.email = faker.internet.email().toLowerCase();
+      mockGoogleState.emailVerified = true;
+      mockGoogleState.name = faker.person.fullName();
+      mockGoogleState.givenName = faker.person.firstName();
+      mockGoogleState.familyName = faker.person.lastName();
+      mockGoogleState.picture = `https://lh3.googleusercontent.com/a-/${faker.string.alphanumeric(28)}`;
+    });
+
+    describe("token verification with PKCE", () => {
+      it("should return error for invalid authorization code", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "invalid-code",
+          state: "test-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_code");
+        expect(result.message).toContain("authorization code");
+      });
+
+      it("should return error when state is missing", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "valid-code",
+          state: "",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_state");
+        expect(result.message).toContain("state");
+      });
+
+      it("should return error when code is missing", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "",
+          state: "test-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_code");
+        expect(result.message).toContain("code");
+      });
+
+      it("should return error when codeVerifier is missing", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "valid-code",
+          state: "test-state",
+          codeVerifier: "",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_code_verifier");
+        expect(result.message).toContain("verifier");
+      });
+
+      it("should handle Google OAuth2RequestError", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "code-that-triggers-oauth-error",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("oauth_error");
+      });
+
+      it("should handle OAuth2RequestError with empty message", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "code-that-triggers-oauth-error-no-message",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("oauth_error");
+        expect(result.message).toBe("OAuth error occurred");
+      });
+
+      it("should handle network/fetch errors during token exchange", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "code-that-triggers-network-error",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("network_error");
+      });
+    });
+
+    describe("user info fetch from Google", () => {
+      it("should extract user ID from userinfo response", async () => {
+        const testGoogleUserId = generateGoogleUserId();
+        const testEmail = faker.internet.email().toLowerCase();
+
+        setupMockUserinfo({
+          sub: testGoogleUserId,
+          email: testEmail,
+          email_verified: true,
+          name: "Test User",
+          given_name: "Test",
+          family_name: "User",
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.id).toBe(testGoogleUserId);
+      });
+
+      it("should extract email from userinfo response", async () => {
+        const testEmail = faker.internet.email().toLowerCase();
+
+        setupMockUserinfo({
+          sub: generateGoogleUserId(),
+          email: testEmail,
+          email_verified: true,
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.email).toBe(testEmail);
+      });
+
+      it("should extract full name from userinfo response", async () => {
+        setupMockUserinfo({
+          sub: generateGoogleUserId(),
+          email: faker.internet.email().toLowerCase(),
+          email_verified: true,
+          name: "Jane Smith",
+          given_name: "Jane",
+          family_name: "Smith",
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.name).toBe("Jane Smith");
+        expect(result.googleUser?.givenName).toBe("Jane");
+        expect(result.googleUser?.familyName).toBe("Smith");
+      });
+
+      it("should handle missing name fields gracefully", async () => {
+        setupMockUserinfo({
+          sub: generateGoogleUserId(),
+          email: faker.internet.email().toLowerCase(),
+          email_verified: true,
+          // No name fields
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.name).toBeNull();
+        expect(result.googleUser?.givenName).toBeNull();
+        expect(result.googleUser?.familyName).toBeNull();
+      });
+
+      it("should extract profile picture URL", async () => {
+        const pictureUrl = "https://lh3.googleusercontent.com/a-/abc123";
+
+        setupMockUserinfo({
+          sub: generateGoogleUserId(),
+          email: faker.internet.email().toLowerCase(),
+          email_verified: true,
+          picture: pictureUrl,
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.picture).toBe(pictureUrl);
+      });
+
+      it("should handle missing picture gracefully", async () => {
+        setupMockUserinfo({
+          sub: generateGoogleUserId(),
+          email: faker.internet.email().toLowerCase(),
+          email_verified: true,
+          // No picture
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.picture).toBeNull();
+      });
+
+      it("should extract email_verified boolean", async () => {
+        setupMockUserinfo({
+          sub: generateGoogleUserId(),
+          email: faker.internet.email().toLowerCase(),
+          email_verified: true,
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.emailVerified).toBe(true);
+      });
+
+      it("should handle email_verified as false", async () => {
+        setupMockUserinfo({
+          sub: generateGoogleUserId(),
+          email: faker.internet.email().toLowerCase(),
+          email_verified: false,
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser?.emailVerified).toBe(false);
+      });
+
+      it("should return error when userinfo request fails", async () => {
+        setupMockUserinfoError(401, "Unauthorized");
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("userinfo_error");
+        expect(result.message).toContain("user info");
+      });
+
+      it("should handle network error during userinfo fetch", async () => {
+        setupMockNetworkError();
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("network_error");
+      });
+    });
+
+    describe("result structure", () => {
+      it("should return GoogleUser with all required fields on success", async () => {
+        const testGoogleUserId = generateGoogleUserId();
+        const testEmail = faker.internet.email().toLowerCase();
+
+        setupMockUserinfo({
+          sub: testGoogleUserId,
+          email: testEmail,
+          email_verified: true,
+          name: "Test User",
+          given_name: "Test",
+          family_name: "User",
+          picture: "https://lh3.googleusercontent.com/a-/test",
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser).toEqual(
+          expect.objectContaining({
+            id: testGoogleUserId,
+            email: testEmail,
+            emailVerified: true,
+            name: "Test User",
+            givenName: "Test",
+            familyName: "User",
+            picture: "https://lh3.googleusercontent.com/a-/test",
+          })
+        );
+      });
+
+      it("should not include googleUser on error", async () => {
+        const callbackData: GoogleCallbackData = {
+          code: "",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.googleUser).toBeUndefined();
+      });
+
+      it("should return GoogleUser with null fields when not provided", async () => {
+        const testGoogleUserId = generateGoogleUserId();
+        const testEmail = faker.internet.email().toLowerCase();
+
+        setupMockUserinfo({
+          sub: testGoogleUserId,
+          email: testEmail,
+          email_verified: true,
+          // No optional fields
+        });
+
+        const callbackData: GoogleCallbackData = {
+          code: "valid-auth-code",
+          state: "valid-state",
+          codeVerifier: "valid-code-verifier-at-least-43-characters-long",
+        };
+
+        const result = await verifyGoogleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.googleUser).toEqual({
+          id: testGoogleUserId,
+          email: testEmail,
+          emailVerified: true,
+          name: null,
+          givenName: null,
+          familyName: null,
+          picture: null,
+        });
+      });
     });
   });
 });

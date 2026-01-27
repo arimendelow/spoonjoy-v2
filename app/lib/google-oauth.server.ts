@@ -7,6 +7,48 @@
 
 import type { GoogleOAuthConfig } from "./env.server";
 
+/**
+ * Data received from Google's OAuth callback (GET request query params).
+ */
+export interface GoogleCallbackData {
+  /** Authorization code from Google */
+  code: string;
+  /** CSRF protection state */
+  state: string;
+  /** PKCE code verifier (stored client-side during initiation) */
+  codeVerifier: string;
+}
+
+/**
+ * Google user data extracted from the callback.
+ */
+export interface GoogleUser {
+  /** Google's unique user identifier (sub claim) */
+  id: string;
+  /** User's email address */
+  email: string;
+  /** Whether the email is verified */
+  emailVerified: boolean;
+  /** User's full display name */
+  name: string | null;
+  /** User's given (first) name */
+  givenName: string | null;
+  /** User's family (last) name */
+  familyName: string | null;
+  /** Profile picture URL */
+  picture: string | null;
+}
+
+/**
+ * Result of verifying Google OAuth callback.
+ */
+export interface GoogleCallbackResult {
+  success: boolean;
+  googleUser?: GoogleUser;
+  error?: string;
+  message?: string;
+}
+
 // SHA-256 constants (first 32 bits of fractional parts of cube roots of first 64 primes)
 const K = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
@@ -172,4 +214,23 @@ export function createGoogleAuthorizationURL(
   url.searchParams.set("code_challenge", generateCodeChallenge(codeVerifier));
 
   return url;
+}
+
+/**
+ * Verifies Google OAuth callback and extracts user data.
+ *
+ * @param config - Google OAuth configuration (from env.server.ts)
+ * @param redirectUri - The callback URL used in the initial authorization request
+ * @param callbackData - Data from Google's GET callback (code, state, codeVerifier)
+ * @returns Result with googleUser on success, or error details on failure
+ *
+ * Note: This function validates the authorization code with Google using PKCE,
+ * then fetches user info from the userinfo endpoint.
+ */
+export async function verifyGoogleCallback(
+  _config: GoogleOAuthConfig,
+  _redirectUri: string,
+  _callbackData: GoogleCallbackData
+): Promise<GoogleCallbackResult> {
+  throw new Error("Not implemented");
 }
