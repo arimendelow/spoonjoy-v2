@@ -125,6 +125,45 @@ Added `tsconfig-paths` and custom Module._resolveFilename patch in `test/setup.t
 - Google: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET ✓
 - Apple: APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY ✓
 
+### 2026-01-27 - OAuth User Creation Tests (Unit 2a)
+
+**Tests Written:** 21 failing tests for OAuth user creation in `test/lib/oauth-user.server.test.ts`
+
+**Function Signatures Defined:**
+```typescript
+generateUsername(db: PrismaClient, name: string | null, email: string | null): Promise<string>
+createOAuthUser(db: PrismaClient, oauthData: OAuthUserData): Promise<CreateOAuthUserResult>
+```
+
+**OAuthUserData Interface:**
+```typescript
+interface OAuthUserData {
+  provider: string;
+  providerUserId: string;
+  providerUsername: string;
+  email: string;
+  name: string | null;
+}
+```
+
+**Username Generation Rules (from tests):**
+1. Derive from name if available (e.g., "John Smith" → "john-smith")
+2. Fall back to email local part if no name (e.g., "bob@example.com" → "bob")
+3. Replace dots with hyphens, strip special characters
+4. Handle `+` in email (e.g., "user+tag@example.com" → "user")
+5. On collision, append incremental number (e.g., "alice" → "alice-1" → "alice-2")
+6. If no name or email, generate random fallback like "user-[random]"
+
+**createOAuthUser Behavior (from tests):**
+1. Creates User with null hashedPassword/salt (OAuth-only user)
+2. Creates OAuth record linking provider to user
+3. Lowercases email before storage
+4. Returns `{success: false, error: "account_exists", message: "...log in..."}` if email already exists
+5. Email collision check is case-insensitive
+6. Handles username collisions automatically via generateUsername
+
+**Stub Implementation:** Created `app/lib/oauth-user.server.ts` with function stubs that throw "Not implemented" errors.
+
 ---
 
 ## For Future Tasks
