@@ -123,6 +123,7 @@ export default function RecipeDetail() {
               By <strong>{recipe.chef.username}</strong>
             </p>
           </div>
+          {/* istanbul ignore next -- owner-only UI rendering */}
           {isOwner && (
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <Link

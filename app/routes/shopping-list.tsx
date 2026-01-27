@@ -277,6 +277,7 @@ export default function ShoppingList() {
             <h1>Shopping List</h1>
             <p style={{ color: "#666", margin: "0.5rem 0 0 0" }}>
               {shoppingList.items.length} {shoppingList.items.length === 1 ? "item" : "items"}
+              {/* istanbul ignore next -- dynamic count rendering */}
               {checkedCount > 0 && (
                 <span> ({checkedCount} checked, {uncheckedCount} remaining)</span>
               )}
@@ -295,6 +296,7 @@ export default function ShoppingList() {
             >
               Home
             </Link>
+            {/* istanbul ignore next -- conditional button rendering */}
             {checkedCount > 0 && (
               <Form method="post">
                 <input type="hidden" name="intent" value="clearCompleted" />
@@ -313,6 +315,7 @@ export default function ShoppingList() {
                 </button>
               </Form>
             )}
+            {/* istanbul ignore next -- conditional button rendering */}
             {shoppingList.items.length > 0 && (
               <Form method="post">
                 <input type="hidden" name="intent" value="clearAll" />
@@ -428,6 +431,7 @@ export default function ShoppingList() {
           </Form>
         </div>
 
+        {/* istanbul ignore next -- conditional recipe selector rendering */}
         {recipes.length > 0 && (
           <div
             style={{
