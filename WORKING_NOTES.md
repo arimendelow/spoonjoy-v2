@@ -465,6 +465,33 @@ createAppleAuthorizationURL(config: AppleOAuthConfig, redirectUri: string, state
 
 **Total Tests:** 12 failing tests for TDD (no implementation yet)
 
+### 2026-01-27 - Apple OAuth Initiation Implementation (Unit 5b)
+
+**Implementation Complete:** Both functions in `app/lib/apple-oauth.server.ts` fully implemented.
+
+**generateOAuthState Implementation:**
+- Uses `crypto.getRandomValues()` with 32 bytes for cryptographic randomness
+- Converts to base64url encoding (URL-safe: A-Z, a-z, 0-9, -, _)
+- Removes padding characters (=) for cleaner URLs
+- Returns unique values on each call (32 bytes of randomness = 256 bits of entropy)
+
+**createAppleAuthorizationURL Implementation:**
+- Creates URL to `https://appleid.apple.com/auth/authorize`
+- Sets required parameters:
+  - `client_id` - Apple app identifier from config
+  - `redirect_uri` - Callback URL for OAuth flow
+  - `state` - CSRF protection token
+  - `response_type=code` - Standard OAuth authorization code flow
+  - `response_mode=form_post` - Required by Apple when requesting scopes
+  - `scope=email name` - Requests email and name scopes
+
+**Key Implementation Details:**
+- Did NOT use Arctic library for URL generation - Apple's authorize URL is simple enough to construct directly
+- Arctic will be used for token exchange in callback handler (future unit)
+- `response_mode=form_post` means callback route must handle POST requests (not GET)
+
+**All 12 tests passing with no warnings.**
+
 ---
 
 ## For Future Tasks
