@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
@@ -254,6 +254,29 @@ describe("Recipes New Route", () => {
       expect(recipe?.description).toBeNull();
       expect(recipe?.servings).toBeNull();
     });
+
+    it("should return generic error for database errors", async () => {
+      // Mock db.recipe.create to throw a generic error
+      const originalCreate = db.recipe.create;
+      db.recipe.create = vi.fn().mockRejectedValue(new Error("Database connection failed"));
+
+      try {
+        const request = await createFormRequest({ title: "My Recipe" }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(500);
+        expect(data.errors.general).toBe("Failed to create recipe. Please try again.");
+      } finally {
+        // Restore original function
+        db.recipe.create = originalCreate;
+      }
+    });
   });
 
   describe("component", () => {
@@ -336,6 +359,24 @@ describe("Recipes New Route", () => {
       expect(screen.getByPlaceholderText("Brief description of your recipe...")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("e.g., 4, 6-8, or 2 dozen")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("https://example.com/image.jpg (optional)")).toBeInTheDocument();
+    });
+
+    it("should display general error message when present", async () => {
+      const Stub = createRoutesStub([
+        {
+          path: "/recipes/new",
+          Component: NewRecipe,
+          loader: () => null,
+          action: () => ({
+            errors: { general: "Failed to create recipe. Please try again." },
+          }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/new"]} />);
+
+      // Wait for form to render
+      await screen.findByLabelText(/Recipe Title/);
     });
   });
 });
