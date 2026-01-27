@@ -657,6 +657,41 @@ Original tests had `vi.mock("arctic")` inside test functions (incorrect - Vitest
 
 **All 1373 tests pass with no warnings.**
 
+### 2026-01-27 - Apple OAuth Callback Work Check (Unit 6c)
+
+**Verification Complete:** All acceptance criteria from Units 6a/6b verified.
+
+**Coverage Gaps Identified and Fixed:**
+
+1. **apple-oauth-callback.server.ts line 146** - The `createOAuthUser` error return path was uncovered. Added test that mocks `createOAuthUser` to return `email_required` error, verifying defensive error handling.
+
+2. **apple-oauth.server.ts line 225** - The `||` fallback for empty `error.message` was uncovered. Added test for `OAuth2RequestError` with empty message, verifying fallback to "OAuth error occurred".
+
+3. **apple-oauth-callback.server.ts line 83** - The `??` branch for `fullName ?? email` in account linking was only testing when `fullName` is set. Added test for account linking when `fullName` is null, verifying email is used as `providerUsername`.
+
+**Tests Added:**
+1. `should propagate createOAuthUser errors when user creation fails` - Tests defensive error handling for createOAuthUser failures
+2. `should handle OAuth2RequestError with empty message` - Tests fallback message for errors without message
+3. `should use email as providerUsername when linking without fullName` - Tests email fallback in account linking flow
+
+**Final Test Count:** 1376 tests (was 1373)
+
+**Coverage Result:** 100% statements, branches, functions, and lines on all OAuth files:
+- `apple-oauth.server.ts` - 100% all metrics
+- `apple-oauth-callback.server.ts` - 100% all metrics
+- `oauth-user.server.ts` - 100% all metrics
+- `env.server.ts` - 100% all metrics
+
+**Functions Verified:**
+1. `verifyAppleCallback` (18 tests) - Token verification, user data extraction, error handling
+2. `handleAppleOAuthCallback` (28 tests) - User creation, login, linking, redirects
+
+**Error Cases Covered:**
+- verifyAppleCallback: `invalid_state`, `invalid_code`, `oauth_error`, `network_error`
+- handleAppleOAuthCallback: `account_exists`, `provider_already_linked`, `provider_account_taken`, `email_required` (via createOAuthUser)
+
+**No warnings in test output.**
+
 ---
 
 ## For Future Tasks

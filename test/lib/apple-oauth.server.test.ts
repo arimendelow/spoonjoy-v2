@@ -37,6 +37,11 @@ vi.mock("arctic", () => {
         error.name = "OAuth2RequestError";
         throw error;
       }
+      if (code === "code-that-triggers-oauth-error-no-message") {
+        const error = new Error("");
+        error.name = "OAuth2RequestError";
+        throw error;
+      }
       if (code === "code-that-triggers-network-error") {
         const error = new TypeError("fetch failed");
         throw error;
@@ -351,6 +356,23 @@ oUQDQgAEtest1234567890test1234567890test1234567890test1234
 
         expect(result.success).toBe(false);
         expect(result.error).toBe("oauth_error");
+      });
+
+      it("should handle OAuth2RequestError with empty message", async () => {
+        const callbackData: AppleCallbackData = {
+          code: "code-that-triggers-oauth-error-no-message",
+          state: "valid-state",
+        };
+
+        const result = await verifyAppleCallback(
+          mockConfig,
+          mockRedirectUri,
+          callbackData
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("oauth_error");
+        expect(result.message).toBe("OAuth error occurred");
       });
 
       it("should handle network/fetch errors gracefully", async () => {

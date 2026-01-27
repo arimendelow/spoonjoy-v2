@@ -326,6 +326,45 @@ describe("apple-oauth-callback.server", () => {
         expect(result.action).toBe("account_linked");
       });
 
+      it("should use email as providerUsername when linking without fullName", async () => {
+        // Create a user with password auth (no OAuth)
+        const testUserData = createTestUser();
+        const existingUser = await db.user.create({
+          data: testUserData,
+        });
+        testUserIds.push(existingUser.id);
+
+        // Apple user without name (returning user scenario)
+        const mockAppleUser = createMockAppleUser({
+          firstName: null,
+          lastName: null,
+          fullName: null,
+        });
+
+        const params: AppleOAuthCallbackParams = {
+          db,
+          appleUser: mockAppleUser,
+          currentUserId: existingUser.id,
+          redirectTo: "/settings",
+        };
+
+        const result = await handleAppleOAuthCallback(params);
+
+        expect(result.success).toBe(true);
+        expect(result.action).toBe("account_linked");
+
+        // Verify providerUsername is the email
+        const oauth = await db.oAuth.findUnique({
+          where: {
+            userId_provider: {
+              userId: existingUser.id,
+              provider: "apple",
+            },
+          },
+        });
+        expect(oauth?.providerUsername).toBe(mockAppleUser.email);
+      });
+
       it("should return error when Apple account already linked to different user", async () => {
         // Create first user with Apple OAuth
         const mockAppleUser = createMockAppleUser();
@@ -385,6 +424,51 @@ describe("apple-oauth-callback.server", () => {
         expect(result.success).toBe(false);
         expect(result.error).toBe("provider_already_linked");
         expect(result.message).toContain("already linked");
+      });
+    });
+
+    describe("createOAuthUser error handling", () => {
+      it("should propagate createOAuthUser errors when user creation fails", async () => {
+        // This edge case tests when createOAuthUser fails for reasons other than
+        // email collision (which is already checked separately).
+        // The most likely case is when Apple returns a user with no email
+        // (which shouldn't happen, but the code handles it defensively).
+
+        // We need to mock createOAuthUser to return an error
+        // Since we can't easily mock it without changing the implementation,
+        // we'll test the scenario where email is required but missing
+        // by using a mock that returns email_required error.
+
+        // Note: In practice, this path is defensive - Apple always returns email
+        // when the scope is requested. But we test it for complete coverage.
+        const { createOAuthUser } = await import("~/lib/oauth-user.server");
+        const originalCreateOAuthUser = createOAuthUser;
+
+        // Mock createOAuthUser at the module level
+        const oauthUserModule = await import("~/lib/oauth-user.server");
+        const createOAuthUserSpy = vi.spyOn(oauthUserModule, "createOAuthUser");
+        createOAuthUserSpy.mockResolvedValueOnce({
+          success: false,
+          error: "email_required",
+          message: "Email is required but was not provided",
+        });
+
+        const mockAppleUser = createMockAppleUser();
+
+        const params: AppleOAuthCallbackParams = {
+          db,
+          appleUser: mockAppleUser,
+          currentUserId: null,
+          redirectTo: null,
+        };
+
+        const result = await handleAppleOAuthCallback(params);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("email_required");
+        expect(result.message).toContain("Email");
+
+        createOAuthUserSpy.mockRestore();
       });
     });
 
