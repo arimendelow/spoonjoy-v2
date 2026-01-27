@@ -425,6 +425,46 @@ unlinkOAuthAccount(db: PrismaClient, userId: string, provider: string): Promise<
 
 **Result:** No changes needed - implementation was complete from Units 4a/4b.
 
+### 2026-01-27 - Apple OAuth Initiation Tests (Unit 5a)
+
+**Tests Written:** 12 failing tests for Apple OAuth initiation in `test/lib/apple-oauth.server.test.ts`
+
+**Function Signatures Defined:**
+```typescript
+generateOAuthState(): string
+createAppleAuthorizationURL(config: AppleOAuthConfig, redirectUri: string, state: string): URL
+```
+
+**generateOAuthState Tests (3 tests):**
+1. Should generate a random state string
+2. Should generate unique state values on each call
+3. Should generate URL-safe state values (alphanumeric, underscore, hyphen only)
+
+**createAppleAuthorizationURL Tests (9 tests):**
+1. Should return a valid Apple authorization URL (appleid.apple.com/auth/authorize)
+2. Should include client_id parameter
+3. Should include redirect_uri parameter
+4. Should include state parameter for CSRF protection
+5. Should include response_type=code
+6. Should include response_mode=form_post (required by Apple when requesting scopes)
+7. Should request email scope
+8. Should request name scope
+9. Should include both email and name in scope parameter
+
+**Design Decisions:**
+- Created separate module `app/lib/apple-oauth.server.ts` for Apple-specific OAuth utilities
+- Uses `AppleOAuthConfig` type from `env.server.ts` for config input
+- Returns `URL` object rather than string for easier manipulation/testing
+- State generation should produce URL-safe values only (no encoding needed)
+- Scopes requested: `email` and `name` (space-separated in URL)
+
+**Apple-Specific Requirements (from Arctic docs):**
+- `response_mode=form_post` is required when requesting scopes
+- This means callback route must handle POST requests (not GET)
+- SameSite=None cookie setting needed for CSRF state cookie
+
+**Total Tests:** 12 failing tests for TDD (no implementation yet)
+
 ---
 
 ## For Future Tasks
