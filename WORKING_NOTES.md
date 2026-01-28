@@ -1115,6 +1115,42 @@ export function createAppleAuthorizationURL(config, redirectUri, state): URL {
 - Apple OAuth now consistently uses Arctic's built-in methods
 - Only Apple-specific requirements (`response_mode`, `redirect_uri`) are handled manually
 
+### 2026-01-27 - OAuth Buttons UI Tests (Unit 9a)
+
+**Tests Written:** 14 failing tests for OAuth buttons UI in `test/routes/login.test.tsx` and `test/routes/signup.test.tsx`
+
+**Login Page Tests (7 tests):**
+1. Should render Google sign-in button
+2. Should render Apple sign-in button
+3. Should have Google button that links to `/auth/google` (POST form)
+4. Should have Apple button that links to `/auth/apple` (POST form)
+5. Should display OAuth separator between password form and OAuth buttons
+6. Should display email collision error message (`oauthError: "account_exists"`)
+7. Should display generic OAuth error message (`oauthError: "oauth_error"`)
+
+**Signup Page Tests (7 tests):**
+1. Should render Google sign-up button
+2. Should render Apple sign-up button
+3. Should have Google button that links to `/auth/google` (POST form)
+4. Should have Apple button that links to `/auth/apple` (POST form)
+5. Should display OAuth separator between password form and OAuth buttons
+6. Should display email collision error message when redirected from OAuth
+7. Should display generic OAuth error message
+
+**UI Design Decisions:**
+- OAuth buttons use form with `action="/auth/google"` or `action="/auth/apple"` and `method="post"`
+- Button text: "Continue with Google" / "Continue with Apple"
+- Separator element with `data-testid="oauth-separator"` between password form and OAuth buttons
+- Error messages passed via loader data with `oauthError` field
+- Email collision message: "An account with this email already exists" + "log in to link"
+- Generic error message: "Something went wrong"
+
+**Implementation Notes for Next Unit:**
+- Need to add Google/Apple buttons to login.tsx and signup.tsx components
+- Need to add loader logic to read `oauthError` from URL search params
+- Need to create `/auth/google` and `/auth/apple` routes (OAuth initiation)
+- Buttons should be styled consistently with existing UI
+
 ---
 
 ## For Future Tasks
