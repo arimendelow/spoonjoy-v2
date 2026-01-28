@@ -426,5 +426,94 @@ describe("Account Settings Route", () => {
       await screen.findByRole("heading", { name: /account settings/i });
       expect(screen.getByRole("button", { name: /set password/i })).toBeInTheDocument();
     });
+
+    it("should show mixed link/unlink buttons when one provider is linked and one is not", async () => {
+      const mockData = {
+        user: {
+          id: testUserId,
+          email: testUserEmail.toLowerCase(),
+          username: testUsername,
+          hasPassword: true,
+          oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+        },
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/account/settings",
+          Component: AccountSettings,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/account/settings"]} />);
+
+      await screen.findByRole("heading", { name: /account settings/i });
+      // Google is linked - should show Unlink
+      expect(screen.getByRole("button", { name: /unlink google/i })).toBeInTheDocument();
+      // Apple is not linked - should show Link
+      expect(screen.getByRole("button", { name: /link apple/i })).toBeInTheDocument();
+    });
+
+    it("should have accessible button labels for screen readers", async () => {
+      const mockData = {
+        user: {
+          id: testUserId,
+          email: testUserEmail.toLowerCase(),
+          username: testUsername,
+          hasPassword: true,
+          oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+        },
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/account/settings",
+          Component: AccountSettings,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/account/settings"]} />);
+
+      await screen.findByRole("heading", { name: /account settings/i });
+
+      // Verify aria-labels are set correctly
+      const unlinkButton = screen.getByRole("button", { name: /unlink google/i });
+      expect(unlinkButton).toHaveAttribute("aria-label", "Unlink Google");
+
+      const linkButton = screen.getByRole("button", { name: /link apple/i });
+      expect(linkButton).toHaveAttribute("aria-label", "Link Apple");
+    });
+
+    it("should render all sections with proper semantic headings", async () => {
+      const mockData = {
+        user: {
+          id: testUserId,
+          email: testUserEmail.toLowerCase(),
+          username: testUsername,
+          hasPassword: true,
+          oauthAccounts: [],
+        },
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/account/settings",
+          Component: AccountSettings,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/account/settings"]} />);
+
+      await screen.findByRole("heading", { name: /account settings/i });
+
+      // Verify all section subheadings are present
+      expect(screen.getByText("User Information")).toBeInTheDocument();
+      expect(screen.getByText("Profile Photo")).toBeInTheDocument();
+      expect(screen.getByText("Connected Accounts")).toBeInTheDocument();
+      expect(screen.getByText("Password")).toBeInTheDocument();
+    });
   });
 });
