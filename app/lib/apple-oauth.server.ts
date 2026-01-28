@@ -5,7 +5,12 @@
  * Uses Arctic library for OAuth flows.
  */
 
-import { Apple, decodeIdToken, OAuth2RequestError } from "arctic";
+import {
+  Apple,
+  decodeIdToken,
+  OAuth2RequestError,
+  generateState as arcticGenerateState,
+} from "arctic";
 import type { AppleOAuthConfig } from "./env.server";
 
 /**
@@ -52,16 +57,12 @@ export interface AppleCallbackResult {
 
 /**
  * Generates a cryptographically random state string for CSRF protection.
- * Returns a URL-safe string (alphanumeric, underscore, hyphen only).
+ * Returns a URL-safe string suitable for OAuth 2.0 state parameter.
+ *
+ * Uses Arctic library's generateState() internally.
  */
 export function generateOAuthState(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  // Convert to base64url (URL-safe: A-Z, a-z, 0-9, -, _)
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
+  return arcticGenerateState();
 }
 
 /**
@@ -80,14 +81,24 @@ export function createAppleAuthorizationURL(
   redirectUri: string,
   state: string
 ): URL {
-  const url = new URL("https://appleid.apple.com/auth/authorize");
+  // Create Arctic Apple client
+  const apple = new Apple(
+    config.clientId,
+    config.teamId,
+    config.keyId,
+    config.privateKey
+  );
 
-  url.searchParams.set("client_id", config.clientId);
-  url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("state", state);
-  url.searchParams.set("response_type", "code");
+  // Arctic's createAuthorizationURL handles the core OAuth URL construction
+  const scopes = ["email", "name"];
+  const url = apple.createAuthorizationURL(state, scopes);
+
+  // Apple requires response_mode=form_post when requesting scopes
+  // This must be added manually as Arctic doesn't set it by default
   url.searchParams.set("response_mode", "form_post");
-  url.searchParams.set("scope", "email name");
+
+  // Set the redirect_uri (Arctic doesn't include this in the URL)
+  url.searchParams.set("redirect_uri", redirectUri);
 
   return url;
 }

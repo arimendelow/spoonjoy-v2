@@ -18,12 +18,26 @@ const { mockArcticState } = vi.hoisted(() => {
 vi.mock("arctic", () => {
   // Mock Apple class
   class MockApple {
+    private clientId: string;
+
     constructor(
-      _clientId: string,
+      clientId: string,
       _teamId: string,
       _keyId: string,
       _privateKey: string
-    ) {}
+    ) {
+      this.clientId = clientId;
+    }
+
+    createAuthorizationURL(state: string, scopes: string[]): URL {
+      // Create a mock URL that matches Arctic's behavior
+      const url = new URL("https://appleid.apple.com/auth/authorize");
+      url.searchParams.set("client_id", this.clientId);
+      url.searchParams.set("state", state);
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("scope", scopes.join(" "));
+      return url;
+    }
 
     async validateAuthorizationCode(
       code: string,
@@ -60,6 +74,9 @@ vi.mock("arctic", () => {
     }
   }
 
+  // Counter for generating unique state values
+  let stateCounter = 0;
+
   return {
     Apple: MockApple,
     decodeIdToken: () => ({
@@ -69,6 +86,11 @@ vi.mock("arctic", () => {
       is_private_email: mockArcticState.isPrivateEmail,
     }),
     OAuth2RequestError: MockOAuth2RequestError,
+    generateState: () => {
+      // Generate unique URL-safe state values
+      stateCounter++;
+      return `mock-state-${stateCounter}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    },
   };
 });
 
