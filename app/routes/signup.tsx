@@ -1,5 +1,5 @@
 import type { Route } from "./+types/signup";
-import { Form, redirect, data, useActionData } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { createUser, emailExists, usernameExists } from "~/lib/auth.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
@@ -13,12 +13,25 @@ interface ActionData {
   };
 }
 
-// Loader - redirect if already logged in
+interface LoaderData {
+  oauthError?: string;
+}
+
+// Loader - redirect if already logged in, handle OAuth errors
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await getUserId(request);
   if (userId) {
     throw redirect("/");
   }
+
+  // Check for OAuth error in URL search params
+  const url = new URL(request.url);
+  const oauthError = url.searchParams.get("oauthError");
+
+  if (oauthError) {
+    return { oauthError } as LoaderData;
+  }
+
   return null;
 }
 
@@ -83,10 +96,42 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function Signup() {
   const actionData = useActionData<ActionData>();
+  const loaderData = useLoaderData<LoaderData | null>();
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
       <h1>Sign Up</h1>
+
+      {/* OAuth error messages */}
+      {loaderData?.oauthError === "account_exists" && (
+        <div
+          style={{
+            padding: "0.75rem",
+            marginBottom: "1rem",
+            backgroundColor: "#fee",
+            border: "1px solid #c33",
+            borderRadius: "4px",
+            color: "#c33",
+          }}
+        >
+          An account with this email already exists. Please log in to link your account.
+        </div>
+      )}
+      {loaderData?.oauthError && loaderData.oauthError !== "account_exists" && (
+        <div
+          style={{
+            padding: "0.75rem",
+            marginBottom: "1rem",
+            backgroundColor: "#fee",
+            border: "1px solid #c33",
+            borderRadius: "4px",
+            color: "#c33",
+          }}
+        >
+          Something went wrong. Please try again.
+        </div>
+      )}
+
       <Form method="post" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <div>
           <label htmlFor="email" style={{ display: "block", marginBottom: "0.5rem" }}>
@@ -198,6 +243,58 @@ export default function Signup() {
           Sign Up
         </button>
       </Form>
+
+      {/* OAuth separator */}
+      <div
+        data-testid="oauth-separator"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          margin: "1.5rem 0",
+        }}
+      >
+        <div style={{ flex: 1, height: "1px", backgroundColor: "#ccc" }} />
+        <span style={{ padding: "0 1rem", color: "#666" }}>or</span>
+        <div style={{ flex: 1, height: "1px", backgroundColor: "#ccc" }} />
+      </div>
+
+      {/* OAuth buttons */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <form action="/auth/google" method="post">
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              padding: "0.75rem",
+              fontSize: "1rem",
+              backgroundColor: "#fff",
+              color: "#333",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            Continue with Google
+          </button>
+        </form>
+        <form action="/auth/apple" method="post">
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              padding: "0.75rem",
+              fontSize: "1rem",
+              backgroundColor: "#000",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            Continue with Apple
+          </button>
+        </form>
+      </div>
 
       <p style={{ marginTop: "1rem", textAlign: "center" }}>
         Already have an account?{" "}
