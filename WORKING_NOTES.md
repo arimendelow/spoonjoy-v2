@@ -793,3 +793,34 @@ import { ValidationError } from '~/components/ui/validation-error'
 ```
 
 **Build:** Passes with no warnings
+
+### Unit 2.8: Client-Side Validation Attributes - COMPLETED
+
+Added HTML5 validation attributes to all recipe CRUD forms for immediate client-side feedback and better UX.
+
+**Files modified:**
+- `app/routes/recipes.new.tsx` - Added maxLength to title, description, servings
+- `app/routes/recipes.$id.edit.tsx` - Added maxLength to title, description, servings
+- `app/routes/recipes.$id.steps.new.tsx` - Added maxLength to stepTitle, description
+- `app/routes/recipes.$id.steps.$stepId.edit.tsx` - Added maxLength to stepTitle, description, unitName, ingredientName; added min/max to quantity
+
+**Attributes added:**
+| Field | Attribute | Value |
+|-------|-----------|-------|
+| title | maxLength | 200 (TITLE_MAX_LENGTH) |
+| description | maxLength | 2000 (DESCRIPTION_MAX_LENGTH) |
+| servings | maxLength | 100 (SERVINGS_MAX_LENGTH) |
+| stepTitle | maxLength | 200 (STEP_TITLE_MAX_LENGTH) |
+| step description | maxLength | 5000 (STEP_DESCRIPTION_MAX_LENGTH) |
+| quantity | min | 0.001 (QUANTITY_MIN) |
+| quantity | max | 99999 (QUANTITY_MAX) |
+| unitName | maxLength | 50 (UNIT_NAME_MAX_LENGTH) |
+| ingredientName | maxLength | 100 (INGREDIENT_NAME_MAX_LENGTH) |
+
+**Tests added:** 21 tests in `test/routes/html5-validation-attributes.test.tsx`
+- Tests for each form verifying presence of required, maxLength, min, max attributes
+- Attributes match the constants from `app/lib/validation.ts` for consistency
+
+**Client validation now matches server validation**, ensuring users get immediate feedback before submitting forms.
+
+**Build:** Passes with no warnings
