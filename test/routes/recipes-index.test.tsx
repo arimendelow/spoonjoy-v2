@@ -387,7 +387,7 @@ describe("Recipes Index Route", () => {
       expect(screen.queryByText(/Servings:/i)).not.toBeInTheDocument();
     });
 
-    it("should handle mouse hover events on recipe cards", async () => {
+    it("should use CSS hover classes for recipe cards", async () => {
       const mockRecipes = [
         {
           id: "recipe-1",
@@ -410,13 +410,9 @@ describe("Recipes Index Route", () => {
 
       const recipeLink = await screen.findByRole("link", { name: /Hover Test Recipe/ });
 
-      // Test mouseEnter event
-      fireEvent.mouseEnter(recipeLink);
-      expect(recipeLink.style.boxShadow).toBe("0 4px 8px rgba(0,0,0,0.1)");
-
-      // Test mouseLeave event
-      fireEvent.mouseLeave(recipeLink);
-      expect(recipeLink.style.boxShadow).toBe("none");
+      // Verify CSS hover classes are applied instead of JS event handlers
+      expect(recipeLink).toHaveClass("hover:shadow-lg");
+      expect(recipeLink).toHaveClass("transition-shadow");
     });
   });
 });

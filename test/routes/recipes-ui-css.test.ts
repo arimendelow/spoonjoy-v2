@@ -177,18 +177,25 @@ describe("Recipe Routes UI/CSS Compliance", () => {
       return /<textarea\s/g.test(content);
     });
 
-    it.each(filesWithTextareas)(
-      "%s should use Textarea component instead of raw <textarea>",
-      (filePath) => {
-        const content = readSourceFile(filePath);
+    if (filesWithTextareas.length === 0) {
+      it("should have no raw textarea elements (none found)", () => {
+        // No files use raw textarea elements - this is the expected state
+        expect(filesWithTextareas.length).toBe(0);
+      });
+    } else {
+      it.each(filesWithTextareas)(
+        "%s should use Textarea component instead of raw <textarea>",
+        (filePath) => {
+          const content = readSourceFile(filePath);
 
-        expect(
-          usesRawTextareaElements(content),
-          `${filePath} uses raw <textarea> elements. ` +
-          `Should use Textarea component from app/components/ui/textarea.tsx`
-        ).toBe(false);
-      }
-    );
+          expect(
+            usesRawTextareaElements(content),
+            `${filePath} uses raw <textarea> elements. ` +
+            `Should use Textarea component from app/components/ui/textarea.tsx`
+          ).toBe(false);
+        }
+      );
+    }
   });
 
   describe("Summary Report", () => {

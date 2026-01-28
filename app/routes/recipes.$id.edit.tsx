@@ -298,7 +298,7 @@ export default function EditRecipe() {
                           <input type="hidden" name="intent" value="reorderStep" />
                           <input type="hidden" name="stepId" value={step.id} />
                           <input type="hidden" name="direction" value="up" />
-                          <Button type="submit" color="zinc" className="text-xs px-2 py-1">
+                          <Button type="submit" color="zinc" className="text-xs px-2 py-1" title="Move up">
                             ↑
                           </Button>
                         </Form>
@@ -308,7 +308,7 @@ export default function EditRecipe() {
                           <input type="hidden" name="intent" value="reorderStep" />
                           <input type="hidden" name="stepId" value={step.id} />
                           <input type="hidden" name="direction" value="down" />
-                          <Button type="submit" color="zinc" className="text-xs px-2 py-1">
+                          <Button type="submit" color="zinc" className="text-xs px-2 py-1" title="Move down">
                             ↓
                           </Button>
                         </Form>
