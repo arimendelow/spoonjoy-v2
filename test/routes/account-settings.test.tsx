@@ -1052,5 +1052,33 @@ describe("Account Settings Route", () => {
       const updatedUser = await db.user.findUnique({ where: { id: testUserId } });
       expect(updatedUser?.email).toBe(newEmail.toLowerCase());
     });
+
+    it("should return success false for unknown intent", async () => {
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const formData = new FormData();
+      formData.append("intent", "unknownIntent");
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+      headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+      const request = new UndiciRequest("http://localhost:3000/account/settings", {
+        method: "POST",
+        headers,
+        body: new URLSearchParams(formData as any).toString(),
+      });
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      expect(result.success).toBe(false);
+    });
   });
 });

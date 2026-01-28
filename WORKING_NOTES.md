@@ -1476,6 +1476,40 @@ interface ActionResult {
 **All 34 account settings tests pass with no warnings.**
 **Build passes.**
 
+### 2026-01-27 - User Info Management Work Check (Unit 11c)
+
+**Verification Complete:** All acceptance criteria from Units 11a/11b verified.
+
+**Test Coverage:**
+- 35 tests for account.settings.tsx (was 34, added 1)
+- 100% statement and function coverage
+- 95% branch coverage (uncovered branches are React component JSX conditionals for error message rendering)
+- No warnings in test output
+- Build passes
+
+**Edge Cases Verified:**
+1. ✅ Duplicate email check - Returns `email_taken` error
+2. ✅ Duplicate username check - Returns `username_taken` error
+3. ✅ Case-insensitive email uniqueness - Uses raw SQL `LOWER(email)` for SQLite
+4. ✅ No collision when updating to same values - Checks if values actually changed before uniqueness check
+5. ✅ Empty email validation - Returns `validation_error` with `fieldErrors.email`
+6. ✅ Empty username validation - Returns `validation_error` with `fieldErrors.username`
+7. ✅ Invalid email format validation - Returns `validation_error` with format message
+8. ✅ Email normalization - Stores email as lowercase
+9. ✅ Unknown action intent - Returns `{ success: false }` for fallback
+
+**Test Added:**
+- `should return success false for unknown intent` - Tests the default fallback case when action intent is not recognized
+
+**Implementation Complete:**
+- Loader returns user data with email, username, hasPassword, oauthAccounts
+- Action handles `updateUserInfo` intent with full validation
+- Component has edit mode toggle with form pre-filled with current values
+- Uses existing UI components (Field, Label, Input, Button, ErrorMessage)
+- Uses Tailwind CSS for styling
+
+**Final Test Count:** 1493 tests total (was 1492, added 1 for account settings)
+
 ---
 
 ## For Future Tasks
