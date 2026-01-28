@@ -2346,4 +2346,1198 @@ describe("Account Settings Route", () => {
       });
     });
   });
+
+  describe("Password management", () => {
+    describe("action - change password", () => {
+      it("should successfully change password with valid current and new password", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "testPassword123");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "newSecurePassword456!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("password");
+      });
+
+      it("should return error when current password is incorrect", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "wrongPassword123");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "newSecurePassword456!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_current_password");
+        expect(result.message).toContain("current password");
+      });
+
+      it("should return error when new password confirmation does not match", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "testPassword123");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "differentPassword789!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("password_mismatch");
+        expect(result.message).toContain("match");
+      });
+
+      it("should return error when new password is too short (less than 8 characters)", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "testPassword123");
+        formData.append("newPassword", "short");
+        formData.append("confirmPassword", "short");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("password_too_short");
+        expect(result.message).toContain("8");
+      });
+
+      it("should return error when new password is empty", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "testPassword123");
+        formData.append("newPassword", "");
+        formData.append("confirmPassword", "");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("password_required");
+      });
+
+      it("should return error when current password is empty", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "newSecurePassword456!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("current_password_required");
+      });
+
+      it("should return error when trying to change password for OAuth-only user (no password set)", async () => {
+        // Create OAuth-only user (no password)
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "somePassword123");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "newSecurePassword456!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("no_password_set");
+        expect(result.message).toContain("set a password");
+      });
+
+      it("should update hashed password in database after successful change", async () => {
+        // Get the user's current hashed password
+        const userBefore = await db.user.findUnique({
+          where: { id: testUserId },
+          select: { hashedPassword: true },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "testPassword123");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "newSecurePassword456!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+
+        // Verify password hash changed in database
+        const userAfter = await db.user.findUnique({
+          where: { id: testUserId },
+          select: { hashedPassword: true },
+        });
+
+        expect(userAfter?.hashedPassword).not.toBe(userBefore?.hashedPassword);
+      });
+
+      it("should return error when new password is the same as current password", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "changePassword");
+        formData.append("currentPassword", "testPassword123");
+        formData.append("newPassword", "testPassword123");
+        formData.append("confirmPassword", "testPassword123");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("same_password");
+        expect(result.message).toContain("different");
+      });
+    });
+
+    describe("action - set password (for OAuth-only users)", () => {
+      it("should successfully set password for OAuth-only user", async () => {
+        // Create OAuth-only user (no password)
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "setPassword");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "newSecurePassword456!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("password");
+
+        // Verify password was set in database
+        const updatedUser = await db.user.findUnique({
+          where: { id: oauthUser.id },
+          select: { hashedPassword: true, salt: true },
+        });
+
+        expect(updatedUser?.hashedPassword).not.toBeNull();
+        expect(updatedUser?.salt).not.toBeNull();
+      });
+
+      it("should return error when user already has a password set", async () => {
+        // testUser already has a password from beforeEach
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "setPassword");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "newSecurePassword456!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("password_already_set");
+        expect(result.message).toContain("already");
+      });
+
+      it("should return error when password confirmation does not match", async () => {
+        // Create OAuth-only user
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "apple",
+            providerUserId: "apple-" + faker.string.alphanumeric(10),
+            providerUsername: "Apple User",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "setPassword");
+        formData.append("newPassword", "newSecurePassword456!");
+        formData.append("confirmPassword", "differentPassword789!");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("password_mismatch");
+      });
+
+      it("should return error when password is too short", async () => {
+        // Create OAuth-only user
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "setPassword");
+        formData.append("newPassword", "short");
+        formData.append("confirmPassword", "short");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("password_too_short");
+      });
+
+      it("should return error when password is empty", async () => {
+        // Create OAuth-only user
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "setPassword");
+        formData.append("newPassword", "");
+        formData.append("confirmPassword", "");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("password_required");
+      });
+    });
+
+    describe("action - remove password", () => {
+      it("should successfully remove password when user has OAuth linked", async () => {
+        // Add an OAuth account to the test user (who has a password)
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: testUserId,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePassword");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("removed");
+
+        // Verify password was removed in database
+        const updatedUser = await db.user.findUnique({
+          where: { id: testUserId },
+          select: { hashedPassword: true, salt: true },
+        });
+
+        expect(updatedUser?.hashedPassword).toBeNull();
+        expect(updatedUser?.salt).toBeNull();
+      });
+
+      it("should block password removal when password is the only auth method (no OAuth)", async () => {
+        // testUser only has password, no OAuth
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePassword");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("last_auth_method");
+        expect(result.message).toContain("at least one");
+
+        // Verify password was NOT removed
+        const user = await db.user.findUnique({
+          where: { id: testUserId },
+          select: { hashedPassword: true },
+        });
+
+        expect(user?.hashedPassword).not.toBeNull();
+      });
+
+      it("should return error when user has no password to remove", async () => {
+        // Create OAuth-only user (no password)
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePassword");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("no_password_to_remove");
+      });
+
+      it("should require current password confirmation before removing password", async () => {
+        // Add an OAuth account to the test user
+        await db.oAuth.create({
+          data: {
+            provider: "apple",
+            providerUserId: "apple-" + faker.string.alphanumeric(10),
+            providerUsername: "Apple User",
+            userId: testUserId,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePassword");
+        formData.append("currentPassword", "wrongPassword");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_current_password");
+      });
+    });
+
+    describe("component - password section UI", () => {
+      it("should show change password form when user has password", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Click change password button
+        const changePasswordBtn = screen.getByRole("button", { name: /change password/i });
+        await user.click(changePasswordBtn);
+
+        // Should show the password change form
+        expect(screen.getByLabelText(/current password/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/new password/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/confirm.*password/i)).toBeInTheDocument();
+      });
+
+      it("should show set password form when OAuth-only user clicks set password", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: false,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Click set password button
+        const setPasswordBtn = screen.getByRole("button", { name: /set password/i });
+        await user.click(setPasswordBtn);
+
+        // Should show the password set form (no current password field)
+        expect(screen.queryByLabelText(/current password/i)).not.toBeInTheDocument();
+        expect(screen.getByLabelText(/new password/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/confirm.*password/i)).toBeInTheDocument();
+      });
+
+      it("should show remove password button when user has both password and OAuth", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        expect(screen.getByRole("button", { name: /remove password/i })).toBeInTheDocument();
+      });
+
+      it("should not show remove password button when password is only auth method", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        expect(screen.queryByRole("button", { name: /remove password/i })).not.toBeInTheDocument();
+      });
+
+      it("should display password validation errors inline", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const actionResult = {
+          success: false,
+          error: "password_too_short" as const,
+          message: "Password must be at least 8 characters",
+          fieldErrors: {
+            newPassword: "Password must be at least 8 characters",
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "account-settings",
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(
+          <Stub
+            initialEntries={["/account/settings"]}
+            hydrationData={{
+              loaderData: { "account-settings": mockData },
+              actionData: { "account-settings": actionResult },
+            }}
+          />
+        );
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Error message should be displayed
+        expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
+      });
+
+      it("should show success message after password change", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const actionResult = {
+          success: true,
+          message: "Password changed successfully",
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "account-settings",
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(
+          <Stub
+            initialEntries={["/account/settings"]}
+            hydrationData={{
+              loaderData: { "account-settings": mockData },
+              actionData: { "account-settings": actionResult },
+            }}
+          />
+        );
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Success message should be displayed
+        expect(screen.getByText(/password changed successfully/i)).toBeInTheDocument();
+      });
+
+      it("should close password form when cancel is clicked", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Open password change form
+        const changePasswordBtn = screen.getByRole("button", { name: /change password/i });
+        await user.click(changePasswordBtn);
+
+        // Form should be visible
+        expect(screen.getByLabelText(/current password/i)).toBeInTheDocument();
+
+        // Click cancel
+        const cancelBtn = screen.getByRole("button", { name: /cancel/i });
+        await user.click(cancelBtn);
+
+        // Form should be closed
+        expect(screen.queryByLabelText(/current password/i)).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /change password/i })).toBeInTheDocument();
+      });
+
+      it("should show confirmation dialog before removing password", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Click remove password button
+        const removePasswordBtn = screen.getByRole("button", { name: /remove password/i });
+        await user.click(removePasswordBtn);
+
+        // Should show confirmation dialog
+        expect(await screen.findByText(/are you sure/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /confirm/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+      });
+
+      it("should display password strength indicator for new password", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Open password change form
+        const changePasswordBtn = screen.getByRole("button", { name: /change password/i });
+        await user.click(changePasswordBtn);
+
+        // Should show password requirements hint
+        expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
+      });
+    });
+
+    describe("at least one auth method rule", () => {
+      it("should prevent both password removal and OAuth unlink if it would leave user with no auth", async () => {
+        // User with only password (no OAuth) - cannot remove password
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePassword");
+        formData.append("currentPassword", "testPassword123");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("last_auth_method");
+      });
+
+      it("should allow password removal if user has multiple OAuth providers", async () => {
+        // Add two OAuth providers to user
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: testUserId,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "apple",
+            providerUserId: "apple-" + faker.string.alphanumeric(10),
+            providerUsername: "Apple User",
+            userId: testUserId,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePassword");
+        formData.append("currentPassword", "testPassword123");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+      });
+
+      it("should display appropriate UI warning when user has only one auth method", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Should not show remove password option
+        expect(screen.queryByRole("button", { name: /remove password/i })).not.toBeInTheDocument();
+      });
+    });
+  });
 });
