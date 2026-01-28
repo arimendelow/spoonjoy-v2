@@ -262,11 +262,11 @@ Based on the Unit 1 audit findings, here are the atomic implementation units for
 **In Scope (This Phase):**
 - Field validation (lengths, formats, ranges)
 - Error messages for validation failures
+- UI/CSS migration from inline styles to Tailwind
+- Duplicate ingredient detection
 
 **Out of Scope (Deferred):**
-- UI/CSS migration from inline styles to Tailwind (separate epic)
 - Permission validation (already well-implemented per audit)
-- Duplicate ingredient detection (low priority)
 - Step number gap handling (low priority)
 
 ---
@@ -515,6 +515,88 @@ Based on the Unit 1 audit findings, here are the atomic implementation units for
 
 ---
 
+### Unit 2.9: UI/CSS Migration
+
+**What it covers:**
+- Migrate inline styles to Tailwind CSS classes
+- Replace inline-styled elements with existing UI components from `app/components/ui/`
+- Ensure visual consistency across all recipe CRUD routes
+
+**Files to modify:**
+- `app/routes/recipes.tsx` (~100+ lines of inline styles)
+- `app/routes/recipes._index.tsx` (~80+ lines of inline styles)
+- `app/routes/recipes.new.tsx` (~100+ lines of inline styles)
+- `app/routes/recipes.$id.tsx` (~120+ lines of inline styles)
+- `app/routes/recipes.$id.edit.tsx` (~180+ lines of inline styles)
+- `app/routes/recipes.$id.steps.new.tsx` (~80+ lines of inline styles)
+- `app/routes/recipes.$id.steps.$stepId.edit.tsx` (~200+ lines of inline styles)
+
+**UI Components to use (from app/components/ui/):**
+- `button.tsx` - Replace inline button styles
+- `input.tsx` - Replace inline input styles
+- `textarea.tsx` - Replace inline textarea styles
+- `link.tsx` - Replace inline link styles
+- `heading.tsx` - Replace inline h1/h2/h3 styles
+- `text.tsx` - Replace inline paragraph styles
+- `alert.tsx` - Use for error messages
+- `fieldset.tsx` - Use for form structure
+- `badge.tsx` - Consider for servings display
+
+**Acceptance Criteria:**
+- [ ] No `style={{}}` inline styles remain in recipe routes
+- [ ] All buttons use `Button` component from `app/components/ui/button.tsx`
+- [ ] All text inputs use `Input` component from `app/components/ui/input.tsx`
+- [ ] All textareas use `Textarea` component from `app/components/ui/textarea.tsx`
+- [ ] All links use `Link` component or Tailwind-styled anchors
+- [ ] All headings use `Heading` component or Tailwind classes
+- [ ] Error messages use `Alert` component
+- [ ] Forms use `Fieldset` component for structure where appropriate
+- [ ] Visual appearance is consistent and professional
+- [ ] No regressions in functionality
+- [ ] Existing tests still pass
+
+**Dependencies:** Unit 2.7 (error display patterns established)
+
+**TDD Steps:**
+- 2.9a: Write/update component render tests to verify UI component usage
+- 2.9b: Migrate each route file from inline styles to Tailwind/UI components
+- 2.9c: Verify tests pass, manual visual verification
+
+---
+
+### Unit 2.10: Duplicate Ingredient Detection
+
+**What it covers:**
+- Add validation to prevent adding the same ingredient twice to a step
+- Provide user-friendly error message when duplicate detected
+- Check is case-insensitive (since ingredient names are lowercased)
+
+**Files to modify:**
+- `app/routes/recipes.$id.steps.$stepId.edit.tsx`
+- `app/lib/validation.ts` (add helper function)
+
+**Acceptance Criteria:**
+- [ ] When adding an ingredient, check if ingredient with same name already exists on step
+- [ ] Comparison is case-insensitive
+- [ ] Error returned: "This ingredient is already added to this step"
+- [ ] Error displayed in the add ingredient form area
+- [ ] Existing ingredient list remains visible during error
+- [ ] User can still add a different ingredient after seeing error
+- [ ] Tests cover:
+  - Adding duplicate ingredient (exact match)
+  - Adding duplicate ingredient (different case)
+  - Adding unique ingredient after failed duplicate attempt
+  - Multiple ingredients on step, adding duplicate of one
+
+**Dependencies:** Unit 2.6 (ingredient add validation infrastructure)
+
+**TDD Steps:**
+- 2.10a: Write tests for duplicate ingredient detection scenarios
+- 2.10b: Implement duplicate check in action, add error handling
+- 2.10c: Verify tests pass, manual testing
+
+---
+
 ### Implementation Order
 
 ```
@@ -524,14 +606,19 @@ Unit 2.1 (foundation)
     ├──► Unit 2.3 (recipe edit)
     ├──► Unit 2.4 (step create)
     ├──► Unit 2.5 (step edit)
-    └──► Unit 2.6 (ingredient add)
+    └──► Unit 2.6 (ingredient add) ──► Unit 2.10 (duplicate ingredient)
               │
               ▼
          Unit 2.7 (error display) ──► Unit 2.8 (client attributes)
+                                            │
+                                            ▼
+                                      Unit 2.9 (UI/CSS migration)
 ```
 
 Units 2.2-2.6 can be done in parallel after 2.1 is complete.
 Units 2.7 and 2.8 are polish units that build on the core validation.
+Unit 2.9 (UI/CSS migration) should be done after error display patterns are established.
+Unit 2.10 (duplicate ingredient) can be done after ingredient validation infrastructure exists.
 
 ---
 
@@ -547,5 +634,7 @@ Units 2.7 and 2.8 are polish units that build on the core validation.
 | 2.6 | Ingredient Add Validation | recipes.$id.steps.$stepId.edit.tsx | 2.1 |
 | 2.7 | Validation Error Display | All routes | 2.2-2.6 |
 | 2.8 | Client-Side Validation Attributes | All routes | 2.2-2.6 |
+| 2.9 | UI/CSS Migration | All recipe routes | 2.7 |
+| 2.10 | Duplicate Ingredient Detection | recipes.$id.steps.$stepId.edit.tsx | 2.6 |
 
-**Total: 8 units, 24 TDD sub-steps (8×3)**
+**Total: 10 units, 30 TDD sub-steps (10×3)**
