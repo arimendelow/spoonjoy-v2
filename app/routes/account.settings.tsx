@@ -1,8 +1,9 @@
 import type { Route } from "./+types/account.settings";
-import { useLoaderData, useActionData, Form } from "react-router";
+import { useLoaderData, useActionData, Form, redirect } from "react-router";
 import { useState, useRef } from "react";
 import { db, getDb } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
+import { unlinkOAuthAccount } from "~/lib/oauth-user.server";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
@@ -69,9 +70,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   } satisfies LoaderData;
 }
 
+const VALID_PROVIDERS = ["google", "apple"] as const;
+type ValidProvider = typeof VALID_PROVIDERS[number];
+
+function isValidProvider(provider: string): provider is ValidProvider {
+  return VALID_PROVIDERS.includes(provider as ValidProvider);
+}
+
 interface ActionResult {
   success: boolean;
-  error?: "email_taken" | "username_taken" | "validation_error" | "no_file" | "invalid_file_type" | "file_too_large";
+  error?: "email_taken" | "username_taken" | "validation_error" | "no_file" | "invalid_file_type" | "file_too_large" | "last_auth_method" | "provider_not_linked" | "invalid_provider" | "provider_already_linked";
   message?: string;
   fieldErrors?: {
     email?: string;
@@ -236,6 +244,76 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
     return { success: true };
   }
 
+  if (intent === "unlinkOAuth") {
+    const provider = formData.get("provider")?.toString();
+
+    // Validate provider
+    if (!provider || !isValidProvider(provider)) {
+      return {
+        success: false,
+        error: "invalid_provider",
+        message: "Invalid OAuth provider",
+      };
+    }
+
+    const result = await unlinkOAuthAccount(database, userId, provider);
+
+    // Map the error from oauth-user.server.ts to match test expectations
+    if (!result.success) {
+      if (result.error === "only_auth_method") {
+        return {
+          success: false,
+          error: "last_auth_method",
+          message: "Cannot unlink your last authentication method. Please add a password or another OAuth provider first.",
+        };
+      }
+      return {
+        success: false,
+        error: result.error as ActionResult["error"],
+        message: result.message,
+      };
+    }
+
+    return {
+      success: true,
+      message: `${provider.charAt(0).toUpperCase() + provider.slice(1)} account unlinked successfully`,
+    };
+  }
+
+  if (intent === "linkOAuth") {
+    const provider = formData.get("provider")?.toString();
+
+    // Validate provider
+    if (!provider || !isValidProvider(provider)) {
+      return {
+        success: false,
+        error: "invalid_provider",
+        message: "Invalid OAuth provider",
+      };
+    }
+
+    // Check if provider is already linked
+    const existingOAuth = await database.oAuth.findUnique({
+      where: {
+        userId_provider: {
+          userId,
+          provider,
+        },
+      },
+    });
+
+    if (existingOAuth) {
+      return {
+        success: false,
+        error: "provider_already_linked",
+        message: `Your ${provider.charAt(0).toUpperCase() + provider.slice(1)} account is already linked.`,
+      };
+    }
+
+    // Redirect to OAuth initiation endpoint with linking flag
+    throw redirect(`/auth/${provider}?linking=true`);
+  }
+
   return { success: false };
 }
 
@@ -310,12 +388,29 @@ export default function AccountSettings() {
   const { user } = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionResult>();
   const [isEditing, setIsEditing] = useState(false);
+  const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
 
   const linkedProviders = new Set(user.oauthAccounts.map((a) => a.provider));
+
+  // Determine if user can unlink OAuth (has password OR has multiple OAuth providers)
+  const canUnlinkOAuth = user.hasPassword || user.oauthAccounts.length > 1;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Heading>Account Settings</Heading>
+
+      {/* OAuth Success/Error Messages */}
+      {actionData?.message && (
+        <div
+          className={`mt-4 rounded-lg p-4 ${
+            actionData.success
+              ? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200"
+              : "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200"
+          }`}
+        >
+          {actionData.message}
+        </div>
+      )}
 
       {/* User Info Section */}
       <section data-testid="user-info-section" className="mt-8">
@@ -386,10 +481,19 @@ export default function AccountSettings() {
       {/* OAuth Providers Section */}
       <section data-testid="oauth-providers-section" className="mt-8">
         <Subheading>Connected Accounts</Subheading>
+
+        {/* Warning when can't unlink */}
+        {!canUnlinkOAuth && user.oauthAccounts.length > 0 && (
+          <Text className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+            You cannot unlink your OAuth provider because it is your only authentication method. Please set a password first.
+          </Text>
+        )}
+
         <div className="mt-4 space-y-4">
           {OAUTH_PROVIDERS.map((provider) => {
             const account = user.oauthAccounts.find((a) => a.provider === provider);
             const isLinked = linkedProviders.has(provider);
+            const isShowingUnlinkConfirm = unlinkingProvider === provider;
 
             return (
               <div
@@ -415,17 +519,43 @@ export default function AccountSettings() {
                   )}
                 </div>
                 {isLinked ? (
-                  <form action={`/auth/${provider}/unlink`} method="post">
+                  isShowingUnlinkConfirm ? (
+                    <div className="flex items-center gap-2">
+                      <Text className="text-sm">Are you sure?</Text>
+                      <Form method="post" className="inline">
+                        <input type="hidden" name="intent" value="unlinkOAuth" />
+                        <input type="hidden" name="provider" value={provider} />
+                        <Button
+                          type="submit"
+                          color="red"
+                          aria-label={`Confirm unlink ${capitalizeProvider(provider)}`}
+                        >
+                          Confirm
+                        </Button>
+                      </Form>
+                      <Button
+                        type="button"
+                        outline
+                        onClick={() => setUnlinkingProvider(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
                     <Button
-                      type="submit"
+                      type="button"
                       outline
                       aria-label={`Unlink ${capitalizeProvider(provider)}`}
+                      disabled={!canUnlinkOAuth}
+                      onClick={() => setUnlinkingProvider(provider)}
                     >
                       Unlink
                     </Button>
-                  </form>
+                  )
                 ) : (
-                  <form action={`/auth/${provider}`} method="post">
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="linkOAuth" />
+                    <input type="hidden" name="provider" value={provider} />
                     <Button
                       type="submit"
                       outline
@@ -433,7 +563,7 @@ export default function AccountSettings() {
                     >
                       Link
                     </Button>
-                  </form>
+                  </Form>
                 )}
               </div>
             );
