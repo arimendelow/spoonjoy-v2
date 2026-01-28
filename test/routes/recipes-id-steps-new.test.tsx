@@ -299,6 +299,76 @@ describe("Recipes $id Steps New Route", () => {
       expect(data.errors.description).toBe("Step description is required");
     });
 
+    it("should return validation error when stepTitle exceeds 200 characters", async () => {
+      const longTitle = "a".repeat(201);
+      const request = await createFormRequest(
+        { stepTitle: longTitle, description: "Valid description" },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.stepTitle).toBe("Step title must be 200 characters or less");
+    });
+
+    it("should return validation error when description exceeds 5000 characters", async () => {
+      const longDescription = "a".repeat(5001);
+      const request = await createFormRequest(
+        { description: longDescription },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.description).toBe("Description must be 5,000 characters or less");
+    });
+
+    it("should accept stepTitle at exactly 200 characters", async () => {
+      const exactTitle = "a".repeat(200);
+      const request = await createFormRequest(
+        { stepTitle: exactTitle, description: "Valid description" },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(302);
+    });
+
+    it("should accept description at exactly 5000 characters", async () => {
+      const exactDescription = "a".repeat(5000);
+      const request = await createFormRequest(
+        { description: exactDescription },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(302);
+    });
+
     it("should successfully create step and redirect", async () => {
       const request = await createFormRequest(
         {
