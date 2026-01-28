@@ -1650,6 +1650,64 @@ The 5 failing tests were due to importing `File as UndiciFile` from `undici`, bu
 
 **All 1529 tests pass (71 account settings tests).**
 
+### 2026-01-28 - Password Management Work Check (Unit 14c)
+
+**Verification Complete:** Password management implementation verified complete.
+
+**Test Coverage:**
+- 103 tests for account.settings.tsx (was 101, added 2)
+- 1561 total tests passing
+- 99.18% overall statement coverage
+- No warnings in test output
+- Build passes
+
+**Password Management Acceptance Criteria Verified:**
+
+1. **Change password (users with password):** ✅
+   - Successfully change password with valid current and new password
+   - Error when current password is incorrect
+   - Error when new password confirmation does not match
+   - Error when new password is too short (< 8 chars)
+   - Error when new password is empty
+   - Error when current password is empty
+   - Verify password hash changes in database
+   - Error when new password is same as current
+
+2. **Set password (OAuth-only users):** ✅
+   - Successfully set password for OAuth-only user
+   - Error when user already has password set
+   - Error when password confirmation does not match
+   - Error when password is too short
+   - Error when password is empty
+
+3. **Remove password:** ✅
+   - Successfully remove when user has OAuth linked
+   - Block removal when password is only auth method
+   - Error when user has no password to remove
+   - Require current password confirmation
+
+4. **Security considerations:** ✅
+   - Passwords hashed with hashPassword before storage
+   - Current password verified before allowing changes
+   - Minimum 8 character requirement enforced
+   - "Last auth method" protection prevents lockout
+
+5. **UI Components:** ✅
+   - Change password form with current/new/confirm fields
+   - Set password form for OAuth-only users (no current field)
+   - Remove password button only shown when OAuth linked
+   - Confirmation dialog before removing password
+   - Cancel buttons work correctly in all forms (2 tests added)
+   - Inline validation error display
+   - Success messages after password operations
+
+**Tests Added:**
+1. `should close remove password confirmation when cancel is clicked`
+2. `should close set password form when cancel is clicked (OAuth-only user)`
+
+**Uncovered Lines Note:**
+Lines 559, 583-585 remain uncovered - these are UI event handlers for photo upload file input (not password management). Photo upload requires browser file API interactions that are difficult to test without full browser environment.
+
 ---
 
 ## For Future Tasks
