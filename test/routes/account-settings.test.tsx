@@ -1648,4 +1648,685 @@ describe("Account Settings Route", () => {
       });
     });
   });
+
+  describe("OAuth management", () => {
+    describe("action - unlink OAuth account", () => {
+      it("should successfully unlink OAuth account when user has password", async () => {
+        // User already has password from beforeEach setup
+        // Add an OAuth account to unlink
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: testUserId,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "unlinkOAuth");
+        formData.append("provider", "google");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+
+        // Verify OAuth account was deleted
+        const oauthAccounts = await db.oAuth.findMany({ where: { userId: testUserId } });
+        expect(oauthAccounts).toHaveLength(0);
+      });
+
+      it("should successfully unlink OAuth account when user has another OAuth provider linked", async () => {
+        // Create OAuth-only user (no password)
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        // Add two OAuth accounts
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+        await db.oAuth.create({
+          data: {
+            provider: "apple",
+            providerUserId: "apple-" + faker.string.alphanumeric(10),
+            providerUsername: "Apple User",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "unlinkOAuth");
+        formData.append("provider", "google");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+
+        // Verify only Google was unlinked, Apple remains
+        const oauthAccounts = await db.oAuth.findMany({ where: { userId: oauthUser.id } });
+        expect(oauthAccounts).toHaveLength(1);
+        expect(oauthAccounts[0].provider).toBe("apple");
+      });
+
+      it("should block unlink when OAuth is the only auth method (no password)", async () => {
+        // Create OAuth-only user (no password)
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        // Add only one OAuth account - this is their only way to log in
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "unlinkOAuth");
+        formData.append("provider", "google");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("last_auth_method");
+        expect(result.message).toContain("last");
+
+        // Verify OAuth account was NOT deleted
+        const oauthAccounts = await db.oAuth.findMany({ where: { userId: oauthUser.id } });
+        expect(oauthAccounts).toHaveLength(1);
+      });
+
+      it("should return error when trying to unlink non-existent OAuth provider", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "unlinkOAuth");
+        formData.append("provider", "google"); // User doesn't have Google linked
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("provider_not_linked");
+      });
+
+      it("should return error when provider name is invalid", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "unlinkOAuth");
+        formData.append("provider", "invalid_provider");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_provider");
+      });
+
+      it("should return error when provider is not specified", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "unlinkOAuth");
+        // provider not specified
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_provider");
+      });
+    });
+
+    describe("action - link OAuth account", () => {
+      it("should redirect to OAuth provider for linking", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "linkOAuth");
+        formData.append("provider", "google");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        await expect(
+          action({
+            request,
+            context: { cloudflare: { env: null } },
+            params: {},
+          } as any)
+        ).rejects.toSatisfy((error: any) => {
+          expect(error).toBeInstanceOf(Response);
+          expect(error.status).toBe(302);
+          // Should redirect to OAuth initiation endpoint
+          expect(error.headers.get("Location")).toContain("/auth/google");
+          return true;
+        });
+      });
+
+      it("should redirect to Apple OAuth for Apple provider", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "linkOAuth");
+        formData.append("provider", "apple");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        await expect(
+          action({
+            request,
+            context: { cloudflare: { env: null } },
+            params: {},
+          } as any)
+        ).rejects.toSatisfy((error: any) => {
+          expect(error).toBeInstanceOf(Response);
+          expect(error.status).toBe(302);
+          expect(error.headers.get("Location")).toContain("/auth/apple");
+          return true;
+        });
+      });
+
+      it("should return error when trying to link already linked provider", async () => {
+        // Add Google OAuth account to user
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: testUserId,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "linkOAuth");
+        formData.append("provider", "google");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("provider_already_linked");
+      });
+
+      it("should return error for invalid provider when linking", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "linkOAuth");
+        formData.append("provider", "facebook"); // Not a valid provider
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_provider");
+      });
+    });
+
+    describe("component - OAuth interaction", () => {
+      it("should show confirmation dialog when unlink button is clicked", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        const unlinkButton = screen.getByRole("button", { name: /unlink google/i });
+        await user.click(unlinkButton);
+
+        // Should show confirmation dialog
+        expect(await screen.findByText(/are you sure/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /confirm/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+      });
+
+      it("should close confirmation dialog when cancel is clicked", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        const unlinkButton = screen.getByRole("button", { name: /unlink google/i });
+        await user.click(unlinkButton);
+
+        // Confirmation dialog appears
+        expect(await screen.findByText(/are you sure/i)).toBeInTheDocument();
+
+        // Click cancel
+        const cancelButton = screen.getByRole("button", { name: /cancel/i });
+        await user.click(cancelButton);
+
+        // Dialog should be closed
+        expect(screen.queryByText(/are you sure/i)).not.toBeInTheDocument();
+      });
+
+      it("should display warning when OAuth is the last auth method", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: false, // No password
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }], // Only one OAuth
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Should show warning or disable unlink button
+        const unlinkButton = screen.getByRole("button", { name: /unlink google/i });
+        expect(unlinkButton).toBeDisabled();
+      });
+
+      it("should display warning message explaining why unlink is disabled", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: false, // No password
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }], // Only one OAuth
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Should show explanation text about needing at least one auth method
+        expect(
+          screen.getByText(/at least one|cannot unlink|set a password first/i)
+        ).toBeInTheDocument();
+      });
+
+      it("should display error message after failed unlink attempt", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        let actionResult = {
+          success: false,
+          error: "last_auth_method" as const,
+          message: "Cannot unlink your last authentication method",
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Error message should be displayed
+        expect(
+          screen.getByText(/cannot unlink your last authentication method/i)
+        ).toBeInTheDocument();
+      });
+
+      it("should show success message after successful unlink", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [], // After unlink, no OAuth accounts
+            photoUrl: null,
+          },
+        };
+
+        let actionResult = {
+          success: true,
+          message: "Google account unlinked successfully",
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Success message should be displayed
+        expect(screen.getByText(/unlinked successfully/i)).toBeInTheDocument();
+      });
+    });
+
+    describe("loader - OAuth available providers info", () => {
+      it("should return list of available providers that can be linked", async () => {
+        // User has Google linked
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: testUserId,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", { headers });
+
+        const result = await loader({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        // Should include info about which providers are available
+        expect(result.user.oauthAccounts).toHaveLength(1);
+        expect(result.user.oauthAccounts[0].provider).toBe("google");
+      });
+
+      it("should indicate whether user can unlink each provider safely", async () => {
+        // OAuth-only user with single provider
+        const oauthEmail = faker.internet.email();
+        const oauthUsername = faker.internet.username() + "_" + faker.string.alphanumeric(8);
+        const oauthUser = await db.user.create({
+          data: {
+            email: oauthEmail.toLowerCase(),
+            username: oauthUsername,
+            hashedPassword: null,
+            salt: null,
+          },
+        });
+
+        await db.oAuth.create({
+          data: {
+            provider: "google",
+            providerUserId: "google-" + faker.string.alphanumeric(10),
+            providerUsername: "testuser@gmail.com",
+            userId: oauthUser.id,
+          },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", oauthUser.id);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", { headers });
+
+        const result = await loader({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        // Loader should provide info to determine if unlink is allowed
+        // hasPassword: false, oauthAccounts.length: 1 means can't unlink
+        expect(result.user.hasPassword).toBe(false);
+        expect(result.user.oauthAccounts).toHaveLength(1);
+      });
+    });
+  });
 });
