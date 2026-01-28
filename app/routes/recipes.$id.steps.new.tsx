@@ -8,7 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text, Strong } from "~/components/ui/text";
-import { validateStepTitle, validateStepDescription } from "~/lib/validation";
+import { validateStepTitle, validateStepDescription, STEP_TITLE_MAX_LENGTH, STEP_DESCRIPTION_MAX_LENGTH } from "~/lib/validation";
 
 interface ActionData {
   errors?: {
@@ -164,6 +164,7 @@ export default function NewStep() {
               <Input
                 type="text"
                 name="stepTitle"
+                maxLength={STEP_TITLE_MAX_LENGTH}
                 placeholder="e.g., Prepare the dough"
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle ? true : undefined}
               />
@@ -180,6 +181,7 @@ export default function NewStep() {
                 name="description"
                 rows={6}
                 required
+                maxLength={STEP_DESCRIPTION_MAX_LENGTH}
                 placeholder="Describe what to do in this step..."
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.description ? true : undefined}
               />

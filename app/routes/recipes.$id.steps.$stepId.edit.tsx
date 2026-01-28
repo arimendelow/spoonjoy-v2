@@ -6,7 +6,19 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
-import { validateStepTitle, validateStepDescription, validateQuantity, validateUnitName, validateIngredientName } from "~/lib/validation";
+import {
+  validateStepTitle,
+  validateStepDescription,
+  validateQuantity,
+  validateUnitName,
+  validateIngredientName,
+  STEP_TITLE_MAX_LENGTH,
+  STEP_DESCRIPTION_MAX_LENGTH,
+  UNIT_NAME_MAX_LENGTH,
+  INGREDIENT_NAME_MAX_LENGTH,
+  QUANTITY_MIN,
+  QUANTITY_MAX,
+} from "~/lib/validation";
 
 interface ActionData {
   errors?: {
@@ -261,6 +273,7 @@ export default function EditStep() {
               type="text"
               id="stepTitle"
               name="stepTitle"
+              maxLength={STEP_TITLE_MAX_LENGTH}
               defaultValue={step.stepTitle || ""}
               invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.stepTitle}
             />
@@ -275,6 +288,7 @@ export default function EditStep() {
               name="description"
               rows={6}
               required
+              maxLength={STEP_DESCRIPTION_MAX_LENGTH}
               defaultValue={step.description}
               invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.description}
             />
@@ -345,6 +359,8 @@ export default function EditStep() {
                     id="quantity"
                     name="quantity"
                     step="0.01"
+                    min={QUANTITY_MIN}
+                    max={QUANTITY_MAX}
                     required
                     placeholder="1.5"
                   />
@@ -358,6 +374,7 @@ export default function EditStep() {
                     id="unitName"
                     name="unitName"
                     required
+                    maxLength={UNIT_NAME_MAX_LENGTH}
                     placeholder="cup"
                   />
                 </div>
@@ -370,6 +387,7 @@ export default function EditStep() {
                     id="ingredientName"
                     name="ingredientName"
                     required
+                    maxLength={INGREDIENT_NAME_MAX_LENGTH}
                     placeholder="flour"
                   />
                 </div>

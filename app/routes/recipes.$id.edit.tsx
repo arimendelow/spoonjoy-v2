@@ -13,6 +13,9 @@ import {
   validateDescription,
   validateServings,
   validateImageUrl,
+  TITLE_MAX_LENGTH,
+  DESCRIPTION_MAX_LENGTH,
+  SERVINGS_MAX_LENGTH,
 } from "~/lib/validation";
 
 interface ActionData {
@@ -221,6 +224,7 @@ export default function EditRecipe() {
                 type="text"
                 name="title"
                 required
+                maxLength={TITLE_MAX_LENGTH}
                 defaultValue={recipe.title}
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.title ? true : undefined}
               />
@@ -236,6 +240,7 @@ export default function EditRecipe() {
               <Textarea
                 name="description"
                 rows={4}
+                maxLength={DESCRIPTION_MAX_LENGTH}
                 defaultValue={recipe.description || ""}
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.description ? true : undefined}
               />
@@ -251,6 +256,7 @@ export default function EditRecipe() {
               <Input
                 type="text"
                 name="servings"
+                maxLength={SERVINGS_MAX_LENGTH}
                 defaultValue={recipe.servings || ""}
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.servings ? true : undefined}
               />

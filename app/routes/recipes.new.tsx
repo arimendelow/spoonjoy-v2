@@ -13,6 +13,9 @@ import {
   validateDescription,
   validateServings,
   validateImageUrl,
+  TITLE_MAX_LENGTH,
+  DESCRIPTION_MAX_LENGTH,
+  SERVINGS_MAX_LENGTH,
 } from "~/lib/validation";
 
 interface ActionData {
@@ -121,6 +124,7 @@ export default function NewRecipe() {
                 type="text"
                 name="title"
                 required
+                maxLength={TITLE_MAX_LENGTH}
                 placeholder="e.g., Grandma's Chocolate Chip Cookies"
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.title ? true : undefined}
               />
@@ -136,6 +140,7 @@ export default function NewRecipe() {
               <Textarea
                 name="description"
                 rows={4}
+                maxLength={DESCRIPTION_MAX_LENGTH}
                 placeholder="Brief description of your recipe..."
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.description ? true : undefined}
               />
@@ -151,6 +156,7 @@ export default function NewRecipe() {
               <Input
                 type="text"
                 name="servings"
+                maxLength={SERVINGS_MAX_LENGTH}
                 placeholder="e.g., 4, 6-8, or 2 dozen"
                 data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.servings ? true : undefined}
               />
