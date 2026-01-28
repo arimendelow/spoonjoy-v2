@@ -8,12 +8,8 @@ import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { faker } from "@faker-js/faker";
 
-// Import loader and component when they exist
-// These will fail until implementation
-const loader = async () => {
-  throw new Error("Not implemented");
-};
-const AccountSettings = () => null;
+// Import loader and component from the route
+import AccountSettings, { loader } from "~/routes/account.settings";
 
 describe("Account Settings Route", () => {
   let testUserId: string;
