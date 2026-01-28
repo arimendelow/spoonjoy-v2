@@ -176,6 +176,21 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       });
     }
 
+    // Check for duplicate ingredient in recipe
+    const existingIngredient = await database.ingredient.findFirst({
+      where: {
+        recipeId: id,
+        ingredientRefId: ingredientRef.id,
+      },
+    });
+
+    if (existingIngredient) {
+      return data(
+        { errors: { ingredientName: "This ingredient is already in the recipe" } },
+        { status: 400 }
+      );
+    }
+
     // Create ingredient
     await database.ingredient.create({
       data: {
