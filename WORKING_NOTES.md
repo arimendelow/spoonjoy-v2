@@ -685,3 +685,20 @@ Same validation rules as Unit 2.2, applied to the `updateRecipe` intent action.
 
 **Coverage:** 100% for recipes.$id.edit.tsx
 **Build:** Passes with no warnings
+
+### Unit 2.4: Step Create Validation - COMPLETED
+
+Modified `app/routes/recipes.$id.steps.new.tsx` to add:
+- stepTitle validation (optional, max 200 chars)
+- description validation (required, max 5000 chars)
+
+Replaced inline validation with calls to `validateStepTitle` and `validateStepDescription` from validation utilities.
+
+**Tests added:** 4 new tests in `test/routes/recipes-id-steps-new.test.tsx`
+- stepTitle exceeds 200 characters → validation error
+- description exceeds 5000 characters → validation error
+- stepTitle at exactly 200 characters → success
+- description at exactly 5000 characters → success
+
+**Coverage:** 100% for recipes.$id.steps.new.tsx
+**Build:** Passes with no warnings
