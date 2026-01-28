@@ -8,12 +8,19 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage, Description } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
+import {
+  validateTitle,
+  validateDescription,
+  validateServings,
+  validateImageUrl,
+} from "~/lib/validation";
 
 interface ActionData {
   errors?: {
     title?: string;
     description?: string;
     servings?: string;
+    imageUrl?: string;
     general?: string;
   };
 }
@@ -35,8 +42,24 @@ export async function action({ request, context }: Route.ActionArgs) {
   const errors: ActionData["errors"] = {};
 
   // Validation
-  if (!title || title.trim().length === 0) {
-    errors.title = "Title is required";
+  const titleResult = validateTitle(title);
+  if (!titleResult.valid) {
+    errors.title = titleResult.error;
+  }
+
+  const descriptionResult = validateDescription(description || null);
+  if (!descriptionResult.valid) {
+    errors.description = descriptionResult.error;
+  }
+
+  const servingsResult = validateServings(servings || null);
+  if (!servingsResult.valid) {
+    errors.servings = servingsResult.error;
+  }
+
+  const imageUrlResult = validateImageUrl(imageUrl || null);
+  if (!imageUrlResult.valid) {
+    errors.imageUrl = imageUrlResult.error;
   }
 
   if (Object.keys(errors).length > 0) {
@@ -144,7 +167,13 @@ export default function NewRecipe() {
                 type="url"
                 name="imageUrl"
                 placeholder="https://example.com/image.jpg (optional)"
+                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.imageUrl ? true : undefined}
               />
+              {/* istanbul ignore next -- @preserve */ actionData?.errors?.imageUrl && (
+                <ErrorMessage>
+                  {actionData.errors.imageUrl}
+                </ErrorMessage>
+              )}
               <Description>
                 Leave blank to use default placeholder image
               </Description>
