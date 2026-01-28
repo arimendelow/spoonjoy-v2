@@ -4,6 +4,7 @@ import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
 import { Heading, Subheading } from "~/components/ui/heading";
+import { Input } from "~/components/ui/input";
 import { Text, Strong } from "~/components/ui/text";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {

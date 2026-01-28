@@ -3,6 +3,9 @@ import { Form, Link, redirect, data, useActionData, useLoaderData } from "react-
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { useState } from "react";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
 
 interface ActionData {
   errors?: {
@@ -223,16 +226,12 @@ export default function EditStep() {
             <label htmlFor="stepTitle" className="block mb-2 font-bold">
               Step Title (optional)
             </label>
-            <input
+            <Input
               type="text"
               id="stepTitle"
               name="stepTitle"
               defaultValue={step.stepTitle || ""}
-              className={`w-full p-3 text-base rounded ${
-                /* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle
-                  ? "border border-red-600"
-                  : "border border-gray-300"
-              }`}
+              invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.stepTitle}
             />
           </div>
 
@@ -240,17 +239,13 @@ export default function EditStep() {
             <label htmlFor="description" className="block mb-2 font-bold">
               Description *
             </label>
-            <textarea
+            <Textarea
               id="description"
               name="description"
               rows={6}
               required
               defaultValue={step.description}
-              className={`w-full p-3 text-base rounded font-inherit resize-y ${
-                /* istanbul ignore next -- @preserve */ actionData?.errors?.description
-                  ? "border border-red-600"
-                  : "border border-gray-300"
-              }`}
+              invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.description}
             />
             {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
               <div className="text-red-600 text-sm mt-1">
@@ -266,20 +261,18 @@ export default function EditStep() {
             >
               Cancel
             </Link>
-            <button
-              type="submit"
-              className="px-6 py-3 text-base bg-blue-600 text-white border-none rounded cursor-pointer"
-            >
+            <Button type="submit" color="blue">
               Save Changes
-            </button>
+            </Button>
           </div>
         </Form>
 
         <div className="mt-4">
           <Form method="post">
             <input type="hidden" name="intent" value="delete" />
-            <button
+            <Button
               type="submit"
+              color="red"
               onClick={
                 /* istanbul ignore next -- @preserve browser confirm dialog */
                 (e) => {
@@ -288,22 +281,21 @@ export default function EditStep() {
                   }
                 }
               }
-              className="px-6 py-3 text-base bg-red-600 text-white border-none rounded cursor-pointer"
             >
               Delete Step
-            </button>
+            </Button>
           </Form>
         </div>
 
         <div className="mt-12 pt-8 border-t border-gray-200">
           <div className="flex justify-between items-center mb-4">
             <h2 className="m-0">Ingredients</h2>
-            <button
+            <Button
               onClick={() => setShowIngredientForm(!showIngredientForm)}
-              className="px-4 py-2 bg-green-600 text-white border-none rounded cursor-pointer"
+              color="green"
             >
               {showIngredientForm ? "Cancel" : "+ Add Ingredient"}
-            </button>
+            </Button>
           </div>
 
           {showIngredientForm && (
@@ -317,48 +309,42 @@ export default function EditStep() {
                   <label htmlFor="quantity" className="block mb-2 text-sm font-bold">
                     Quantity
                   </label>
-                  <input
+                  <Input
                     type="number"
                     id="quantity"
                     name="quantity"
                     step="0.01"
                     required
                     placeholder="1.5"
-                    className="w-full p-2 text-base border border-gray-300 rounded"
                   />
                 </div>
                 <div>
                   <label htmlFor="unitName" className="block mb-2 text-sm font-bold">
                     Unit
                   </label>
-                  <input
+                  <Input
                     type="text"
                     id="unitName"
                     name="unitName"
                     required
                     placeholder="cup"
-                    className="w-full p-2 text-base border border-gray-300 rounded"
                   />
                 </div>
                 <div>
                   <label htmlFor="ingredientName" className="block mb-2 text-sm font-bold">
                     Ingredient
                   </label>
-                  <input
+                  <Input
                     type="text"
                     id="ingredientName"
                     name="ingredientName"
                     required
                     placeholder="flour"
-                    className="w-full p-2 text-base border border-gray-300 rounded"
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-base bg-green-600 text-white border-none rounded cursor-pointer"
-                >
+                <Button type="submit" color="green">
                   Add
-                </button>
+                </Button>
               </div>
             </Form>
           )}
@@ -380,8 +366,9 @@ export default function EditStep() {
                   <Form method="post" className="m-0">
                     <input type="hidden" name="intent" value="deleteIngredient" />
                     <input type="hidden" name="ingredientId" value={ingredient.id} />
-                    <button
+                    <Button
                       type="submit"
+                      color="red"
                       onClick={
                         /* istanbul ignore next -- @preserve browser confirm dialog */
                         (e) => {
@@ -390,10 +377,9 @@ export default function EditStep() {
                           }
                         }
                       }
-                      className="px-3 py-1 text-sm bg-red-600 text-white border-none rounded cursor-pointer"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </Form>
                 </div>
               ))}
