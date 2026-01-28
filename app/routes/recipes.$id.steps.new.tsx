@@ -8,6 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text, Strong } from "~/components/ui/text";
+import { validateStepTitle, validateStepDescription } from "~/lib/validation";
 
 interface ActionData {
   errors?: {
@@ -92,8 +93,14 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const errors: ActionData["errors"] = {};
 
   // Validation
-  if (!description || description.trim().length === 0) {
-    errors.description = "Step description is required";
+  const stepTitleResult = validateStepTitle(stepTitle || null);
+  if (!stepTitleResult.valid) {
+    errors.stepTitle = stepTitleResult.error;
+  }
+
+  const descriptionResult = validateStepDescription(description);
+  if (!descriptionResult.valid) {
+    errors.description = descriptionResult.error;
   }
 
   if (Object.keys(errors).length > 0) {
