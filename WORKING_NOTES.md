@@ -667,3 +667,21 @@ All validation uses the utilities from Unit 2.1. Error messages display inline b
 
 **Coverage:** 100% for recipes.new.tsx
 **Build:** Passes with no warnings
+
+### Unit 2.3: Recipe Edit Validation - COMPLETED
+
+Modified `app/routes/recipes.$id.edit.tsx` to add:
+- Title validation (required, max 200 chars)
+- Description validation (optional, max 2000 chars)
+- Servings validation (optional, max 100 chars)
+- ImageUrl validation (optional, must be valid http/https URL)
+
+Same validation rules as Unit 2.2, applied to the `updateRecipe` intent action.
+
+**Tests added:** 11 new tests in `test/routes/recipes-id-edit.test.tsx`
+- Field length boundary tests (at max, over max)
+- URL format validation (invalid, javascript:, http, https)
+- Multiple validation errors at once
+
+**Coverage:** 100% for recipes.$id.edit.tsx
+**Build:** Passes with no warnings
