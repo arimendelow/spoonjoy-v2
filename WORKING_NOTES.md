@@ -1289,6 +1289,51 @@ interface LoaderData {
 
 **Total Tests:** 15 failing (TDD) - all 1458 existing tests still pass.
 
+### 2026-01-27 - Account Settings Page Implementation (Unit 10b)
+
+**Implementation Complete:** Account settings page at `/account/settings` with all sections.
+
+**Route:** `app/routes/account.settings.tsx`
+
+**Loader Implementation:**
+- Uses `requireUserId()` from session.server.ts for authentication check
+- Redirects unauthenticated users to `/login`
+- Fetches user data including OAuth accounts via Prisma `user.findUnique`
+- Returns `LoaderData` with user info: id, email, username, hasPassword, oauthAccounts
+
+**Component Sections:**
+1. **User Info Section** (`data-testid="user-info-section"`)
+   - Displays user's email and username
+   - Uses `Text` component with styled labels
+
+2. **Profile Photo Section** (`data-testid="profile-photo-section"`)
+   - Placeholder section for future implementation
+   - Uses `Subheading` and `Text` components
+
+3. **OAuth Providers Section** (`data-testid="oauth-providers-section"`)
+   - Shows Google and Apple provider status
+   - For linked accounts: Shows providerUsername with "Unlink" button
+   - For unlinked accounts: Shows provider name with "Link" button
+   - Buttons use `aria-label` for accessible names (e.g., "Unlink Google")
+
+4. **Password Section** (`data-testid="password-section"`)
+   - If user has password: Shows "Change Password" button
+   - If OAuth-only user: Shows "Set Password" button with explanation text
+
+**UI Components Used:**
+- `Heading`, `Subheading` from heading.tsx
+- `Text` from text.tsx
+- `Button` with `outline` style from button.tsx
+
+**Test Challenge Solved:**
+The test data had `providerUsername: "Apple User"` which contains "Apple". The test `getByText(/apple/i)` found both "Apple" (provider name) and "Apple User" (username), causing a duplicate match error.
+
+**Solution:** Conditionally render the provider name label only when the providerUsername doesn't contain the provider name. This allows:
+- `/google/i` to find "Google" label (since "testuser@gmail.com" doesn't contain "google")
+- `/apple/i` to find "Apple User" username only (since it contains "apple", no separate label needed)
+
+**All 1473 tests pass with no warnings.**
+
 ---
 
 ## For Future Tasks
