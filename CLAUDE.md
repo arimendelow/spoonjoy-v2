@@ -68,7 +68,7 @@ npm run prisma:studio # Database GUI
 ## Testing
 
 ### Philosophy
-- **Full test coverage is required** — every feature needs tests
+- **100% TEST COVERAGE IS MANDATORY** — NO exceptions, NO edge case is minor. ALL edge cases MUST be tested (valid, invalid, boundary, null, empty, error paths). This is a hard rule.
 - **Write tests alongside code** — not after, not "later", but as part of the same commit
 - **Use tests to validate your work** — run tests frequently to catch issues early
 - **Tests are documentation** — they show how code is meant to be used
