@@ -1081,4 +1081,566 @@ describe("Account Settings Route", () => {
       expect(result.success).toBe(false);
     });
   });
+
+  describe("profile photo", () => {
+    // Default avatar URL - chef RJ from spoonjoy v1
+    const DEFAULT_AVATAR_URL =
+      "https://res.cloudinary.com/dpjmyc4uz/image/upload/v1674541350/chef-rj.png";
+
+    describe("loader - photo data", () => {
+      it("should return user photoUrl when user has a custom photo", async () => {
+        // Update user with custom photo URL
+        const customPhotoUrl = "https://example.com/custom-photo.jpg";
+        await db.user.update({
+          where: { id: testUserId },
+          data: { photoUrl: customPhotoUrl },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", { headers });
+
+        const result = await loader({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.user.photoUrl).toBe(customPhotoUrl);
+      });
+
+      it("should return null photoUrl when user has no custom photo", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", { headers });
+
+        const result = await loader({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.user.photoUrl).toBeNull();
+      });
+    });
+
+    describe("component - default avatar display", () => {
+      it("should display default avatar (chef RJ) when user has no photo", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        const profilePhotoSection = screen.getByTestId("profile-photo-section");
+
+        // Should display the Avatar component with default chef RJ image
+        const avatarImg = profilePhotoSection.querySelector("img");
+        expect(avatarImg).toBeInTheDocument();
+        expect(avatarImg).toHaveAttribute("src", DEFAULT_AVATAR_URL);
+        expect(avatarImg).toHaveAttribute("alt", expect.stringMatching(/profile|avatar|photo/i));
+      });
+
+      it("should display user's custom photo when they have one", async () => {
+        const customPhotoUrl = "https://example.com/my-photo.jpg";
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: customPhotoUrl,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        const profilePhotoSection = screen.getByTestId("profile-photo-section");
+
+        // Should display the custom photo
+        const avatarImg = profilePhotoSection.querySelector("img");
+        expect(avatarImg).toBeInTheDocument();
+        expect(avatarImg).toHaveAttribute("src", customPhotoUrl);
+      });
+
+      it("should use Avatar component from UI library for displaying photo", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        const profilePhotoSection = screen.getByTestId("profile-photo-section");
+
+        // Avatar component uses data-slot="avatar"
+        const avatar = profilePhotoSection.querySelector('[data-slot="avatar"]');
+        expect(avatar).toBeInTheDocument();
+      });
+    });
+
+    describe("component - photo upload UI", () => {
+      it("should display upload button in profile photo section", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        expect(screen.getByRole("button", { name: /upload photo/i })).toBeInTheDocument();
+      });
+
+      it("should display change photo button when user already has a photo", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: "https://example.com/existing-photo.jpg",
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        expect(screen.getByRole("button", { name: /change photo/i })).toBeInTheDocument();
+      });
+
+      it("should display remove photo button when user has a custom photo", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: "https://example.com/existing-photo.jpg",
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        expect(screen.getByRole("button", { name: /remove photo/i })).toBeInTheDocument();
+      });
+
+      it("should not display remove photo button when user has default avatar", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        expect(screen.queryByRole("button", { name: /remove photo/i })).not.toBeInTheDocument();
+      });
+
+      it("should have file input for photo upload (hidden, triggered by button)", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+        const profilePhotoSection = screen.getByTestId("profile-photo-section");
+
+        // File input should exist (may be hidden)
+        const fileInput = profilePhotoSection.querySelector('input[type="file"]');
+        expect(fileInput).toBeInTheDocument();
+        expect(fileInput).toHaveAttribute("accept", expect.stringMatching(/image/i));
+      });
+    });
+
+    describe("action - photo upload", () => {
+      it("should successfully upload a photo", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "uploadPhoto");
+        // Simulate file upload with a mock file
+        const mockFile = new Blob(["fake image data"], { type: "image/jpeg" });
+        formData.append("photo", mockFile, "test-photo.jpg");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.photoUrl).toBeDefined();
+        expect(typeof result.photoUrl).toBe("string");
+      });
+
+      it("should return error when no photo file is provided", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "uploadPhoto");
+        // No photo file attached
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("no_file");
+        expect(result.message).toContain("photo");
+      });
+
+      it("should return error when file is not an image", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "uploadPhoto");
+        // Simulate non-image file
+        const mockFile = new Blob(["fake text data"], { type: "text/plain" });
+        formData.append("photo", mockFile, "test-file.txt");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("invalid_file_type");
+        expect(result.message).toContain("image");
+      });
+
+      it("should return error when file is too large", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "uploadPhoto");
+        // Simulate a file larger than 5MB (simulated via size property in test)
+        // Note: actual file creation would be expensive, so we'll check the implementation handles size
+        const largeFileData = new Uint8Array(6 * 1024 * 1024); // 6MB
+        const mockFile = new Blob([largeFileData], { type: "image/jpeg" });
+        formData.append("photo", mockFile, "large-photo.jpg");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("file_too_large");
+        expect(result.message).toContain("5MB");
+      });
+
+      it("should update user photoUrl in database after successful upload", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "uploadPhoto");
+        const mockFile = new Blob(["fake image data"], { type: "image/jpeg" });
+        formData.append("photo", mockFile, "test-photo.jpg");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+
+        // Verify photoUrl was updated in database
+        const updatedUser = await db.user.findUnique({ where: { id: testUserId } });
+        expect(updatedUser?.photoUrl).toBe(result.photoUrl);
+      });
+    });
+
+    describe("action - photo removal", () => {
+      it("should successfully remove photo and reset to default", async () => {
+        // First, set a custom photo
+        await db.user.update({
+          where: { id: testUserId },
+          data: { photoUrl: "https://example.com/custom-photo.jpg" },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePhoto");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+
+        // Verify photoUrl was reset to null in database
+        const updatedUser = await db.user.findUnique({ where: { id: testUserId } });
+        expect(updatedUser?.photoUrl).toBeNull();
+      });
+
+      it("should return success even if user already has no photo", async () => {
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePhoto");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+      });
+    });
+
+    describe("action - photo change (replace existing)", () => {
+      it("should successfully replace existing photo with new one", async () => {
+        // First, set a custom photo
+        await db.user.update({
+          where: { id: testUserId },
+          data: { photoUrl: "https://example.com/old-photo.jpg" },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "uploadPhoto");
+        const mockFile = new Blob(["new image data"], { type: "image/png" });
+        formData.append("photo", mockFile, "new-photo.png");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+
+        // Verify photoUrl was changed to a new URL
+        const updatedUser = await db.user.findUnique({ where: { id: testUserId } });
+        expect(updatedUser?.photoUrl).not.toBe("https://example.com/old-photo.jpg");
+        expect(updatedUser?.photoUrl).toBe(result.photoUrl);
+      });
+    });
+  });
 });
