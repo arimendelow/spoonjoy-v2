@@ -200,39 +200,27 @@ export default function EditStep() {
   const [showIngredientForm, setShowIngredientForm] = useState(false);
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "2rem" }}>
+    <div className="font-sans leading-relaxed p-8">
+      <div className="max-w-[800px] mx-auto">
+        <div className="mb-8">
           <h1>Edit Step {step.stepNum}</h1>
           <Link
             to={`/recipes/${recipe.id}/edit`}
-            style={{
-              color: "#0066cc",
-              textDecoration: "none",
-            }}
+            className="text-blue-600 no-underline"
           >
             ← Back to recipe
           </Link>
         </div>
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div
-            style={{
-              padding: "0.75rem",
-              marginBottom: "1rem",
-              backgroundColor: "#fee",
-              border: "1px solid #c33",
-              borderRadius: "4px",
-              color: "#c33",
-            }}
-          >
+          <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600">
             {actionData.errors.general}
           </div>
         )}
 
-        <Form method="post" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <Form method="post" className="flex flex-col gap-6">
           <div>
-            <label htmlFor="stepTitle" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
+            <label htmlFor="stepTitle" className="block mb-2 font-bold">
               Step Title (optional)
             </label>
             <input
@@ -240,18 +228,16 @@ export default function EditStep() {
               id="stepTitle"
               name="stepTitle"
               defaultValue={step.stepTitle || ""}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-              }}
+              className={`w-full p-3 text-base rounded ${
+                /* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle
+                  ? "border border-red-600"
+                  : "border border-gray-300"
+              }`}
             />
           </div>
 
           <div>
-            <label htmlFor="description" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
+            <label htmlFor="description" className="block mb-2 font-bold">
               Description *
             </label>
             <textarea
@@ -260,56 +246,36 @@ export default function EditStep() {
               rows={6}
               required
               defaultValue={step.description}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.description ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
+              className={`w-full p-3 text-base rounded font-inherit resize-y ${
+                /* istanbul ignore next -- @preserve */ actionData?.errors?.description
+                  ? "border border-red-600"
+                  : "border border-gray-300"
+              }`}
             />
             {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
-              <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+              <div className="text-red-600 text-sm mt-1">
                 {actionData.errors.description}
               </div>
             )}
           </div>
 
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+          <div className="flex gap-4 justify-end">
             <Link
               to={`/recipes/${recipe.id}/edit`}
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#6c757d",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-                textAlign: "center",
-              }}
+              className="px-6 py-3 text-base bg-gray-500 text-white no-underline rounded text-center"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#0066cc",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
+              className="px-6 py-3 text-base bg-blue-600 text-white border-none rounded cursor-pointer"
             >
               Save Changes
             </button>
           </div>
         </Form>
 
-        <div style={{ marginTop: "1rem" }}>
+        <div className="mt-4">
           <Form method="post">
             <input type="hidden" name="intent" value="delete" />
             <button
@@ -322,34 +288,19 @@ export default function EditStep() {
                   }
                 }
               }
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
+              className="px-6 py-3 text-base bg-red-600 text-white border-none rounded cursor-pointer"
             >
               Delete Step
             </button>
           </Form>
         </div>
 
-        <div style={{ marginTop: "3rem", paddingTop: "2rem", borderTop: "1px solid #dee2e6" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <h2 style={{ margin: 0 }}>Ingredients</h2>
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="m-0">Ingredients</h2>
             <button
               onClick={() => setShowIngredientForm(!showIngredientForm)}
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
+              className="px-4 py-2 bg-green-600 text-white border-none rounded cursor-pointer"
             >
               {showIngredientForm ? "Cancel" : "+ Add Ingredient"}
             </button>
@@ -358,20 +309,12 @@ export default function EditStep() {
           {showIngredientForm && (
             <Form
               method="post"
-              style={{
-                backgroundColor: "#f8f9fa",
-                padding: "1.5rem",
-                borderRadius: "8px",
-                marginBottom: "1rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "1rem",
-              }}
+              className="bg-gray-100 p-6 rounded-lg mb-4 flex flex-col gap-4"
             >
               <input type="hidden" name="intent" value="addIngredient" />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr auto", gap: "1rem", alignItems: "end" }}>
+              <div className="grid grid-cols-[1fr_1fr_2fr_auto] gap-4 items-end">
                 <div>
-                  <label htmlFor="quantity" style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
+                  <label htmlFor="quantity" className="block mb-2 text-sm font-bold">
                     Quantity
                   </label>
                   <input
@@ -381,17 +324,11 @@ export default function EditStep() {
                     step="0.01"
                     required
                     placeholder="1.5"
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem",
-                      fontSize: "1rem",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                    }}
+                    className="w-full p-2 text-base border border-gray-300 rounded"
                   />
                 </div>
                 <div>
-                  <label htmlFor="unitName" style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
+                  <label htmlFor="unitName" className="block mb-2 text-sm font-bold">
                     Unit
                   </label>
                   <input
@@ -400,17 +337,11 @@ export default function EditStep() {
                     name="unitName"
                     required
                     placeholder="cup"
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem",
-                      fontSize: "1rem",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                    }}
+                    className="w-full p-2 text-base border border-gray-300 rounded"
                   />
                 </div>
                 <div>
-                  <label htmlFor="ingredientName" style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
+                  <label htmlFor="ingredientName" className="block mb-2 text-sm font-bold">
                     Ingredient
                   </label>
                   <input
@@ -419,26 +350,12 @@ export default function EditStep() {
                     name="ingredientName"
                     required
                     placeholder="flour"
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem",
-                      fontSize: "1rem",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                    }}
+                    className="w-full p-2 text-base border border-gray-300 rounded"
                   />
                 </div>
                 <button
                   type="submit"
-                  style={{
-                    padding: "0.5rem 1rem",
-                    fontSize: "1rem",
-                    backgroundColor: "#28a745",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
+                  className="px-4 py-2 text-base bg-green-600 text-white border-none rounded cursor-pointer"
                 >
                   Add
                 </button>
@@ -447,35 +364,20 @@ export default function EditStep() {
           )}
 
           {step.ingredients.length === 0 ? (
-            <div
-              style={{
-                backgroundColor: "#f8f9fa",
-                padding: "2rem",
-                borderRadius: "8px",
-                textAlign: "center",
-              }}
-            >
-              <p style={{ color: "#666" }}>No ingredients added yet</p>
+            <div className="bg-gray-100 p-8 rounded-lg text-center">
+              <p className="text-gray-500">No ingredients added yet</p>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div className="flex flex-col gap-2">
               {step.ingredients.map((ingredient) => (
                 <div
                   key={ingredient.id}
-                  style={{
-                    backgroundColor: "white",
-                    border: "1px solid #dee2e6",
-                    borderRadius: "4px",
-                    padding: "0.75rem 1rem",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
+                  className="bg-white border border-gray-200 rounded p-3 px-4 flex justify-between items-center"
                 >
                   <span>
                     <strong>{ingredient.quantity}</strong> {ingredient.unit.name} {ingredient.ingredientRef.name}
                   </span>
-                  <Form method="post" style={{ margin: 0 }}>
+                  <Form method="post" className="m-0">
                     <input type="hidden" name="intent" value="deleteIngredient" />
                     <input type="hidden" name="ingredientId" value={ingredient.id} />
                     <button
@@ -488,15 +390,7 @@ export default function EditStep() {
                           }
                         }
                       }
-                      style={{
-                        padding: "0.25rem 0.75rem",
-                        fontSize: "0.875rem",
-                        backgroundColor: "#dc3545",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      className="px-3 py-1 text-sm bg-red-600 text-white border-none rounded cursor-pointer"
                     >
                       Remove
                     </button>

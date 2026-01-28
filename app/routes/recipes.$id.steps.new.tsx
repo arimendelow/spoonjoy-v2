@@ -2,6 +2,12 @@ import type { Route } from "./+types/recipes.$id.steps.new";
 import { Form, Link, redirect, data, useActionData, useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
+import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
+import { Heading } from "~/components/ui/heading";
+import { Text, Strong } from "~/components/ui/text";
 
 interface ActionData {
   errors?: {
@@ -120,131 +126,72 @@ export default function NewStep() {
   const actionData = useActionData<ActionData>();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "2rem" }}>
-          <h1>Add Step to {recipe.title}</h1>
+    <div className="font-sans leading-relaxed p-8">
+      <div className="max-w-[800px] mx-auto">
+        <div className="mb-8">
+          <Heading level={1}>Add Step to {recipe.title}</Heading>
           <Link
             to={`/recipes/${recipe.id}/edit`}
-            style={{
-              color: "#0066cc",
-              textDecoration: "none",
-            }}
+            className="text-blue-600 no-underline"
           >
             ← Back to recipe
           </Link>
         </div>
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div
-            style={{
-              padding: "0.75rem",
-              marginBottom: "1rem",
-              backgroundColor: "#fee",
-              border: "1px solid #c33",
-              borderRadius: "4px",
-              color: "#c33",
-            }}
-          >
+          <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600" role="alert">
             {actionData.errors.general}
           </div>
         )}
 
-        <div
-          style={{
-            backgroundColor: "#f8f9fa",
-            padding: "1rem",
-            borderRadius: "8px",
-            marginBottom: "1.5rem",
-          }}
-        >
-          <p style={{ margin: 0 }}>
-            <strong>Step Number:</strong> {nextStepNum}
-          </p>
+        <div className="bg-gray-100 p-4 rounded-lg mb-6">
+          <Text className="m-0">
+            <Strong>Step Number:</Strong> {nextStepNum}
+          </Text>
         </div>
 
-        <Form method="post" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div>
-            <label htmlFor="stepTitle" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
-              Step Title (optional)
-            </label>
-            <input
-              type="text"
-              id="stepTitle"
-              name="stepTitle"
-              placeholder="e.g., Prepare the dough"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-              }}
-            />
-            {/* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle && (
-              <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                {actionData.errors.stepTitle}
-              </div>
-            )}
-          </div>
+        <Form method="post">
+          <Fieldset className="space-y-6">
+            <Field>
+              <Label>Step Title (optional)</Label>
+              <Input
+                type="text"
+                name="stepTitle"
+                placeholder="e.g., Prepare the dough"
+                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle ? true : undefined}
+              />
+              {/* istanbul ignore next -- @preserve */ actionData?.errors?.stepTitle && (
+                <ErrorMessage>
+                  {actionData.errors.stepTitle}
+                </ErrorMessage>
+              )}
+            </Field>
 
-          <div>
-            <label htmlFor="description" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
-              Description *
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={6}
-              required
-              placeholder="Describe what to do in this step..."
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.description ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
-            />
-            {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
-              <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                {actionData.errors.description}
-              </div>
-            )}
-          </div>
+            <Field>
+              <Label>Description *</Label>
+              <Textarea
+                name="description"
+                rows={6}
+                required
+                placeholder="Describe what to do in this step..."
+                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.description ? true : undefined}
+              />
+              {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
+                <ErrorMessage>
+                  {actionData.errors.description}
+                </ErrorMessage>
+              )}
+            </Field>
 
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
-            <Link
-              to={`/recipes/${recipe.id}/edit`}
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#6c757d",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-                textAlign: "center",
-              }}
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Create Step & Add Ingredients
-            </button>
-          </div>
+            <div className="flex gap-4 justify-end pt-4">
+              <Button href={`/recipes/${recipe.id}/edit`} color="zinc">
+                Cancel
+              </Button>
+              <Button type="submit" color="green">
+                Create Step & Add Ingredients
+              </Button>
+            </div>
+          </Fieldset>
         </Form>
       </div>
     </div>

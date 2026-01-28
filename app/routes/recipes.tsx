@@ -3,6 +3,9 @@ import { Form, useLoaderData } from "react-router";
 import { requireUserId } from "~/lib/session.server";
 import { getUserById } from "~/lib/auth.server";
 import { getDb, db } from "~/lib/db.server";
+import { Button } from "~/components/ui/button";
+import { Heading } from "~/components/ui/heading";
+import { Text } from "~/components/ui/text";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -39,108 +42,52 @@ export default function Recipes() {
   const { user, recipes } = useLoaderData<typeof loader>();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", padding: "2rem" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "2rem",
-        }}
-      >
+    <div className="font-sans p-8">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1>My Recipes</h1>
-          <p style={{ color: "#666" }}>Welcome back, {user.username}!</p>
+          <Heading level={1}>My Recipes</Heading>
+          <Text>Welcome back, {user.username}!</Text>
         </div>
         <Form method="post" action="/logout">
-          <button
-            type="submit"
-            style={{
-              padding: "0.5rem 1rem",
-              fontSize: "1rem",
-              backgroundColor: "#dc3545",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
+          <Button type="submit" color="red">
             Log Out
-          </button>
+          </Button>
         </Form>
       </div>
 
       {recipes.length === 0 ? (
-        <div
-          style={{
-            padding: "3rem",
-            textAlign: "center",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "8px",
-          }}
-        >
-          <h2>No recipes yet</h2>
-          <p style={{ color: "#666", marginBottom: "1.5rem" }}>
+        <div className="p-12 text-center bg-gray-100 rounded-lg">
+          <Heading level={2}>No recipes yet</Heading>
+          <Text className="mb-6">
             Start building your recipe collection!
-          </p>
-          <button
-            style={{
-              padding: "0.75rem 1.5rem",
-              fontSize: "1rem",
-              backgroundColor: "#0066cc",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
+          </Text>
+          <Button color="blue">
             Create Your First Recipe
-          </button>
+          </Button>
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: "1.5rem",
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
           {recipes.map((recipe) => (
             <div
               key={recipe.id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                overflow: "hidden",
-                backgroundColor: "white",
-              }}
+              className="border border-gray-300 rounded-lg overflow-hidden bg-white"
             >
               <img
                 src={recipe.imageUrl}
                 alt={recipe.title}
-                style={{
-                  width: "100%",
-                  height: "200px",
-                  objectFit: "cover",
-                }}
+                className="w-full h-[200px] object-cover"
               />
-              <div style={{ padding: "1rem" }}>
-                <h3 style={{ margin: "0 0 0.5rem 0" }}>{recipe.title}</h3>
+              <div className="p-4">
+                <Heading level={3} className="m-0 mb-2">{recipe.title}</Heading>
                 {recipe.description && (
-                  <p
-                    style={{
-                      color: "#666",
-                      fontSize: "0.875rem",
-                      margin: "0 0 0.5rem 0",
-                    }}
-                  >
+                  <Text className="m-0 mb-2">
                     {recipe.description}
-                  </p>
+                  </Text>
                 )}
                 {recipe.servings && (
-                  <p style={{ fontSize: "0.875rem", color: "#888", margin: 0 }}>
+                  <Text className="m-0">
                     Servings: {recipe.servings}
-                  </p>
+                  </Text>
                 )}
               </div>
             </div>

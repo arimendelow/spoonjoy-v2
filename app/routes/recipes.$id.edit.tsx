@@ -2,7 +2,12 @@ import type { Route } from "./+types/recipes.$id.edit";
 import { Form, Link, redirect, data, useActionData, useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
-import { useState } from "react";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
+import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
+import { Heading, Subheading } from "~/components/ui/heading";
+import { Text } from "~/components/ui/text";
 
 interface ActionData {
   errors?: {
@@ -167,252 +172,135 @@ export default function EditRecipe() {
   const actionData = useActionData<ActionData>();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "2rem" }}>
-          <h1>Edit Recipe</h1>
+    <div className="font-sans leading-relaxed p-8">
+      <div className="max-w-[800px] mx-auto">
+        <div className="mb-8">
+          <Heading level={1}>Edit Recipe</Heading>
           <Link
             to={`/recipes/${recipe.id}`}
-            style={{
-              color: "#0066cc",
-              textDecoration: "none",
-            }}
+            className="text-blue-600 no-underline"
           >
             ← Back to recipe
           </Link>
         </div>
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div
-            style={{
-              padding: "0.75rem",
-              marginBottom: "1rem",
-              backgroundColor: "#fee",
-              border: "1px solid #c33",
-              borderRadius: "4px",
-              color: "#c33",
-            }}
-          >
+          <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600" role="alert">
             {actionData.errors.general}
           </div>
         )}
 
-        <Form method="post" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div>
-            <label htmlFor="title" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
-              Recipe Title *
-            </label>
-            <input
-              type="text"
-              id="title"
-              name="title"
-              required
-              defaultValue={recipe.title}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.title ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-              }}
-            />
-            {/* istanbul ignore next -- @preserve */ actionData?.errors?.title && (
-              <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                {actionData.errors.title}
-              </div>
-            )}
-          </div>
+        <Form method="post">
+          <Fieldset className="space-y-6">
+            <Field>
+              <Label>Recipe Title *</Label>
+              <Input
+                type="text"
+                name="title"
+                required
+                defaultValue={recipe.title}
+                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.title ? true : undefined}
+              />
+              {/* istanbul ignore next -- @preserve */ actionData?.errors?.title && (
+                <ErrorMessage>
+                  {actionData.errors.title}
+                </ErrorMessage>
+              )}
+            </Field>
 
-          <div>
-            <label htmlFor="description" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={4}
-              defaultValue={recipe.description || ""}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.description ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
-            />
-            {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
-              <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                {actionData.errors.description}
-              </div>
-            )}
-          </div>
+            <Field>
+              <Label>Description</Label>
+              <Textarea
+                name="description"
+                rows={4}
+                defaultValue={recipe.description || ""}
+                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.description ? true : undefined}
+              />
+              {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
+                <ErrorMessage>
+                  {actionData.errors.description}
+                </ErrorMessage>
+              )}
+            </Field>
 
-          <div>
-            <label htmlFor="servings" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
-              Servings
-            </label>
-            <input
-              type="text"
-              id="servings"
-              name="servings"
-              defaultValue={recipe.servings || ""}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.servings ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-              }}
-            />
-            {/* istanbul ignore next -- @preserve */ actionData?.errors?.servings && (
-              <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                {actionData.errors.servings}
-              </div>
-            )}
-          </div>
+            <Field>
+              <Label>Servings</Label>
+              <Input
+                type="text"
+                name="servings"
+                defaultValue={recipe.servings || ""}
+                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.servings ? true : undefined}
+              />
+              {/* istanbul ignore next -- @preserve */ actionData?.errors?.servings && (
+                <ErrorMessage>
+                  {actionData.errors.servings}
+                </ErrorMessage>
+              )}
+            </Field>
 
-          <div>
-            <label htmlFor="imageUrl" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
-              Image URL
-            </label>
-            <input
-              type="url"
-              id="imageUrl"
-              name="imageUrl"
-              defaultValue={recipe.imageUrl}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-              }}
-            />
-          </div>
+            <Field>
+              <Label>Image URL</Label>
+              <Input
+                type="url"
+                name="imageUrl"
+                defaultValue={recipe.imageUrl}
+              />
+            </Field>
 
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
-            <Link
-              to={`/recipes/${recipe.id}`}
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#6c757d",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-                textAlign: "center",
-              }}
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#0066cc",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Save Changes
-            </button>
-          </div>
+            <div className="flex gap-4 justify-end pt-4">
+              <Button href={`/recipes/${recipe.id}`} color="zinc">
+                Cancel
+              </Button>
+              <Button type="submit" color="blue">
+                Save Changes
+              </Button>
+            </div>
+          </Fieldset>
         </Form>
 
-        <div style={{ marginTop: "3rem", paddingTop: "2rem", borderTop: "1px solid #dee2e6" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <h2 style={{ margin: 0 }}>Recipe Steps</h2>
-            <Link
-              to={`/recipes/${recipe.id}/steps/new`}
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#28a745",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-              }}
-            >
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <div className="flex justify-between items-center mb-4">
+            <Heading level={2} className="m-0">Recipe Steps</Heading>
+            <Button href={`/recipes/${recipe.id}/steps/new`} color="green">
               + Add Step
-            </Link>
+            </Button>
           </div>
 
           {recipe.steps.length === 0 ? (
-            <div
-              style={{
-                backgroundColor: "#f8f9fa",
-                padding: "2rem",
-                borderRadius: "8px",
-                textAlign: "center",
-              }}
-            >
-              <p style={{ color: "#666" }}>No steps added yet</p>
+            <div className="bg-gray-100 p-8 rounded-lg text-center">
+              <Text>No steps added yet</Text>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="flex flex-col gap-4">
               {recipe.steps.map((step, index) => (
                 <div
                   key={step.id}
-                  style={{
-                    backgroundColor: "white",
-                    border: "1px solid #dee2e6",
-                    borderRadius: "8px",
-                    padding: "1rem",
-                  }}
+                  className="bg-white border border-gray-200 rounded-lg p-4"
                 >
-                  <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
-                    <div
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        backgroundColor: "#0066cc",
-                        color: "white",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: "bold",
-                        flexShrink: 0,
-                      }}
-                    >
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold shrink-0">
                       {step.stepNum}
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div className="flex-1">
                       {step.stepTitle && (
-                        <h4 style={{ margin: "0 0 0.5rem 0" }}>{step.stepTitle}</h4>
+                        <Subheading level={4} className="m-0 mb-2">{step.stepTitle}</Subheading>
                       )}
-                      <p style={{ margin: "0 0 0.5rem 0", color: "#666" }}>{step.description}</p>
+                      <Text className="m-0 mb-2">{step.description}</Text>
                       {step.ingredients.length > 0 && (
-                        <div style={{ fontSize: "0.875rem", color: "#999" }}>
+                        <Text className="text-sm">
                           {step.ingredients.length} ingredient{step.ingredients.length !== 1 ? "s" : ""}
-                        </div>
+                        </Text>
                       )}
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                    <div className="flex flex-col gap-1">
                       {index > 0 && (
                         <Form method="post">
                           <input type="hidden" name="intent" value="reorderStep" />
                           <input type="hidden" name="stepId" value={step.id} />
                           <input type="hidden" name="direction" value="up" />
-                          <button
-                            type="submit"
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              backgroundColor: "#6c757d",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "0.75rem",
-                            }}
-                            title="Move up"
-                          >
+                          <Button type="submit" color="zinc" className="text-xs px-2 py-1">
                             ↑
-                          </button>
+                          </Button>
                         </Form>
                       )}
                       {index < recipe.steps.length - 1 && (
@@ -420,37 +308,15 @@ export default function EditRecipe() {
                           <input type="hidden" name="intent" value="reorderStep" />
                           <input type="hidden" name="stepId" value={step.id} />
                           <input type="hidden" name="direction" value="down" />
-                          <button
-                            type="submit"
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              backgroundColor: "#6c757d",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "0.75rem",
-                            }}
-                            title="Move down"
-                          >
+                          <Button type="submit" color="zinc" className="text-xs px-2 py-1">
                             ↓
-                          </button>
+                          </Button>
                         </Form>
                       )}
                     </div>
-                    <Link
-                      to={`/recipes/${recipe.id}/steps/${step.id}/edit`}
-                      style={{
-                        padding: "0.25rem 0.75rem",
-                        backgroundColor: "#0066cc",
-                        color: "white",
-                        textDecoration: "none",
-                        borderRadius: "4px",
-                        fontSize: "0.875rem",
-                      }}
-                    >
+                    <Button href={`/recipes/${recipe.id}/steps/${step.id}/edit`} color="blue" className="text-sm">
                       Edit
-                    </Link>
+                    </Button>
                   </div>
                 </div>
               ))}

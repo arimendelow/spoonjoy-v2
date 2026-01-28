@@ -1,7 +1,10 @@
 import type { Route } from "./+types/recipes.$id";
-import { Link, redirect, useLoaderData, Form, data } from "react-router";
+import { Link, redirect, useLoaderData, Form } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
+import { Button } from "~/components/ui/button";
+import { Heading, Subheading } from "~/components/ui/heading";
+import { Text, Strong } from "~/components/ui/text";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -89,59 +92,41 @@ export default function RecipeDetail() {
   const { recipe, isOwner } = useLoaderData<typeof loader>();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "2rem" }}>
+    <div className="font-sans leading-relaxed p-8">
+      <div className="max-w-[900px] mx-auto">
+        <div className="mb-8">
           <Link
             to="/recipes"
-            style={{
-              color: "#0066cc",
-              textDecoration: "none",
-            }}
+            className="text-blue-600 no-underline"
           >
             ← Back to recipes
           </Link>
         </div>
 
         <div
-          style={{
-            width: "100%",
-            height: "300px",
-            backgroundColor: "#f8f9fa",
-            backgroundImage: `url(${recipe.imageUrl})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            borderRadius: "8px",
-            marginBottom: "2rem",
-          }}
+          className="w-full h-[300px] bg-gray-100 bg-cover bg-center rounded-lg mb-8"
+          data-image-url={recipe.imageUrl}
+          aria-label={`Image for ${recipe.title}`}
         />
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+        <div className="flex justify-between items-start mb-4">
           <div>
-            <h1 style={{ margin: "0 0 0.5rem 0" }}>{recipe.title}</h1>
-            <p style={{ color: "#666", margin: 0 }}>
-              By <strong>{recipe.chef.username}</strong>
-            </p>
+            <Heading level={1} className="m-0 mb-2">{recipe.title}</Heading>
+            <Text className="m-0">
+              By <Strong>{recipe.chef.username}</Strong>
+            </Text>
           </div>
           {/* istanbul ignore next -- @preserve owner-only UI rendering */}
           {isOwner && (
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <Link
-                to={`/recipes/${recipe.id}/edit`}
-                style={{
-                  padding: "0.5rem 1rem",
-                  backgroundColor: "#0066cc",
-                  color: "white",
-                  textDecoration: "none",
-                  borderRadius: "4px",
-                }}
-              >
+            <div className="flex gap-2">
+              <Button href={`/recipes/${recipe.id}/edit`} color="blue">
                 Edit
-              </Link>
+              </Button>
               <Form method="post">
                 <input type="hidden" name="intent" value="delete" />
-                <button
+                <Button
                   type="submit"
+                  color="red"
                   onClick={
                     /* istanbul ignore next -- @preserve browser confirm dialog */
                     (e) => {
@@ -150,121 +135,64 @@ export default function RecipeDetail() {
                       }
                     }
                   }
-                  style={{
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#dc3545",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
                 >
                   Delete
-                </button>
+                </Button>
               </Form>
             </div>
           )}
         </div>
 
         {recipe.description && (
-          <div
-            style={{
-              backgroundColor: "#f8f9fa",
-              padding: "1.5rem",
-              borderRadius: "8px",
-              marginBottom: "2rem",
-            }}
-          >
-            <p style={{ margin: 0 }}>{recipe.description}</p>
+          <div className="bg-gray-100 p-6 rounded-lg mb-8">
+            <Text className="m-0">{recipe.description}</Text>
           </div>
         )}
 
         {recipe.servings && (
-          <div style={{ marginBottom: "2rem" }}>
-            <p>
-              <strong>Servings:</strong> {recipe.servings}
-            </p>
+          <div className="mb-8">
+            <Text>
+              <Strong>Servings:</Strong> {recipe.servings}
+            </Text>
           </div>
         )}
 
         <div>
-          <h2>Steps</h2>
+          <Heading level={2}>Steps</Heading>
           {recipe.steps.length === 0 ? (
-            <div
-              style={{
-                backgroundColor: "#f8f9fa",
-                padding: "2rem",
-                borderRadius: "8px",
-                textAlign: "center",
-              }}
-            >
-              <p style={{ color: "#666", marginBottom: "1rem" }}>No steps added yet</p>
+            <div className="bg-gray-100 p-8 rounded-lg text-center">
+              <Text className="mb-4">No steps added yet</Text>
               {isOwner && (
-                <Link
-                  to={`/recipes/${recipe.id}/edit`}
-                  style={{
-                    display: "inline-block",
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#0066cc",
-                    color: "white",
-                    textDecoration: "none",
-                    borderRadius: "4px",
-                  }}
-                >
+                <Button href={`/recipes/${recipe.id}/edit`} color="blue">
                   Add Steps
-                </Link>
+                </Button>
               )}
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <div className="flex flex-col gap-6">
               {recipe.steps.map((step) => (
                 <div
                   key={step.id}
-                  style={{
-                    backgroundColor: "white",
-                    border: "1px solid #dee2e6",
-                    borderRadius: "8px",
-                    padding: "1.5rem",
-                  }}
+                  className="bg-white border border-gray-200 rounded-lg p-6"
                 >
-                  <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>
-                    <div
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        backgroundColor: "#0066cc",
-                        color: "white",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: "bold",
-                        flexShrink: 0,
-                      }}
-                    >
+                  <div className="flex gap-4 mb-4">
+                    <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold shrink-0">
                       {step.stepNum}
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div className="flex-1">
                       {step.stepTitle && (
-                        <h3 style={{ margin: "0 0 0.5rem 0" }}>{step.stepTitle}</h3>
+                        <Subheading level={3} className="m-0 mb-2">{step.stepTitle}</Subheading>
                       )}
-                      <p style={{ margin: 0 }}>{step.description}</p>
+                      <Text className="m-0">{step.description}</Text>
                     </div>
                   </div>
 
                   {step.ingredients.length > 0 && (
-                    <div
-                      style={{
-                        backgroundColor: "#f8f9fa",
-                        padding: "1rem",
-                        borderRadius: "4px",
-                        marginTop: "1rem",
-                      }}
-                    >
-                      <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.875rem", textTransform: "uppercase", color: "#666" }}>
+                    <div className="bg-gray-100 p-4 rounded mt-4">
+                      <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-gray-500">
                         Ingredients
-                      </h4>
-                      <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
+                      </Subheading>
+                      <ul className="m-0 pl-6">
                         {step.ingredients.map((ingredient) => (
                           <li key={ingredient.id}>
                             {ingredient.quantity} {ingredient.unit.name} {ingredient.ingredientRef.name}

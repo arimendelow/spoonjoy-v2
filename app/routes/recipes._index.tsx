@@ -1,7 +1,10 @@
 import type { Route } from "./+types/recipes._index";
-import { Link, redirect, useLoaderData } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
+import { Button } from "~/components/ui/button";
+import { Heading, Subheading } from "~/components/ui/heading";
+import { Text } from "~/components/ui/text";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -37,129 +40,59 @@ export default function RecipesList() {
   const { recipes } = useLoaderData<typeof loader>();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+    <div className="font-sans leading-relaxed p-8">
+      <div className="max-w-[1200px] mx-auto">
+        <div className="flex justify-between items-center mb-8">
           <div>
-            <h1>My Recipes</h1>
-            <p style={{ color: "#666", margin: "0.5rem 0 0 0" }}>
+            <Heading level={1}>My Recipes</Heading>
+            <Text className="mt-2 mb-0">
               {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}
-            </p>
+            </Text>
           </div>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <Link
-              to="/"
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#6c757d",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-              }}
-            >
+          <div className="flex gap-4">
+            <Button href="/" color="zinc">
               Home
-            </Link>
-            <Link
-              to="/recipes/new"
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#28a745",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-              }}
-            >
+            </Button>
+            <Button href="/recipes/new" color="green">
               + New Recipe
-            </Link>
+            </Button>
           </div>
         </div>
 
         {recipes.length === 0 ? (
-          <div
-            style={{
-              backgroundColor: "#f8f9fa",
-              padding: "3rem",
-              borderRadius: "8px",
-              textAlign: "center",
-            }}
-          >
-            <h2 style={{ color: "#6c757d" }}>No recipes yet</h2>
-            <p style={{ color: "#999", marginBottom: "1.5rem" }}>
+          <div className="bg-gray-100 p-12 rounded-lg text-center">
+            <Subheading level={2} className="text-gray-500">No recipes yet</Subheading>
+            <Text className="mb-6">
               Create your first recipe to get started
-            </p>
-            <Link
-              to="/recipes/new"
-              style={{
-                display: "inline-block",
-                padding: "0.75rem 1.5rem",
-                backgroundColor: "#28a745",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-              }}
-            >
+            </Text>
+            <Button href="/recipes/new" color="green">
               Create Recipe
-            </Link>
+            </Button>
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
             {recipes.map((recipe) => (
               <Link
                 key={recipe.id}
                 to={`/recipes/${recipe.id}`}
-                style={{
-                  backgroundColor: "white",
-                  border: "1px solid #dee2e6",
-                  borderRadius: "8px",
-                  overflow: "hidden",
-                  textDecoration: "none",
-                  color: "inherit",
-                  transition: "box-shadow 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "none";
-                }}
+                className="bg-white border border-gray-200 rounded-lg overflow-hidden no-underline text-inherit transition-shadow duration-200 hover:shadow-lg"
               >
                 <div
-                  style={{
-                    width: "100%",
-                    height: "200px",
-                    backgroundColor: "#f8f9fa",
-                    backgroundImage: `url(${recipe.imageUrl})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }}
+                  className="w-full h-[200px] bg-gray-100 bg-cover bg-center"
+                  data-image-url={recipe.imageUrl}
+                  aria-label={`Image for ${recipe.title}`}
                 />
-                <div style={{ padding: "1rem" }}>
-                  <h3 style={{ margin: "0 0 0.5rem 0" }}>{recipe.title}</h3>
+                <div className="p-4">
+                  <Subheading level={3} className="m-0 mb-2">{recipe.title}</Subheading>
                   {recipe.description && (
-                    <p
-                      style={{
-                        color: "#666",
-                        fontSize: "0.875rem",
-                        margin: "0 0 0.5rem 0",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
+                    <Text className="m-0 mb-2 line-clamp-2">
                       {recipe.description}
-                    </p>
+                    </Text>
                   )}
                   {recipe.servings && (
-                    <p style={{ color: "#999", fontSize: "0.875rem", margin: 0 }}>
+                    <Text className="m-0">
                       Servings: {recipe.servings}
-                    </p>
+                    </Text>
                   )}
                 </div>
               </Link>
