@@ -1510,6 +1510,78 @@ interface ActionResult {
 
 **Final Test Count:** 1493 tests total (was 1492, added 1 for account settings)
 
+### 2026-01-27 - User Photo Tests (Unit 12a)
+
+**Tests Written:** 17 failing tests for user profile photo functionality in `test/routes/account-settings.test.tsx`
+
+**Test Categories:**
+
+1. **Loader - Photo Data (2 tests):**
+   - Should return `photoUrl` when user has a custom photo
+   - Should return `null` photoUrl when user has no custom photo
+
+2. **Component - Default Avatar Display (3 tests):**
+   - Should display default avatar (chef RJ) when user has no photo
+   - Should display user's custom photo when they have one
+   - Should use Avatar component from UI library
+
+3. **Component - Photo Upload UI (5 tests):**
+   - Should display "Upload Photo" button (no photo)
+   - Should display "Change Photo" button (has photo)
+   - Should display "Remove Photo" button (has custom photo)
+   - Should NOT display "Remove Photo" for default avatar
+   - Should have file input for photo upload (hidden, triggered by button)
+
+4. **Action - Photo Upload (5 tests):**
+   - Should successfully upload a photo
+   - Should return error when no photo file provided (`no_file`)
+   - Should return error when file is not an image (`invalid_file_type`)
+   - Should return error when file is too large (`file_too_large`, 5MB limit)
+   - Should update user `photoUrl` in database after upload
+
+5. **Action - Photo Removal (2 tests):**
+   - Should successfully remove photo and reset to default (null)
+   - Should return success even if user already has no photo
+
+6. **Action - Photo Change (1 test):**
+   - Should successfully replace existing photo with new one
+
+**Schema Change Required for Unit 12b:**
+```prisma
+model User {
+  // ... existing fields
+  photoUrl String?  // New field for user profile photo URL
+}
+```
+
+**Default Avatar URL:**
+```
+https://res.cloudinary.com/dpjmyc4uz/image/upload/v1674541350/chef-rj.png
+```
+(Chef RJ - the yellow chef man from spoonjoy v1)
+
+**Action Interface for Photo Operations:**
+```typescript
+interface ActionResult {
+  success: boolean;
+  error?: "no_file" | "invalid_file_type" | "file_too_large" | ...;
+  message?: string;
+  photoUrl?: string;  // Returned after successful upload
+}
+```
+
+**Implementation Notes for Unit 12b:**
+- Add `photoUrl` field to User model in Prisma schema
+- Update loader to include `photoUrl` in returned user data
+- Update component to use Avatar component with conditional src (custom photo or default)
+- Add file input with accept="image/*"
+- Add buttons: "Upload Photo" (no photo), "Change Photo" (has photo), "Remove Photo" (has photo)
+- Add action handlers for `uploadPhoto` and `removePhoto` intents
+- Validate file type (image/*) and size (max 5MB)
+- This lays groundwork for image upload infrastructure (roadmap item 4)
+
+**Total New Tests:** 17 failing tests (TDD) - existing 1494 tests still pass.
+
 ---
 
 ## For Future Tasks

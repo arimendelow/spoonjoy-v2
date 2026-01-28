@@ -21,6 +21,7 @@ model User {
   resetToken          String?
   resetTokenExpiresAt DateTime?
   webAuthnChallenge   String?            @unique
+  photoUrl            String?
   credentials         UserCredential[]
   OAuth               OAuth[]
   recipes             Recipe[]

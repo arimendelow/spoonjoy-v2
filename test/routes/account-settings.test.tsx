@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { Request as UndiciRequest } from "undici";
+import { Request as UndiciRequest, FormData as UndiciFormData, File as UndiciFile } from "undici";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
@@ -1376,11 +1376,11 @@ describe("Account Settings Route", () => {
         const setCookieHeader = await sessionStorage.commitSession(session);
         const cookieValue = setCookieHeader.split(";")[0];
 
-        const formData = new FormData();
+        const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
         // Simulate file upload with a mock file
-        const mockFile = new Blob(["fake image data"], { type: "image/jpeg" });
-        formData.append("photo", mockFile, "test-photo.jpg");
+        const mockFile = new UndiciFile(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
+        formData.append("photo", mockFile);
 
         const headers = new Headers();
         headers.set("Cookie", cookieValue);
@@ -1389,6 +1389,7 @@ describe("Account Settings Route", () => {
           method: "POST",
           headers,
           body: formData,
+          duplex: "half",
         });
 
         const result = await action({
@@ -1439,11 +1440,11 @@ describe("Account Settings Route", () => {
         const setCookieHeader = await sessionStorage.commitSession(session);
         const cookieValue = setCookieHeader.split(";")[0];
 
-        const formData = new FormData();
+        const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
         // Simulate non-image file
-        const mockFile = new Blob(["fake text data"], { type: "text/plain" });
-        formData.append("photo", mockFile, "test-file.txt");
+        const mockFile = new UndiciFile(["fake text data"], "test-file.txt", { type: "text/plain" });
+        formData.append("photo", mockFile);
 
         const headers = new Headers();
         headers.set("Cookie", cookieValue);
@@ -1452,6 +1453,7 @@ describe("Account Settings Route", () => {
           method: "POST",
           headers,
           body: formData,
+          duplex: "half",
         });
 
         const result = await action({
@@ -1471,13 +1473,13 @@ describe("Account Settings Route", () => {
         const setCookieHeader = await sessionStorage.commitSession(session);
         const cookieValue = setCookieHeader.split(";")[0];
 
-        const formData = new FormData();
+        const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
         // Simulate a file larger than 5MB (simulated via size property in test)
         // Note: actual file creation would be expensive, so we'll check the implementation handles size
         const largeFileData = new Uint8Array(6 * 1024 * 1024); // 6MB
-        const mockFile = new Blob([largeFileData], { type: "image/jpeg" });
-        formData.append("photo", mockFile, "large-photo.jpg");
+        const mockFile = new UndiciFile([largeFileData], "large-photo.jpg", { type: "image/jpeg" });
+        formData.append("photo", mockFile);
 
         const headers = new Headers();
         headers.set("Cookie", cookieValue);
@@ -1486,6 +1488,7 @@ describe("Account Settings Route", () => {
           method: "POST",
           headers,
           body: formData,
+          duplex: "half",
         });
 
         const result = await action({
@@ -1507,8 +1510,8 @@ describe("Account Settings Route", () => {
 
         const formData = new FormData();
         formData.append("intent", "uploadPhoto");
-        const mockFile = new Blob(["fake image data"], { type: "image/jpeg" });
-        formData.append("photo", mockFile, "test-photo.jpg");
+        const mockFile = new File(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
+        formData.append("photo", mockFile);
 
         const headers = new Headers();
         headers.set("Cookie", cookieValue);
@@ -1517,6 +1520,7 @@ describe("Account Settings Route", () => {
           method: "POST",
           headers,
           body: formData,
+          duplex: "half",
         });
 
         const result = await action({
@@ -1616,8 +1620,8 @@ describe("Account Settings Route", () => {
 
         const formData = new FormData();
         formData.append("intent", "uploadPhoto");
-        const mockFile = new Blob(["new image data"], { type: "image/png" });
-        formData.append("photo", mockFile, "new-photo.png");
+        const mockFile = new File(["new image data"], "new-photo.png", { type: "image/png" });
+        formData.append("photo", mockFile);
 
         const headers = new Headers();
         headers.set("Cookie", cookieValue);
@@ -1626,6 +1630,7 @@ describe("Account Settings Route", () => {
           method: "POST",
           headers,
           body: formData,
+          duplex: "half",
         });
 
         const result = await action({

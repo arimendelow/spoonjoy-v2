@@ -1,6 +1,6 @@
 import type { Route } from "./+types/account.settings";
 import { useLoaderData, useActionData, Form } from "react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { db, getDb } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Heading, Subheading } from "~/components/ui/heading";
@@ -8,6 +8,10 @@ import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Input } from "~/components/ui/input";
+import { Avatar } from "~/components/ui/avatar";
+
+const DEFAULT_AVATAR_URL =
+  "https://res.cloudinary.com/dpjmyc4uz/image/upload/v1674541350/chef-rj.png";
 
 interface LoaderData {
   user: {
@@ -15,6 +19,7 @@ interface LoaderData {
     email: string;
     username: string;
     hasPassword: boolean;
+    photoUrl: string | null;
     oauthAccounts: Array<{
       provider: string;
       providerUsername: string;
@@ -37,6 +42,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       email: true,
       username: true,
       hashedPassword: true,
+      photoUrl: true,
       OAuth: {
         select: {
           provider: true,
@@ -57,6 +63,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       email: user.email,
       username: user.username,
       hasPassword: user.hashedPassword !== null,
+      photoUrl: user.photoUrl,
       oauthAccounts: user.OAuth,
     },
   } satisfies LoaderData;
@@ -64,12 +71,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 interface ActionResult {
   success: boolean;
-  error?: "email_taken" | "username_taken" | "validation_error";
+  error?: "email_taken" | "username_taken" | "validation_error" | "no_file" | "invalid_file_type" | "file_too_large";
   message?: string;
   fieldErrors?: {
     email?: string;
     username?: string;
   };
+  photoUrl?: string;
 }
 
 function isValidEmail(email: string): boolean {
@@ -174,6 +182,60 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
     return { success: true };
   }
 
+  if (intent === "uploadPhoto") {
+    const photo = formData.get("photo");
+
+    // Check if file was provided
+    if (!photo || !(photo instanceof File) || photo.size === 0) {
+      return {
+        success: false,
+        error: "no_file",
+        message: "Please select a photo to upload",
+      };
+    }
+
+    // Check file type
+    if (!photo.type.startsWith("image/")) {
+      return {
+        success: false,
+        error: "invalid_file_type",
+        message: "Please upload an image file",
+      };
+    }
+
+    // Check file size (max 5MB)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (photo.size > MAX_FILE_SIZE) {
+      return {
+        success: false,
+        error: "file_too_large",
+        message: "Photo must be less than 5MB",
+      };
+    }
+
+    // For now, store the photo as a data URL
+    // In production, this would upload to Cloudflare R2 or similar storage
+    const arrayBuffer = await photo.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const photoUrl = `data:${photo.type};base64,${base64}`;
+
+    await database.user.update({
+      where: { id: userId },
+      data: { photoUrl },
+    });
+
+    return { success: true, photoUrl };
+  }
+
+  if (intent === "removePhoto") {
+    await database.user.update({
+      where: { id: userId },
+      data: { photoUrl: null },
+    });
+
+    return { success: true };
+  }
+
   return { success: false };
 }
 
@@ -181,6 +243,67 @@ const OAUTH_PROVIDERS = ["google", "apple"] as const;
 
 function capitalizeProvider(provider: string): string {
   return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function ProfilePhotoUpload({ photoUrl }: { photoUrl: string | null }) {
+  const actionData = useActionData<ActionResult>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemovePhoto = (e: React.FormEvent) => {
+    // Form submission will handle the removal
+  };
+
+  const currentPhotoUrl = actionData?.photoUrl || photoUrl || DEFAULT_AVATAR_URL;
+  const buttonText = photoUrl ? "Change Photo" : "Upload Photo";
+
+  return (
+    <div className="mt-4 flex items-start gap-6">
+      <Avatar src={currentPhotoUrl} alt="Profile photo" className="size-24" />
+      <div className="flex-1 space-y-4">
+        <div className="flex gap-3">
+          <Form method="post" encType="multipart/form-data">
+            <input type="hidden" name="intent" value="uploadPhoto" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              name="photo"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const form = e.currentTarget.form;
+                if (form && e.currentTarget.files?.[0]) {
+                  form.requestSubmit();
+                }
+              }}
+            />
+            <Button type="button" outline onClick={handleUploadClick}>
+              {buttonText}
+            </Button>
+          </Form>
+          {photoUrl && (
+            <Form method="post">
+              <input type="hidden" name="intent" value="removePhoto" />
+              <Button type="submit" outline color="red">
+                Remove Photo
+              </Button>
+            </Form>
+          )}
+        </div>
+        {actionData?.error && (
+          <Text className="text-sm text-red-600 dark:text-red-400">
+            {actionData.message}
+          </Text>
+        )}
+        <Text className="text-sm text-zinc-500">
+          JPG, PNG, or GIF. Max 5MB.
+        </Text>
+      </div>
+    </div>
+  );
 }
 
 export default function AccountSettings() {
@@ -257,7 +380,7 @@ export default function AccountSettings() {
       {/* Profile Photo Section */}
       <section data-testid="profile-photo-section" className="mt-8">
         <Subheading>Profile Photo</Subheading>
-        <Text className="mt-2">Profile photo management coming soon.</Text>
+        <ProfilePhotoUpload photoUrl={user.photoUrl} />
       </section>
 
       {/* OAuth Providers Section */}
