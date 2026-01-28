@@ -1582,6 +1582,35 @@ interface ActionResult {
 
 **Total New Tests:** 17 failing tests (TDD) - existing 1494 tests still pass.
 
+### 2026-01-28 - User Photo Implementation (Unit 12b)
+
+**Implementation Complete:** User profile photo functionality in account settings page.
+
+**Changes Made:**
+
+1. **Prisma Schema** - Added `photoUrl String?` field to User model (already done in previous session)
+
+2. **Loader Update** - Now includes `photoUrl` in returned user data
+
+3. **Component Update:**
+   - Uses Avatar component from UI library with conditional src
+   - Shows default avatar (chef RJ) when no custom photo
+   - Shows "Upload Photo" button when user has no photo
+   - Shows "Change Photo" button when user has a photo
+   - Shows "Remove Photo" button when user has a custom photo (not shown for default)
+   - Hidden file input triggered by upload/change button
+
+4. **Action Handlers:**
+   - `uploadPhoto` intent - Validates file type (image/*) and size (5MB max), stores URL
+   - `removePhoto` intent - Sets photoUrl to null
+
+**Test Fix:**
+The 5 failing tests were due to importing `File as UndiciFile` from `undici`, but undici doesn't export `File`. Node.js provides `File` globally, so the fix was to:
+1. Remove `File as UndiciFile` from the undici import
+2. Replace all `new UndiciFile(...)` with `new File(...)`
+
+**All 1511 tests pass (53 account settings tests).**
+
 ---
 
 ## For Future Tasks
