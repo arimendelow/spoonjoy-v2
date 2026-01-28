@@ -1508,9 +1508,9 @@ describe("Account Settings Route", () => {
         const setCookieHeader = await sessionStorage.commitSession(session);
         const cookieValue = setCookieHeader.split(";")[0];
 
-        const formData = new FormData();
+        const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
-        const mockFile = new File(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
+        const mockFile = new UndiciFile(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
         formData.append("photo", mockFile);
 
         const headers = new Headers();
@@ -1618,9 +1618,9 @@ describe("Account Settings Route", () => {
         const setCookieHeader = await sessionStorage.commitSession(session);
         const cookieValue = setCookieHeader.split(";")[0];
 
-        const formData = new FormData();
+        const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
-        const mockFile = new File(["new image data"], "new-photo.png", { type: "image/png" });
+        const mockFile = new UndiciFile(["new image data"], "new-photo.png", { type: "image/png" });
         formData.append("photo", mockFile);
 
         const headers = new Headers();
