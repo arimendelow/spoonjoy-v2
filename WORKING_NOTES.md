@@ -1388,6 +1388,58 @@ The test data had `providerUsername: "Apple User"` which contains "Apple". The t
 
 **Final Test Count:** 1476 tests (was 1473, added 3 for account settings)
 
+### 2026-01-27 - User Info Management Tests (Unit 11a)
+
+**Tests Written:** 16 failing tests for user info editing in `test/routes/account-settings.test.tsx`
+
+**Editable User Fields (from schema analysis):**
+- `email` - unique, requires validation
+- `username` - unique, requires validation
+
+**Component Tests (5 tests):**
+1. Should render edit button in user info section
+2. Should show edit form when edit button is clicked (email/username inputs, save/cancel buttons)
+3. Should pre-fill edit form with current user data
+4. Should hide edit form when cancel button is clicked
+
+**Action Tests (12 tests):**
+1. Should successfully update email
+2. Should successfully update username
+3. Should successfully update both email and username
+4. Should return error when email is already taken (`email_taken`)
+5. Should return error when username is already taken (`username_taken`)
+6. Should perform case-insensitive email uniqueness check
+7. Should allow updating to same email (no change)
+8. Should return error when email is empty (`validation_error` with `fieldErrors.email`)
+9. Should return error when username is empty (`validation_error` with `fieldErrors.username`)
+10. Should return error when email format is invalid
+11. Should redirect to login when not authenticated
+12. Should normalize email to lowercase
+
+**Action Interface Defined:**
+```typescript
+interface ActionResult {
+  success: boolean;
+  error?: "email_taken" | "username_taken" | "validation_error";
+  message?: string;
+  fieldErrors?: {
+    email?: string;
+    username?: string;
+  };
+}
+```
+
+**Implementation Notes for Unit 11b:**
+- Need to add `action` export to `app/routes/account.settings.tsx`
+- Add `intent: "updateUserInfo"` handling in action
+- Add edit mode state management in component (useState for isEditing)
+- Add form with email/username inputs pre-filled with current values
+- Check uniqueness before updating (exclude current user from check)
+- Use raw SQL `LOWER(email)` for case-insensitive email check (SQLite)
+- Normalize email to lowercase before storing
+
+**Total Tests:** 16 new failing tests (TDD) - existing 1476 tests unaffected
+
 ---
 
 ## For Future Tasks
