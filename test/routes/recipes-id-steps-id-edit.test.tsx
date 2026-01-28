@@ -768,6 +768,255 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         });
         expect(ingredients).toHaveLength(0);
       });
+
+      it("should return validation error when quantity is below minimum (0.001)", async () => {
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "0.0001",
+            unitName: "cup",
+            ingredientName: "flour",
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.quantity).toBe("Quantity must be between 0.001 and 99,999");
+      });
+
+      it("should return validation error when quantity exceeds maximum (99999)", async () => {
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "100000",
+            unitName: "cup",
+            ingredientName: "flour",
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.quantity).toBe("Quantity must be between 0.001 and 99,999");
+      });
+
+      it("should return validation error when quantity is not a valid number", async () => {
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "abc",
+            unitName: "cup",
+            ingredientName: "flour",
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.quantity).toBe("Quantity must be a valid number");
+      });
+
+      it("should return validation error when unit name exceeds 50 characters", async () => {
+        const longUnitName = "a".repeat(51);
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "2",
+            unitName: longUnitName,
+            ingredientName: "flour",
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.unitName).toBe("Unit name must be 50 characters or less");
+      });
+
+      it("should return validation error when ingredient name exceeds 100 characters", async () => {
+        const longIngredientName = "a".repeat(101);
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "2",
+            unitName: "cup",
+            ingredientName: longIngredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.ingredientName).toBe("Ingredient name must be 100 characters or less");
+      });
+
+      it("should accept quantity at exactly minimum boundary (0.001)", async () => {
+        const unitName = "cup_" + faker.string.alphanumeric(6);
+        const ingredientName = "flour_" + faker.string.alphanumeric(6);
+
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "0.001",
+            unitName: unitName,
+            ingredientName: ingredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data } = extractResponseData(response);
+        expect(data.success).toBe(true);
+
+        // Verify ingredient was created
+        const ingredients = await db.ingredient.findMany({
+          where: { recipeId, stepNum: 1 },
+        });
+        expect(ingredients).toHaveLength(1);
+        expect(ingredients[0].quantity).toBe(0.001);
+      });
+
+      it("should accept quantity at exactly maximum boundary (99999)", async () => {
+        const unitName = "cup_" + faker.string.alphanumeric(6);
+        const ingredientName = "flour_" + faker.string.alphanumeric(6);
+
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "99999",
+            unitName: unitName,
+            ingredientName: ingredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data } = extractResponseData(response);
+        expect(data.success).toBe(true);
+
+        // Verify ingredient was created
+        const ingredients = await db.ingredient.findMany({
+          where: { recipeId, stepNum: 1 },
+        });
+        expect(ingredients).toHaveLength(1);
+        expect(ingredients[0].quantity).toBe(99999);
+      });
+
+      it("should accept unit name at exactly 50 characters", async () => {
+        const unitName = "a".repeat(50);
+        const ingredientName = "flour_" + faker.string.alphanumeric(6);
+
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "2",
+            unitName: unitName,
+            ingredientName: ingredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data } = extractResponseData(response);
+        expect(data.success).toBe(true);
+      });
+
+      it("should accept ingredient name at exactly 100 characters", async () => {
+        const unitName = "cup_" + faker.string.alphanumeric(6);
+        const ingredientName = "a".repeat(100);
+
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "2",
+            unitName: unitName,
+            ingredientName: ingredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data } = extractResponseData(response);
+        expect(data.success).toBe(true);
+      });
+
+      it("should return multiple validation errors when multiple fields are invalid", async () => {
+        const longUnitName = "a".repeat(51);
+        const longIngredientName = "a".repeat(101);
+
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "-1",
+            unitName: longUnitName,
+            ingredientName: longIngredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.quantity).toBe("Quantity must be between 0.001 and 99,999");
+        expect(data.errors.unitName).toBe("Unit name must be 50 characters or less");
+        expect(data.errors.ingredientName).toBe("Ingredient name must be 100 characters or less");
+      });
     });
 
     describe("deleteIngredient intent", () => {
