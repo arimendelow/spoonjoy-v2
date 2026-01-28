@@ -719,3 +719,28 @@ Replaced inline validation with calls to `validateStepTitle` and `validateStepDe
 
 **Coverage:** 100% for recipes.$id.steps.$stepId.edit.tsx
 **Build:** Passes with no warnings
+
+### Unit 2.6: Ingredient Add Validation - COMPLETED
+
+Modified `app/routes/recipes.$id.steps.$stepId.edit.tsx` to add validation to the `addIngredient` intent:
+- quantity validation (required, 0.001-99999, must be valid number)
+- unitName validation (required, max 50 chars)
+- ingredientName validation (required, max 100 chars)
+
+Added imports for `validateQuantity`, `validateUnitName`, `validateIngredientName` from validation utilities.
+Updated ActionData interface to include quantity, unitName, and ingredientName error fields.
+
+**Tests added:** 10 new tests in `test/routes/recipes-id-steps-id-edit.test.tsx`
+- quantity below minimum (0.001) → validation error
+- quantity exceeds maximum (99999) → validation error
+- quantity not a valid number (NaN from "abc") → validation error
+- unit name exceeds 50 characters → validation error
+- ingredient name exceeds 100 characters → validation error
+- quantity at exactly minimum boundary (0.001) → success
+- quantity at exactly maximum boundary (99999) → success
+- unit name at exactly 50 characters → success
+- ingredient name at exactly 100 characters → success
+- multiple validation errors at once → all errors returned
+
+**Coverage:** 100% for recipes.$id.steps.$stepId.edit.tsx
+**Build:** Passes with no warnings
