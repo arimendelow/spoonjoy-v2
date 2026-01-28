@@ -3397,6 +3397,88 @@ describe("Account Settings Route", () => {
         expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
       });
 
+      it("should close remove password confirmation when cancel is clicked", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Click remove password button
+        const removePasswordBtn = screen.getByRole("button", { name: /remove password/i });
+        await user.click(removePasswordBtn);
+
+        // Confirmation dialog should be visible
+        expect(await screen.findByText(/are you sure/i)).toBeInTheDocument();
+
+        // Click cancel
+        const cancelBtn = screen.getByRole("button", { name: /cancel/i });
+        await user.click(cancelBtn);
+
+        // Confirmation dialog should be closed, back to normal view
+        expect(screen.queryByText(/are you sure/i)).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /remove password/i })).toBeInTheDocument();
+      });
+
+      it("should close set password form when cancel is clicked (OAuth-only user)", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: false,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Click set password button
+        const setPasswordBtn = screen.getByRole("button", { name: /set password/i });
+        await user.click(setPasswordBtn);
+
+        // Form should be visible
+        expect(screen.getByLabelText(/new password/i)).toBeInTheDocument();
+
+        // Click cancel
+        const cancelBtn = screen.getByRole("button", { name: /cancel/i });
+        await user.click(cancelBtn);
+
+        // Form should be closed, back to "Set Password" button
+        expect(screen.queryByLabelText(/new password/i)).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /set password/i })).toBeInTheDocument();
+      });
+
       it("should display password strength indicator for new password", async () => {
         const user = userEvent.setup();
         const mockData = {
