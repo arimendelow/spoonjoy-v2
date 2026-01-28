@@ -744,3 +744,52 @@ Updated ActionData interface to include quantity, unitName, and ingredientName e
 
 **Coverage:** 100% for recipes.$id.steps.$stepId.edit.tsx
 **Build:** Passes with no warnings
+
+### Unit 2.7: Validation Error Display Component - COMPLETED
+
+Created a reusable `ValidationError` component in `app/components/ui/validation-error.tsx`:
+
+**Component Features:**
+- Accepts `error: string | string[] | null | undefined` for flexible usage
+- Renders nothing when error is empty/undefined/null (conditional rendering)
+- Single error displays as plain text
+- Multiple errors display as a bulleted list
+- Filters out empty strings from arrays
+- Has `role="alert"` for accessibility (screen reader support)
+- Has `data-slot="validation-error"` for consistent slot pattern
+- Supports custom `className` prop
+
+**Styling (consistent with existing error patterns):**
+- Light mode: red text, red border, light red background
+- Dark mode: muted red text, darker red border, darker background
+- Rounded corners, padding for visual distinction
+
+**Tests added:** 18 tests in `test/components/ui/validation-error.test.tsx`
+- Rendering behavior (null, undefined, empty string, empty array, valid errors)
+- Single error display
+- Multiple errors display (list rendering, empty string filtering)
+- Accessibility (role="alert")
+- Styling (red colors, border, background, rounded corners, custom className)
+- Data attributes (data-slot)
+
+**Exports:**
+- `ValidationError` component
+- `ValidationErrorType` type for use in other components
+
+**Usage example:**
+```tsx
+import { ValidationError } from '~/components/ui/validation-error'
+
+// Single error
+<ValidationError error={actionData?.errors?.title} />
+
+// Multiple errors
+<ValidationError error={['Error 1', 'Error 2']} />
+
+// Form-level errors
+{actionData?.errors?.general && (
+  <ValidationError error={actionData.errors.general} className="mb-4" />
+)}
+```
+
+**Build:** Passes with no warnings
