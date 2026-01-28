@@ -1147,12 +1147,42 @@ export function createAppleAuthorizationURL(config, redirectUri, state): URL {
 
 **Implementation Notes for Next Unit:**
 - Need to add Google/Apple buttons to login.tsx and signup.tsx components
-- Need to add loader logic to read `oauthError` from URL search params
+- ~~Need to add loader logic to read `oauthError` from URL search params~~ ✅ Done
 - Need to create `/auth/google` and `/auth/apple` routes (OAuth initiation)
-- Buttons should be styled consistently with existing UI
+- ~~Buttons should be styled consistently with existing UI~~ ✅ Done
+
+### 2026-01-27 - OAuth Buttons UI Implementation (Unit 9b)
+
+**Implementation Complete:** OAuth buttons added to both login and signup pages.
+
+**Changes Made:**
+
+1. **Login page (`app/routes/login.tsx`):**
+   - Added `LoaderData` interface with `oauthError` field
+   - Updated loader to read `oauthError` from URL search params
+   - Added error message display for `account_exists` and generic OAuth errors
+   - Added OAuth separator with `data-testid="oauth-separator"`
+   - Added Google and Apple sign-in buttons in forms that POST to `/auth/google` and `/auth/apple`
+
+2. **Signup page (`app/routes/signup.tsx`):**
+   - Same changes as login page
+   - Error messages and buttons styled consistently
+
+**UI Design:**
+- OAuth buttons use form-based navigation (POST to OAuth routes)
+- Google button: white background, gray text, gray border
+- Apple button: black background, white text
+- Separator: horizontal line with "or" text centered
+
+**Error Messages:**
+- `account_exists`: "An account with this email already exists. Please log in to link your account."
+- Generic OAuth error: "Something went wrong. Please try again."
+
+**Tests:** All 14 OAuth button tests now pass (7 for login, 7 for signup).
 
 ---
 
 ## For Future Tasks
 
-[Things to remember or consider for later work]
+- Create `/auth/google` and `/auth/apple` routes (OAuth initiation)
+- Create callback routes for OAuth providers
