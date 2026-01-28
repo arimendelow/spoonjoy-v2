@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { Request as UndiciRequest, FormData as UndiciFormData, File as UndiciFile } from "undici";
+import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
@@ -1379,7 +1379,7 @@ describe("Account Settings Route", () => {
         const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
         // Simulate file upload with a mock file
-        const mockFile = new UndiciFile(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
+        const mockFile = new File(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
         formData.append("photo", mockFile);
 
         const headers = new Headers();
@@ -1443,7 +1443,7 @@ describe("Account Settings Route", () => {
         const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
         // Simulate non-image file
-        const mockFile = new UndiciFile(["fake text data"], "test-file.txt", { type: "text/plain" });
+        const mockFile = new File(["fake text data"], "test-file.txt", { type: "text/plain" });
         formData.append("photo", mockFile);
 
         const headers = new Headers();
@@ -1478,7 +1478,7 @@ describe("Account Settings Route", () => {
         // Simulate a file larger than 5MB (simulated via size property in test)
         // Note: actual file creation would be expensive, so we'll check the implementation handles size
         const largeFileData = new Uint8Array(6 * 1024 * 1024); // 6MB
-        const mockFile = new UndiciFile([largeFileData], "large-photo.jpg", { type: "image/jpeg" });
+        const mockFile = new File([largeFileData], "large-photo.jpg", { type: "image/jpeg" });
         formData.append("photo", mockFile);
 
         const headers = new Headers();
@@ -1510,7 +1510,7 @@ describe("Account Settings Route", () => {
 
         const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
-        const mockFile = new UndiciFile(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
+        const mockFile = new File(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
         formData.append("photo", mockFile);
 
         const headers = new Headers();
@@ -1620,7 +1620,7 @@ describe("Account Settings Route", () => {
 
         const formData = new UndiciFormData();
         formData.append("intent", "uploadPhoto");
-        const mockFile = new UndiciFile(["new image data"], "new-photo.png", { type: "image/png" });
+        const mockFile = new File(["new image data"], "new-photo.png", { type: "image/png" });
         formData.append("photo", mockFile);
 
         const headers = new Headers();
