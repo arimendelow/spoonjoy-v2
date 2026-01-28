@@ -1180,6 +1180,64 @@ export function createAppleAuthorizationURL(config, redirectUri, state): URL {
 
 **Tests:** All 14 OAuth button tests now pass (7 for login, 7 for signup).
 
+### 2026-01-27 - OAuth Buttons UI Refactored with UI Components (Unit 9c)
+
+**Problem Identified:** Login and signup pages used inline CSS styles instead of Tailwind CSS utility classes and the existing UI component library.
+
+**Refactoring Complete:**
+
+1. **Replaced inline styles with Tailwind CSS classes**
+   - Removed all `style={{ ... }}` objects from login.tsx and signup.tsx
+   - Used Tailwind utility classes for layout, spacing, colors, typography
+
+2. **Adopted existing UI components from `app/components/ui/`:**
+   - `AuthLayout` - Centered layout wrapper for auth pages
+   - `Heading` - Page title component
+   - `Field`, `Label`, `ErrorMessage` - Form field components with proper accessibility
+   - `Input` - Styled input component with error state support (`invalid` prop)
+   - `Button` - Styled button component with color variants
+   - `Text`, `TextLink` - Typography components for text and links
+
+3. **OAuth components already properly implemented:**
+   - `OAuthButton` - Uses `Button` component with Tailwind classes
+   - `OAuthDivider` - Separator with "or" text, pure Tailwind
+   - `OAuthButtonGroup` - Container for OAuth buttons
+   - `OAuthError` - Error message display for OAuth errors
+
+**Code Structure After Refactor:**
+```tsx
+<AuthLayout>
+  <div className="w-full max-w-sm">
+    <Heading>Log In</Heading>
+    <OAuthError error={loaderData?.oauthError} className="mt-4" />
+    {/* General error alert with Tailwind classes */}
+    <Form method="post" className="mt-8 space-y-6">
+      <Field>
+        <Label htmlFor="email">Email</Label>
+        <Input type="email" id="email" name="email" required invalid={!!error} />
+        <ErrorMessage>Error text</ErrorMessage>
+      </Field>
+      {/* More fields... */}
+      <Button type="submit" color="blue" className="w-full">Log In</Button>
+    </Form>
+    <OAuthDivider className="my-6" />
+    <OAuthButtonGroup />
+    <Text className="mt-6 text-center">
+      Don't have an account? <TextLink href="/signup">Sign up</TextLink>
+    </Text>
+  </div>
+</AuthLayout>
+```
+
+**Benefits:**
+- Consistent styling with the rest of the application
+- Dark mode support via existing UI components
+- Better accessibility (Field/Label components handle proper associations)
+- Smaller bundle size (no duplicate inline styles)
+- Easier to maintain and update styles globally
+
+**Tests:** All 1458 tests pass, 100% coverage maintained, no warnings.
+
 ---
 
 ## For Future Tasks
