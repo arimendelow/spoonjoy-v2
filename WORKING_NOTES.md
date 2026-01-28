@@ -1238,6 +1238,57 @@ export function createAppleAuthorizationURL(config, redirectUri, state): URL {
 
 **Tests:** All 1458 tests pass, 100% coverage maintained, no warnings.
 
+### 2026-01-27 - Account Settings Page Tests (Unit 10a)
+
+**Tests Written:** 15 failing tests for account settings page in `test/routes/account-settings.test.tsx`
+
+**Route:** `/account/settings`
+
+**Loader Tests (5 tests):**
+1. Should redirect to login when user is not logged in
+2. Should return user data (id, email, username) when logged in
+3. Should return user OAuth accounts when logged in
+4. Should indicate if user has a password set (`hasPassword: true`)
+5. Should indicate if OAuth-only user has no password (`hasPassword: false`)
+
+**Component Tests (10 tests):**
+1. Should render account settings page with heading
+2. Should render user info section (`data-testid="user-info-section"`)
+3. Should render profile photo section (`data-testid="profile-photo-section"`)
+4. Should render OAuth providers section (`data-testid="oauth-providers-section"`)
+5. Should render password section (`data-testid="password-section"`)
+6. Should display linked OAuth accounts (provider name and providerUsername)
+7. Should show option to link OAuth providers when not linked ("Link Google", "Link Apple" buttons)
+8. Should show option to unlink OAuth provider when linked ("Unlink Google" button)
+9. Should show password change option when user has password ("Change Password" button)
+10. Should show option to set password when OAuth-only user has no password ("Set Password" button)
+
+**Loader Data Interface:**
+```typescript
+interface LoaderData {
+  user: {
+    id: string;
+    email: string;
+    username: string;
+    hasPassword: boolean;
+    oauthAccounts: Array<{
+      provider: string;
+      providerUsername: string;
+    }>;
+  };
+}
+```
+
+**Implementation Notes for Next Unit:**
+- Route file: `app/routes/account.settings.tsx`
+- Use `requireUserId` from session.server.ts for auth check
+- Include OAuth records in user query
+- Derive `hasPassword` from `user.hashedPassword !== null`
+- Use existing UI components from `app/components/ui/`
+- Use Tailwind CSS for styling
+
+**Total Tests:** 15 failing (TDD) - all 1458 existing tests still pass.
+
 ---
 
 ## For Future Tasks
