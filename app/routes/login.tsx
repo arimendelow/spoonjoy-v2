@@ -3,6 +3,13 @@ import { Form, redirect, data, useActionData, useLoaderData } from "react-router
 import { getDb, db } from "~/lib/db.server";
 import { authenticateUser } from "~/lib/auth.server";
 import { createUserSession, getUserId } from "~/lib/session.server";
+import { OAuthButtonGroup, OAuthDivider, OAuthError } from "~/components/ui/oauth";
+import { AuthLayout } from "~/components/ui/auth-layout";
+import { Heading } from "~/components/ui/heading";
+import { Field, Label, ErrorMessage } from "~/components/ui/fieldset";
+import { Input } from "~/components/ui/input";
+import { Button } from "~/components/ui/button";
+import { Text, TextLink } from "~/components/ui/text";
 
 interface ActionData {
   errors?: {
@@ -83,175 +90,67 @@ export default function Login() {
   const loaderData = useLoaderData<LoaderData | null>();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
-      <h1>Log In</h1>
+    <AuthLayout>
+      <div className="w-full max-w-sm">
+        <Heading>Log In</Heading>
 
-      {/* OAuth error messages */}
-      {loaderData?.oauthError === "account_exists" && (
-        <div
-          style={{
-            padding: "0.75rem",
-            marginBottom: "1rem",
-            backgroundColor: "#fee",
-            border: "1px solid #c33",
-            borderRadius: "4px",
-            color: "#c33",
-          }}
-        >
-          An account with this email already exists. Please log in to link your account.
-        </div>
-      )}
-      {loaderData?.oauthError && loaderData.oauthError !== "account_exists" && (
-        <div
-          style={{
-            padding: "0.75rem",
-            marginBottom: "1rem",
-            backgroundColor: "#fee",
-            border: "1px solid #c33",
-            borderRadius: "4px",
-            color: "#c33",
-          }}
-        >
-          Something went wrong. Please try again.
-        </div>
-      )}
+        {/* OAuth error messages */}
+        <OAuthError error={loaderData?.oauthError} className="mt-4" />
 
-      {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-        <div
-          style={{
-            padding: "0.75rem",
-            marginBottom: "1rem",
-            backgroundColor: "#fee",
-            border: "1px solid #c33",
-            borderRadius: "4px",
-            color: "#c33",
-          }}
-        >
-          {actionData.errors.general}
-        </div>
-      )}
-
-      <Form method="post" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <div>
-          <label htmlFor="email" style={{ display: "block", marginBottom: "0.5rem" }}>
-            Email
-          </label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            required
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              fontSize: "1rem",
-              border: /* istanbul ignore next -- @preserve */ actionData?.errors?.email ? "1px solid #c33" : "1px solid #ccc"
-            }}
-          />
-          {/* istanbul ignore next -- @preserve */ actionData?.errors?.email && (
-            <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-              {actionData.errors.email}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="password" style={{ display: "block", marginBottom: "0.5rem" }}>
-            Password
-          </label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            required
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              fontSize: "1rem",
-              border: /* istanbul ignore next -- @preserve */ actionData?.errors?.password ? "1px solid #c33" : "1px solid #ccc"
-            }}
-          />
-          {/* istanbul ignore next -- @preserve */ actionData?.errors?.password && (
-            <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-              {actionData.errors.password}
-            </div>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          style={{
-            padding: "0.75rem",
-            fontSize: "1rem",
-            backgroundColor: "#0066cc",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Log In
-        </button>
-      </Form>
-
-      {/* OAuth separator */}
-      <div
-        data-testid="oauth-separator"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          margin: "1.5rem 0",
-        }}
-      >
-        <div style={{ flex: 1, height: "1px", backgroundColor: "#ccc" }} />
-        <span style={{ padding: "0 1rem", color: "#666" }}>or</span>
-        <div style={{ flex: 1, height: "1px", backgroundColor: "#ccc" }} />
-      </div>
-
-      {/* OAuth buttons */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-        <form action="/auth/google" method="post">
-          <button
-            type="submit"
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              fontSize: "1rem",
-              backgroundColor: "#fff",
-              color: "#333",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
+        {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
+          <div
+            role="alert"
+            className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400"
           >
-            Continue with Google
-          </button>
-        </form>
-        <form action="/auth/apple" method="post">
-          <button
-            type="submit"
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              fontSize: "1rem",
-              backgroundColor: "#000",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            Continue with Apple
-          </button>
-        </form>
-      </div>
+            {actionData.errors.general}
+          </div>
+        )}
 
-      <p style={{ marginTop: "1rem", textAlign: "center" }}>
-        Don't have an account?{" "}
-        <a href="/signup" style={{ color: "#0066cc" }}>
-          Sign up
-        </a>
-      </p>
-    </div>
+        <Form method="post" className="mt-8 space-y-6">
+          <Field>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              type="email"
+              id="email"
+              name="email"
+              required
+              invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.email}
+            />
+            {/* istanbul ignore next -- @preserve */ actionData?.errors?.email && (
+              <ErrorMessage>{actionData.errors.email}</ErrorMessage>
+            )}
+          </Field>
+
+          <Field>
+            <Label htmlFor="password">Password</Label>
+            <Input
+              type="password"
+              id="password"
+              name="password"
+              required
+              invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.password}
+            />
+            {/* istanbul ignore next -- @preserve */ actionData?.errors?.password && (
+              <ErrorMessage>{actionData.errors.password}</ErrorMessage>
+            )}
+          </Field>
+
+          <Button type="submit" color="blue" className="w-full">
+            Log In
+          </Button>
+        </Form>
+
+        {/* OAuth separator */}
+        <OAuthDivider className="my-6" />
+
+        {/* OAuth buttons */}
+        <OAuthButtonGroup />
+
+        <Text className="mt-6 text-center">
+          Don't have an account?{" "}
+          <TextLink href="/signup">Sign up</TextLink>
+        </Text>
+      </div>
+    </AuthLayout>
   );
 }
