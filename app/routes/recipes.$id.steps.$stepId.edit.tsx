@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
+import { validateStepTitle, validateStepDescription } from "~/lib/validation";
 
 interface ActionData {
   errors?: {
@@ -171,8 +172,15 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   const errors: ActionData["errors"] = {};
 
-  if (!description || description.trim().length === 0) {
-    errors.description = "Step description is required";
+  // Validation
+  const stepTitleResult = validateStepTitle(stepTitle || null);
+  if (!stepTitleResult.valid) {
+    errors.stepTitle = stepTitleResult.error;
+  }
+
+  const descriptionResult = validateStepDescription(description);
+  if (!descriptionResult.valid) {
+    errors.description = descriptionResult.error;
   }
 
   if (Object.keys(errors).length > 0) {
