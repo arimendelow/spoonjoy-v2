@@ -621,6 +621,201 @@ describe("Recipes $id Edit Route", () => {
         db.recipe.update = originalUpdate;
       }
     });
+
+    describe("field validation", () => {
+      it("should return validation error when title exceeds max length", async () => {
+        const longTitle = "a".repeat(201);
+        const request = await createFormRequest({ title: longTitle }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.title).toBe("Title must be 200 characters or less");
+      });
+
+      it("should accept title at exactly max length", async () => {
+        const maxTitle = "a".repeat(200);
+        const request = await createFormRequest({ title: maxTitle }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+      });
+
+      it("should return validation error when description exceeds max length", async () => {
+        const longDescription = "a".repeat(2001);
+        const request = await createFormRequest(
+          { title: "Valid Title", description: longDescription },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.description).toBe("Description must be 2,000 characters or less");
+      });
+
+      it("should accept description at exactly max length", async () => {
+        const maxDescription = "a".repeat(2000);
+        const request = await createFormRequest(
+          { title: "Valid Title", description: maxDescription },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+      });
+
+      it("should return validation error when servings exceeds max length", async () => {
+        const longServings = "a".repeat(101);
+        const request = await createFormRequest(
+          { title: "Valid Title", servings: longServings },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.servings).toBe("Servings must be 100 characters or less");
+      });
+
+      it("should accept servings at exactly max length", async () => {
+        const maxServings = "a".repeat(100);
+        const request = await createFormRequest(
+          { title: "Valid Title", servings: maxServings },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+      });
+
+      it("should return validation error for invalid URL format", async () => {
+        const request = await createFormRequest(
+          { title: "Valid Title", imageUrl: "not-a-valid-url" },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.imageUrl).toBe("Please enter a valid URL");
+      });
+
+      it("should return validation error for javascript: URL", async () => {
+        const request = await createFormRequest(
+          { title: "Valid Title", imageUrl: "javascript:alert(1)" },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.imageUrl).toBe("Please enter a valid URL");
+      });
+
+      it("should accept valid http URL", async () => {
+        const request = await createFormRequest(
+          { title: "Valid Title", imageUrl: "http://example.com/image.jpg" },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+      });
+
+      it("should accept valid https URL", async () => {
+        const request = await createFormRequest(
+          { title: "Valid Title", imageUrl: "https://example.com/image.jpg" },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+      });
+
+      it("should return multiple validation errors at once", async () => {
+        const longTitle = "a".repeat(201);
+        const longDescription = "a".repeat(2001);
+        const longServings = "a".repeat(101);
+        const request = await createFormRequest(
+          {
+            title: longTitle,
+            description: longDescription,
+            servings: longServings,
+            imageUrl: "invalid-url",
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.title).toBe("Title must be 200 characters or less");
+        expect(data.errors.description).toBe("Description must be 2,000 characters or less");
+        expect(data.errors.servings).toBe("Servings must be 100 characters or less");
+        expect(data.errors.imageUrl).toBe("Please enter a valid URL");
+      });
+    });
   });
 
   describe("component", () => {
