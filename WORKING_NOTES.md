@@ -1334,6 +1334,60 @@ The test data had `providerUsername: "Apple User"` which contains "Apple". The t
 
 **All 1473 tests pass with no warnings.**
 
+### 2026-01-27 - Account Settings Page Work Check (Unit 10c)
+
+**Verification Complete:** All acceptance criteria from Units 10a/10b verified.
+
+**Test Coverage:**
+- 18 tests for account.settings.tsx (was 15, added 3)
+- 100% statement, branch, function, and line coverage
+- No warnings in test output
+- Build passes
+
+**Edge Cases Added:**
+1. **Mixed OAuth state** - Tests scenario where one provider is linked (shows "Unlink" button) and one is not (shows "Link" button) in the same view
+2. **Accessibility test** - Verifies aria-labels are correctly set on Link/Unlink buttons for screen readers
+3. **Semantic headings test** - Verifies all section subheadings are present (User Information, Profile Photo, Connected Accounts, Password)
+
+**Loader Tests Verified (5 tests):**
+1. ✅ Redirect to login when not authenticated
+2. ✅ Returns user data (id, email, username)
+3. ✅ Returns OAuth accounts
+4. ✅ Returns hasPassword: true when user has password
+5. ✅ Returns hasPassword: false for OAuth-only user
+
+**Component Tests Verified (13 tests):**
+1. ✅ Renders heading
+2. ✅ Renders user info section with email and username
+3. ✅ Renders profile photo section
+4. ✅ Renders OAuth providers section
+5. ✅ Renders password section
+6. ✅ Displays linked OAuth accounts (provider name + username)
+7. ✅ Shows "Link" buttons when OAuth not linked
+8. ✅ Shows "Unlink" button when OAuth linked
+9. ✅ Shows "Change Password" button when user has password
+10. ✅ Shows "Set Password" button when OAuth-only user
+11. ✅ Mixed link/unlink buttons (one linked, one not)
+12. ✅ Accessible aria-labels on buttons
+13. ✅ All semantic section headings present
+
+**Accessibility Review:**
+- ✅ Buttons have proper aria-labels (e.g., "Link Google", "Unlink Apple")
+- ✅ Sections use semantic `<section>` elements with `data-testid`
+- ✅ Headings use `Heading` and `Subheading` components for proper hierarchy
+- ✅ Forms use standard HTML (keyboard navigation built-in)
+- ✅ UI components from `app/components/ui/` follow accessibility best practices
+
+**Implementation Notes:**
+- Route file: `app/routes/account.settings.tsx`
+- Uses `requireUserId` for auth check (redirects to /login)
+- Uses Prisma to fetch user + OAuth accounts
+- Derives `hasPassword` from `user.hashedPassword !== null`
+- Uses Tailwind CSS classes exclusively (no inline styles)
+- Uses existing UI components (Heading, Subheading, Text, Button)
+
+**Final Test Count:** 1476 tests (was 1473, added 3 for account settings)
+
 ---
 
 ## For Future Tasks
