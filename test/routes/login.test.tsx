@@ -306,5 +306,124 @@ describe("Login Route", () => {
       const form = (await screen.findByRole("button", { name: "Log In" })).closest("form");
       expect(form).toHaveAttribute("method", "post");
     });
+
+    describe("OAuth buttons", () => {
+      it("should render Google sign-in button", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+        expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument();
+      });
+
+      it("should render Apple sign-in button", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+        expect(screen.getByRole("button", { name: /continue with apple/i })).toBeInTheDocument();
+      });
+
+      it("should have Google button that links to Google OAuth initiation route", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+        const googleButton = screen.getByRole("button", { name: /continue with google/i });
+        // The button should be inside a form that posts to the OAuth initiation route
+        const form = googleButton.closest("form");
+        expect(form).toHaveAttribute("action", "/auth/google");
+        expect(form).toHaveAttribute("method", "post");
+      });
+
+      it("should have Apple button that links to Apple OAuth initiation route", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+        const appleButton = screen.getByRole("button", { name: /continue with apple/i });
+        // The button should be inside a form that posts to the OAuth initiation route
+        const form = appleButton.closest("form");
+        expect(form).toHaveAttribute("action", "/auth/apple");
+        expect(form).toHaveAttribute("method", "post");
+      });
+
+      it("should display OAuth separator between password form and OAuth buttons", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+        // Look for a separator element or text that says "or" as a standalone element
+        expect(screen.getByTestId("oauth-separator")).toBeInTheDocument();
+      });
+    });
+
+    describe("OAuth error messages", () => {
+      it("should display email collision error message", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => ({ oauthError: "account_exists" }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+        expect(screen.getByText(/an account with this email already exists/i)).toBeInTheDocument();
+        expect(screen.getByText(/log in.*to link/i)).toBeInTheDocument();
+      });
+
+      it("should display generic OAuth error message", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => ({ oauthError: "oauth_error" }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+        expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+      });
+    });
   });
 });
