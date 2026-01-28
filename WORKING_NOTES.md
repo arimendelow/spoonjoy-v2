@@ -1041,6 +1041,80 @@ export function createGoogleAuthorizationURL(...): URL {
 
 **No warnings in test output.**
 
+### 2026-01-27 - Apple OAuth Arctic Review (Cleanup Task)
+
+**Task:** Review Apple OAuth implementation for custom code that should use Arctic's built-in methods.
+
+**Issues Found and Fixed:**
+
+1. **`generateOAuthState()`** - Had custom implementation using `crypto.getRandomValues()` and base64url encoding
+   - **Fix:** Now wraps Arctic's `generateState()` function
+   - Removed ~10 lines of custom crypto code
+
+2. **`createAppleAuthorizationURL()`** - Had manual URL construction instead of using Arctic
+   - **Fix:** Now uses Arctic's `Apple.createAuthorizationURL(state, scopes)` method
+   - Still manually adds `response_mode=form_post` (Arctic doesn't set this by default, but Apple requires it when requesting scopes)
+   - Still manually adds `redirect_uri` (Arctic's Apple provider doesn't include redirect_uri in the URL like Google does)
+   - Removed ~8 lines of manual URL param setting
+
+3. **`verifyAppleCallback()`** - Already correctly using Arctic
+   - Uses Arctic's `Apple` class constructor with (clientId, teamId, keyId, privateKey)
+   - Uses `apple.validateAuthorizationCode(code, redirectUri)` for token exchange
+   - Uses Arctic's `decodeIdToken()` for JWT claims extraction
+   - No changes needed
+
+**Code Changes:**
+```typescript
+// Before: Custom generateOAuthState
+export function generateOAuthState(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+// After: Using Arctic
+import { generateState as arcticGenerateState } from "arctic";
+export function generateOAuthState(): string {
+  return arcticGenerateState();
+}
+```
+
+```typescript
+// Before: Manual URL construction
+export function createAppleAuthorizationURL(config, redirectUri, state): URL {
+  const url = new URL("https://appleid.apple.com/auth/authorize");
+  url.searchParams.set("client_id", config.clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("state", state);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("response_mode", "form_post");
+  url.searchParams.set("scope", "email name");
+  return url;
+}
+
+// After: Using Arctic's createAuthorizationURL
+export function createAppleAuthorizationURL(config, redirectUri, state): URL {
+  const apple = new Apple(config.clientId, config.teamId, config.keyId, config.privateKey);
+  const scopes = ["email", "name"];
+  const url = apple.createAuthorizationURL(state, scopes);
+  url.searchParams.set("response_mode", "form_post"); // Required by Apple
+  url.searchParams.set("redirect_uri", redirectUri);  // Arctic doesn't set this
+  return url;
+}
+```
+
+**Test Updates:**
+- Updated mock for `Apple` class to include `createAuthorizationURL` method
+- Added mock for `generateState` function
+
+**Result:**
+- All 1444 tests pass with no warnings
+- Apple OAuth now consistently uses Arctic's built-in methods
+- Only Apple-specific requirements (`response_mode`, `redirect_uri`) are handled manually
+
 ---
 
 ## For Future Tasks
