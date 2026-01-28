@@ -638,3 +638,32 @@ Unit 2.10 (duplicate ingredient) can be done after ingredient validation infrast
 | 2.10 | Duplicate Ingredient Detection | recipes.$id.steps.$stepId.edit.tsx | 2.6 |
 
 **Total: 10 units, 30 TDD sub-steps (10×3)**
+
+---
+
+## Completed Units
+
+### Unit 2.1: Validation Constants & Utilities - COMPLETED
+
+Created `app/lib/validation.ts` with:
+- Constants for all field limits (TITLE_MAX_LENGTH, DESCRIPTION_MAX_LENGTH, etc.)
+- Validation functions with consistent ValidationResult type
+- 100% test coverage
+
+### Unit 2.2: Recipe Create Validation - COMPLETED
+
+Modified `app/routes/recipes.new.tsx` to add:
+- Title validation (required, max 200 chars)
+- Description validation (optional, max 2000 chars)
+- Servings validation (optional, max 100 chars)
+- ImageUrl validation (optional, must be valid http/https URL)
+
+All validation uses the utilities from Unit 2.1. Error messages display inline below each field.
+
+**Tests added:** 11 new tests in `test/routes/recipes-new.test.tsx`
+- Field length boundary tests (at max, over max)
+- URL format validation (invalid, javascript:, http, https)
+- Multiple validation errors at once
+
+**Coverage:** 100% for recipes.new.tsx
+**Build:** Passes with no warnings
