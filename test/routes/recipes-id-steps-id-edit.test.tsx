@@ -1017,6 +1017,197 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         expect(data.errors.unitName).toBe("Unit name must be 50 characters or less");
         expect(data.errors.ingredientName).toBe("Ingredient name must be 100 characters or less");
       });
+
+      it("should return error when adding duplicate ingredient to same step", async () => {
+        const unitName = "cup_" + faker.string.alphanumeric(6).toLowerCase();
+        const ingredientName = "flour_" + faker.string.alphanumeric(6).toLowerCase();
+
+        // Create unit and ingredientRef
+        const unit = await db.unit.create({ data: { name: unitName } });
+        const ingredientRef = await db.ingredientRef.create({ data: { name: ingredientName } });
+
+        // Add ingredient to the step
+        await db.ingredient.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            quantity: 2,
+            unitId: unit.id,
+            ingredientRefId: ingredientRef.id,
+          },
+        });
+
+        // Try to add the same ingredient again
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "3",
+            unitName: unitName,
+            ingredientName: ingredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.ingredientName).toBe("This ingredient is already in the recipe");
+
+        // Verify no duplicate ingredient was created
+        const ingredients = await db.ingredient.findMany({
+          where: { recipeId },
+        });
+        expect(ingredients).toHaveLength(1);
+      });
+
+      it("should return error when adding duplicate ingredient to different step", async () => {
+        const unitName = "tbsp_" + faker.string.alphanumeric(6).toLowerCase();
+        const ingredientName = "sugar_" + faker.string.alphanumeric(6).toLowerCase();
+
+        // Create a second step
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+
+        // Create unit and ingredientRef
+        const unit = await db.unit.create({ data: { name: unitName } });
+        const ingredientRef = await db.ingredientRef.create({ data: { name: ingredientName } });
+
+        // Add ingredient to step 2
+        await db.ingredient.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            quantity: 1,
+            unitId: unit.id,
+            ingredientRefId: ingredientRef.id,
+          },
+        });
+
+        // Try to add the same ingredient to step 1 (via the step edit route for step 1)
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "2",
+            unitName: unitName,
+            ingredientName: ingredientName,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId }, // stepId is for step 1
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.ingredientName).toBe("This ingredient is already in the recipe");
+
+        // Verify no duplicate ingredient was created
+        const ingredients = await db.ingredient.findMany({
+          where: { recipeId },
+        });
+        expect(ingredients).toHaveLength(1);
+      });
+
+      it("should allow adding ingredient with different case (case-insensitive check)", async () => {
+        const baseName = "butter_" + faker.string.alphanumeric(6);
+        const unitName = "tbsp_" + faker.string.alphanumeric(6).toLowerCase();
+
+        // Create unit and ingredientRef with lowercase name
+        const unit = await db.unit.create({ data: { name: unitName } });
+        const ingredientRef = await db.ingredientRef.create({ data: { name: baseName.toLowerCase() } });
+
+        // Add ingredient to the step
+        await db.ingredient.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            quantity: 2,
+            unitId: unit.id,
+            ingredientRefId: ingredientRef.id,
+          },
+        });
+
+        // Try to add the same ingredient with UPPERCASE (should still be caught)
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "3",
+            unitName: unitName.toUpperCase(),
+            ingredientName: baseName.toUpperCase(),
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.ingredientName).toBe("This ingredient is already in the recipe");
+      });
+
+      it("should allow adding different ingredients to the same recipe", async () => {
+        const unitName = "cup_" + faker.string.alphanumeric(6).toLowerCase();
+        const ingredientName1 = "flour_" + faker.string.alphanumeric(6).toLowerCase();
+        const ingredientName2 = "sugar_" + faker.string.alphanumeric(6).toLowerCase();
+
+        // Create unit and first ingredientRef
+        const unit = await db.unit.create({ data: { name: unitName } });
+        const ingredientRef1 = await db.ingredientRef.create({ data: { name: ingredientName1 } });
+
+        // Add first ingredient
+        await db.ingredient.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            quantity: 2,
+            unitId: unit.id,
+            ingredientRefId: ingredientRef1.id,
+          },
+        });
+
+        // Add a different ingredient (should succeed)
+        const request = await createFormRequest(
+          {
+            intent: "addIngredient",
+            quantity: "1",
+            unitName: unitName,
+            ingredientName: ingredientName2,
+          },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data } = extractResponseData(response);
+        expect(data.success).toBe(true);
+
+        // Verify both ingredients exist
+        const ingredients = await db.ingredient.findMany({
+          where: { recipeId },
+        });
+        expect(ingredients).toHaveLength(2);
+      });
     });
 
     describe("deleteIngredient intent", () => {
