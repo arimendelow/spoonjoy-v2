@@ -6,12 +6,15 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
-import { validateStepTitle, validateStepDescription } from "~/lib/validation";
+import { validateStepTitle, validateStepDescription, validateQuantity, validateUnitName, validateIngredientName } from "~/lib/validation";
 
 interface ActionData {
   errors?: {
     stepTitle?: string;
     description?: string;
+    quantity?: string;
+    unitName?: string;
+    ingredientName?: string;
     general?: string;
   };
 }
@@ -117,42 +120,62 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     const unitName = formData.get("unitName")?.toString() || "";
     const ingredientName = formData.get("ingredientName")?.toString() || "";
 
-    if (quantity && unitName && ingredientName) {
-      // Get or create unit
-      let unit = await database.unit.findUnique({
-        where: { name: unitName.toLowerCase() },
-      });
+    // Validate ingredient fields
+    const ingredientErrors: ActionData["errors"] = {};
 
-      if (!unit) {
-        unit = await database.unit.create({
-          data: { name: unitName.toLowerCase() },
-        });
-      }
-
-      // Get or create ingredient ref
-      let ingredientRef = await database.ingredientRef.findUnique({
-        where: { name: ingredientName.toLowerCase() },
-      });
-
-      if (!ingredientRef) {
-        ingredientRef = await database.ingredientRef.create({
-          data: { name: ingredientName.toLowerCase() },
-        });
-      }
-
-      // Create ingredient
-      await database.ingredient.create({
-        data: {
-          recipeId: id,
-          stepNum: (await database.recipeStep.findUnique({ where: { id: stepId }, select: { stepNum: true } }))!.stepNum,
-          quantity,
-          unitId: unit.id,
-          ingredientRefId: ingredientRef.id,
-        },
-      });
-
-      return data({ success: true });
+    const quantityResult = validateQuantity(quantity);
+    if (!quantityResult.valid) {
+      ingredientErrors.quantity = quantityResult.error;
     }
+
+    const unitNameResult = validateUnitName(unitName);
+    if (!unitNameResult.valid) {
+      ingredientErrors.unitName = unitNameResult.error;
+    }
+
+    const ingredientNameResult = validateIngredientName(ingredientName);
+    if (!ingredientNameResult.valid) {
+      ingredientErrors.ingredientName = ingredientNameResult.error;
+    }
+
+    if (Object.keys(ingredientErrors).length > 0) {
+      return data({ errors: ingredientErrors }, { status: 400 });
+    }
+
+    // Get or create unit
+    let unit = await database.unit.findUnique({
+      where: { name: unitName.toLowerCase() },
+    });
+
+    if (!unit) {
+      unit = await database.unit.create({
+        data: { name: unitName.toLowerCase() },
+      });
+    }
+
+    // Get or create ingredient ref
+    let ingredientRef = await database.ingredientRef.findUnique({
+      where: { name: ingredientName.toLowerCase() },
+    });
+
+    if (!ingredientRef) {
+      ingredientRef = await database.ingredientRef.create({
+        data: { name: ingredientName.toLowerCase() },
+      });
+    }
+
+    // Create ingredient
+    await database.ingredient.create({
+      data: {
+        recipeId: id,
+        stepNum: (await database.recipeStep.findUnique({ where: { id: stepId }, select: { stepNum: true } }))!.stepNum,
+        quantity,
+        unitId: unit.id,
+        ingredientRefId: ingredientRef.id,
+      },
+    });
+
+    return data({ success: true });
   }
 
   // Handle delete ingredient intent
