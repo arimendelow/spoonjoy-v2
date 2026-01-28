@@ -1611,6 +1611,45 @@ The 5 failing tests were due to importing `File as UndiciFile` from `undici`, bu
 
 **All 1511 tests pass (53 account settings tests).**
 
+### 2026-01-28 - OAuth Management UI Implementation (Unit 13b)
+
+**Implementation Complete:** OAuth account management in account settings page.
+
+**Features Implemented:**
+1. **Unlink OAuth account action** (`intent: "unlinkOAuth"`)
+   - Validates provider is "google" or "apple"
+   - Uses `unlinkOAuthAccount` from oauth-user.server.ts
+   - Maps `only_auth_method` error to `last_auth_method` for UI consistency
+   - Returns success message on successful unlink
+
+2. **Link OAuth account action** (`intent: "linkOAuth"`)
+   - Validates provider is "google" or "apple"
+   - Checks if provider is already linked
+   - Redirects to `/auth/${provider}?linking=true` for OAuth flow
+
+3. **Confirmation dialog UI**
+   - Shows "Are you sure?" text with Confirm/Cancel buttons
+   - Uses `unlinkingProvider` state to track which provider's dialog is open
+   - Confirm button submits form with `unlinkOAuth` intent
+
+4. **Disabled unlink button**
+   - Computed `canUnlinkOAuth = user.hasPassword || user.oauthAccounts.length > 1`
+   - Button is disabled when `canUnlinkOAuth` is false
+   - Warning message shows when unlink is disabled explaining why
+
+5. **Success/Error messages**
+   - Displays action result messages at top of page
+   - Green background for success, red for error
+   - Messages include context (e.g., "Google account unlinked successfully")
+
+**Test Fix:**
+- Tests for displaying action result messages needed `hydrationData` to provide initial actionData
+- React Router's `createRoutesStub` only populates actionData after form submission
+- Added route `id` property and used `hydrationData` prop with matching route ID
+- Used `getAllByText` for error message test since hydrationData can cause duplicate renders
+
+**All 1529 tests pass (71 account settings tests).**
+
 ---
 
 ## For Future Tasks
