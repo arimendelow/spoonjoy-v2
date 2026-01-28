@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { db, getDb } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { unlinkOAuthAccount } from "~/lib/oauth-user.server";
+import { hashPassword, verifyPassword } from "~/lib/auth.server";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
@@ -79,11 +80,31 @@ function isValidProvider(provider: string): provider is ValidProvider {
 
 interface ActionResult {
   success: boolean;
-  error?: "email_taken" | "username_taken" | "validation_error" | "no_file" | "invalid_file_type" | "file_too_large" | "last_auth_method" | "provider_not_linked" | "invalid_provider" | "provider_already_linked";
+  error?:
+    | "email_taken"
+    | "username_taken"
+    | "validation_error"
+    | "no_file"
+    | "invalid_file_type"
+    | "file_too_large"
+    | "last_auth_method"
+    | "provider_not_linked"
+    | "invalid_provider"
+    | "provider_already_linked"
+    | "invalid_current_password"
+    | "password_mismatch"
+    | "password_too_short"
+    | "password_required"
+    | "current_password_required"
+    | "no_password_set"
+    | "same_password"
+    | "password_already_set"
+    | "no_password_to_remove";
   message?: string;
   fieldErrors?: {
     email?: string;
     username?: string;
+    newPassword?: string;
   };
   photoUrl?: string;
 }
@@ -312,6 +333,213 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
 
     // Redirect to OAuth initiation endpoint with linking flag
     throw redirect(`/auth/${provider}?linking=true`);
+  }
+
+  if (intent === "changePassword") {
+    const currentPassword = formData.get("currentPassword")?.toString() || "";
+    const newPassword = formData.get("newPassword")?.toString() || "";
+    const confirmPassword = formData.get("confirmPassword")?.toString() || "";
+
+    // Check if user has a password set
+    const user = await database.user.findUnique({
+      where: { id: userId },
+      select: { hashedPassword: true },
+    });
+
+    if (!user?.hashedPassword) {
+      return {
+        success: false,
+        error: "no_password_set",
+        message: "You don't have a password set. Please set a password instead.",
+      };
+    }
+
+    // Validate current password is provided
+    if (!currentPassword) {
+      return {
+        success: false,
+        error: "current_password_required",
+        message: "Please enter your current password",
+      };
+    }
+
+    // Validate new password is provided
+    if (!newPassword) {
+      return {
+        success: false,
+        error: "password_required",
+        message: "Please enter a new password",
+      };
+    }
+
+    // Validate password length
+    if (newPassword.length < 8) {
+      return {
+        success: false,
+        error: "password_too_short",
+        message: "Password must be at least 8 characters",
+        fieldErrors: {
+          newPassword: "Password must be at least 8 characters",
+        },
+      };
+    }
+
+    // Validate passwords match
+    if (newPassword !== confirmPassword) {
+      return {
+        success: false,
+        error: "password_mismatch",
+        message: "Passwords do not match",
+      };
+    }
+
+    // Verify current password
+    const isValid = await verifyPassword(currentPassword, user.hashedPassword);
+    if (!isValid) {
+      return {
+        success: false,
+        error: "invalid_current_password",
+        message: "Your current password is incorrect",
+      };
+    }
+
+    // Check if new password is same as current
+    const isSamePassword = await verifyPassword(newPassword, user.hashedPassword);
+    if (isSamePassword) {
+      return {
+        success: false,
+        error: "same_password",
+        message: "New password must be different from your current password",
+      };
+    }
+
+    // Hash and save new password
+    const { hashedPassword, salt } = await hashPassword(newPassword);
+    await database.user.update({
+      where: { id: userId },
+      data: { hashedPassword, salt },
+    });
+
+    return {
+      success: true,
+      message: "Password changed successfully",
+    };
+  }
+
+  if (intent === "setPassword") {
+    const newPassword = formData.get("newPassword")?.toString() || "";
+    const confirmPassword = formData.get("confirmPassword")?.toString() || "";
+
+    // Check if user already has a password
+    const user = await database.user.findUnique({
+      where: { id: userId },
+      select: { hashedPassword: true },
+    });
+
+    if (user?.hashedPassword) {
+      return {
+        success: false,
+        error: "password_already_set",
+        message: "You already have a password set. Use change password instead.",
+      };
+    }
+
+    // Validate new password is provided
+    if (!newPassword) {
+      return {
+        success: false,
+        error: "password_required",
+        message: "Please enter a password",
+      };
+    }
+
+    // Validate password length
+    if (newPassword.length < 8) {
+      return {
+        success: false,
+        error: "password_too_short",
+        message: "Password must be at least 8 characters",
+        fieldErrors: {
+          newPassword: "Password must be at least 8 characters",
+        },
+      };
+    }
+
+    // Validate passwords match
+    if (newPassword !== confirmPassword) {
+      return {
+        success: false,
+        error: "password_mismatch",
+        message: "Passwords do not match",
+      };
+    }
+
+    // Hash and save password
+    const { hashedPassword, salt } = await hashPassword(newPassword);
+    await database.user.update({
+      where: { id: userId },
+      data: { hashedPassword, salt },
+    });
+
+    return {
+      success: true,
+      message: "Password set successfully",
+    };
+  }
+
+  if (intent === "removePassword") {
+    const currentPassword = formData.get("currentPassword")?.toString() || "";
+
+    // Check if user has a password to remove
+    const user = await database.user.findUnique({
+      where: { id: userId },
+      select: {
+        hashedPassword: true,
+        _count: {
+          select: { OAuth: true },
+        },
+      },
+    });
+
+    if (!user?.hashedPassword) {
+      return {
+        success: false,
+        error: "no_password_to_remove",
+        message: "You don't have a password to remove",
+      };
+    }
+
+    // Check if password is the only auth method (no OAuth)
+    if (user._count.OAuth === 0) {
+      return {
+        success: false,
+        error: "last_auth_method",
+        message: "Cannot remove password. You must have at least one way to log in.",
+      };
+    }
+
+    // Verify current password if provided (for extra security)
+    if (currentPassword) {
+      const isValid = await verifyPassword(currentPassword, user.hashedPassword);
+      if (!isValid) {
+        return {
+          success: false,
+          error: "invalid_current_password",
+          message: "Your current password is incorrect",
+        };
+      }
+    }
+
+    // Remove password
+    await database.user.update({
+      where: { id: userId },
+      data: { hashedPassword: null, salt: null },
+    });
+
+    return {
+      success: true,
+      message: "Password removed successfully",
+    };
   }
 
   return { success: false };
