@@ -1,6 +1,6 @@
 import type { Route } from "./+types/account.settings";
 import { useLoaderData, useActionData, Form, redirect } from "react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { db, getDb } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { unlinkOAuthAccount } from "~/lib/oauth-user.server";
@@ -559,10 +559,6 @@ function ProfilePhotoUpload({ photoUrl }: { photoUrl: string | null }) {
     fileInputRef.current?.click();
   };
 
-  const handleRemovePhoto = (e: React.FormEvent) => {
-    // Form submission will handle the removal
-  };
-
   const currentPhotoUrl = actionData?.photoUrl || photoUrl || DEFAULT_AVATAR_URL;
   const buttonText = photoUrl ? "Change Photo" : "Upload Photo";
 
@@ -618,6 +614,17 @@ export default function AccountSettings() {
   const [isEditing, setIsEditing] = useState(false);
   const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
   const [passwordFormState, setPasswordFormState] = useState<"idle" | "change" | "set" | "removeConfirm">("idle");
+
+  // Restore form state when there are field errors (e.g., after form submission fails)
+  useEffect(() => {
+    if (actionData?.fieldErrors?.email || actionData?.fieldErrors?.username) {
+      setIsEditing(true);
+    }
+    if (actionData?.fieldErrors?.newPassword) {
+      // Determine which password form to open based on user state
+      setPasswordFormState(user.hasPassword ? "change" : "set");
+    }
+  }, [actionData, user.hasPassword]);
 
   const linkedProviders = new Set(user.oauthAccounts.map((a) => a.provider));
 

@@ -1453,6 +1453,54 @@ describe("Account Settings Route", () => {
         // The form should have been submitted (action called)
         expect(actionCalled).toBe(true);
       });
+
+      it("should not auto-submit form when file selection is cancelled (no file selected)", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        let actionCalled = false;
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: async () => {
+              actionCalled = true;
+              return { success: true, photoUrl: "https://example.com/new-photo.jpg" };
+            },
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        const profilePhotoSection = screen.getByTestId("profile-photo-section");
+        const fileInput = profilePhotoSection.querySelector(
+          'input[type="file"]'
+        ) as HTMLInputElement;
+
+        // Simulate a change event with no file selected (e.g., user cancelled the file dialog)
+        // We directly dispatch a change event with empty files
+        const changeEvent = new Event("change", { bubbles: true });
+        Object.defineProperty(changeEvent, "currentTarget", {
+          value: fileInput,
+          writable: false,
+        });
+        // Files is already empty by default on the input
+        fileInput.dispatchEvent(changeEvent);
+
+        // The form should NOT have been submitted (action not called)
+        expect(actionCalled).toBe(false);
+      });
     });
 
     describe("action - photo upload", () => {
@@ -3360,8 +3408,9 @@ describe("Account Settings Route", () => {
 
         await screen.findByRole("heading", { name: /account settings/i });
 
-        // Error message should be displayed
-        expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
+        // Error message should be displayed (may appear multiple times due to field error + hint)
+        const errorMessages = screen.getAllByText(/at least 8 characters/i);
+        expect(errorMessages.length).toBeGreaterThanOrEqual(1);
       });
 
       it("should show success message after password change", async () => {
@@ -3705,6 +3754,263 @@ describe("Account Settings Route", () => {
 
         // Should not show remove password option
         expect(screen.queryByRole("button", { name: /remove password/i })).not.toBeInTheDocument();
+      });
+    });
+
+    describe("field error display in forms", () => {
+      it("should display email field error when editing user info with validation error", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const actionResult = {
+          success: false,
+          error: "email_taken" as const,
+          message: "Email is already in use",
+          fieldErrors: {
+            email: "This email is already taken",
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "account-settings",
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Click edit to enter edit mode
+        const editButton = screen.getByRole("button", { name: /edit/i });
+        await user.click(editButton);
+
+        // Submit the form to trigger validation error
+        const saveButton = screen.getByRole("button", { name: /save/i });
+        await user.click(saveButton);
+
+        // Error should be displayed inline for email field
+        expect(await screen.findByText(/this email is already taken/i)).toBeInTheDocument();
+      });
+
+      it("should display username field error when editing user info with validation error", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const actionResult = {
+          success: false,
+          error: "username_taken" as const,
+          message: "Username is already in use",
+          fieldErrors: {
+            username: "This username is already taken",
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "account-settings",
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Click edit to enter edit mode
+        const editButton = screen.getByRole("button", { name: /edit/i });
+        await user.click(editButton);
+
+        // Submit the form to trigger validation error
+        const saveButton = screen.getByRole("button", { name: /save/i });
+        await user.click(saveButton);
+
+        // Error should be displayed inline for username field
+        expect(await screen.findByText(/this username is already taken/i)).toBeInTheDocument();
+      });
+
+      it("should display newPassword field error in change password form", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const actionResult = {
+          success: false,
+          error: "password_too_short" as const,
+          message: "Password must be at least 8 characters",
+          fieldErrors: {
+            newPassword: "Password must be at least 8 characters",
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "account-settings",
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        // Render with hydrationData to simulate state after form submission with error
+        render(
+          <Stub
+            initialEntries={["/account/settings"]}
+            hydrationData={{
+              loaderData: { "account-settings": mockData },
+              actionData: { "account-settings": actionResult },
+            }}
+          />
+        );
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Due to useEffect, form should automatically open when there are newPassword field errors
+        // The form should be visible with the inline error
+        expect(await screen.findByLabelText(/current password/i)).toBeInTheDocument();
+
+        // Error should be displayed inline for newPassword field (in ErrorMessage component)
+        const errorMessages = await screen.findAllByText(/password must be at least 8 characters/i);
+        // There should be at least one - the field error, plus potentially the hint text
+        expect(errorMessages.length).toBeGreaterThanOrEqual(1);
+      });
+
+      it("should display newPassword field error in set password form (OAuth-only user)", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: false,
+            oauthAccounts: [{ provider: "google", providerUsername: "testuser@gmail.com" }],
+            photoUrl: null,
+          },
+        };
+
+        const actionResult = {
+          success: false,
+          error: "password_too_short" as const,
+          message: "Password must be at least 8 characters",
+          fieldErrors: {
+            newPassword: "Password must be at least 8 characters",
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "account-settings",
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        // Render with hydrationData to simulate state after form submission with error
+        render(
+          <Stub
+            initialEntries={["/account/settings"]}
+            hydrationData={{
+              loaderData: { "account-settings": mockData },
+              actionData: { "account-settings": actionResult },
+            }}
+          />
+        );
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Due to useEffect, form should automatically open when there are newPassword field errors
+        // For OAuth-only user (hasPassword=false), form should be in "set" mode (no current password)
+        expect(await screen.findByLabelText(/new password/i)).toBeInTheDocument();
+        // Set password form doesn't have "current password" field
+        expect(screen.queryByLabelText(/current password/i)).not.toBeInTheDocument();
+
+        // Error should be displayed inline for newPassword field
+        const errorMessages = await screen.findAllByText(/password must be at least 8 characters/i);
+        expect(errorMessages.length).toBeGreaterThanOrEqual(1);
+      });
+
+      it("should display photo upload error message in ProfilePhotoUpload", async () => {
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const actionResult = {
+          success: false,
+          error: "file_too_large" as const,
+          message: "File size exceeds 5MB limit",
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "account-settings",
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(
+          <Stub
+            initialEntries={["/account/settings"]}
+            hydrationData={{
+              loaderData: { "account-settings": mockData },
+              actionData: { "account-settings": actionResult },
+            }}
+          />
+        );
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        // Error message appears in both global banner and photo section
+        // We use getAllByText to verify at least one error message is displayed
+        const errorMessages = screen.getAllByText(/file size exceeds 5mb limit/i);
+        expect(errorMessages.length).toBeGreaterThanOrEqual(1);
+
+        // Verify the error appears in the profile photo section specifically
+        const photoSection = screen.getByTestId("profile-photo-section");
+        expect(photoSection).toHaveTextContent(/file size exceeds 5mb limit/i);
       });
     });
   });
