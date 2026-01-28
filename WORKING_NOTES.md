@@ -824,3 +824,25 @@ Added HTML5 validation attributes to all recipe CRUD forms for immediate client-
 **Client validation now matches server validation**, ensuring users get immediate feedback before submitting forms.
 
 **Build:** Passes with no warnings
+
+### Unit 2.10: Duplicate Ingredient Detection - COMPLETED
+
+Added validation to prevent adding the same ingredient twice to a recipe (across all steps).
+
+**Files modified:**
+- `app/routes/recipes.$id.steps.$stepId.edit.tsx` - Added duplicate ingredient check in `addIngredient` action
+
+**Implementation:**
+- After finding/creating the ingredientRef, check if an ingredient with the same `ingredientRefId` already exists anywhere in the recipe
+- Validation is case-insensitive because ingredient names are normalized to lowercase when stored
+- Returns friendly error: "This ingredient is already in the recipe"
+- Error is returned on the `ingredientName` field
+
+**Tests added:** 4 tests in `test/routes/recipes-id-steps-id-edit.test.tsx`
+- Adding duplicate ingredient to same step → validation error
+- Adding duplicate ingredient to different step → validation error
+- Adding ingredient with different case (case-insensitive check) → validation error
+- Adding different ingredients to the same recipe → success
+
+**Coverage:** 100% for recipes.$id.steps.$stepId.edit.tsx
+**Build:** Passes with no warnings
