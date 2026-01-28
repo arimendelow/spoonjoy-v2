@@ -422,7 +422,7 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
 
     return {
       success: true,
-      message: "Password changed successfully",
+      message: "Your password has been changed successfully",
     };
   }
 
@@ -483,7 +483,7 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
 
     return {
       success: true,
-      message: "Password set successfully",
+      message: "Your password has been set successfully",
     };
   }
 
@@ -617,18 +617,22 @@ export default function AccountSettings() {
   const actionData = useActionData<ActionResult>();
   const [isEditing, setIsEditing] = useState(false);
   const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
+  const [passwordFormState, setPasswordFormState] = useState<"idle" | "change" | "set" | "removeConfirm">("idle");
 
   const linkedProviders = new Set(user.oauthAccounts.map((a) => a.provider));
 
   // Determine if user can unlink OAuth (has password OR has multiple OAuth providers)
   const canUnlinkOAuth = user.hasPassword || user.oauthAccounts.length > 1;
 
+  // Determine if user can remove password (has OAuth linked)
+  const canRemovePassword = user.oauthAccounts.length > 0;
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Heading>Account Settings</Heading>
 
-      {/* OAuth Success/Error Messages */}
-      {actionData?.message && (
+      {/* Success/Error Messages (only show global banner when there are no field-level errors) */}
+      {actionData?.message && !actionData?.fieldErrors && (
         <div
           className={`mt-4 rounded-lg p-4 ${
             actionData.success
@@ -804,22 +808,130 @@ export default function AccountSettings() {
         <Subheading>Password</Subheading>
         <div className="mt-4">
           {user.hasPassword ? (
-            <form action="/account/change-password" method="post">
-              <Button type="submit" outline>
-                Change Password
-              </Button>
-            </form>
+            passwordFormState === "change" ? (
+              <Form method="post" className="space-y-4">
+                <input type="hidden" name="intent" value="changePassword" />
+                <Field>
+                  <Label>Current Password</Label>
+                  <Input
+                    type="password"
+                    name="currentPassword"
+                    autoComplete="current-password"
+                  />
+                </Field>
+                <Field>
+                  <Label>New Password</Label>
+                  <Input
+                    type="password"
+                    name="newPassword"
+                    autoComplete="new-password"
+                    invalid={!!actionData?.fieldErrors?.newPassword}
+                  />
+                  {actionData?.fieldErrors?.newPassword && (
+                    <ErrorMessage>{actionData.fieldErrors.newPassword}</ErrorMessage>
+                  )}
+                  <Text className="mt-1 text-xs text-zinc-500">
+                    Must be at least 8 characters
+                  </Text>
+                </Field>
+                <Field>
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    name="confirmPassword"
+                    autoComplete="new-password"
+                  />
+                </Field>
+                <div className="flex gap-3">
+                  <Button type="submit" color="blue">
+                    Change Password
+                  </Button>
+                  <Button type="button" outline onClick={() => setPasswordFormState("idle")}>
+                    Cancel
+                  </Button>
+                </div>
+              </Form>
+            ) : passwordFormState === "removeConfirm" ? (
+              <div className="space-y-4">
+                <Text>Are you sure you want to remove your password? You will only be able to sign in using your linked OAuth accounts.</Text>
+                <Form method="post" className="space-y-4">
+                  <input type="hidden" name="intent" value="removePassword" />
+                  <Field>
+                    <Label>Current Password</Label>
+                    <Input
+                      type="password"
+                      name="currentPassword"
+                      autoComplete="current-password"
+                    />
+                  </Field>
+                  <div className="flex gap-3">
+                    <Button type="submit" color="red">
+                      Confirm
+                    </Button>
+                    <Button type="button" outline onClick={() => setPasswordFormState("idle")}>
+                      Cancel
+                    </Button>
+                  </div>
+                </Form>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <Button type="button" outline onClick={() => setPasswordFormState("change")}>
+                  Change Password
+                </Button>
+                {canRemovePassword && (
+                  <Button type="button" outline color="red" onClick={() => setPasswordFormState("removeConfirm")}>
+                    Remove Password
+                  </Button>
+                )}
+              </div>
+            )
           ) : (
-            <div>
-              <Text className="mb-4">
-                You don't have a password set. Set one to enable email/password login.
-              </Text>
-              <form action="/account/set-password" method="post">
-                <Button type="submit" outline>
+            passwordFormState === "set" ? (
+              <Form method="post" className="space-y-4">
+                <input type="hidden" name="intent" value="setPassword" />
+                <Field>
+                  <Label>New Password</Label>
+                  <Input
+                    type="password"
+                    name="newPassword"
+                    autoComplete="new-password"
+                    invalid={!!actionData?.fieldErrors?.newPassword}
+                  />
+                  {actionData?.fieldErrors?.newPassword && (
+                    <ErrorMessage>{actionData.fieldErrors.newPassword}</ErrorMessage>
+                  )}
+                  <Text className="mt-1 text-xs text-zinc-500">
+                    Must be at least 8 characters
+                  </Text>
+                </Field>
+                <Field>
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    name="confirmPassword"
+                    autoComplete="new-password"
+                  />
+                </Field>
+                <div className="flex gap-3">
+                  <Button type="submit" color="blue">
+                    Set Password
+                  </Button>
+                  <Button type="button" outline onClick={() => setPasswordFormState("idle")}>
+                    Cancel
+                  </Button>
+                </div>
+              </Form>
+            ) : (
+              <div>
+                <Text className="mb-4">
+                  You don't have a password set. Set one to enable email/password login.
+                </Text>
+                <Button type="button" outline onClick={() => setPasswordFormState("set")}>
                   Set Password
                 </Button>
-              </form>
-            </div>
+              </div>
+            )
           )}
         </div>
       </section>
