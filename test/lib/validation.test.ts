@@ -439,6 +439,11 @@ describe('validateImageUrl', () => {
     expect(result).toEqual({ valid: true })
   })
 
+  it('returns valid for whitespace-only URL', () => {
+    const result = validateImageUrl('   ')
+    expect(result).toEqual({ valid: true })
+  })
+
   it('returns valid for a valid HTTP URL', () => {
     const result = validateImageUrl('http://example.com/image.jpg')
     expect(result).toEqual({ valid: true })

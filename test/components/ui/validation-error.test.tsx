@@ -67,6 +67,11 @@ describe('ValidationError', () => {
       expect(screen.getByText('Error 1')).toBeInTheDocument()
       expect(screen.getByText('Error 2')).toBeInTheDocument()
     })
+
+    it('renders nothing when error array contains only empty strings', () => {
+      const { container } = render(<ValidationError error={['', '', '']} />)
+      expect(container).toBeEmptyDOMElement()
+    })
   })
 
   describe('accessibility', () => {
