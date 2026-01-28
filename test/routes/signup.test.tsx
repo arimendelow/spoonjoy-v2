@@ -69,6 +69,18 @@ describe("Signup Route", () => {
         return true;
       });
     });
+
+    it("should return oauthError when present in URL search params", async () => {
+      const request = new UndiciRequest("http://localhost:3000/signup?oauthError=account_exists");
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      expect(result).toEqual({ oauthError: "account_exists" });
+    });
   });
 
   describe("action", () => {
