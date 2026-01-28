@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -1366,6 +1366,92 @@ describe("Account Settings Route", () => {
         const fileInput = profilePhotoSection.querySelector('input[type="file"]');
         expect(fileInput).toBeInTheDocument();
         expect(fileInput).toHaveAttribute("accept", expect.stringMatching(/image/i));
+      });
+
+      it("should trigger hidden file input click when upload button is clicked", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        const profilePhotoSection = screen.getByTestId("profile-photo-section");
+        const fileInput = profilePhotoSection.querySelector(
+          'input[type="file"]'
+        ) as HTMLInputElement;
+
+        // Mock the click method to verify it gets called
+        const clickSpy = vi.spyOn(fileInput, "click");
+
+        const uploadButton = screen.getByRole("button", { name: /upload photo/i });
+        await user.click(uploadButton);
+
+        expect(clickSpy).toHaveBeenCalled();
+        clickSpy.mockRestore();
+      });
+
+      it("should auto-submit form when file is selected", async () => {
+        const user = userEvent.setup();
+        const mockData = {
+          user: {
+            id: testUserId,
+            email: testUserEmail.toLowerCase(),
+            username: testUsername,
+            hasPassword: true,
+            oauthAccounts: [],
+            photoUrl: null,
+          },
+        };
+
+        let actionCalled = false;
+        const Stub = createTestRoutesStub([
+          {
+            path: "/account/settings",
+            Component: AccountSettings,
+            loader: () => mockData,
+            action: async () => {
+              actionCalled = true;
+              return { success: true, photoUrl: "https://example.com/new-photo.jpg" };
+            },
+          },
+        ]);
+
+        render(<Stub initialEntries={["/account/settings"]} />);
+
+        await screen.findByRole("heading", { name: /account settings/i });
+
+        const profilePhotoSection = screen.getByTestId("profile-photo-section");
+        const fileInput = profilePhotoSection.querySelector(
+          'input[type="file"]'
+        ) as HTMLInputElement;
+
+        // Create a mock file and simulate file selection
+        const mockFile = new File(["fake image data"], "test-photo.jpg", {
+          type: "image/jpeg",
+        });
+
+        await user.upload(fileInput, mockFile);
+
+        // The form should have been submitted (action called)
+        expect(actionCalled).toBe(true);
       });
     });
 
