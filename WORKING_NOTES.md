@@ -1440,6 +1440,42 @@ interface ActionResult {
 
 **Total Tests:** 16 new failing tests (TDD) - existing 1476 tests unaffected
 
+### 2026-01-27 - User Info Management Implementation (Unit 11b)
+
+**Implementation Complete:** User info viewing and editing in account settings page.
+
+**Changes to `app/routes/account.settings.tsx`:**
+
+1. **Added `action` export** - Handles `intent: "updateUserInfo"` form submissions
+2. **Added edit mode state** - `useState(false)` for `isEditing`
+3. **Added Edit button** - Toggles edit mode in user info section
+4. **Added edit form** - Email and username inputs with Save/Cancel buttons
+5. **Used existing UI components** - `Field`, `Label`, `ErrorMessage` from fieldset.tsx, `Input` from input.tsx
+
+**Action Handler Implementation:**
+- Validates email format using regex `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`
+- Validates non-empty email and username
+- Returns `validation_error` with `fieldErrors` for validation failures
+- Checks email uniqueness case-insensitively using raw SQL (`LOWER(email)`)
+- Checks username uniqueness excluding current user
+- Normalizes email to lowercase before storing
+- Returns `email_taken` or `username_taken` for collision errors
+- Returns `{ success: true }` on successful update
+
+**Error Types Returned:**
+- `validation_error` - Empty fields or invalid email format (includes `fieldErrors`)
+- `email_taken` - Email already in use by another account
+- `username_taken` - Username already taken
+
+**UI Components Used:**
+- `Field`, `Label`, `ErrorMessage` from `~/components/ui/fieldset`
+- `Input` from `~/components/ui/input`
+- `Button` from `~/components/ui/button`
+- `Form` from `react-router`
+
+**All 34 account settings tests pass with no warnings.**
+**Build passes.**
+
 ---
 
 ## For Future Tasks
