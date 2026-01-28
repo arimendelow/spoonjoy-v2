@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import NewRecipe from "~/routes/recipes.new";
 import EditRecipe from "~/routes/recipes.$id.edit";
@@ -205,6 +206,7 @@ describe("HTML5 validation attributes", () => {
     };
 
     const renderEditStepWithIngredientForm = async () => {
+      const user = userEvent.setup();
       const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id/steps/:stepId/edit",
@@ -218,7 +220,7 @@ describe("HTML5 validation attributes", () => {
 
       // Click "Add Ingredient" button to show the form
       const addButton = screen.getByRole("button", { name: /Add Ingredient/i });
-      addButton.click();
+      await user.click(addButton);
     };
 
     it("quantity field has min attribute", async () => {
