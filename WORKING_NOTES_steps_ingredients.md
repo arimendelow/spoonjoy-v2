@@ -1596,6 +1596,57 @@ The current implementation balances simplicity with performance appropriately fo
 
 ---
 
+## Unit 6.7: Performance — Optimize Queries
+
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Overview
+
+Reviewed performance findings from Unit 6.6 to determine if any query optimizations were needed.
+
+### Unit 6.6 Findings Summary
+
+The Unit 6.6 performance review was comprehensive and found:
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| **Indexes** | ✅ Correct | All query patterns have matching indexes |
+| **N+1 Patterns** | ✅ None found | All use `include` or batch operations |
+| **Unnecessary Data** | ✅ Minimal | Queries use `select` appropriately |
+| **Parallel Execution** | ✅ Used | `validateStepReorderComplete` uses `Promise.all()` |
+| **Batch Operations** | ✅ Used | `createMany`, `deleteMany` for bulk operations |
+| **CASCADE Behavior** | ✅ Correct | Relies on DB CASCADE for cleanup |
+
+### Why No Optimizations Are Needed
+
+1. **Bounded data volumes**: Recipes typically have 5-20 steps, and StepOutputUse records per recipe are typically < 50
+
+2. **Proper index coverage**: The StepOutputUse table has three indexes covering all access patterns:
+   - `@@index([recipeId, outputStepNum, inputStepNum])` — Full composite lookup
+   - `@@index([recipeId, outputStepNum])` — "What steps use this output?"
+   - `@@index([recipeId, inputStepNum])` — "What steps does this use?"
+
+3. **No N+1 query patterns**: All queries use:
+   - Prisma `include` for eager loading
+   - `findMany` with batch operations (not loops)
+   - `createMany` / `deleteMany` for bulk operations
+
+4. **Appropriate use of `select`**: Queries fetch only needed fields when loading related data
+
+5. **Parallel execution where beneficial**: `validateStepReorderComplete()` runs both validation queries concurrently
+
+### Conclusion
+
+The current implementation is already well-optimized. No code changes were required for Unit 6.7.
+
+**Test verification**:
+- All 2042 tests pass
+- 100% test coverage maintained
+- Zero warnings
+
+---
+
 ## Future Units
 
 (Notes will be added as units are completed)
