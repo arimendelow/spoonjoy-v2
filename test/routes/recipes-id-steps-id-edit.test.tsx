@@ -847,6 +847,93 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         const deletedStep = await db.recipeStep.findUnique({ where: { id: stepId } });
         expect(deletedStep).toBeNull();
       });
+
+      it("should return error when step cannot be deleted due to dependencies", async () => {
+        // Create step 2 that uses step 1 (stepId)
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Step that uses step 1 output",
+          },
+        });
+
+        // Create dependency: step 2 uses output of step 1
+        await db.stepOutputUse.create({
+          data: {
+            recipeId,
+            outputStepNum: 1,
+            inputStepNum: 2,
+          },
+        });
+
+        const request = await createFormRequest({ intent: "delete" }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors?.stepDeletion).toBe(
+          "Cannot delete Step 1 because it is used by Step 2"
+        );
+
+        // Verify step was NOT deleted
+        const existingStep = await db.recipeStep.findUnique({ where: { id: stepId } });
+        expect(existingStep).not.toBeNull();
+
+        // Cleanup
+        await db.stepOutputUse.deleteMany({ where: { recipeId } });
+        await db.recipeStep.delete({ where: { id: step2.id } });
+      });
+
+      it("should return error listing multiple dependent steps", async () => {
+        // Create steps 2 and 3 that use step 1
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Step 2 uses step 1",
+          },
+        });
+        const step3 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 3,
+            description: "Step 3 uses step 1",
+          },
+        });
+
+        // Create dependencies
+        await db.stepOutputUse.createMany({
+          data: [
+            { recipeId, outputStepNum: 1, inputStepNum: 2 },
+            { recipeId, outputStepNum: 1, inputStepNum: 3 },
+          ],
+        });
+
+        const request = await createFormRequest({ intent: "delete" }, testUserId);
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors?.stepDeletion).toBe(
+          "Cannot delete Step 1 because it is used by Steps 2 and 3"
+        );
+
+        // Cleanup
+        await db.stepOutputUse.deleteMany({ where: { recipeId } });
+        await db.recipeStep.delete({ where: { id: step3.id } });
+        await db.recipeStep.delete({ where: { id: step2.id } });
+      });
     });
 
     describe("step output uses update", () => {
@@ -2687,6 +2774,148 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
           // Error should have the correct error styling (red text)
           expect(errorElement).toHaveClass("text-red-600");
         });
+      });
+    });
+
+    describe("step deletion error display", () => {
+      it("should display step deletion error near delete button", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: "Test Step",
+            description: "Step description",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => ({
+              errors: {
+                stepDeletion: "Cannot delete Step 1 because it is used by Step 2",
+              },
+            }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 1/i });
+
+        // Click delete to trigger action
+        const deleteButton = screen.getByRole("button", { name: "Delete Step" });
+        await act(async () => {
+          fireEvent.click(deleteButton);
+        });
+
+        // Wait for error message to appear with role="alert"
+        await waitFor(() => {
+          const errorElement = screen.getByRole("alert");
+          expect(errorElement).toHaveTextContent(
+            "Cannot delete Step 1 because it is used by Step 2"
+          );
+        });
+      });
+
+      it("should style step deletion error consistently with existing error patterns", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: "Test Step",
+            description: "Step description",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => ({
+              errors: {
+                stepDeletion: "Cannot delete Step 1 because it is used by Step 2",
+              },
+            }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 1/i });
+
+        // Click delete to trigger action
+        const deleteButton = screen.getByRole("button", { name: "Delete Step" });
+        await act(async () => {
+          fireEvent.click(deleteButton);
+        });
+
+        // Wait for error message and verify styling
+        await waitFor(() => {
+          const errorElement = screen.getByRole("alert");
+          // Should have the same styling as other error alerts (red background, red text, red border)
+          expect(errorElement).toHaveClass("bg-red-50");
+          expect(errorElement).toHaveClass("text-red-600");
+          expect(errorElement).toHaveClass("border-red-600");
+        });
+      });
+
+      it("should not display step deletion error when no error exists", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: "Test Step",
+            description: "Step description",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            // No action data - no errors
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 1/i });
+
+        // Verify delete button is present but no deletion error alert
+        expect(screen.getByRole("button", { name: "Delete Step" })).toBeInTheDocument();
+
+        // No alert with step deletion error should exist
+        const alerts = screen.queryAllByRole("alert");
+        const deletionAlert = alerts.find((alert) =>
+          alert.textContent?.includes("Cannot delete")
+        );
+        expect(deletionAlert).toBeUndefined();
       });
     });
   });

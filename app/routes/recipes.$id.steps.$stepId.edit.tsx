@@ -12,6 +12,7 @@ import {
   deleteExistingStepOutputUses,
   createStepOutputUses,
 } from "~/lib/step-output-use-mutations.server";
+import { validateStepDeletion } from "~/lib/step-deletion-validation.server";
 import {
   validateStepTitle,
   validateStepDescription,
@@ -35,6 +36,7 @@ interface ActionData {
     unitName?: string;
     ingredientName?: string;
     usesSteps?: string;
+    stepDeletion?: string;
     general?: string;
   };
 }
@@ -148,6 +150,15 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   // Handle delete intent
   if (intent === "delete") {
+    // Validate step can be deleted (no dependencies)
+    const validationResult = await validateStepDeletion(id, step.stepNum);
+    if (!validationResult.valid) {
+      return data(
+        { errors: { stepDeletion: validationResult.error } },
+        { status: 400 }
+      );
+    }
+
     await database.recipeStep.delete({
       where: { id: stepId },
     });
@@ -411,6 +422,14 @@ export default function EditStep() {
         </Form>
 
         <div className="mt-4">
+          {actionData?.errors?.stepDeletion && (
+            <div
+              className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600"
+              role="alert"
+            >
+              {actionData.errors.stepDeletion}
+            </div>
+          )}
           <Form method="post">
             <input type="hidden" name="intent" value="delete" />
             <Button

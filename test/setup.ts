@@ -56,6 +56,10 @@ class MockResizeObserver {
 }
 global.ResizeObserver = MockResizeObserver;
 
+// Mock window.confirm for browser confirm dialogs in tests
+// Returns true by default to allow forms to submit
+global.confirm = vi.fn(() => true);
+
 // Mock environment variables
 process.env.DATABASE_URL = "file:./test.db?connection_limit=1&socket_timeout=60";
 process.env.SESSION_SECRET = "test-secret";
