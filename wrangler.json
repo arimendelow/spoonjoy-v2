@@ -1,7 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/wrangler",
   "name": "spoonjoy-v2",
-  "compatibility_date": "2024-01-01",
+  "main": "./workers/app.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
   "pages_build_output_dir": "./build/client",
   
   "d1_databases": [

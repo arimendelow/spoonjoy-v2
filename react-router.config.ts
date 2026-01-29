@@ -10,4 +10,7 @@ export default {
   serverMinify: true,
   serverModuleFormat: "esm",
   serverPlatform: "neutral",
+  future: {
+    v8_viteEnvironmentApi: true,
+  },
 } satisfies Config;
