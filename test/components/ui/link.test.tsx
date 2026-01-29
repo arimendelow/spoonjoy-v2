@@ -1,263 +1,394 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { MemoryRouter, useNavigate } from 'react-router'
-import { Link } from '~/components/ui/link'
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useNavigate } from "react-router";
+import { Link } from "~/components/ui/link";
 
-// Helper to render with router context
-const renderWithRouter = (ui: React.ReactElement, { route = '/' } = {}) => {
-  return render(
-    <MemoryRouter initialEntries={[route]}>
-      {ui}
-    </MemoryRouter>
-  )
+// Mock React Router's navigate to track navigation
+const mockNavigate = vi.fn();
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+// Wrapper component to provide React Router context
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>;
 }
 
-describe('Link', () => {
-  describe('basic rendering', () => {
-    it('renders as a link element', () => {
-      renderWithRouter(<Link href="/test">Test Link</Link>)
-      expect(screen.getByRole('link', { name: 'Test Link' })).toBeInTheDocument()
-    })
+describe("Link Component", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-    it('renders children content', () => {
-      renderWithRouter(<Link href="/page">Click me</Link>)
-      expect(screen.getByText('Click me')).toBeInTheDocument()
-    })
+  describe("rendering", () => {
+    it("should render a link with the provided text", () => {
+      render(
+        <TestWrapper>
+          <Link href="/about">About Us</Link>
+        </TestWrapper>
+      );
 
-    it('applies href attribute', () => {
-      renderWithRouter(<Link href="/destination">Go somewhere</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', '/destination')
-    })
+      expect(screen.getByRole("link", { name: "About Us" })).toBeInTheDocument();
+    });
 
-    it('passes additional props to the link', () => {
-      renderWithRouter(
-        <Link href="/test" data-testid="custom-link" id="my-link">
-          Custom
-        </Link>
-      )
-      const link = screen.getByRole('link')
-      expect(link).toHaveAttribute('data-testid', 'custom-link')
-      expect(link).toHaveAttribute('id', 'my-link')
-    })
-  })
+    it("should render with the correct href attribute for internal links", () => {
+      render(
+        <TestWrapper>
+          <Link href="/recipes">Recipes</Link>
+        </TestWrapper>
+      );
 
-  describe('Catalyst styling', () => {
-    it('includes Catalyst link styling classes', () => {
-      const { container } = renderWithRouter(<Link href="/styled">Styled Link</Link>)
-      const link = container.querySelector('a')
-      // Catalyst links typically have text styling and hover states
-      // The exact classes depend on Catalyst implementation
-      expect(link).toBeInTheDocument()
-    })
+      const link = screen.getByRole("link", { name: "Recipes" });
+      expect(link).toHaveAttribute("href", "/recipes");
+    });
 
-    it('applies custom className alongside default styles', () => {
-      const { container } = renderWithRouter(
-        <Link href="/custom" className="custom-class">
-          Custom Styled
-        </Link>
-      )
-      const link = container.querySelector('a')
-      expect(link?.className).toContain('custom-class')
-    })
-  })
-
-  describe('React Router integration', () => {
-    it('uses React Router Link for internal navigation', () => {
-      // Internal links should use React Router's Link component
-      // which enables client-side navigation without full page reload
-      renderWithRouter(<Link href="/internal/path">Internal</Link>)
-      const link = screen.getByRole('link')
-      expect(link).toHaveAttribute('href', '/internal/path')
-      // The link should be rendered inside the router context
-    })
-
-    it('handles navigation when clicked', () => {
-      renderWithRouter(<Link href="/new-page">Navigate</Link>)
-      const link = screen.getByRole('link')
-      // Click should not cause full page navigation in test environment
-      fireEvent.click(link)
-      // Link should still be present (no error thrown)
-      expect(link).toBeInTheDocument()
-    })
-
-    it('works with dynamic route parameters', () => {
-      renderWithRouter(<Link href="/recipes/123/edit">Edit Recipe</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', '/recipes/123/edit')
-    })
-
-    it('preserves query parameters', () => {
-      renderWithRouter(<Link href="/search?q=test&page=2">Search</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', '/search?q=test&page=2')
-    })
-
-    it('preserves hash fragments', () => {
-      renderWithRouter(<Link href="/page#section">Jump to Section</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', '/page#section')
-    })
-  })
-
-  describe('external links', () => {
-    it('handles external URLs', () => {
-      renderWithRouter(<Link href="https://example.com">External</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', 'https://example.com')
-    })
-
-    it('adds target="_blank" for external links', () => {
-      renderWithRouter(<Link href="https://example.com">External</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('target', '_blank')
-    })
-
-    it('adds rel="noopener noreferrer" for external links', () => {
-      renderWithRouter(<Link href="https://example.com">External</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('rel', 'noopener noreferrer')
-    })
-
-    it('detects http:// as external', () => {
-      renderWithRouter(<Link href="http://insecure.com">HTTP Link</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('target', '_blank')
-    })
-
-    it('does not add target="_blank" for internal links', () => {
-      renderWithRouter(<Link href="/internal">Internal</Link>)
-      expect(screen.getByRole('link')).not.toHaveAttribute('target', '_blank')
-    })
-
-    it('allows explicit target override', () => {
-      renderWithRouter(
-        <Link href="https://example.com" target="_self">
-          Same Window
-        </Link>
-      )
-      expect(screen.getByRole('link')).toHaveAttribute('target', '_self')
-    })
-
-    it('detects // protocol-relative URLs as external', () => {
-      renderWithRouter(<Link href="//cdn.example.com/file.js">CDN Link</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('target', '_blank')
-    })
-  })
-
-  describe('accessibility', () => {
-    it('has proper link role', () => {
-      renderWithRouter(<Link href="/accessible">Accessible Link</Link>)
-      expect(screen.getByRole('link')).toBeInTheDocument()
-    })
-
-    it('supports aria-label', () => {
-      renderWithRouter(
-        <Link href="/icon" aria-label="Go to icon page">
-          🔗
-        </Link>
-      )
-      expect(screen.getByRole('link', { name: 'Go to icon page' })).toBeInTheDocument()
-    })
-
-    it('supports aria-describedby', () => {
-      renderWithRouter(
-        <>
-          <span id="desc">This link goes to help</span>
-          <Link href="/help" aria-describedby="desc">
-            Help
+    it("should pass through additional props", () => {
+      render(
+        <TestWrapper>
+          <Link href="/test" className="custom-class" data-testid="test-link">
+            Test Link
           </Link>
-        </>
-      )
-      expect(screen.getByRole('link')).toHaveAttribute('aria-describedby', 'desc')
-    })
+        </TestWrapper>
+      );
 
-    it('supports aria-current for current page', () => {
-      renderWithRouter(
-        <Link href="/current" aria-current="page">
-          Current Page
-        </Link>
-      )
-      expect(screen.getByRole('link')).toHaveAttribute('aria-current', 'page')
-    })
+      const link = screen.getByTestId("test-link");
+      expect(link).toHaveClass("custom-class");
+    });
 
-    it('is keyboard focusable', () => {
-      renderWithRouter(<Link href="/focus">Focusable</Link>)
-      const link = screen.getByRole('link')
-      link.focus()
-      expect(document.activeElement).toBe(link)
-    })
+    it("should forward ref to the anchor element", () => {
+      const ref = { current: null } as React.RefObject<HTMLAnchorElement>;
 
-    it('indicates external links to screen readers', () => {
-      renderWithRouter(<Link href="https://external.com">External Site</Link>)
-      // External links should have rel attribute for security
-      // Screen readers can use this information
-      const link = screen.getByRole('link')
-      expect(link).toHaveAttribute('rel')
-    })
-  })
+      render(
+        <TestWrapper>
+          <Link href="/test" ref={ref}>
+            Test
+          </Link>
+        </TestWrapper>
+      );
 
-  describe('ref forwarding', () => {
-    it('forwards ref to the anchor element', () => {
-      const ref = vi.fn()
-      renderWithRouter(
-        <Link href="/ref" ref={ref}>
-          Ref Link
-        </Link>
-      )
-      // Ref should be called with the anchor element
-      expect(ref).toHaveBeenCalled()
-    })
+      expect(ref.current).toBeInstanceOf(HTMLAnchorElement);
+    });
+  });
 
-    it('ref receives the DOM element', () => {
-      let linkElement: HTMLAnchorElement | null = null
-      const ref = (el: HTMLAnchorElement) => {
-        linkElement = el
-      }
-      renderWithRouter(
-        <Link href="/dom-ref" ref={ref}>
-          DOM Ref
-        </Link>
-      )
-      expect(linkElement).toBeInstanceOf(HTMLAnchorElement)
-      expect(linkElement?.href).toContain('/dom-ref')
-    })
-  })
+  describe("internal links (React Router navigation)", () => {
+    it("should render internal links using React Router Link", () => {
+      render(
+        <TestWrapper>
+          <Link href="/recipes/123">Recipe Detail</Link>
+        </TestWrapper>
+      );
 
-  describe('edge cases', () => {
-    it('handles empty href gracefully', () => {
-      // Empty href renders but may not have link role
-      // (accessibility: empty href is not a valid link)
-      renderWithRouter(<Link href="">Empty href</Link>)
-      expect(screen.getByText('Empty href')).toBeInTheDocument()
-    })
+      // React Router Link should be rendered (we can verify by checking it has data-discover attribute or similar)
+      const link = screen.getByRole("link", { name: "Recipe Detail" });
+      expect(link).toHaveAttribute("href", "/recipes/123");
+    });
 
-    it('handles undefined href', () => {
-      // @ts-expect-error - testing runtime behavior
-      renderWithRouter(<Link href={undefined}>No href</Link>)
-      // Should still render, possibly as a span or non-link
-      expect(screen.getByText('No href')).toBeInTheDocument()
-    })
+    it("should handle root path correctly", () => {
+      render(
+        <TestWrapper>
+          <Link href="/">Home</Link>
+        </TestWrapper>
+      );
 
-    it('handles relative paths', () => {
-      // React Router resolves relative paths based on current route
-      // From '/', './relative' becomes '/relative'
-      renderWithRouter(<Link href="./relative">Relative</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', '/relative')
-    })
+      expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    });
 
-    it('handles parent directory paths', () => {
-      // React Router resolves parent paths
-      // From '/', '../parent' becomes '/parent' (can't go above root)
-      renderWithRouter(<Link href="../parent">Parent</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', '/parent')
-    })
+    it("should handle paths with query strings", () => {
+      render(
+        <TestWrapper>
+          <Link href="/search?q=test">Search</Link>
+        </TestWrapper>
+      );
 
-    it('handles root-relative paths', () => {
-      renderWithRouter(<Link href="/absolute">Absolute</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', '/absolute')
-    })
+      expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
+        "href",
+        "/search?q=test"
+      );
+    });
 
-    it('handles mailto: links', () => {
-      renderWithRouter(<Link href="mailto:test@example.com">Email</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', 'mailto:test@example.com')
-    })
+    it("should handle paths with hash fragments", () => {
+      render(
+        <TestWrapper>
+          <Link href="/about#team">Team Section</Link>
+        </TestWrapper>
+      );
 
-    it('handles tel: links', () => {
-      renderWithRouter(<Link href="tel:+1234567890">Call</Link>)
-      expect(screen.getByRole('link')).toHaveAttribute('href', 'tel:+1234567890')
-    })
-  })
-})
+      expect(screen.getByRole("link", { name: "Team Section" })).toHaveAttribute(
+        "href",
+        "/about#team"
+      );
+    });
+  });
+
+  describe("external links", () => {
+    it("should open https:// links in new tab", () => {
+      render(
+        <TestWrapper>
+          <Link href="https://example.com">External Site</Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "External Site" });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    });
+
+    it("should open http:// links in new tab", () => {
+      render(
+        <TestWrapper>
+          <Link href="http://example.com">External HTTP</Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "External HTTP" });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    });
+
+    it("should open protocol-relative links (//) in new tab", () => {
+      render(
+        <TestWrapper>
+          <Link href="//cdn.example.com/resource">CDN Link</Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "CDN Link" });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    });
+
+    it("should allow custom target for external links", () => {
+      render(
+        <TestWrapper>
+          <Link href="https://example.com" target="_self">
+            Same Tab External
+          </Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "Same Tab External" });
+      expect(link).toHaveAttribute("target", "_self");
+    });
+
+    it("should allow custom rel for external links", () => {
+      render(
+        <TestWrapper>
+          <Link href="https://example.com" rel="sponsored">
+            Sponsored Link
+          </Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "Sponsored Link" });
+      expect(link).toHaveAttribute("rel", "sponsored");
+    });
+  });
+
+  describe("special protocols", () => {
+    it("should handle mailto: links without new tab behavior", () => {
+      render(
+        <TestWrapper>
+          <Link href="mailto:test@example.com">Email Us</Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "Email Us" });
+      expect(link).toHaveAttribute("href", "mailto:test@example.com");
+      expect(link).not.toHaveAttribute("target", "_blank");
+    });
+
+    it("should handle tel: links without new tab behavior", () => {
+      render(
+        <TestWrapper>
+          <Link href="tel:+1234567890">Call Us</Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "Call Us" });
+      expect(link).toHaveAttribute("href", "tel:+1234567890");
+      expect(link).not.toHaveAttribute("target", "_blank");
+    });
+  });
+
+  describe("accessibility", () => {
+    it("should be focusable via keyboard", async () => {
+      const user = userEvent.setup();
+
+      render(
+        <TestWrapper>
+          <Link href="/test">Keyboard Accessible</Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "Keyboard Accessible" });
+      await user.tab();
+      expect(link).toHaveFocus();
+    });
+
+    it("should have proper link role", () => {
+      render(
+        <TestWrapper>
+          <Link href="/test">Accessible Link</Link>
+        </TestWrapper>
+      );
+
+      expect(screen.getByRole("link", { name: "Accessible Link" })).toBeInTheDocument();
+    });
+
+    it("should support aria-label for icon-only links", () => {
+      render(
+        <TestWrapper>
+          <Link href="/settings" aria-label="Settings">
+            ⚙️
+          </Link>
+        </TestWrapper>
+      );
+
+      expect(screen.getByRole("link", { name: "Settings" })).toBeInTheDocument();
+    });
+
+    it("should support aria-describedby", () => {
+      render(
+        <TestWrapper>
+          <span id="description">Opens in a new window</span>
+          <Link href="https://example.com" aria-describedby="description">
+            External
+          </Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "External" });
+      expect(link).toHaveAttribute("aria-describedby", "description");
+    });
+  });
+
+  describe("click behavior", () => {
+    it("should be clickable", async () => {
+      const user = userEvent.setup();
+      const onClick = vi.fn();
+
+      render(
+        <TestWrapper>
+          <Link href="/test" onClick={onClick}>
+            Clickable
+          </Link>
+        </TestWrapper>
+      );
+
+      await user.click(screen.getByRole("link", { name: "Clickable" }));
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle Enter key press", async () => {
+      const user = userEvent.setup();
+      const onClick = vi.fn();
+
+      render(
+        <TestWrapper>
+          <Link href="/test" onClick={onClick}>
+            Enter Key
+          </Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link", { name: "Enter Key" });
+      link.focus();
+      await user.keyboard("{Enter}");
+      expect(onClick).toHaveBeenCalled();
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle empty string href", () => {
+      render(
+        <TestWrapper>
+          <Link href="">Empty Href</Link>
+        </TestWrapper>
+      );
+
+      // Empty href renders as an anchor but may not be treated as an accessible link
+      // This is expected browser behavior - empty hrefs are edge cases
+      expect(screen.getByText("Empty Href")).toBeInTheDocument();
+    });
+
+    it("should handle relative paths without leading slash", () => {
+      render(
+        <TestWrapper>
+          <Link href="relative/path">Relative Path</Link>
+        </TestWrapper>
+      );
+
+      expect(screen.getByRole("link", { name: "Relative Path" })).toHaveAttribute(
+        "href",
+        "/relative/path"
+      );
+    });
+
+    it("should preserve children content", () => {
+      render(
+        <TestWrapper>
+          <Link href="/test">
+            <span>Icon</span>
+            <span>Text</span>
+          </Link>
+        </TestWrapper>
+      );
+
+      const link = screen.getByRole("link");
+      expect(link).toHaveTextContent("IconText");
+    });
+  });
+});
+
+describe("isExternalUrl helper logic", () => {
+  // These tests verify the URL classification behavior through the Link component
+  
+  it("should classify https:// as external", () => {
+    render(
+      <TestWrapper>
+        <Link href="https://google.com">Google</Link>
+      </TestWrapper>
+    );
+    expect(screen.getByRole("link")).toHaveAttribute("target", "_blank");
+  });
+
+  it("should classify http:// as external", () => {
+    render(
+      <TestWrapper>
+        <Link href="http://example.org">Example</Link>
+      </TestWrapper>
+    );
+    expect(screen.getByRole("link")).toHaveAttribute("target", "_blank");
+  });
+
+  it("should classify // as external", () => {
+    render(
+      <TestWrapper>
+        <Link href="//cdn.example.com">CDN</Link>
+      </TestWrapper>
+    );
+    expect(screen.getByRole("link")).toHaveAttribute("target", "_blank");
+  });
+
+  it("should NOT classify /path as external", () => {
+    render(
+      <TestWrapper>
+        <Link href="/internal/path">Internal</Link>
+      </TestWrapper>
+    );
+    expect(screen.getByRole("link")).not.toHaveAttribute("target", "_blank");
+  });
+
+  it("should NOT classify relative paths as external", () => {
+    render(
+      <TestWrapper>
+        <Link href="./relative">Relative</Link>
+      </TestWrapper>
+    );
+    expect(screen.getByRole("link")).not.toHaveAttribute("target", "_blank");
+  });
+});
