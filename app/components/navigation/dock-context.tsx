@@ -1,12 +1,40 @@
 'use client'
 
-import { createContext, useContext, type ReactNode, type ElementType } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type ReactNode,
+  type ElementType,
+} from 'react'
 
 /**
  * DockContext - Context provider for contextual dock navigation
  * 
- * This is a stub placeholder. Implementation pending in Unit 7b.
- * Tests should FAIL until implementation is complete.
+ * Allows pages to register custom actions that replace the default
+ * navigation items in the dock. When a page unmounts, the dock
+ * automatically returns to default navigation.
+ * 
+ * ## Usage
+ * 
+ * ```tsx
+ * // In root layout
+ * <DockContextProvider>
+ *   <App />
+ * </DockContextProvider>
+ * 
+ * // In a page component
+ * function RecipeDetailPage() {
+ *   useDockActions([
+ *     { id: 'back', icon: ArrowLeft, label: 'Back', onAction: '/recipes', position: 'left' },
+ *     { id: 'edit', icon: Edit, label: 'Edit', onAction: handleEdit, position: 'right' },
+ *   ])
+ *   return <div>...</div>
+ * }
+ * ```
  */
 
 /** Action definition for contextual dock items */
@@ -48,19 +76,61 @@ export interface DockContextProviderProps {
   children: ReactNode
 }
 
-/** Provider component - STUB */
+/**
+ * Provider component that manages contextual dock state
+ */
 export function DockContextProvider({ children }: DockContextProviderProps) {
-  // STUB: No implementation yet - tests should fail
-  return <>{children}</>
+  const [actions, setActionsState] = useState<DockAction[] | null>(null)
+
+  const setActions = useCallback((newActions: DockAction[] | null) => {
+    setActionsState(newActions)
+  }, [])
+
+  const isContextual = actions !== null
+
+  const value = useMemo<DockContextValue>(
+    () => ({
+      actions,
+      setActions,
+      isContextual,
+    }),
+    [actions, setActions, isContextual]
+  )
+
+  return (
+    <DockContext.Provider value={value}>
+      {children}
+    </DockContext.Provider>
+  )
 }
 
-/** Hook to access dock context */
+/**
+ * Hook to access dock context
+ * @returns The dock context value
+ */
 export function useDockContext(): DockContextValue {
   const context = useContext(DockContext)
   return context
 }
 
-/** Hook to register contextual actions (for pages) */
-export function useDockActions(_actions: DockAction[] | null): void {
-  // STUB: No implementation yet
+/**
+ * Hook to register contextual actions (for pages)
+ * 
+ * Automatically registers actions on mount and clears them on unmount.
+ * Updates actions if the actions prop changes.
+ * 
+ * @param actions - Array of dock actions to register, or null to use default
+ */
+export function useDockActions(actions: DockAction[] | null): void {
+  const { setActions } = useDockContext()
+
+  useEffect(() => {
+    // Register actions on mount or when actions change
+    setActions(actions)
+
+    // Clear actions on unmount
+    return () => {
+      setActions(null)
+    }
+  }, [actions, setActions])
 }
