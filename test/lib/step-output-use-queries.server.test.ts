@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "~/lib/db.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { createTestUser, createTestRecipe, createStepDescription, createStepTitle } from "../utils";
-import { loadRecipeStepOutputUses } from "~/lib/step-output-use-queries.server";
+import { loadRecipeStepOutputUses, loadStepDependencies } from "~/lib/step-output-use-queries.server";
 
 describe("loadRecipeStepOutputUses", () => {
   let testUserId: string;
@@ -256,5 +256,309 @@ describe("loadRecipeStepOutputUses", () => {
     const result = await loadRecipeStepOutputUses("non-existent-recipe-id");
 
     expect(result).toEqual([]);
+  });
+});
+
+describe("loadStepDependencies", () => {
+  let testUserId: string;
+  let testRecipeId: string;
+
+  beforeEach(async () => {
+    await cleanupDatabase();
+
+    // Create test user
+    const user = await db.user.create({
+      data: createTestUser(),
+    });
+    testUserId = user.id;
+
+    // Create test recipe
+    const recipe = await db.recipe.create({
+      data: createTestRecipe(testUserId),
+    });
+    testRecipeId = recipe.id;
+  });
+
+  afterEach(async () => {
+    await cleanupDatabase();
+  });
+
+  it("should return empty array when step has no dependencies", async () => {
+    // Create a single step with no dependencies
+    await db.recipeStep.create({
+      data: {
+        recipeId: testRecipeId,
+        stepNum: 1,
+        stepTitle: createStepTitle(),
+        description: createStepDescription(),
+      },
+    });
+
+    const result = await loadStepDependencies(testRecipeId, 1);
+
+    expect(result).toEqual([]);
+  });
+
+  it("should return dependencies for a step that uses other steps", async () => {
+    // Create three steps
+    const step1Title = createStepTitle();
+    const step2Title = createStepTitle();
+    await db.recipeStep.createMany({
+      data: [
+        {
+          recipeId: testRecipeId,
+          stepNum: 1,
+          stepTitle: step1Title,
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 2,
+          stepTitle: step2Title,
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 3,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+      ],
+    });
+
+    // Step 3 uses outputs of step 1 and step 2
+    await db.stepOutputUse.createMany({
+      data: [
+        { recipeId: testRecipeId, outputStepNum: 1, inputStepNum: 3 },
+        { recipeId: testRecipeId, outputStepNum: 2, inputStepNum: 3 },
+      ],
+    });
+
+    const result = await loadStepDependencies(testRecipeId, 3);
+
+    expect(result).toHaveLength(2);
+    // Should be ordered by outputStepNum ascending
+    expect(result[0].outputStepNum).toBe(1);
+    expect(result[0].stepTitle).toBe(step1Title);
+    expect(result[1].outputStepNum).toBe(2);
+    expect(result[1].stepTitle).toBe(step2Title);
+  });
+
+  it("should return dependency with null stepTitle when source step has no title", async () => {
+    // Create two steps (step 1 has no title)
+    await db.recipeStep.createMany({
+      data: [
+        {
+          recipeId: testRecipeId,
+          stepNum: 1,
+          stepTitle: null,
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 2,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+      ],
+    });
+
+    // Step 2 uses output of step 1
+    await db.stepOutputUse.create({
+      data: {
+        recipeId: testRecipeId,
+        outputStepNum: 1,
+        inputStepNum: 2,
+      },
+    });
+
+    const result = await loadStepDependencies(testRecipeId, 2);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].outputStepNum).toBe(1);
+    expect(result[0].stepTitle).toBeNull();
+  });
+
+  it("should only return dependencies for the specified step, not other steps", async () => {
+    // Create three steps
+    await db.recipeStep.createMany({
+      data: [
+        {
+          recipeId: testRecipeId,
+          stepNum: 1,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 2,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 3,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+      ],
+    });
+
+    // Step 2 uses step 1, Step 3 uses step 1 and step 2
+    await db.stepOutputUse.createMany({
+      data: [
+        { recipeId: testRecipeId, outputStepNum: 1, inputStepNum: 2 },
+        { recipeId: testRecipeId, outputStepNum: 1, inputStepNum: 3 },
+        { recipeId: testRecipeId, outputStepNum: 2, inputStepNum: 3 },
+      ],
+    });
+
+    // Query for step 2's dependencies (should only get step 1)
+    const result = await loadStepDependencies(testRecipeId, 2);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].outputStepNum).toBe(1);
+  });
+
+  it("should return empty array for non-existent step", async () => {
+    // Create a step
+    await db.recipeStep.create({
+      data: {
+        recipeId: testRecipeId,
+        stepNum: 1,
+        stepTitle: createStepTitle(),
+        description: createStepDescription(),
+      },
+    });
+
+    // Query for a step that doesn't exist
+    const result = await loadStepDependencies(testRecipeId, 99);
+
+    expect(result).toEqual([]);
+  });
+
+  it("should return empty array for non-existent recipe", async () => {
+    const result = await loadStepDependencies("non-existent-recipe-id", 1);
+
+    expect(result).toEqual([]);
+  });
+
+  it("should only return dependencies from the specified recipe", async () => {
+    // Create steps for the test recipe
+    const step1Title = createStepTitle();
+    await db.recipeStep.createMany({
+      data: [
+        {
+          recipeId: testRecipeId,
+          stepNum: 1,
+          stepTitle: step1Title,
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 2,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+      ],
+    });
+
+    // Step 2 uses step 1
+    await db.stepOutputUse.create({
+      data: {
+        recipeId: testRecipeId,
+        outputStepNum: 1,
+        inputStepNum: 2,
+      },
+    });
+
+    // Create another recipe with the same step structure
+    const otherRecipe = await db.recipe.create({
+      data: createTestRecipe(testUserId),
+    });
+    await db.recipeStep.createMany({
+      data: [
+        {
+          recipeId: otherRecipe.id,
+          stepNum: 1,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+        {
+          recipeId: otherRecipe.id,
+          stepNum: 2,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+      ],
+    });
+    await db.stepOutputUse.create({
+      data: {
+        recipeId: otherRecipe.id,
+        outputStepNum: 1,
+        inputStepNum: 2,
+      },
+    });
+
+    // Query for test recipe's step 2
+    const result = await loadStepDependencies(testRecipeId, 2);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].stepTitle).toBe(step1Title);
+  });
+
+  it("should return dependencies ordered by outputStepNum ascending", async () => {
+    // Create four steps
+    const step1Title = createStepTitle();
+    const step2Title = createStepTitle();
+    const step3Title = createStepTitle();
+    await db.recipeStep.createMany({
+      data: [
+        {
+          recipeId: testRecipeId,
+          stepNum: 1,
+          stepTitle: step1Title,
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 2,
+          stepTitle: step2Title,
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 3,
+          stepTitle: step3Title,
+          description: createStepDescription(),
+        },
+        {
+          recipeId: testRecipeId,
+          stepNum: 4,
+          stepTitle: createStepTitle(),
+          description: createStepDescription(),
+        },
+      ],
+    });
+
+    // Step 4 uses step 3, then step 1, then step 2 (created in non-ascending order)
+    await db.stepOutputUse.createMany({
+      data: [
+        { recipeId: testRecipeId, outputStepNum: 3, inputStepNum: 4 },
+        { recipeId: testRecipeId, outputStepNum: 1, inputStepNum: 4 },
+        { recipeId: testRecipeId, outputStepNum: 2, inputStepNum: 4 },
+      ],
+    });
+
+    const result = await loadStepDependencies(testRecipeId, 4);
+
+    expect(result).toHaveLength(3);
+    // Should be ordered by outputStepNum ascending regardless of creation order
+    expect(result[0].outputStepNum).toBe(1);
+    expect(result[0].stepTitle).toBe(step1Title);
+    expect(result[1].outputStepNum).toBe(2);
+    expect(result[1].stepTitle).toBe(step2Title);
+    expect(result[2].outputStepNum).toBe(3);
+    expect(result[2].stepTitle).toBe(step3Title);
   });
 });
