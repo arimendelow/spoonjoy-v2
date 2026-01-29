@@ -243,6 +243,150 @@ Our v2 also uses this pattern (composite keys with recipeId + stepNum), not sepa
 
 ---
 
+## Unit 0.3: StepOutputUse Schema Analysis
+
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Model Definition (prisma/schema.prisma:109-123)
+
+```prisma
+/// Allow a step to refer to the output of another step. AKA, in step 3, use the outputs from step 1 and 2
+model StepOutputUse {
+  id            String     @id @default(cuid())
+  recipeId      String
+  outputStepNum Int
+  outputOfStep  RecipeStep @relation(name: "output", fields: [recipeId, outputStepNum], references: [recipeId, stepNum], onDelete: Cascade)
+  inputStepNum  Int
+  inputOfStep   RecipeStep @relation(name: "input", fields: [recipeId, inputStepNum], references: [recipeId, stepNum], onDelete: Cascade)
+
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([recipeId, outputStepNum, inputStepNum])
+  @@index([recipeId, outputStepNum, inputStepNum])
+  @@index([recipeId, outputStepNum])
+  @@index([recipeId, inputStepNum])
+}
+```
+
+### Fields and Types
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `String` | Primary key, auto-generated CUID |
+| `recipeId` | `String` | Foreign key to Recipe (shared across both step relations) |
+| `outputStepNum` | `Int` | Step number of the step **producing** the output |
+| `inputStepNum` | `Int` | Step number of the step **consuming** the output |
+| `updatedAt` | `DateTime` | Auto-updated timestamp |
+
+### Relations
+
+#### To RecipeStep (Two Relations)
+
+The model has **two distinct relations** to RecipeStep, both using composite keys:
+
+1. **`outputOfStep`** (relation name: `"output"`)
+   - Points to the step that **produces** the output
+   - Composite FK: `[recipeId, outputStepNum]` → `[recipeId, stepNum]`
+   - Corresponding inverse: `RecipeStep.usedBySteps`
+
+2. **`inputOfStep`** (relation name: `"input"`)
+   - Points to the step that **uses/consumes** the output
+   - Composite FK: `[recipeId, inputStepNum]` → `[recipeId, stepNum]`
+   - Corresponding inverse: `RecipeStep.usingSteps`
+
+#### RecipeStep Inverse Relations (schema.prisma:99-100)
+
+```prisma
+model RecipeStep {
+  // ...
+  usingSteps  StepOutputUse[] @relation("input")   // Steps THIS step uses
+  usedBySteps StepOutputUse[] @relation("output")  // Steps that use THIS step's output
+}
+```
+
+### Key Terminology Clarification
+
+This is critical for understanding the data flow:
+
+| Term | Meaning | Example |
+|------|---------|---------|
+| `outputStepNum` | The step that **PRODUCES** something | Step 1 cooks the dal |
+| `inputStepNum` | The step that **USES** the output | Step 2 blends the cooked dal |
+| `outputOfStep` | Relation to the **source/producer** step | Points to Step 1 |
+| `inputOfStep` | Relation to the **consumer** step | Points to Step 2 |
+
+**Example**: "Step 2 uses the output of Step 1"
+- `recipeId`: the recipe ID
+- `outputStepNum`: 1 (Step 1 is the producer)
+- `inputStepNum`: 2 (Step 2 is the consumer)
+
+### Composite Keys and Constraints
+
+#### Unique Constraint
+```prisma
+@@unique([recipeId, outputStepNum, inputStepNum])
+```
+Ensures each (recipe, source step, consuming step) combination exists only once. A step cannot declare it uses the same step's output multiple times.
+
+#### Indexes for Query Performance
+```prisma
+@@index([recipeId, outputStepNum, inputStepNum])  // Full composite lookup
+@@index([recipeId, outputStepNum])                // "What steps use this step's output?"
+@@index([recipeId, inputStepNum])                 // "What steps does this step depend on?"
+```
+
+### Cascade Behavior
+
+Both relations have `onDelete: Cascade`:
+- When a RecipeStep is deleted, all StepOutputUse records referencing it (as either source or consumer) are automatically deleted
+- This applies whether the step is the producer OR the consumer
+
+**Important for UI**: The planning doc says "Block step deletion if used by another step" - this is a **UI-level validation**, not enforced at the database level. The database allows cascade deletion, but the UI should warn/prevent.
+
+### No Direct Recipe Relation
+
+Note: There is no direct `@relation` to Recipe, only through RecipeStep. The `recipeId` field exists to form composite foreign keys but doesn't have a `recipe Recipe @relation(...)` line.
+
+### Validation Rules (UI Level, Not Schema)
+
+These must be enforced in application code:
+
+1. **Forward references only**: `outputStepNum < inputStepNum` (can only reference previous steps)
+2. **No self-reference**: `outputStepNum !== inputStepNum` (can't use your own output)
+3. **Same recipe**: Both steps must be in the same recipe (enforced by composite key structure)
+
+### Query Patterns
+
+**Get all steps that Step 3 depends on:**
+```ts
+const dependencies = await db.stepOutputUse.findMany({
+  where: { recipeId, inputStepNum: 3 },
+  include: { outputOfStep: true }
+});
+```
+
+**Get all steps that depend on Step 1's output:**
+```ts
+const dependents = await db.stepOutputUse.findMany({
+  where: { recipeId, outputStepNum: 1 },
+  include: { inputOfStep: true }
+});
+```
+
+**Get a step with its dependencies and dependents:**
+```ts
+const step = await db.recipeStep.findUnique({
+  where: { recipeId_stepNum: { recipeId, stepNum: 2 } },
+  include: {
+    usingSteps: { include: { outputOfStep: true } },   // What this step uses
+    usedBySteps: { include: { inputOfStep: true } }    // What uses this step
+  }
+});
+```
+
+---
+
 ## Future Units
 
 (Notes will be added as units are completed)
