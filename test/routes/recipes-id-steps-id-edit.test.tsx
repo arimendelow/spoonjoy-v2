@@ -1105,6 +1105,181 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         });
         expect(stepOutputUses).toHaveLength(0);
       });
+
+      it("should return validation error when selecting current step (self-reference)", async () => {
+        // Create step 2
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "Valid description",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [2] // Self-reference - invalid
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe("Cannot reference the current step");
+      });
+
+      it("should return validation error when selecting future step (forward reference)", async () => {
+        // Create steps 2 and 3
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 3,
+            description: "Third step",
+          },
+        });
+
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "Valid description",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [3] // Forward reference - invalid
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe("Can only reference previous steps");
+      });
+
+      it("should return validation error with multiple invalid step references", async () => {
+        // Create steps 2 and 3
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 3,
+            description: "Third step",
+          },
+        });
+
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "Valid description",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [2, 3] // Both self-reference and forward reference - both invalid
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        // Should show the first error encountered
+        expect(data.errors.usesSteps).toBeTruthy();
+      });
+
+      it("should return validation error for invalid step number (zero)", async () => {
+        // Create step 2
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "Valid description",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [0] // Zero is invalid
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe("Invalid step number");
+      });
+
+      it("should return validation error for negative step number", async () => {
+        // Create step 2
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "Valid description",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [-1] // Negative is invalid
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe("Invalid step number");
+      });
     });
 
     describe("addIngredient intent", () => {
@@ -2353,6 +2528,147 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
         expect(listboxButton).toHaveTextContent("Step 1: First step");
         expect(listboxButton).toHaveTextContent("Step 2: Second step");
+      });
+
+      it("should display validation error for usesSteps when present", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-2",
+            stepNum: 2,
+            stepTitle: null,
+            description: "Second step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "First step" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => ({
+              errors: { usesSteps: "Cannot reference the current step" },
+            }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 2/i });
+
+        // Submit the form to trigger action
+        const saveButton = screen.getByRole("button", { name: "Save Changes" });
+        await act(async () => {
+          fireEvent.click(saveButton);
+        });
+
+        // Wait for error message to appear
+        await waitFor(() => {
+          expect(screen.getByText("Cannot reference the current step")).toBeInTheDocument();
+        });
+      });
+
+      it("should display multiple validation errors for usesSteps", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-2",
+            stepNum: 2,
+            stepTitle: null,
+            description: "Second step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "First step" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => ({
+              errors: { usesSteps: "Invalid step number" },
+            }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 2/i });
+
+        // Submit the form to trigger action
+        const saveButton = screen.getByRole("button", { name: "Save Changes" });
+        await act(async () => {
+          fireEvent.click(saveButton);
+        });
+
+        // Wait for error message to appear
+        await waitFor(() => {
+          expect(screen.getByText("Invalid step number")).toBeInTheDocument();
+        });
+      });
+
+      it("should position usesSteps error near the Uses Output From section", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-2",
+            stepNum: 2,
+            stepTitle: null,
+            description: "Second step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "First step" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => ({
+              errors: { usesSteps: "Can only reference previous steps" },
+            }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 2/i });
+
+        // Submit the form to trigger action
+        const saveButton = screen.getByRole("button", { name: "Save Changes" });
+        await act(async () => {
+          fireEvent.click(saveButton);
+        });
+
+        // Wait for error message to appear
+        await waitFor(() => {
+          const errorElement = screen.getByText("Can only reference previous steps");
+          expect(errorElement).toBeInTheDocument();
+          // Error should have the correct error styling (red text)
+          expect(errorElement).toHaveClass("text-red-600");
+        });
       });
     });
   });
