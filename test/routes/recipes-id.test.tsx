@@ -989,6 +989,46 @@ describe("Recipes $id Route", () => {
       expect(screen.queryByText("Using outputs from")).not.toBeInTheDocument();
     });
 
+    it("should handle step with undefined usingSteps (nullish coalescing)", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe with Undefined UsingSteps",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Step with no usingSteps property",
+              description: "This step has usingSteps as undefined",
+              ingredients: [],
+              // Note: usingSteps is intentionally omitted to test the ?? [] fallback
+            },
+          ],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Recipe should render successfully despite undefined usingSteps
+      expect(await screen.findByText("Recipe with Undefined UsingSteps")).toBeInTheDocument();
+      expect(screen.getByText("This step has usingSteps as undefined")).toBeInTheDocument();
+      // "Using outputs from" section should not be present since usingSteps defaults to []
+      expect(screen.queryByText("Using outputs from")).not.toBeInTheDocument();
+    });
+
     it("should render single-step recipe as owner with edit controls", async () => {
       const mockData = {
         recipe: {
