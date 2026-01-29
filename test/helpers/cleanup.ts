@@ -13,6 +13,7 @@ export async function cleanupDatabase() {
 
   await db.shoppingListItem.deleteMany({});
   await db.shoppingList.deleteMany({});
+  await db.stepOutputUse.deleteMany({});
   await db.ingredient.deleteMany({});
   await db.recipeStep.deleteMany({});
   await db.recipeInCookbook.deleteMany({});
