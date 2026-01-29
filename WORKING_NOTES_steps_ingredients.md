@@ -1647,6 +1647,420 @@ The current implementation is already well-optimized. No code changes were requi
 
 ---
 
-## Future Units
+## Unit 6.8: Documentation & Examples
 
-(Notes will be added as units are completed)
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Feature Overview
+
+The **stepOutputUse** feature allows recipe steps to declare dependencies on the output of previous steps. For example, in a hummus recipe:
+- Step 1: Cook chickpeas
+- Step 2: Blend chickpeas (uses output from Step 1)
+- Step 3: Add tahini and mix (uses output from Step 2)
+
+This creates a clear dependency chain that:
+1. Documents the workflow for users following the recipe
+2. Prevents accidental deletion of steps that other steps depend on
+3. Prevents step reordering that would break dependency chains
+
+---
+
+### Database Schema
+
+**Model**: `StepOutputUse` (prisma/schema.prisma:109-123)
+
+```prisma
+model StepOutputUse {
+  id            String     @id @default(cuid())
+  recipeId      String
+  outputStepNum Int        // Step that PRODUCES the output
+  outputOfStep  RecipeStep @relation(name: "output", ...)
+  inputStepNum  Int        // Step that USES the output
+  inputOfStep   RecipeStep @relation(name: "input", ...)
+  updatedAt     DateTime   @default(now()) @updatedAt
+
+  @@unique([recipeId, outputStepNum, inputStepNum])
+  @@index([recipeId, outputStepNum, inputStepNum])
+  @@index([recipeId, outputStepNum])
+  @@index([recipeId, inputStepNum])
+}
+```
+
+**Terminology**:
+| Term | Meaning | Example |
+|------|---------|---------|
+| `outputStepNum` | Step that PRODUCES output | Step 1 (cooks chickpeas) |
+| `inputStepNum` | Step that USES output | Step 2 (blends chickpeas) |
+| `outputOfStep` | Relation to producer step | RecipeStep with stepNum=1 |
+| `inputOfStep` | Relation to consumer step | RecipeStep with stepNum=2 |
+
+**RecipeStep inverse relations**:
+```prisma
+model RecipeStep {
+  usingSteps  StepOutputUse[] @relation("input")   // Steps THIS step uses
+  usedBySteps StepOutputUse[] @relation("output")  // Steps that use THIS step
+}
+```
+
+---
+
+### Validation Rules
+
+#### 1. Forward References Only
+**Rule**: `outputStepNum < inputStepNum`
+
+Steps can only reference **previous** steps. Step 3 can use outputs from Steps 1 or 2, but not Step 4.
+
+**Implementation**: `app/lib/validation.ts`
+```typescript
+export function validateStepReference(
+  outputStepNum: number,
+  inputStepNum: number
+): ValidationResult {
+  if (!Number.isInteger(outputStepNum) || outputStepNum < 1) {
+    return { valid: false, error: "Invalid step number" };
+  }
+  if (outputStepNum >= inputStepNum) {
+    return { valid: false, error: "Can only reference previous steps" };
+  }
+  return { valid: true };
+}
+```
+
+#### 2. Deletion Protection
+**Rule**: Cannot delete a step if other steps depend on its output.
+
+**Implementation**: `app/lib/step-deletion-validation.server.ts`
+```typescript
+export async function validateStepDeletion(
+  recipeId: string,
+  stepNum: number
+): Promise<ValidationResult> {
+  const usedBy = await checkStepUsage(recipeId, stepNum);
+  if (usedBy.length === 0) {
+    return { valid: true };
+  }
+  // Returns error listing dependent steps
+  return {
+    valid: false,
+    error: `Cannot delete Step ${stepNum} because it is used by ${formatStepList(usedBy)}`,
+  };
+}
+```
+
+**Error messages**:
+- "Cannot delete Step 1 because it is used by Step 2"
+- "Cannot delete Step 1 because it is used by Steps 2 and 3"
+- "Cannot delete Step 1 because it is used by Steps 2, 3, and 4"
+
+#### 3. Reorder Protection
+**Rule**: Cannot reorder steps if it would break dependency chains.
+
+Two directions validated:
+
+1. **Incoming dependencies**: Can't move a step forward past steps that depend on it
+2. **Outgoing dependencies**: Can't move a step backward before its dependencies
+
+**Implementation**: `app/lib/step-reorder-validation.server.ts`
+```typescript
+// Validates both directions in parallel
+export async function validateStepReorderComplete(
+  recipeId: string,
+  currentStepNum: number,
+  newPosition: number
+): Promise<ValidationResult> {
+  const [incomingResult, outgoingResult] = await Promise.all([
+    validateStepReorder(recipeId, currentStepNum, newPosition),      // Incoming
+    validateStepReorderOutgoing(recipeId, currentStepNum, newPosition), // Outgoing
+  ]);
+  // Combines errors if both fail
+}
+```
+
+**Error messages**:
+- "Cannot move Step 1 to position 3 because Steps 2 and 3 use its output"
+- "Cannot move Step 3 to position 1 because it uses output from Steps 1 and 2"
+
+---
+
+### UI Components
+
+#### StepOutputUseDisplay (Read-Only Display)
+**Location**: `app/components/StepOutputUseDisplay.tsx`
+
+Displays step dependencies in the recipe detail view.
+
+```tsx
+<StepOutputUseDisplay usingSteps={step.usingSteps ?? []} />
+```
+
+**Rendering**:
+- Only renders if `usingSteps` array is non-empty
+- Displays as gray box with bullet list (matches ingredients styling)
+- Format: "output of step X: [title]" or "output of step X" if no title
+
+**Example output**:
+```
+Using outputs from:
+• output of step 1: Cook chickpeas
+• output of step 2: Blend mixture
+```
+
+#### Multi-Select Listbox (Editing)
+**Location**: `app/components/ui/listbox.tsx`
+
+Used in step create/edit forms to select previous steps.
+
+```tsx
+<Listbox
+  name="usesSteps"
+  multiple={true}
+  value={selectedSteps}
+  onChange={setSelectedSteps}
+  aria-label="Select previous steps"
+  placeholder="Select previous steps (optional)"
+>
+  {availableSteps.map((step) => (
+    <ListboxOption key={step.stepNum} value={step.stepNum}>
+      <ListboxLabel>
+        Step {step.stepNum}{step.stepTitle ? `: ${step.stepTitle}` : ""}
+      </ListboxLabel>
+    </ListboxOption>
+  ))}
+</Listbox>
+```
+
+**Key features**:
+- `multiple={true}` enables checkbox-style selection
+- Dropdown stays open after selecting (unlike single-select)
+- Selected items display comma-separated in button
+- Form submission creates hidden inputs: `usesSteps[0]`, `usesSteps[1]`, etc.
+
+---
+
+### Route Integration
+
+#### Create Step (`app/routes/recipes.$id.steps.new.tsx`)
+
+**Loader**:
+- Calculates `nextStepNum` (max existing + 1, or 1 if no steps)
+- Loads `availableSteps` only if `nextStepNum > 1` (first step can't have dependencies)
+
+**Action**:
+1. Validates step title and description
+2. Parses `usesSteps` form data (array of step numbers)
+3. Validates each selected step via `validateStepReference()`
+4. Creates `RecipeStep`
+5. Creates `StepOutputUse` records for selected steps
+6. Redirects to edit step page
+
+**UI**:
+- "Uses Output From" field hidden for first step
+- Multi-select Listbox shows all previous steps
+
+#### Edit Step (`app/routes/recipes.$id.steps.$stepId.edit.tsx`)
+
+**Loader**:
+- Loads step with `usingSteps` relation (current dependencies)
+- Loads `availableSteps` (steps with stepNum < current)
+
+**Action (default intent)**:
+1. Updates step title and description
+2. Deletes existing `StepOutputUse` records (replace pattern)
+3. Creates new `StepOutputUse` records for selected steps
+
+**Action (delete intent)**:
+1. Validates deletion via `validateStepDeletion()`
+2. Returns error if other steps depend on this one
+3. Deletes step if validation passes (CASCADE handles cleanup)
+
+**UI**:
+- Listbox initializes with current dependencies
+- Delete button shows error feedback if deletion blocked
+
+#### Edit Recipe — Step Reorder (`app/routes/recipes.$id.edit.tsx`)
+
+**Action (reorderStep intent)**:
+1. Validates reorder via `validateStepReorderComplete()`
+2. Returns error if reorder would break dependencies
+3. Performs three-step swap using temp stepNum
+4. SQLite `ON UPDATE CASCADE` automatically updates `StepOutputUse` references
+
+---
+
+### Server-Side Functions
+
+#### Query Functions (`app/lib/step-output-use-queries.server.ts`)
+
+```typescript
+// Load all dependencies for a recipe (for display)
+loadRecipeStepOutputUses(recipeId: string)
+
+// Load what steps a given step depends on (for editing)
+loadStepDependencies(recipeId: string, stepNum: number)
+
+// Check what steps depend on a given step (for deletion validation)
+checkStepUsage(recipeId: string, stepNum: number)
+```
+
+#### Mutation Functions (`app/lib/step-output-use-mutations.server.ts`)
+
+```typescript
+// Delete all dependencies for a step (before update)
+deleteExistingStepOutputUses(recipeId: string, inputStepNum: number)
+
+// Batch create dependencies
+createStepOutputUses(recipeId: string, inputStepNum: number, outputStepNums: number[])
+```
+
+---
+
+### Usage Examples
+
+#### Example 1: Creating a Recipe with Dependencies
+
+```
+1. Create recipe "Israeli Hummus"
+
+2. Add Step 1: "Cook chickpeas"
+   - Description: "Boil chickpeas with baking soda until soft"
+   - No dependencies (first step)
+
+3. Add Step 2: "Blend chickpeas"
+   - Description: "Process in food processor until smooth"
+   - Uses: Step 1 ✓
+
+4. Add Step 3: "Add tahini"
+   - Description: "Stream in tahini and water while blending"
+   - Uses: Step 2 ✓
+```
+
+**Resulting StepOutputUse records**:
+| recipeId | outputStepNum | inputStepNum |
+|----------|---------------|--------------|
+| hummus-1 | 1 | 2 |
+| hummus-1 | 2 | 3 |
+
+#### Example 2: Attempting Invalid Operations
+
+**Deleting Step 1**:
+```
+User clicks "Delete Step" on Step 1
+→ System checks: Steps 2 depends on Step 1
+→ Error: "Cannot delete Step 1 because it is used by Step 2"
+→ Step not deleted
+```
+
+**Moving Step 1 to position 3**:
+```
+User clicks "Move Down" twice on Step 1
+→ System checks: Would pass Steps 2 and 3
+→ Step 2 uses Step 1's output
+→ Error: "Cannot move Step 1 to position 3 because Step 2 uses its output"
+→ Step not moved
+```
+
+**Moving Step 3 to position 1**:
+```
+User clicks "Move Up" twice on Step 3
+→ System checks: Step 3 depends on Step 2
+→ Would move before its dependency
+→ Error: "Cannot move Step 3 to position 1 because it uses output from Step 2"
+→ Step not moved
+```
+
+#### Example 3: Editing Dependencies
+
+```
+User editing Step 3 (currently uses Step 2)
+→ Listbox shows: [Step 1, Step 2] with Step 2 selected
+→ User selects Step 1 additionally
+→ Form submits: usesSteps=[1, 2]
+→ Action:
+   1. Deletes existing: StepOutputUse where inputStepNum=3
+   2. Creates new: StepOutputUse(1→3), StepOutputUse(2→3)
+→ Step 3 now uses outputs from both Steps 1 and 2
+```
+
+---
+
+### Display Order in Recipe Detail
+
+For each step in the recipe detail view:
+
+```
+1. Step number badge (blue circle)
+2. Step title (optional)
+3. Step Output Uses (via StepOutputUseDisplay) ← NEW
+4. Description
+5. Ingredients list
+```
+
+The step output uses section only appears if the step has dependencies.
+
+---
+
+### Testing Coverage
+
+| Test File | Purpose |
+|-----------|---------|
+| `test/routes/edit-dependencies-e2e.test.tsx` | E2E tests for editing dependencies |
+| `test/routes/step-deletion-protection-e2e.test.tsx` | Deletion protection tests |
+| `test/routes/step-reorder-protection-e2e.test.tsx` | Reorder protection tests |
+| `test/routes/recipes-id-steps-new.test.tsx` | New step creation with dependencies |
+| `test/routes/recipes-id-steps-id-edit.test.tsx` | Edit step with dependencies |
+| `test/routes/recipe-with-dependencies-e2e.test.tsx` | Full recipe workflow |
+| `test/lib/validation.test.ts` | `validateStepReference()` function |
+| `test/lib/step-deletion-validation.test.ts` | Deletion validation |
+| `test/lib/step-reorder-validation.test.ts` | Reorder validation |
+
+All tests achieve **100% coverage** with **zero warnings**.
+
+---
+
+### Performance Characteristics
+
+**Optimizations implemented**:
+1. **Proper indexes**: All query patterns have matching database indexes
+2. **No N+1 queries**: All use Prisma `include` for eager loading
+3. **Batch operations**: Uses `createMany`, `deleteMany` for bulk operations
+4. **Parallel validation**: `validateStepReorderComplete()` runs both checks via `Promise.all()`
+5. **Conditional loading**: Loaders only fetch `availableSteps` when needed
+
+**Data volume expectations**:
+- Typical recipes: 5-20 steps
+- StepOutputUse records per recipe: < 50
+- No performance concerns at expected volumes
+
+---
+
+### Implementation Files Summary
+
+| File | Purpose |
+|------|---------|
+| `prisma/schema.prisma` | StepOutputUse model definition |
+| `app/lib/validation.ts` | `validateStepReference()` function |
+| `app/lib/step-deletion-validation.server.ts` | Deletion validation |
+| `app/lib/step-reorder-validation.server.ts` | Reorder validation |
+| `app/lib/step-output-use-queries.server.ts` | Query functions |
+| `app/lib/step-output-use-mutations.server.ts` | Mutation functions |
+| `app/components/StepOutputUseDisplay.tsx` | Read-only display component |
+| `app/components/ui/listbox.tsx` | Multi-select UI component |
+| `app/routes/recipes.$id.tsx` | Recipe detail (display) |
+| `app/routes/recipes.$id.steps.new.tsx` | Create step (with dependencies) |
+| `app/routes/recipes.$id.steps.$stepId.edit.tsx` | Edit step (with dependencies) |
+| `app/routes/recipes.$id.edit.tsx` | Recipe edit (step reordering) |
+
+---
+
+## Feature Complete
+
+The stepOutputUse feature is fully implemented with:
+- ✅ Database schema with proper relations and indexes
+- ✅ Validation rules (forward-only, deletion protection, reorder protection)
+- ✅ UI components (display and editing)
+- ✅ Route integration (create, edit, delete, reorder)
+- ✅ Comprehensive test coverage (100%)
+- ✅ Performance optimization
+- ✅ Documentation
