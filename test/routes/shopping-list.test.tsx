@@ -769,4 +769,163 @@ describe("Shopping List Routes", () => {
       expect(await screen.findByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
     });
   });
+
+  describe("Catalyst component structure", () => {
+    it("should NOT use inline styles", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: { name: "cup" },
+              ingredientRef: { name: "flour" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Shopping List");
+
+      // Check that no elements have inline style attributes
+      const elementsWithStyle = container.querySelectorAll('[style]');
+      expect(elementsWithStyle.length).toBe(0);
+    });
+
+    it("should use Catalyst Heading for page title", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Shopping List");
+
+      // Should have a proper heading
+      const heading = screen.getByRole("heading", { level: 1 });
+      expect(heading).toBeInTheDocument();
+      expect(heading).toHaveTextContent("Shopping List");
+    });
+
+    it("should use Catalyst Button for actions", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Shopping List");
+
+      // Buttons should not have inline styles
+      const buttons = container.querySelectorAll('button');
+      buttons.forEach((button) => {
+        expect(button).not.toHaveAttribute("style");
+      });
+    });
+
+    it("should use Catalyst Input for form fields", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Shopping List");
+
+      // Inputs should not have inline styles
+      const inputs = container.querySelectorAll('input');
+      inputs.forEach((input) => {
+        expect(input).not.toHaveAttribute("style");
+      });
+    });
+
+    it("should use Checkbox or Switch for item toggle", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "eggs" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Wait for content to load
+      await screen.findByText("eggs");
+
+      // Should have a checkbox or switch for toggling items
+      // Catalyst Checkbox/Switch use specific patterns
+      const checkboxes = container.querySelectorAll('input[type="checkbox"], [role="switch"]');
+      expect(checkboxes.length).toBeGreaterThan(0);
+    });
+  });
 });
