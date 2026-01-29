@@ -171,3 +171,38 @@ export function validateImageUrl(url: string | null): ValidationResult {
     return { valid: false, error: 'Please enter a valid URL' }
   }
 }
+
+/**
+ * Validates a step reference (step output use).
+ * Enforces that steps can only reference previous steps.
+ * - outputStepNum: the step producing the output (must be a previous step)
+ * - inputStepNum: the step using the output (current step)
+ * - Both must be positive integers
+ * - outputStepNum must be less than inputStepNum (previous steps only)
+ */
+export function validateStepReference(
+  outputStepNum: number,
+  inputStepNum: number
+): ValidationResult {
+  // Validate both step numbers are positive integers
+  if (
+    !Number.isInteger(outputStepNum) ||
+    !Number.isInteger(inputStepNum) ||
+    outputStepNum < 1 ||
+    inputStepNum < 1
+  ) {
+    return { valid: false, error: 'Invalid step number' }
+  }
+
+  // Check for self-reference
+  if (outputStepNum === inputStepNum) {
+    return { valid: false, error: 'Cannot reference the current step' }
+  }
+
+  // Check for forward reference (can only reference previous steps)
+  if (outputStepNum > inputStepNum) {
+    return { valid: false, error: 'Can only reference previous steps' }
+  }
+
+  return { valid: true }
+}
