@@ -73,6 +73,14 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
           ingredientRef: true,
         },
       },
+      usingSteps: {
+        include: {
+          outputOfStep: {
+            select: { stepNum: true, stepTitle: true },
+          },
+        },
+        orderBy: { outputStepNum: "asc" },
+      },
     },
   });
 
@@ -80,7 +88,20 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     throw new Response("Step not found", { status: 404 });
   }
 
-  return { recipe, step };
+  // Get available steps (all steps with stepNum < current step's stepNum)
+  const availableSteps = await database.recipeStep.findMany({
+    where: {
+      recipeId: id,
+      stepNum: { lt: step.stepNum },
+    },
+    select: {
+      stepNum: true,
+      stepTitle: true,
+    },
+    orderBy: { stepNum: "asc" },
+  });
+
+  return { recipe, step, availableSteps };
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
