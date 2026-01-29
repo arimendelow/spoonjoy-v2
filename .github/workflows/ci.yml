@@ -31,6 +31,11 @@ jobs:
         env:
           DATABASE_URL: file:./test.db
       
+      - name: 🌱 Seed test database
+        run: npm run db:seed
+        env:
+          DATABASE_URL: file:./test.db
+      
       - name: 🧪 Test & Coverage
         run: npm run test:coverage
         env:
