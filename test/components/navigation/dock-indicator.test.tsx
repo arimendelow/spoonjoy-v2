@@ -64,16 +64,17 @@ describe('DockIndicator', () => {
       const { rerender } = render(<DockIndicator activeIndex={0} itemCount={4} />)
       
       const indicatorAtFirst = screen.getByTestId('dock-indicator')
-      const firstStyle = indicatorAtFirst.getAttribute('style') || indicatorAtFirst.className
+      const firstIndex = indicatorAtFirst.getAttribute('data-active-index')
 
       rerender(<DockIndicator activeIndex={2} itemCount={4} />)
       
       const indicatorAtThird = screen.getByTestId('dock-indicator')
-      const thirdStyle = indicatorAtThird.getAttribute('style') || indicatorAtThird.className
+      const thirdIndex = indicatorAtThird.getAttribute('data-active-index')
       
-      // Position or style should change based on activeIndex
-      // Either through CSS class or inline style
-      expect(firstStyle).not.toBe(thirdStyle)
+      // Active index should change, which drives the position animation
+      expect(firstIndex).toBe('0')
+      expect(thirdIndex).toBe('2')
+      expect(firstIndex).not.toBe(thirdIndex)
     })
   })
 

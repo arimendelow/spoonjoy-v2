@@ -1,8 +1,12 @@
 import type { Route } from "./+types/_index";
-import { Link, useLoaderData, Form } from "react-router";
+import { Form, useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { getUserId } from "~/lib/session.server";
 import { getUserById } from "~/lib/auth.server";
+import { Heading, Subheading } from "~/components/ui/heading";
+import { Text, Strong } from "~/components/ui/text";
+import { Button } from "~/components/ui/button";
+import { Link } from "~/components/ui/link";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -32,191 +36,143 @@ export default function Index() {
 
   if (!user) {
     return (
-      <div
-        style={{
-          fontFamily: "system-ui, sans-serif",
-          lineHeight: "1.8",
-          padding: "2rem",
-          maxWidth: "800px",
-          margin: "0 auto",
-        }}
-      >
-        <h1>Welcome to Spoonjoy v2</h1>
-        <p style={{ fontSize: "1.125rem", color: "#666" }}>
+      <div className="max-w-2xl mx-auto px-4 py-8 sm:py-16">
+        <Heading level={1}>Welcome to Spoonjoy v2</Heading>
+        <Text className="mt-2">
           Your personal recipe management system
-        </p>
+        </Text>
 
-        <div
-          style={{
-            marginTop: "3rem",
-            padding: "2rem",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "8px",
-          }}
-        >
-          <h2>Get Started</h2>
-          <p style={{ marginBottom: "1.5rem" }}>
+        <div className="mt-8 rounded-lg bg-zinc-50 p-6 dark:bg-zinc-800/50">
+          <Subheading level={2}>Get Started</Subheading>
+          <Text className="mt-2">
             Sign up or log in to start managing your recipes
-          </p>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <Link
-              to="/signup"
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#0066cc",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-              }}
-            >
+          </Text>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button href="/signup" color="blue">
               Sign Up
-            </Link>
-            <Link
-              to="/login"
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "white",
-                color: "#0066cc",
-                textDecoration: "none",
-                borderRadius: "4px",
-                border: "1px solid #0066cc",
-              }}
-            >
+            </Button>
+            <Button href="/login" outline>
               Log In
-            </Link>
+            </Button>
           </div>
         </div>
 
-        <div style={{ marginTop: "2rem", fontSize: "0.875rem", color: "#888" }}>
-          <p>Built with React Router v7 on Cloudflare</p>
-        </div>
+        <Text className="mt-6 text-sm text-zinc-400 dark:text-zinc-500">
+          Built with React Router v7 on Cloudflare
+        </Text>
       </div>
     );
   }
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-          <div>
-            <h1>Welcome to Spoonjoy v2</h1>
-            <p style={{ color: "#666", margin: "0.5rem 0" }}>
-              Logged in as <strong>{user.username}</strong> ({user.email})
-            </p>
-          </div>
-          <Form method="post" action="/logout">
-            <button
-              type="submit"
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Logout
-            </button>
-          </Form>
-        </div>
-
-        <div style={{ backgroundColor: "#f8f9fa", padding: "1.5rem", borderRadius: "8px", marginBottom: "1.5rem" }}>
-          <h2 style={{ marginTop: 0 }}>Account Info</h2>
-          <p><strong>User ID:</strong> {user.id}</p>
-          <p><strong>Email:</strong> {user.email}</p>
-          <p><strong>Username:</strong> {user.username}</p>
-          <p><strong>Member since:</strong> {new Date(user.createdAt).toLocaleDateString()}</p>
-        </div>
-
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h2>Quick Links</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
-            <Link
-              to="/recipes"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "1.5rem 1rem",
-                backgroundColor: "#0066cc",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "8px",
-                fontWeight: "bold",
-              }}
-            >
-              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🍳</span>
-              My Recipes
-            </Link>
-            <Link
-              to="/cookbooks"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "1.5rem 1rem",
-                backgroundColor: "#17a2b8",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "8px",
-                fontWeight: "bold",
-              }}
-            >
-              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📖</span>
-              Cookbooks
-            </Link>
-            <Link
-              to="/shopping-list"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "1.5rem 1rem",
-                backgroundColor: "#ffc107",
-                color: "#333",
-                textDecoration: "none",
-                borderRadius: "8px",
-                fontWeight: "bold",
-              }}
-            >
-              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🛒</span>
-              Shopping List
-            </Link>
-            <Link
-              to="/recipes/new"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "1.5rem 1rem",
-                backgroundColor: "#28a745",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "8px",
-                fontWeight: "bold",
-              }}
-            >
-              <span style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>➕</span>
-              Create Recipe
-            </Link>
-          </div>
+          <Heading level={1}>Welcome to Spoonjoy v2</Heading>
+          <Text className="mt-1">
+            Logged in as <Strong>{user.username}</Strong> ({user.email})
+          </Text>
         </div>
+        <Form method="post" action="/logout">
+          <Button type="submit" color="red">
+            Logout
+          </Button>
+        </Form>
+      </div>
 
-        <div style={{ marginTop: "2rem" }}>
-          <h2>What's Next?</h2>
-          <p>
-            Features coming soon:
-          </p>
-          <ul>
-            <li>Recipe sharing and forking</li>
-            <li>Image upload</li>
-            <li>Mobile app</li>
-          </ul>
+      <div className="rounded-lg bg-zinc-50 p-6 dark:bg-zinc-800/50 mb-6">
+        <Subheading level={2}>Account Info</Subheading>
+        <dl className="mt-4 space-y-2 text-sm">
+          <div className="flex gap-2">
+            <Text as="dt" className="font-medium">User ID:</Text>
+            <Text as="dd">{user.id}</Text>
+          </div>
+          <div className="flex gap-2">
+            <Text as="dt" className="font-medium">Email:</Text>
+            <Text as="dd">{user.email}</Text>
+          </div>
+          <div className="flex gap-2">
+            <Text as="dt" className="font-medium">Username:</Text>
+            <Text as="dd">{user.username}</Text>
+          </div>
+          <div className="flex gap-2">
+            <Text as="dt" className="font-medium">Member since:</Text>
+            <Text as="dd">{new Date(user.createdAt).toLocaleDateString()}</Text>
+          </div>
+        </dl>
+      </div>
+
+      <div className="mb-6">
+        <Subheading level={2}>Quick Links</Subheading>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <QuickLinkCard
+            href="/recipes"
+            emoji="🍳"
+            label="My Recipes"
+            color="blue"
+          />
+          <QuickLinkCard
+            href="/cookbooks"
+            emoji="📖"
+            label="Cookbooks"
+            color="cyan"
+          />
+          <QuickLinkCard
+            href="/shopping-list"
+            emoji="🛒"
+            label="Shopping List"
+            color="amber"
+          />
+          <QuickLinkCard
+            href="/recipes/new"
+            emoji="➕"
+            label="Create Recipe"
+            color="green"
+          />
         </div>
       </div>
+
+      <div>
+        <Subheading level={2}>What's Next?</Subheading>
+        <Text className="mt-2">
+          Features coming soon:
+        </Text>
+        <ul className="mt-2 list-disc list-inside space-y-1 text-zinc-600 dark:text-zinc-400">
+          <li>Recipe sharing and forking</li>
+          <li>Image upload</li>
+          <li>Mobile app</li>
+        </ul>
+      </div>
     </div>
+  );
+}
+
+interface QuickLinkCardProps {
+  href: string;
+  emoji: string;
+  label: string;
+  color: "blue" | "cyan" | "amber" | "green";
+}
+
+function QuickLinkCard({ href, emoji, label, color }: QuickLinkCardProps) {
+  const colorClasses = {
+    blue: "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600",
+    cyan: "bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600",
+    amber: "bg-amber-500 hover:bg-amber-600 text-zinc-900",
+    green: "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600",
+  };
+
+  return (
+    <Link
+      href={href}
+      className={`
+        flex flex-col items-center justify-center p-4 rounded-lg
+        text-white font-semibold transition-colors
+        ${colorClasses[color]}
+      `}
+    >
+      <span className="text-2xl mb-1">{emoji}</span>
+      <span className="text-sm">{label}</span>
+    </Link>
   );
 }
