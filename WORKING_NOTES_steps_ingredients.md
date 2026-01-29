@@ -1040,6 +1040,284 @@ For StepOutputUse, errors could be:
 
 ---
 
+## Unit 1.4: Test Patterns Audit
+
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Overview
+
+Documented testing utilities and patterns used in the codebase by reviewing `test/routes/recipes-id-steps-id-edit.test.tsx`.
+
+### Testing Stack
+
+| Tool | Purpose |
+|------|---------|
+| **Vitest** | Test runner and assertion library |
+| **React Testing Library** | Component rendering and DOM queries |
+| **@faker-js/faker** | Generating unique test data |
+| **undici** | Node.js HTTP client for Request/FormData in tests |
+| **@testing-library/react** | `render`, `screen`, `fireEvent` utilities |
+
+### Test File Structure
+
+```ts
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { createTestRoutesStub } from "../utils";
+import { db } from "~/lib/db.server";
+import { cleanupDatabase } from "../helpers/cleanup";
+import { sessionStorage } from "~/lib/session.server";
+import { faker } from "@faker-js/faker";
+
+describe("Route Name", () => {
+  let testUserId: string;
+  // ... other test variables
+
+  beforeEach(async () => {
+    await cleanupDatabase();
+    // Create test data
+  });
+
+  afterEach(async () => {
+    await cleanupDatabase();
+  });
+
+  describe("loader", () => { /* loader tests */ });
+  describe("action", () => { /* action tests */ });
+  describe("component", () => { /* component tests */ });
+});
+```
+
+### Key Test Utilities
+
+#### 1. `createTestRoutesStub` (test/utils.ts)
+
+Wrapper around React Router's `createRoutesStub` that adds `HydrateFallback` to suppress hydration warnings:
+
+```ts
+const Stub = createTestRoutesStub([
+  {
+    path: "/recipes/:id/steps/:stepId/edit",
+    Component: EditStep,
+    loader: () => mockData,
+    action: () => ({ errors: { ... } }),
+  },
+]);
+
+render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+```
+
+#### 2. `cleanupDatabase()` (test/helpers/cleanup.ts)
+
+Cleans up all test data in correct foreign key order. Called in `beforeEach` AND `afterEach`:
+
+```ts
+beforeEach(async () => {
+  await cleanupDatabase();
+  // Create fresh test data
+});
+
+afterEach(async () => {
+  await cleanupDatabase();
+});
+```
+
+**Deletion order** (most dependent first):
+1. shoppingListItem → shoppingList
+2. ingredient → recipeStep
+3. recipeInCookbook → cookbook, recipe
+4. ingredientRef, unit
+5. userCredential, oAuth → user
+
+#### 3. Faker-based Data Generators (test/utils.ts)
+
+| Function | Returns |
+|----------|---------|
+| `createTestUser()` | `{ email, username, hashedPassword, salt }` |
+| `createTestRecipe(chefId)` | `{ title, description, servings, chefId }` |
+| `createUnitName()` | Unique unit name string |
+| `createIngredientName()` | Unique ingredient name string |
+| `createStepDescription()` | Unique step description string |
+| `createStepTitle()` | Unique step title string |
+| `createCookbookTitle()` | Unique cookbook title string |
+
+#### 4. Idempotent Helpers (test/utils.ts)
+
+For data that might already exist (prevents unique constraint errors):
+
+```ts
+const unit = await getOrCreateUnit(db, "cup");
+const ingredientRef = await getOrCreateIngredientRef(db, "flour");
+```
+
+### Session Creation Pattern
+
+For authenticated requests, create a session with the user ID:
+
+```ts
+const session = await sessionStorage.getSession();
+session.set("userId", testUserId);
+const setCookieHeader = await sessionStorage.commitSession(session);
+const cookieValue = setCookieHeader.split(";")[0];
+
+const headers = new Headers();
+headers.set("Cookie", cookieValue);
+
+const request = new UndiciRequest(url, { headers });
+```
+
+### Request Patterns
+
+#### GET Request (Loader)
+```ts
+const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${stepId}/edit`, { headers });
+
+const result = await loader({
+  request,
+  context: { cloudflare: { env: null } },
+  params: { id: recipeId, stepId },
+} as any);
+```
+
+#### POST Request (Action)
+```ts
+const formData = new UndiciFormData();
+formData.append("description", "Updated step");
+formData.append("intent", "delete");
+
+const request = new UndiciRequest(url, {
+  method: "POST",
+  body: formData,
+  headers,
+});
+
+const response = await action({
+  request,
+  context: { cloudflare: { env: null } },
+  params: { id: recipeId, stepId },
+} as any);
+```
+
+### Response Data Extraction
+
+Helper function to handle React Router's `data()` response wrapper:
+
+```ts
+function extractResponseData(response: any): { data: any; status: number } {
+  if (response && typeof response === "object" && response.type === "DataWithResponseInit") {
+    return { data: response.data, status: response.init?.status || 200 };
+  }
+  if (response instanceof Response) {
+    return { data: null, status: response.status };
+  }
+  return { data: response, status: 200 };
+}
+
+// Usage:
+const { data, status } = extractResponseData(response);
+expect(status).toBe(400);
+expect(data.errors.description).toBe("Step description is required");
+```
+
+### Assertion Patterns
+
+#### Redirect/Error Response (throws)
+```ts
+await expect(
+  loader({ request, context, params } as any)
+).rejects.toSatisfy((error: any) => {
+  expect(error).toBeInstanceOf(Response);
+  expect(error.status).toBe(302);
+  expect(error.headers.get("Location")).toContain("/login");
+  return true;
+});
+```
+
+#### Successful Response (returns)
+```ts
+const response = await action({ request, context, params } as any);
+expect(response).toBeInstanceOf(Response);
+expect(response.status).toBe(302);
+expect(response.headers.get("Location")).toBe(`/recipes/${recipeId}/edit`);
+```
+
+#### Component Rendering
+```ts
+expect(await screen.findByRole("heading", { name: "Edit Step 1" })).toBeInTheDocument();
+expect(screen.getByLabelText(/Step Title/)).toHaveValue("Prep the Ingredients");
+expect(screen.getByRole("button", { name: "Delete Step" })).toBeInTheDocument();
+expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
+```
+
+### Mocking Pattern
+
+For database error testing:
+
+```ts
+const originalUpdate = db.recipeStep.update;
+db.recipeStep.update = vi.fn().mockRejectedValue(new Error("Database connection failed"));
+
+try {
+  // Test code
+} finally {
+  db.recipeStep.update = originalUpdate;  // Always restore
+}
+```
+
+### Test Organization by Category
+
+The test file organizes tests into logical groups:
+
+```
+describe("Route Name", () => {
+  describe("loader", () => {
+    it("should redirect when not logged in")
+    it("should return data when logged in as owner")
+    it("should throw 403 when non-owner tries to access")
+    it("should throw 404 for non-existent recipe")
+    it("should throw 404 for soft-deleted recipe")
+    it("should include related data in response")
+  });
+
+  describe("action", () => {
+    it("should redirect when not logged in")
+    it("should throw 403 when non-owner tries to update")
+    it("should return validation error when field is empty")
+    it("should return validation error for boundary violations")
+    it("should successfully update and redirect")
+
+    describe("specific intent", () => {
+      // Intent-specific tests
+    });
+  });
+
+  describe("component", () => {
+    it("should render form with data")
+    it("should render empty state")
+    it("should show/hide elements on interaction")
+  });
+});
+```
+
+### Key Test Patterns Summary
+
+| Pattern | Purpose |
+|---------|---------|
+| `beforeEach` + `afterEach` cleanup | Isolated tests, no state leakage |
+| `faker` + alphanumeric suffix | Guaranteed unique test data |
+| `getOrCreateUnit/IngredientRef` | Idempotent reference data |
+| `sessionStorage.getSession()` | Create authenticated requests |
+| `UndiciRequest` + `UndiciFormData` | HTTP requests in Node.js tests |
+| `extractResponseData()` | Handle React Router data wrapper |
+| `rejects.toSatisfy()` | Assert on thrown Response objects |
+| `createTestRoutesStub` | Component tests with routing |
+| `screen.findByRole` | Async element queries |
+| `vi.fn().mockRejectedValue()` | Simulate errors |
+
+---
+
 ## Future Units
 
 (Notes will be added as units are completed)
