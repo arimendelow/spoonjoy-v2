@@ -12,3 +12,9 @@ export {
   type DockContextValue,
   type DockContextProviderProps,
 } from './dock-context'
+export {
+  useRecipeDetailActions,
+  useRecipeEditActions,
+  type UseRecipeDetailActionsOptions,
+  type UseRecipeEditActionsOptions,
+} from './use-recipe-dock-actions'
