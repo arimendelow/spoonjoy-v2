@@ -953,5 +953,88 @@ describe("Recipes $id Route", () => {
       // "Using outputs from" section should not be present
       expect(screen.queryByText("Using outputs from")).not.toBeInTheDocument();
     });
+
+    it("should render step output uses BEFORE description (display order test)", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe with Display Order",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "First step",
+              description: "Prepare ingredients",
+              ingredients: [],
+              usingSteps: [],
+            },
+            {
+              id: "step-2",
+              stepNum: 2,
+              stepTitle: "Second step",
+              description: "This is the step description",
+              ingredients: [
+                {
+                  id: "ing-1",
+                  quantity: 1,
+                  unit: { name: "cup" },
+                  ingredientRef: { name: "test ingredient" },
+                },
+              ],
+              usingSteps: [
+                {
+                  id: "use-1",
+                  outputStepNum: 1,
+                  outputOfStep: { stepNum: 1, stepTitle: "First step" },
+                },
+              ],
+            },
+          ],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      await screen.findByText("Recipe with Display Order");
+
+      // Get the step 2 container
+      const stepCards = document.querySelectorAll('.bg-white.border.border-gray-200.rounded-lg.p-6');
+      const step2Card = stepCards[1]; // Second step card
+
+      // Extract text content to verify order
+      const textContent = step2Card.textContent || "";
+
+      // The display order should be:
+      // 1. Step number and title
+      // 2. Step output uses ("Using outputs from" section)
+      // 3. Description
+      // 4. Ingredients
+
+      // "Using outputs from" should appear BEFORE "This is the step description"
+      const usingOutputsPosition = textContent.indexOf("Using outputs from");
+      const descriptionPosition = textContent.indexOf("This is the step description");
+      const ingredientsPosition = textContent.indexOf("Ingredients");
+
+      expect(usingOutputsPosition).toBeGreaterThan(-1);
+      expect(descriptionPosition).toBeGreaterThan(-1);
+      expect(ingredientsPosition).toBeGreaterThan(-1);
+
+      // Verify order: using outputs < description < ingredients
+      expect(usingOutputsPosition).toBeLessThan(descriptionPosition);
+      expect(descriptionPosition).toBeLessThan(ingredientsPosition);
+    });
   });
 });
