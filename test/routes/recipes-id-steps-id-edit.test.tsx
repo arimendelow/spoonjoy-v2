@@ -2456,6 +2456,56 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
       });
 
+      it("should handle editing the only step in a single-step recipe", async () => {
+        // This test verifies the edge case where a recipe has only one step
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Single Step Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: "The Only Step",
+            description: "This is the only step in this recipe",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [], // No previous steps available
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Should render the edit form correctly
+        await screen.findByRole("heading", { name: /Edit Step 1/i });
+
+        // Step title should be pre-filled
+        const titleInput = screen.getByLabelText(/Step Title/i);
+        expect(titleInput).toHaveValue("The Only Step");
+
+        // Description should be pre-filled
+        const descriptionTextarea = screen.getByLabelText(/Description/i);
+        expect(descriptionTextarea).toHaveValue("This is the only step in this recipe");
+
+        // Should show empty state for Uses Output From
+        expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
+
+        // Should NOT show the step selector dropdown
+        expect(screen.queryByRole("button", { name: /Select previous steps/i })).not.toBeInTheDocument();
+
+        // Cancel and Save buttons should be present
+        expect(screen.getByRole("link", { name: /Cancel/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Save Changes/i })).toBeInTheDocument();
+      });
+
       it("should show Uses Output From when stepNum > 1 with available steps", async () => {
         const mockData = {
           recipe: {
