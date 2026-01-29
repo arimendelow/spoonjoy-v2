@@ -4,6 +4,26 @@ This document tracks research, decisions, and implementation notes for the stepO
 
 ---
 
+## Task Context
+
+- **Active Task**: `~/clawd/tasks/active-coding-steps_ingredients.md`
+- **Planning Doc**: `~/clawd/tasks/planning-coding-steps_ingredients.md`
+
+### Key Decisions from Planning
+
+1. **UI for Editing**: Multi-select dropdown (Listbox with `multiple={true}`)
+2. **UI for Following**: Checklist pattern (same as ingredients)
+3. **Display Order**: Title → Step Output Uses → Description → Ingredients
+4. **Validation**: Can ONLY reference PREVIOUS steps (stepNum < current)
+5. **Deletion Protection**: Block step deletion if used by another step
+6. **Step Reordering**: PREVENT if it would break dependencies
+7. **Schema Note**: Uses composite keys (recipeId + stepNum), NOT stepId
+8. **Terminology**:
+   - `outputStepNum` = step producing the output (the dependency)
+   - `inputStepNum` = step using that output (the current step)
+
+---
+
 ## Unit 0.0: HeadlessUI Listbox Documentation Review
 
 **Date**: 2026-01-28
