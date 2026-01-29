@@ -1318,6 +1318,284 @@ describe("Route Name", () => {
 
 ---
 
+## Unit 6.6: Performance — Query Review
+
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Overview
+
+Reviewed all database queries added for the stepOutputUse feature to identify potential performance issues including N+1 query patterns, missing indexes, and unnecessary data loading.
+
+### Query Files Reviewed
+
+| File | Functions | Purpose |
+|------|-----------|---------|
+| `app/lib/step-output-use-queries.server.ts` | `loadRecipeStepOutputUses()`, `loadStepDependencies()`, `checkStepUsage()` | Read queries |
+| `app/lib/step-output-use-mutations.server.ts` | `deleteExistingStepOutputUses()`, `createStepOutputUses()` | Write operations |
+| `app/lib/step-deletion-validation.server.ts` | `validateStepDeletion()` | Deletion validation |
+| `app/lib/step-reorder-validation.server.ts` | `validateStepReorder()`, `validateStepReorderOutgoing()`, `validateStepReorderComplete()` | Reorder validation |
+| `app/routes/recipes.$id.steps.new.tsx` | loader, action | New step creation |
+| `app/routes/recipes.$id.steps.$stepId.edit.tsx` | loader, action | Step editing |
+| `app/routes/recipes.$id.edit.tsx` | action (reorderStep intent) | Step reordering |
+
+### Index Analysis
+
+**StepOutputUse table indexes (prisma/schema.prisma:119-122):**
+
+```prisma
+@@unique([recipeId, outputStepNum, inputStepNum])  // Unique constraint
+@@index([recipeId, outputStepNum, inputStepNum])   // Full composite lookup
+@@index([recipeId, outputStepNum])                 // "What steps use this output?"
+@@index([recipeId, inputStepNum])                  // "What steps does this use?"
+```
+
+**Finding**: ✅ **Indexes are correctly configured.** All queries filter by `recipeId` combined with either `outputStepNum` or `inputStepNum`, which matches the available indexes.
+
+### Query-by-Query Analysis
+
+#### 1. `loadRecipeStepOutputUses(recipeId)` — step-output-use-queries.server.ts:9-18
+
+```ts
+db.stepOutputUse.findMany({
+  where: { recipeId },
+  include: {
+    outputOfStep: {
+      select: { stepNum: true, stepTitle: true },
+    },
+  },
+  orderBy: [{ inputStepNum: "asc" }, { outputStepNum: "asc" }],
+});
+```
+
+**Finding**: ✅ **Efficient.** Single query with join. Uses `recipeId` filter which can use the index prefix. The `include` with `select` only fetches needed fields from the related RecipeStep.
+
+#### 2. `loadStepDependencies(recipeId, stepNum)` — step-output-use-queries.server.ts:28-42
+
+```ts
+db.stepOutputUse.findMany({
+  where: { recipeId, inputStepNum: stepNum },
+  include: {
+    outputOfStep: {
+      select: { stepNum: true, stepTitle: true, id: true },
+    },
+  },
+  orderBy: { outputStepNum: "asc" },
+});
+```
+
+**Finding**: ✅ **Efficient.** Uses `@@index([recipeId, inputStepNum])` directly. The unnecessary `id: true` in select is harmless (RecipeStep.id isn't used in the return mapping) but minimal overhead.
+
+#### 3. `checkStepUsage(recipeId, stepNum)` — step-output-use-queries.server.ts:52-66
+
+```ts
+db.stepOutputUse.findMany({
+  where: { recipeId, outputStepNum: stepNum },
+  include: {
+    inputOfStep: {
+      select: { stepNum: true, stepTitle: true },
+    },
+  },
+  orderBy: { inputStepNum: "asc" },
+});
+```
+
+**Finding**: ✅ **Efficient.** Uses `@@index([recipeId, outputStepNum])` directly. Properly fetches only needed fields.
+
+#### 4. `deleteExistingStepOutputUses(recipeId, inputStepNum)` — step-output-use-mutations.server.ts:11-23
+
+```ts
+db.stepOutputUse.deleteMany({
+  where: { recipeId, inputStepNum },
+});
+```
+
+**Finding**: ✅ **Efficient.** Uses `@@index([recipeId, inputStepNum])` for the delete. `deleteMany` is a single operation.
+
+#### 5. `createStepOutputUses(recipeId, inputStepNum, outputStepNums)` — step-output-use-mutations.server.ts:34-54
+
+```ts
+db.stepOutputUse.createMany({
+  data: outputStepNums.map((outputStepNum) => ({
+    recipeId,
+    inputStepNum,
+    outputStepNum,
+  })),
+});
+```
+
+**Finding**: ✅ **Efficient.** Uses `createMany` for batch insert instead of individual creates. Handles empty array case by returning early.
+
+#### 6. `validateStepReorderComplete()` — step-reorder-validation.server.ts:208-220
+
+```ts
+const [incomingResult, outgoingResult] = await Promise.all([
+  validateStepReorder(recipeId, currentStepNum, newPosition),
+  validateStepReorderOutgoing(recipeId, currentStepNum, newPosition),
+]);
+```
+
+**Finding**: ✅ **Optimized with parallel execution.** Runs both validations concurrently via `Promise.all()`. Each inner validation may short-circuit (return early without DB query) based on position check.
+
+### Loader Query Analysis
+
+#### `recipes.$id.steps.new.tsx` loader (lines 25-75)
+
+**Queries**:
+1. Fetch recipe with steps (only stepNum, desc order, take 1) — for nextStepNum calculation
+2. Conditionally fetch availableSteps (only if nextStepNum > 1)
+
+```ts
+// Query 1: Recipe with last step
+const recipe = await database.recipe.findUnique({
+  where: { id },
+  select: {
+    id: true, title: true, chefId: true, deletedAt: true,
+    steps: {
+      select: { stepNum: true },
+      orderBy: { stepNum: "desc" },
+      take: 1,  // Only need max stepNum
+    },
+  },
+});
+
+// Query 2: Available steps (only if not first step)
+const availableSteps = nextStepNum > 1
+  ? await database.recipeStep.findMany({
+      where: { recipeId: id, stepNum: { lt: nextStepNum } },
+      select: { stepNum: true, stepTitle: true },
+      orderBy: { stepNum: "asc" },
+    })
+  : [];
+```
+
+**Finding**: ✅ **Efficient.**
+- First query uses `take: 1` optimization to avoid loading all steps
+- Second query only runs when needed (conditional)
+- Both use appropriate indexes (`recipeId` on Recipe, `recipeId + stepNum` on RecipeStep)
+
+#### `recipes.$id.steps.$stepId.edit.tsx` loader (lines 51-116)
+
+**Queries**:
+1. Fetch recipe basic info
+2. Fetch step with ingredients and usingSteps
+3. Fetch availableSteps (previous steps)
+
+```ts
+// Query 1: Recipe
+const recipe = await database.recipe.findUnique({
+  where: { id },
+  select: { id: true, title: true, chefId: true, deletedAt: true },
+});
+
+// Query 2: Step with relations
+const step = await database.recipeStep.findUnique({
+  where: { id: stepId },
+  include: {
+    ingredients: {
+      include: { unit: true, ingredientRef: true },
+    },
+    usingSteps: {
+      include: {
+        outputOfStep: { select: { stepNum: true, stepTitle: true } },
+      },
+      orderBy: { outputStepNum: "asc" },
+    },
+  },
+});
+
+// Query 3: Available steps
+const availableSteps = await database.recipeStep.findMany({
+  where: { recipeId: id, stepNum: { lt: step.stepNum } },
+  select: { stepNum: true, stepTitle: true },
+  orderBy: { stepNum: "asc" },
+});
+```
+
+**Finding**: ✅ **Acceptable.** Three sequential queries, but:
+- Query 1 and 2 could potentially be combined, but would complicate error handling (recipe not found vs step not found)
+- Query 3 depends on step.stepNum from Query 2
+- All queries use proper indexes
+- No N+1 pattern (all uses `include` not loops)
+
+**Potential optimization (not recommended)**: Could combine recipe + step queries if using raw SQL with joins, but this adds complexity without significant gain for typical recipe sizes.
+
+### N+1 Query Pattern Check
+
+**Finding**: ✅ **No N+1 patterns detected.** All queries use:
+- `include` for eager loading related data in a single query
+- `findMany` with batch operations, not loops with individual queries
+- `createMany` for batch inserts
+
+### Unnecessary Data Loading Check
+
+**Finding**: ✅ **Minimal unnecessary data.** Most queries use `select` to limit returned fields. Minor observations:
+
+1. `loadStepDependencies()` includes `id: true` in select but doesn't use it — harmless, 1 string field
+2. Loaders fetch complete ingredient data (unit, ingredientRef names) which is needed for display
+
+### Action Query Analysis
+
+#### `recipes.$id.steps.$stepId.edit.tsx` action — delete intent (lines 153-167)
+
+```ts
+// Validation query
+const validationResult = await validateStepDeletion(id, step.stepNum);
+// → internally calls checkStepUsage() — single query
+
+// Delete operation
+await database.recipeStep.delete({ where: { id: stepId } });
+// → CASCADE deletes StepOutputUse records automatically
+```
+
+**Finding**: ✅ **Efficient.** Validation uses single query. Deletion relies on CASCADE for related cleanup.
+
+#### `recipes.$id.edit.tsx` action — reorderStep intent (lines 99-155)
+
+```ts
+// Validation
+const validationResult = await validateStepReorderComplete(id, step.stepNum, targetStepNum);
+// → runs two queries in parallel
+
+// Target step lookup
+const targetStep = await database.recipeStep.findUnique({
+  where: { recipeId_stepNum: { recipeId: id, stepNum: targetStepNum } },
+});
+
+// Three updates for swap (using temp stepNum)
+await database.recipeStep.update({ ... });  // Move to temp
+await database.recipeStep.update({ ... });  // Move target to original
+await database.recipeStep.update({ ... });  // Move from temp to target
+```
+
+**Finding**: ✅ **Acceptable.** The three sequential updates are necessary due to unique constraint on `[recipeId, stepNum]`. SQLite handles ON UPDATE CASCADE for StepOutputUse records automatically.
+
+**Note**: The comment in the code correctly documents this: "SQLite's ON UPDATE CASCADE automatically updates StepOutputUse references when RecipeStep.stepNum changes".
+
+### Summary of Findings
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| **Indexes** | ✅ Correct | All query patterns have matching indexes |
+| **N+1 Patterns** | ✅ None found | All use `include` or batch operations |
+| **Unnecessary Data** | ✅ Minimal | Queries use `select` appropriately |
+| **Parallel Execution** | ✅ Used | `validateStepReorderComplete` uses `Promise.all()` |
+| **Batch Operations** | ✅ Used | `createMany`, `deleteMany` for bulk operations |
+| **CASCADE Behavior** | ✅ Correct | Relies on DB CASCADE for cleanup |
+
+### Recommendations
+
+**No changes required.** The query patterns are well-optimized for the use case:
+
+1. Recipes typically have 5-20 steps, so step-related queries are inherently bounded
+2. StepOutputUse records per recipe are typically < 50 (each step uses 0-3 previous steps)
+3. Indexes cover all filter patterns used
+4. No loops with individual queries (would cause N+1)
+
+The current implementation balances simplicity with performance appropriately for the expected data volumes.
+
+---
+
 ## Future Units
 
 (Notes will be added as units are completed)
