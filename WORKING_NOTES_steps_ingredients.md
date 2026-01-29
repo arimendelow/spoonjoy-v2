@@ -825,6 +825,221 @@ The Redwood implementation has checkbox state for tracking progress through ingr
 
 ---
 
+## Unit 1.3: Validation Patterns Audit
+
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Overview
+
+Reviewed `app/lib/validation.ts` to understand existing validation patterns and document the approach for StepOutputUse validation.
+
+### File Location and Purpose
+
+**Path**: `app/lib/validation.ts` (174 lines)
+**Import**: `~/lib/validation.ts`
+**Usage**: Shared validation for both client and server (no `.server.ts` suffix)
+
+### ValidationResult Type Pattern
+
+The codebase uses a discriminated union for validation results:
+
+```ts
+export type ValidationResult = { valid: true } | { valid: false; error: string }
+```
+
+**Pattern benefits**:
+- Type-safe: Forces checking `valid` before accessing `error`
+- Consistent: All validation functions return the same shape
+- Composable: Easy to chain validations and collect errors
+
+**Usage pattern**:
+```ts
+const result = validateTitle(title);
+if (!result.valid) {
+  return { errors: { title: result.error } };
+}
+```
+
+### Constants Pattern
+
+Length limits and range constraints are defined as exported constants:
+
+```ts
+// Field length limits
+export const TITLE_MAX_LENGTH = 200
+export const DESCRIPTION_MAX_LENGTH = 2000
+export const STEP_DESCRIPTION_MAX_LENGTH = 5000
+export const STEP_TITLE_MAX_LENGTH = 200
+export const SERVINGS_MAX_LENGTH = 100
+export const UNIT_NAME_MAX_LENGTH = 50
+export const INGREDIENT_NAME_MAX_LENGTH = 100
+
+// Quantity range limits
+export const QUANTITY_MIN = 0.001
+export const QUANTITY_MAX = 99999
+```
+
+**Pattern benefits**:
+- Reusable in UI (for `maxLength` attributes)
+- Single source of truth for limits
+- Testable with known boundaries
+
+### Existing Validation Functions
+
+| Function | Required? | Validation Rules |
+|----------|-----------|------------------|
+| `validateTitle(title)` | Yes | Non-empty after trim, max 200 chars |
+| `validateDescription(desc)` | No | Max 2000 chars if provided |
+| `validateStepTitle(title)` | No | Max 200 chars if provided |
+| `validateStepDescription(desc)` | Yes | Non-empty after trim, max 5000 chars |
+| `validateServings(servings)` | No | Max 100 chars if provided |
+| `validateQuantity(qty)` | Yes | Finite number, 0.001-99999 range |
+| `validateUnitName(name)` | Yes | Non-empty after trim, max 50 chars |
+| `validateIngredientName(name)` | Yes | Non-empty after trim, max 100 chars |
+| `validateImageUrl(url)` | No | Valid HTTP/HTTPS URL if provided |
+
+### Common Validation Patterns
+
+#### 1. Required String Field
+```ts
+export function validateTitle(title: string): ValidationResult {
+  const trimmed = title.trim()
+  if (!trimmed) {
+    return { valid: false, error: 'Title is required' }
+  }
+  if (trimmed.length > TITLE_MAX_LENGTH) {
+    return { valid: false, error: 'Title must be 200 characters or less' }
+  }
+  return { valid: true }
+}
+```
+
+#### 2. Optional String Field
+```ts
+export function validateDescription(description: string | null): ValidationResult {
+  if (!description) {
+    return { valid: true }  // Early return for empty/null
+  }
+  const trimmed = description.trim()
+  if (trimmed.length > DESCRIPTION_MAX_LENGTH) {
+    return { valid: false, error: 'Description must be 2,000 characters or less' }
+  }
+  return { valid: true }
+}
+```
+
+#### 3. Numeric Range Field
+```ts
+export function validateQuantity(quantity: number): ValidationResult {
+  if (!Number.isFinite(quantity)) {
+    return { valid: false, error: 'Quantity must be a valid number' }
+  }
+  if (quantity < QUANTITY_MIN || quantity > QUANTITY_MAX) {
+    return { valid: false, error: 'Quantity must be between 0.001 and 99,999' }
+  }
+  return { valid: true }
+}
+```
+
+#### 4. URL Validation
+```ts
+export function validateImageUrl(url: string | null): ValidationResult {
+  if (!url) return { valid: true }
+  const trimmed = url.trim()
+  if (!trimmed) return { valid: true }
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { valid: false, error: 'Please enter a valid URL' }
+    }
+    return { valid: true }
+  } catch {
+    return { valid: false, error: 'Please enter a valid URL' }
+  }
+}
+```
+
+### StepOutputUse Validation Requirements
+
+Based on planning docs and schema analysis (Units 0.3, 1.1, 1.2), StepOutputUse needs these validations:
+
+| Rule | Description | Where Enforced |
+|------|-------------|----------------|
+| Forward-only | `outputStepNum < inputStepNum` | UI + Action |
+| No self-reference | `outputStepNum !== inputStepNum` | Implicit (UI only shows previous) |
+| Valid step exists | Referenced step must exist in recipe | Action (DB query) |
+| Same recipe | Both steps in same recipe | Implicit (composite key) |
+
+### Proposed StepOutputUse Validation Function
+
+Following the established patterns:
+
+```ts
+/**
+ * Validates a step output use reference.
+ * - outputStepNum must be less than inputStepNum (forward references only)
+ * - outputStepNum must be positive (valid step number)
+ */
+export function validateStepOutputUse(
+  outputStepNum: number,
+  inputStepNum: number
+): ValidationResult {
+  if (!Number.isInteger(outputStepNum) || outputStepNum < 1) {
+    return { valid: false, error: 'Invalid source step number' }
+  }
+  if (outputStepNum >= inputStepNum) {
+    return { valid: false, error: 'Can only reference previous steps' }
+  }
+  return { valid: true }
+}
+```
+
+**Note**: The "step exists" validation requires a database query and should happen in the action handler, not in the pure validation function.
+
+### Validation in Action Handlers
+
+Looking at existing routes (from Unit 1.1), validations are applied in actions like this:
+
+```ts
+// Example from recipes.$id.steps.new.tsx
+const stepTitleResult = validateStepTitle(stepTitle);
+if (!stepTitleResult.valid) {
+  return data({ errors: { stepTitle: stepTitleResult.error } }, { status: 400 });
+}
+
+const descriptionResult = validateStepDescription(description);
+if (!descriptionResult.valid) {
+  return data({ errors: { description: descriptionResult.error } }, { status: 400 });
+}
+```
+
+**Pattern**: Each validation returns immediately on failure with a field-specific error.
+
+### Error Response Pattern
+
+Actions return errors in this shape:
+```ts
+{ errors: { fieldName: "Error message" } }
+```
+
+For StepOutputUse, errors could be:
+```ts
+{ errors: { stepOutputUses: "Can only reference previous steps" } }
+// or for deletion blocking:
+{ errors: { general: "Cannot delete: other steps depend on this step's output" } }
+```
+
+### Key Takeaways for Implementation
+
+1. **Follow ValidationResult pattern** - Return `{ valid: true }` or `{ valid: false, error: string }`
+2. **Add constant if needed** - No new constants needed for stepOutputUse (it's relational, not length-based)
+3. **Keep validation pure** - Database checks happen in action, not validation function
+4. **UI enforces first** - Only show valid options (previous steps only)
+5. **Action validates again** - Never trust client data; re-validate on server
+
+---
+
 ## Future Units
 
 (Notes will be added as units are completed)
