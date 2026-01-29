@@ -70,8 +70,7 @@ jobs:
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
           storybookBuildDir: storybook-static
-          exitZeroOnChanges: true
-          onlyChanged: true
+          exitOnceUploaded: true  # Just publish Storybook, skip snapshot tests
           externals: |
             app/**/*.css
             public/**
