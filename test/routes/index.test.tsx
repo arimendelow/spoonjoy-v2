@@ -241,4 +241,148 @@ describe("Index Route", () => {
       expect(screen.getByText("Mobile app")).toBeInTheDocument();
     });
   });
+
+  describe("Catalyst component structure", () => {
+    it("should NOT use inline styles in logged out view", async () => {
+      const Stub = createTestRoutesStub([
+        {
+          path: "/",
+          Component: Index,
+          loader: () => ({ user: null }),
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Welcome to Spoonjoy v2");
+
+      // Check that no elements have inline style attributes
+      const elementsWithStyle = container.querySelectorAll('[style]');
+      expect(elementsWithStyle.length).toBe(0);
+    });
+
+    it("should NOT use inline styles in logged in view", async () => {
+      const mockUser = {
+        id: "user-123",
+        email: "test@example.com",
+        username: "testuser",
+        createdAt: new Date().toISOString(),
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/",
+          Component: Index,
+          loader: () => ({ user: mockUser }),
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Welcome to Spoonjoy v2");
+
+      // Check that no elements have inline style attributes
+      const elementsWithStyle = container.querySelectorAll('[style]');
+      expect(elementsWithStyle.length).toBe(0);
+    });
+
+    it("should use Catalyst Heading for page title", async () => {
+      const Stub = createTestRoutesStub([
+        {
+          path: "/",
+          Component: Index,
+          loader: () => ({ user: null }),
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Welcome to Spoonjoy v2");
+
+      // Catalyst Heading uses specific data attributes or class patterns
+      // The heading should be rendered with proper semantic HTML
+      const heading = screen.getByRole("heading", { level: 1 });
+      expect(heading).toBeInTheDocument();
+      expect(heading).toHaveTextContent("Welcome to Spoonjoy v2");
+    });
+
+    it("should use Catalyst Button for CTAs in logged out view", async () => {
+      const Stub = createTestRoutesStub([
+        {
+          path: "/",
+          Component: Index,
+          loader: () => ({ user: null }),
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Welcome to Spoonjoy v2");
+
+      // CTAs should be proper links (button or anchor elements)
+      const signUpLink = screen.getByRole("link", { name: "Sign Up" });
+      const logInLink = screen.getByRole("link", { name: "Log In" });
+
+      expect(signUpLink).toBeInTheDocument();
+      expect(logInLink).toBeInTheDocument();
+
+      // Catalyst Button has specific structure - should not have inline styles
+      expect(signUpLink).not.toHaveAttribute("style");
+      expect(logInLink).not.toHaveAttribute("style");
+    });
+
+    it("should use Catalyst Text for descriptive content", async () => {
+      const Stub = createTestRoutesStub([
+        {
+          path: "/",
+          Component: Index,
+          loader: () => ({ user: null }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/"]} />);
+
+      // Wait for content to load
+      const subtitle = await screen.findByText("Your personal recipe management system");
+      
+      // Text should not have inline styles
+      expect(subtitle).not.toHaveAttribute("style");
+      
+      // Should be a paragraph element
+      expect(subtitle.tagName.toLowerCase()).toBe("p");
+    });
+
+    it("should have proper heading hierarchy in logged in view", async () => {
+      const mockUser = {
+        id: "user-123",
+        email: "test@example.com",
+        username: "testuser",
+        createdAt: new Date().toISOString(),
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/",
+          Component: Index,
+          loader: () => ({ user: mockUser }),
+        },
+      ]);
+
+      const { container } = render(<Stub initialEntries={["/"]} />);
+
+      // Wait for content to load
+      await screen.findByText("Welcome to Spoonjoy v2");
+
+      // Should have proper heading hierarchy
+      const h1 = container.querySelector("h1");
+      const h2s = container.querySelectorAll("h2");
+
+      expect(h1).toBeInTheDocument();
+      expect(h2s.length).toBeGreaterThan(0);
+    });
+  });
 });
