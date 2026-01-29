@@ -198,9 +198,12 @@ export default function RecipeDetail() {
                       {step.stepTitle && (
                         <Subheading level={3} className="m-0 mb-2">{step.stepTitle}</Subheading>
                       )}
-                      <Text className="m-0">{step.description}</Text>
                     </div>
                   </div>
+
+                  <StepOutputUseDisplay usingSteps={step.usingSteps ?? []} />
+
+                  <Text className="m-0">{step.description}</Text>
 
                   {step.ingredients.length > 0 && (
                     <div className="bg-gray-100 p-4 rounded mt-4">
@@ -216,8 +219,6 @@ export default function RecipeDetail() {
                       </ul>
                     </div>
                   )}
-
-                  <StepOutputUseDisplay usingSteps={step.usingSteps ?? []} />
                 </div>
               ))}
             </div>
