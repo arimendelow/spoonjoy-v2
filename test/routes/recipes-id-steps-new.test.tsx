@@ -1087,6 +1087,45 @@ describe("Recipes $id Steps New Route", () => {
         expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
       });
 
+      it("should handle adding the first step to a new recipe (single-step scenario)", async () => {
+        // This test verifies the edge case where we're adding the very first step
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Brand New Recipe",
+          },
+          nextStepNum: 1,
+          availableSteps: [], // No existing steps
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/new",
+            Component: NewStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
+
+        // Should render the new step form correctly
+        await screen.findByRole("heading", { name: /Add Step to Brand New Recipe/i });
+
+        // Should show empty state for Uses Output From section
+        expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
+
+        // Should NOT show the step selector dropdown
+        expect(screen.queryByRole("button", { name: /Select previous steps/i })).not.toBeInTheDocument();
+
+        // Form fields should be empty
+        const descriptionTextarea = screen.getByLabelText(/Description/i);
+        expect(descriptionTextarea).toHaveValue("");
+
+        // Cancel and Create Step buttons should be present
+        expect(screen.getByRole("link", { name: /Cancel/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create Step & Add Ingredients/i })).toBeInTheDocument();
+      });
+
       it("should show Uses Output From when nextStepNum > 1 with available steps", async () => {
         const mockData = {
           recipe: {
