@@ -1,8 +1,9 @@
 import type { Route } from "./+types/recipes.$id.steps.$stepId.edit";
-import { Form, Link, redirect, data, useActionData, useLoaderData } from "react-router";
+import { Form, Link, redirect, data, useActionData, useLoaderData, useSubmit } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
@@ -323,6 +324,10 @@ export default function EditStep() {
   const { recipe, step, availableSteps } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const [showIngredientForm, setShowIngredientForm] = useState(false);
+  const [showDeleteStepDialog, setShowDeleteStepDialog] = useState(false);
+  const [ingredientToRemove, setIngredientToRemove] = useState<string | null>(null);
+  const submit = useSubmit();
+  const deleteStepFormRef = useRef<HTMLFormElement>(null);
 
   // Initialize selected steps from existing usingSteps
   const [selectedSteps, setSelectedSteps] = useState<number[]>(
@@ -430,23 +435,29 @@ export default function EditStep() {
           {actionData?.errors?.stepDeletion && (
             <ValidationError error={actionData.errors.stepDeletion} className="mb-4" />
           )}
-          <Form method="post">
+          <Form method="post" ref={deleteStepFormRef}>
             <input type="hidden" name="intent" value="delete" />
             <Button
-              type="submit"
+              type="button"
               color="red"
-              onClick={
-                /* istanbul ignore next -- @preserve browser confirm dialog */
-                (e) => {
-                  if (!confirm("Are you sure you want to delete this step?")) {
-                    e.preventDefault();
-                  }
-                }
-              }
+              onClick={() => setShowDeleteStepDialog(true)}
             >
               Delete Step
             </Button>
           </Form>
+          <ConfirmationDialog
+            open={showDeleteStepDialog}
+            onClose={() => setShowDeleteStepDialog(false)}
+            onConfirm={() => {
+              setShowDeleteStepDialog(false);
+              deleteStepFormRef.current?.submit();
+            }}
+            title="Delete this step? 🗑️"
+            description="This step and all its ingredients will be permanently deleted. Other steps that depend on this one may be affected."
+            confirmLabel="Delete it"
+            cancelLabel="Keep it"
+            destructive
+          />
         </div>
 
         <div className="mt-12 pt-8 border-t border-gray-200">
@@ -529,29 +540,38 @@ export default function EditStep() {
                   <span>
                     <strong>{ingredient.quantity}</strong> {ingredient.unit.name} {ingredient.ingredientRef.name}
                   </span>
-                  <Form method="post" className="m-0">
-                    <input type="hidden" name="intent" value="deleteIngredient" />
-                    <input type="hidden" name="ingredientId" value={ingredient.id} />
-                    <Button
-                      type="submit"
-                      color="red"
-                      onClick={
-                        /* istanbul ignore next -- @preserve browser confirm dialog */
-                        (e) => {
-                          if (!confirm("Remove this ingredient?")) {
-                            e.preventDefault();
-                          }
-                        }
-                      }
-                    >
-                      Remove
-                    </Button>
-                  </Form>
+                  <Button
+                    type="button"
+                    color="red"
+                    onClick={() => setIngredientToRemove(ingredient.id)}
+                  >
+                    Remove
+                  </Button>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Remove ingredient confirmation dialog */}
+        <ConfirmationDialog
+          open={!!ingredientToRemove}
+          onClose={() => setIngredientToRemove(null)}
+          onConfirm={() => {
+            if (ingredientToRemove) {
+              const formData = new FormData();
+              formData.set("intent", "deleteIngredient");
+              formData.set("ingredientId", ingredientToRemove);
+              submit(formData, { method: "post" });
+              setIngredientToRemove(null);
+            }
+          }}
+          title="Remove this ingredient? 🥕"
+          description="This ingredient will be removed from the step."
+          confirmLabel="Remove it"
+          cancelLabel="Keep it"
+          destructive
+        />
       </div>
     </div>
   );

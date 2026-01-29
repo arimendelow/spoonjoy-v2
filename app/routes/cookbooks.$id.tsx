@@ -1,8 +1,10 @@
 import type { Route } from "./+types/cookbooks.$id";
-import { Link, redirect, useLoaderData, Form, data } from "react-router";
+import { Link, redirect, useLoaderData, Form, data, useSubmit } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { ConfirmationDialog } from "~/components/confirmation-dialog";
+import { Button } from "~/components/ui/button";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -168,6 +170,10 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 export default function CookbookDetail() {
   const { cookbook, isOwner, availableRecipes } = useLoaderData<typeof loader>();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [recipeToRemove, setRecipeToRemove] = useState<string | null>(null);
+  const submit = useSubmit();
+  const deleteFormRef = useRef<HTMLFormElement>(null);
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
@@ -260,30 +266,31 @@ export default function CookbookDetail() {
             </p>
           </div>
           {isOwner && (
-            <Form method="post">
-              <input type="hidden" name="intent" value="delete" />
-              <button
-                type="submit"
-                onClick={
-                  /* istanbul ignore next -- @preserve browser confirm dialog */
-                  (e) => {
-                    if (!confirm("Are you sure you want to delete this cookbook?")) {
-                      e.preventDefault();
-                    }
-                  }
-                }
-                style={{
-                  padding: "0.5rem 1rem",
-                  backgroundColor: "#dc3545",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
+            <>
+              <Form method="post" ref={deleteFormRef}>
+                <input type="hidden" name="intent" value="delete" />
+                <Button
+                  type="button"
+                  color="red"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  Delete Cookbook
+                </Button>
+              </Form>
+              <ConfirmationDialog
+                open={showDeleteDialog}
+                onClose={() => setShowDeleteDialog(false)}
+                onConfirm={() => {
+                  setShowDeleteDialog(false);
+                  deleteFormRef.current?.submit();
                 }}
-              >
-                Delete Cookbook
-              </button>
-            </Form>
+                title="Banish this cookbook? 📚"
+                description="This will permanently delete the cookbook and remove all recipe associations. The recipes themselves will not be deleted."
+                confirmLabel="Delete it"
+                cancelLabel="Keep it"
+                destructive
+              />
+            </>
           )}
         </div>
 
@@ -409,33 +416,14 @@ export default function CookbookDetail() {
                 </Link>
                 {isOwner && (
                   <div style={{ padding: "0 1rem 1rem" }}>
-                    <Form method="post">
-                      <input type="hidden" name="intent" value="removeRecipe" />
-                      <input type="hidden" name="recipeInCookbookId" value={item.id} />
-                      <button
-                        type="submit"
-                        onClick={
-                          /* istanbul ignore next -- @preserve browser confirm dialog */
-                          (e) => {
-                            if (!confirm("Remove this recipe from the cookbook?")) {
-                              e.preventDefault();
-                            }
-                          }
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "0.5rem",
-                          fontSize: "0.875rem",
-                          backgroundColor: "#dc3545",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Remove from Cookbook
-                      </button>
-                    </Form>
+                    <Button
+                      type="button"
+                      color="red"
+                      className="w-full text-sm"
+                      onClick={() => setRecipeToRemove(item.id)}
+                    >
+                      Remove from Cookbook
+                    </Button>
                   </div>
                 )}
               </div>
@@ -443,6 +431,26 @@ export default function CookbookDetail() {
           </div>
         )}
       </div>
+
+      {/* Remove recipe confirmation dialog */}
+      <ConfirmationDialog
+        open={!!recipeToRemove}
+        onClose={() => setRecipeToRemove(null)}
+        onConfirm={() => {
+          if (recipeToRemove) {
+            const formData = new FormData();
+            formData.set("intent", "removeRecipe");
+            formData.set("recipeInCookbookId", recipeToRemove);
+            submit(formData, { method: "post" });
+            setRecipeToRemove(null);
+          }
+        }}
+        title="Remove from cookbook? 🍳"
+        description="This recipe will be removed from this cookbook. The recipe itself won't be deleted."
+        confirmLabel="Remove it"
+        cancelLabel="Keep it"
+        destructive
+      />
     </div>
   );
 }
