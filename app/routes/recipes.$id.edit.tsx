@@ -8,6 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
+import { ValidationError } from "~/components/ui/validation-error";
 import {
   validateTitle,
   validateDescription,
@@ -224,9 +225,7 @@ export default function EditRecipe() {
         </div>
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600" role="alert">
-            {actionData.errors.general}
-          </div>
+          <ValidationError error={actionData.errors.general} className="mb-4" />
         )}
 
         <Form method="post">
@@ -315,9 +314,7 @@ export default function EditRecipe() {
           </div>
 
           {actionData?.errors?.reorder && (
-            <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600" role="alert">
-              {actionData.errors.reorder}
-            </div>
+            <ValidationError error={actionData.errors.reorder} className="mb-4" />
           )}
 
           {recipe.steps.length === 0 ? (

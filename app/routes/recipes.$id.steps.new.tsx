@@ -8,6 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text, Strong } from "~/components/ui/text";
+import { ValidationError } from "~/components/ui/validation-error";
 import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
 import { validateStepTitle, validateStepDescription, validateStepReference, STEP_TITLE_MAX_LENGTH, STEP_DESCRIPTION_MAX_LENGTH } from "~/lib/validation";
 import { createStepOutputUses } from "~/lib/step-output-use-mutations.server";
@@ -188,9 +189,7 @@ export default function NewStep() {
         </div>
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600" role="alert">
-            {actionData.errors.general}
-          </div>
+          <ValidationError error={actionData.errors.general} className="mb-4" />
         )}
 
         <div className="bg-gray-100 p-4 rounded-lg mb-6">

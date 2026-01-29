@@ -8,6 +8,7 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Field, Label } from "~/components/ui/fieldset";
 import { Text } from "~/components/ui/text";
+import { ValidationError } from "~/components/ui/validation-error";
 import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
 import {
   deleteExistingStepOutputUses,
@@ -342,9 +343,7 @@ export default function EditStep() {
         </div>
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600">
-            {actionData.errors.general}
-          </div>
+          <ValidationError error={actionData.errors.general} className="mb-4" />
         )}
 
         <Form method="post" className="flex flex-col gap-6">
@@ -429,12 +428,7 @@ export default function EditStep() {
 
         <div className="mt-4">
           {actionData?.errors?.stepDeletion && (
-            <div
-              className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600"
-              role="alert"
-            >
-              {actionData.errors.stepDeletion}
-            </div>
+            <ValidationError error={actionData.errors.stepDeletion} className="mb-4" />
           )}
           <Form method="post">
             <input type="hidden" name="intent" value="delete" />
