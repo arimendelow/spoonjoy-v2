@@ -8,7 +8,10 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text, Strong } from "~/components/ui/text";
+import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
 import { validateStepTitle, validateStepDescription, STEP_TITLE_MAX_LENGTH, STEP_DESCRIPTION_MAX_LENGTH } from "~/lib/validation";
+import { createStepOutputUses } from "~/lib/step-output-use-mutations.server";
+import { useState } from "react";
 
 interface ActionData {
   errors?: {
@@ -52,7 +55,23 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   const nextStepNum = recipe.steps.length > 0 ? recipe.steps[0].stepNum + 1 : 1;
 
-  return { recipe, nextStepNum };
+  // Load available previous steps for step output uses selection
+  // Only needed if this won't be the first step
+  const availableSteps = nextStepNum > 1
+    ? await database.recipeStep.findMany({
+        where: {
+          recipeId: id,
+          stepNum: { lt: nextStepNum },
+        },
+        select: {
+          stepNum: true,
+          stepTitle: true,
+        },
+        orderBy: { stepNum: "asc" },
+      })
+    : [];
+
+  return { recipe, nextStepNum, availableSteps };
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -109,6 +128,12 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   const nextStepNum = recipe.steps.length > 0 ? recipe.steps[0].stepNum + 1 : 1;
 
+  // Parse selected step output uses
+  const usesStepsRaw = formData.getAll("usesSteps");
+  const usesSteps = usesStepsRaw
+    .map((s) => parseInt(s.toString(), 10))
+    .filter((n) => !isNaN(n) && n > 0 && n < nextStepNum);
+
   try {
     const step = await database.recipeStep.create({
       data: {
@@ -118,6 +143,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         description: description.trim(),
       },
     });
+
+    // Create StepOutputUse records if any steps were selected
+    if (usesSteps.length > 0) {
+      await createStepOutputUses(id, nextStepNum, usesSteps);
+    }
 
     return redirect(`/recipes/${id}/steps/${step.id}/edit`);
   } catch (error) {
@@ -129,8 +159,9 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function NewStep() {
-  const { recipe, nextStepNum } = useLoaderData<typeof loader>();
+  const { recipe, nextStepNum, availableSteps } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
+  const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
 
   return (
     <div className="font-sans leading-relaxed p-8">
@@ -174,6 +205,28 @@ export default function NewStep() {
                 </ErrorMessage>
               )}
             </Field>
+
+            {nextStepNum > 1 && availableSteps.length > 0 && (
+              <Field>
+                <Label>Uses Output From (optional)</Label>
+                <Listbox
+                  name="usesSteps"
+                  multiple
+                  value={selectedSteps}
+                  onChange={setSelectedSteps}
+                  aria-label="Select previous steps"
+                  placeholder="Select previous steps (optional)"
+                >
+                  {availableSteps.map((step) => (
+                    <ListboxOption key={step.stepNum} value={step.stepNum}>
+                      <ListboxLabel>
+                        Step {step.stepNum}{step.stepTitle ? `: ${step.stepTitle}` : ""}
+                      </ListboxLabel>
+                    </ListboxOption>
+                  ))}
+                </Listbox>
+              </Field>
+            )}
 
             <Field>
               <Label>Description *</Label>
