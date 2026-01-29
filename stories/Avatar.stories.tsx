@@ -80,6 +80,7 @@ const sampleImages = {
   woman: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
   man: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
   baker: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=100&h=100&fit=crop&crop=face',
+  chefRJ: '/images/chef-rj.png', // Our beloved mascot!
 }
 
 // =============================================================================
@@ -408,6 +409,53 @@ export const ProfileHeader: Story = {
     docs: {
       description: {
         story: 'Profile headers call for larger avatars. This is their time to shine.',
+      },
+    },
+  },
+}
+
+/**
+ * ## Chef RJ - Our Mascot
+ *
+ * Meet Chef RJ, Spoonjoy's beloved mascot! A friendly chef who's been with us
+ * since the beginning. Perfect for empty states, loading screens, or anywhere
+ * you need a friendly face.
+ */
+export const ChefRJ: Story = {
+  render: () => (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4 p-4 border border-zinc-200 rounded-lg dark:border-zinc-700">
+        <Avatar src={sampleImages.chefRJ} alt="Chef RJ" className="size-20" square />
+        <div>
+          <h3 className="font-semibold text-lg text-zinc-900 dark:text-white">Chef RJ</h3>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Spoonjoy's Official Mascot</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Making cooking fun since day one!</p>
+        </div>
+      </div>
+      <div className="flex gap-4 items-end">
+        <div className="flex flex-col items-center gap-1">
+          <Avatar src={sampleImages.chefRJ} alt="Chef RJ" className="size-8" />
+          <span className="text-xs text-zinc-500">8</span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <Avatar src={sampleImages.chefRJ} alt="Chef RJ" className="size-12" />
+          <span className="text-xs text-zinc-500">12</span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <Avatar src={sampleImages.chefRJ} alt="Chef RJ" className="size-16" />
+          <span className="text-xs text-zinc-500">16</span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <Avatar src={sampleImages.chefRJ} alt="Chef RJ" className="size-24" />
+          <span className="text-xs text-zinc-500">24</span>
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Chef RJ, our mascot! Works great at any size. The square variant shows off his full character.',
       },
     },
   },
