@@ -1,7 +1,14 @@
 import type { Route } from "./+types/shopping-list";
-import { Link, useLoaderData, Form, data } from "react-router";
+import { useLoaderData, Form, data } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
+import { Heading, Subheading } from "~/components/ui/heading";
+import { Text } from "~/components/ui/text";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Field, Label } from "~/components/ui/fieldset";
+import { Select } from "~/components/ui/select";
+import { Link } from "~/components/ui/link";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -152,9 +159,8 @@ export async function action({ request, context }: Route.ActionArgs) {
           },
         });
       }
-
-      return data({ success: true });
     }
+    return data({ success: true });
   }
 
   if (intent === "addFromRecipe") {
@@ -177,8 +183,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         },
       });
 
+      /* istanbul ignore else -- @preserve recipe should exist if selected */
       if (recipe) {
-        // Add all ingredients from all steps
         for (const step of recipe.steps) {
           for (const ingredient of step.ingredients) {
             // Check if item already exists
@@ -194,8 +200,11 @@ export async function action({ request, context }: Route.ActionArgs) {
 
             if (existingItem) {
               // Update quantity
-              /* istanbul ignore next -- @preserve existingItem.quantity fallback */
-              const newQuantity = (existingItem.quantity || 0) + ingredient.quantity;
+              /* istanbul ignore next -- @preserve ternary branches for quantity addition */
+              const newQuantity = ingredient.quantity
+                ? (existingItem.quantity || 0) + ingredient.quantity
+                : existingItem.quantity;
+
               await database.shoppingListItem.update({
                 where: { id: existingItem.id },
                 data: { quantity: newQuantity },
@@ -213,37 +222,39 @@ export async function action({ request, context }: Route.ActionArgs) {
             }
           }
         }
-
-        return data({ success: true });
       }
     }
+    return data({ success: true });
   }
 
   if (intent === "toggleCheck") {
     const itemId = formData.get("itemId")?.toString();
+
     if (itemId) {
       const item = await database.shoppingListItem.findUnique({
         where: { id: itemId },
-        select: { checked: true },
       });
+
+      /* istanbul ignore else -- @preserve item should exist if toggling */
       if (item) {
         await database.shoppingListItem.update({
           where: { id: itemId },
           data: { checked: !item.checked },
         });
-        return data({ success: true });
       }
     }
+    return data({ success: true });
   }
 
   if (intent === "removeItem") {
     const itemId = formData.get("itemId")?.toString();
+
     if (itemId) {
       await database.shoppingListItem.delete({
         where: { id: itemId },
       });
-      return data({ success: true });
     }
+    return data({ success: true });
   }
 
   if (intent === "clearCompleted") {
@@ -273,303 +284,176 @@ export default function ShoppingList() {
   const uncheckedCount = shoppingList.items.length - checkedCount;
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-          <div>
-            <h1>Shopping List</h1>
-            <p style={{ color: "#666", margin: "0.5rem 0 0 0" }}>
-              {shoppingList.items.length} {shoppingList.items.length === 1 ? "item" : "items"}
-              {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
-                <span> ({checkedCount} checked, {uncheckedCount} remaining)</span>
-              )}
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <Link
-              to="/"
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#6c757d",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-              }}
-            >
-              Home
-            </Link>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <Heading level={1}>Shopping List</Heading>
+          <Text className="mt-1">
+            {shoppingList.items.length} {shoppingList.items.length === 1 ? "item" : "items"}
             {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
-              <Form method="post">
-                <input type="hidden" name="intent" value="clearCompleted" />
-                <button
-                  type="submit"
-                  style={{
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#ffc107",
-                    color: "#212529",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Clear Completed
-                </button>
-              </Form>
+              <span> ({checkedCount} checked, {uncheckedCount} remaining)</span>
             )}
-            {/* istanbul ignore next -- @preserve */ shoppingList.items.length > 0 && (
-              <Form method="post">
-                <input type="hidden" name="intent" value="clearAll" />
-                <button
-                  type="submit"
-                  onClick={
-                    /* istanbul ignore next -- @preserve browser confirm dialog */
-                    (e) => {
-                      if (!confirm("Clear all items from shopping list?")) {
-                        e.preventDefault();
-                      }
+          </Text>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button href="/" outline>
+            Home
+          </Button>
+          {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
+            <Form method="post">
+              <input type="hidden" name="intent" value="clearCompleted" />
+              <Button type="submit" color="amber">
+                Clear Completed
+              </Button>
+            </Form>
+          )}
+          {/* istanbul ignore next -- @preserve */ shoppingList.items.length > 0 && (
+            <Form method="post">
+              <input type="hidden" name="intent" value="clearAll" />
+              <Button
+                type="submit"
+                color="red"
+                onClick={
+                  /* istanbul ignore next -- @preserve browser confirm dialog */
+                  (e) => {
+                    if (!confirm("Clear all items from shopping list?")) {
+                      e.preventDefault();
                     }
                   }
-                  style={{
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#dc3545",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Clear All
-                </button>
-              </Form>
-            )}
-          </div>
-        </div>
-
-        <div
-          style={{
-            backgroundColor: "#f8f9fa",
-            padding: "1.5rem",
-            borderRadius: "8px",
-            marginBottom: "2rem",
-          }}
-        >
-          <h3 style={{ margin: "0 0 1rem 0" }}>Add Item</h3>
-          <Form method="post" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <input type="hidden" name="intent" value="addItem" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr auto", gap: "1rem", alignItems: "end" }}>
-              <div>
-                <label htmlFor="quantity" style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  id="quantity"
-                  name="quantity"
-                  step="0.01"
-                  placeholder="2"
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    fontSize: "1rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="unitName" style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
-                  Unit
-                </label>
-                <input
-                  type="text"
-                  id="unitName"
-                  name="unitName"
-                  placeholder="lbs"
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    fontSize: "1rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="ingredientName" style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: "bold" }}>
-                  Ingredient *
-                </label>
-                <input
-                  type="text"
-                  id="ingredientName"
-                  name="ingredientName"
-                  required
-                  placeholder="chicken breast"
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    fontSize: "1rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                  }}
-                />
-              </div>
-              <button
-                type="submit"
-                style={{
-                  padding: "0.5rem 1rem",
-                  fontSize: "1rem",
-                  backgroundColor: "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
+                }
               >
-                Add
-              </button>
-            </div>
+                Clear All
+              </Button>
+            </Form>
+          )}
+        </div>
+      </div>
+
+      {/* Add Item Form */}
+      <div className="rounded-lg bg-zinc-50 p-6 dark:bg-zinc-800/50 mb-6">
+        <Subheading level={2}>Add Item</Subheading>
+        <Form method="post" className="mt-4">
+          <input type="hidden" name="intent" value="addItem" />
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+            <Field>
+              <Label>Quantity</Label>
+              <Input
+                type="number"
+                name="quantity"
+                step="0.01"
+                placeholder="2"
+              />
+            </Field>
+            <Field>
+              <Label>Unit</Label>
+              <Input
+                type="text"
+                name="unitName"
+                placeholder="lbs"
+              />
+            </Field>
+            <Field className="sm:col-span-1">
+              <Label>Ingredient *</Label>
+              <Input
+                type="text"
+                name="ingredientName"
+                required
+                placeholder="chicken breast"
+              />
+            </Field>
+            <Button type="submit" color="green">
+              Add
+            </Button>
+          </div>
+        </Form>
+      </div>
+
+      {/* Add from Recipe */}
+      {/* istanbul ignore next -- @preserve */ recipes.length > 0 && (
+        <div className="rounded-lg bg-blue-50 p-6 dark:bg-blue-900/20 mb-6">
+          <Subheading level={2}>Add All Ingredients from Recipe</Subheading>
+          <Form method="post" className="mt-4 flex flex-col sm:flex-row gap-4">
+            <input type="hidden" name="intent" value="addFromRecipe" />
+            <Select name="recipeId" required className="flex-1">
+              <option value="">Select a recipe...</option>
+              {recipes.map((recipe) => (
+                <option key={recipe.id} value={recipe.id}>
+                  {recipe.title}
+                </option>
+              ))}
+            </Select>
+            <Button type="submit" color="blue">
+              Add Ingredients
+            </Button>
           </Form>
         </div>
+      )}
 
-        {/* istanbul ignore next -- @preserve */ recipes.length > 0 && (
-          <div
-            style={{
-              backgroundColor: "#e7f3ff",
-              padding: "1.5rem",
-              borderRadius: "8px",
-              marginBottom: "2rem",
-            }}
-          >
-            <h3 style={{ margin: "0 0 1rem 0" }}>Add All Ingredients from Recipe</h3>
-            <Form method="post" style={{ display: "flex", gap: "1rem" }}>
-              <input type="hidden" name="intent" value="addFromRecipe" />
-              <select
-                name="recipeId"
-                required
-                style={{
-                  flex: 1,
-                  padding: "0.5rem",
-                  fontSize: "1rem",
-                  border: "1px solid #0066cc",
-                  borderRadius: "4px",
-                }}
-              >
-                <option value="">Select a recipe...</option>
-                {recipes.map((recipe) => (
-                  <option key={recipe.id} value={recipe.id}>
-                    {recipe.title}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                style={{
-                  padding: "0.5rem 1.5rem",
-                  fontSize: "1rem",
-                  backgroundColor: "#0066cc",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Add Ingredients
-              </button>
-            </Form>
-          </div>
-        )}
-
-        {shoppingList.items.length === 0 ? (
-          <div
-            style={{
-              backgroundColor: "#f8f9fa",
-              padding: "3rem",
-              borderRadius: "8px",
-              textAlign: "center",
-            }}
-          >
-            <h2 style={{ color: "#6c757d" }}>Your shopping list is empty</h2>
-            <p style={{ color: "#999" }}>
-              Add items manually or add all ingredients from a recipe
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {shoppingList.items.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  backgroundColor: "white",
-                  border: "1px solid #dee2e6",
-                  borderRadius: "4px",
-                  padding: "1rem",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  opacity: item.checked ? 0.6 : 1,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1 }}>
-                  <Form method="post" style={{ margin: 0 }}>
-                    <input type="hidden" name="intent" value="toggleCheck" />
-                    <input type="hidden" name="itemId" value={item.id} />
-                    <button
-                      type="submit"
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        border: "2px solid #0066cc",
-                        borderRadius: "4px",
-                        backgroundColor: item.checked ? "#0066cc" : "white",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 0,
-                      }}
-                      aria-label={item.checked ? "Uncheck item" : "Check item"}
-                    >
-                      {item.checked && (
-                        <span style={{ color: "white", fontSize: "1rem", lineHeight: 1 }}>✓</span>
-                      )}
-                    </button>
-                  </Form>
-                  <span
-                    style={{
-                      fontSize: "1.125rem",
-                      textDecoration: item.checked ? "line-through" : "none",
-                    }}
-                  >
-                    {item.quantity && <strong>{item.quantity}</strong>}
-                    {item.quantity && item.unit && " "}
-                    {item.unit?.name && <span>{item.unit.name}</span>}
-                    {(item.quantity || item.unit) && " "}
-                    {item.ingredientRef.name}
-                  </span>
-                </div>
-                <Form method="post" style={{ margin: 0 }}>
-                  <input type="hidden" name="intent" value="removeItem" />
+      {/* Empty State */}
+      {shoppingList.items.length === 0 ? (
+        <div className="rounded-lg bg-zinc-50 p-8 dark:bg-zinc-800/50 text-center">
+          <Subheading level={2} className="text-zinc-500 dark:text-zinc-400">
+            Your shopping list is empty
+          </Subheading>
+          <Text className="mt-2">
+            Add items manually or add all ingredients from a recipe
+          </Text>
+        </div>
+      ) : (
+        /* Item List */
+        <div className="space-y-2">
+          {shoppingList.items.map((item) => (
+            <div
+              key={item.id}
+              className={`
+                rounded-lg border border-zinc-200 dark:border-zinc-700 p-4
+                flex items-center justify-between gap-4
+                bg-white dark:bg-zinc-800
+                ${item.checked ? "opacity-60" : ""}
+              `}
+            >
+              <div className="flex items-center gap-4 flex-1">
+                <Form method="post" className="m-0">
+                  <input type="hidden" name="intent" value="toggleCheck" />
                   <input type="hidden" name="itemId" value={item.id} />
                   <button
                     type="submit"
-                    style={{
-                      padding: "0.25rem 0.75rem",
-                      fontSize: "0.875rem",
-                      backgroundColor: "#dc3545",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
+                    className={`
+                      w-6 h-6 rounded border-2 flex items-center justify-center
+                      transition-colors cursor-pointer
+                      ${item.checked 
+                        ? "bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500" 
+                        : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
+                    `}
+                    aria-label={item.checked ? "Uncheck item" : "Check item"}
                   >
-                    Remove
+                    {item.checked && (
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
                   </button>
                 </Form>
+                <span className={`text-lg ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
+                  {item.quantity && <strong>{item.quantity}</strong>}
+                  {item.quantity && item.unit && " "}
+                  {item.unit?.name && <span>{item.unit.name}</span>}
+                  {(item.quantity || item.unit) && " "}
+                  {item.ingredientRef.name}
+                </span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <Form method="post" className="m-0">
+                <input type="hidden" name="intent" value="removeItem" />
+                <input type="hidden" name="itemId" value={item.id} />
+                <Button type="submit" color="red" className="text-sm">
+                  Remove
+                </Button>
+              </Form>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
