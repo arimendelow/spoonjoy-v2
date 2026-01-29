@@ -18,6 +18,7 @@ import {
   validateQuantity,
   validateUnitName,
   validateIngredientName,
+  validateStepReference,
   STEP_TITLE_MAX_LENGTH,
   STEP_DESCRIPTION_MAX_LENGTH,
   UNIT_NAME_MAX_LENGTH,
@@ -33,6 +34,7 @@ interface ActionData {
     quantity?: string;
     unitName?: string;
     ingredientName?: string;
+    usesSteps?: string;
     general?: string;
   };
 }
@@ -260,15 +262,25 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     errors.description = descriptionResult.error;
   }
 
+  // Parse and validate selected step output uses
+  const usesStepsRaw = formData.getAll("usesSteps");
+  const parsedSteps = usesStepsRaw.map((s) => parseInt(s.toString(), 10));
+
+  // Validate each selected step reference
+  for (const outputStepNum of parsedSteps) {
+    const validationResult = validateStepReference(outputStepNum, step.stepNum);
+    if (!validationResult.valid) {
+      errors.usesSteps = validationResult.error;
+      break; // Show first error
+    }
+  }
+
   if (Object.keys(errors).length > 0) {
     return data({ errors }, { status: 400 });
   }
 
-  // Parse selected step output uses
-  const usesStepsRaw = formData.getAll("usesSteps");
-  const usesSteps = usesStepsRaw
-    .map((s) => parseInt(s.toString(), 10))
-    .filter((n) => !isNaN(n) && n > 0 && n < step.stepNum);
+  // Filter to only valid step numbers (extra safety)
+  const usesSteps = parsedSteps.filter((n) => !isNaN(n) && n > 0 && n < step.stepNum);
 
   try {
     await database.recipeStep.update({
@@ -357,6 +369,11 @@ export default function EditStep() {
                   </ListboxOption>
                 ))}
               </Listbox>
+              {actionData?.errors?.usesSteps && (
+                <div className="text-red-600 text-sm mt-1">
+                  {actionData.errors.usesSteps}
+                </div>
+              )}
             </Field>
           )}
 

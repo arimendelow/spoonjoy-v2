@@ -663,7 +663,7 @@ describe("Recipes $id Steps New Route", () => {
         expect(stepOutputUses[1].inputStepNum).toBe(3);
       });
 
-      it("should ignore invalid step numbers in usesSteps", async () => {
+      it("should return validation error when referencing non-existent future step", async () => {
         // Create existing step
         await db.recipeStep.create({
           data: {
@@ -673,12 +673,11 @@ describe("Recipes $id Steps New Route", () => {
           },
         });
 
-        // Try to create step with non-existent step reference (step 5 doesn't exist)
-        // The form might submit invalid data, but we should handle it gracefully
+        // Try to create step 2 with reference to step 5 (doesn't exist, is a forward reference)
         const request = await createFormRequest(
           { description: "Step 2" },
           testUserId,
-          [1, 5] // Step 5 doesn't exist but step 1 does
+          [1, 5] // Step 5 is a forward reference - invalid
         );
 
         const response = await action({
@@ -687,15 +686,10 @@ describe("Recipes $id Steps New Route", () => {
           params: { id: recipeId },
         } as any);
 
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(302);
-
-        // Verify only valid StepOutputUse record created
-        const stepOutputUses = await db.stepOutputUse.findMany({
-          where: { recipeId },
-        });
-        expect(stepOutputUses).toHaveLength(1);
-        expect(stepOutputUses[0].outputStepNum).toBe(1);
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        // 5 > 2 (nextStepNum), so it's a forward reference
+        expect(data.errors.usesSteps).toBe("Can only reference previous steps");
       });
 
       it("should handle empty usesSteps array gracefully", async () => {

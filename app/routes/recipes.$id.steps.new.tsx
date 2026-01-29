@@ -9,7 +9,7 @@ import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text, Strong } from "~/components/ui/text";
 import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
-import { validateStepTitle, validateStepDescription, STEP_TITLE_MAX_LENGTH, STEP_DESCRIPTION_MAX_LENGTH } from "~/lib/validation";
+import { validateStepTitle, validateStepDescription, validateStepReference, STEP_TITLE_MAX_LENGTH, STEP_DESCRIPTION_MAX_LENGTH } from "~/lib/validation";
 import { createStepOutputUses } from "~/lib/step-output-use-mutations.server";
 import { useState } from "react";
 
@@ -17,6 +17,7 @@ interface ActionData {
   errors?: {
     stepTitle?: string;
     description?: string;
+    usesSteps?: string;
     general?: string;
   };
 }
@@ -122,17 +123,27 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     errors.description = descriptionResult.error;
   }
 
+  const nextStepNum = recipe.steps.length > 0 ? recipe.steps[0].stepNum + 1 : 1;
+
+  // Parse and validate selected step output uses
+  const usesStepsRaw = formData.getAll("usesSteps");
+  const parsedSteps = usesStepsRaw.map((s) => parseInt(s.toString(), 10));
+
+  // Validate each selected step reference
+  for (const outputStepNum of parsedSteps) {
+    const validationResult = validateStepReference(outputStepNum, nextStepNum);
+    if (!validationResult.valid) {
+      errors.usesSteps = validationResult.error;
+      break; // Show first error
+    }
+  }
+
   if (Object.keys(errors).length > 0) {
     return data({ errors }, { status: 400 });
   }
 
-  const nextStepNum = recipe.steps.length > 0 ? recipe.steps[0].stepNum + 1 : 1;
-
-  // Parse selected step output uses
-  const usesStepsRaw = formData.getAll("usesSteps");
-  const usesSteps = usesStepsRaw
-    .map((s) => parseInt(s.toString(), 10))
-    .filter((n) => !isNaN(n) && n > 0 && n < nextStepNum);
+  // Filter to only valid step numbers (extra safety)
+  const usesSteps = parsedSteps.filter((n) => !isNaN(n) && n > 0 && n < nextStepNum);
 
   try {
     const step = await database.recipeStep.create({
@@ -225,6 +236,11 @@ export default function NewStep() {
                     </ListboxOption>
                   ))}
                 </Listbox>
+                {actionData?.errors?.usesSteps && (
+                  <ErrorMessage>
+                    {actionData.errors.usesSteps}
+                  </ErrorMessage>
+                )}
               </Field>
             )}
 

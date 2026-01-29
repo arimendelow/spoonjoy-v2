@@ -1037,7 +1037,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         expect(stepOutputUses).toHaveLength(0);
       });
 
-      it("should ignore invalid step numbers in usesSteps", async () => {
+      it("should return validation error when mix of valid and invalid step numbers", async () => {
         // Create step 2
         const step2 = await db.recipeStep.create({
           data: {
@@ -1048,6 +1048,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         });
 
         // Try to use invalid step numbers (0, negative, same as current, greater than current)
+        // Even though 1 is valid, the first invalid (0) should cause an error
         const request = await createFormRequest(
           {
             stepTitle: "Updated Step 2",
@@ -1056,7 +1057,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
           testUserId,
           recipeId,
           step2.id,
-          [0, -1, 2, 3, 1] // Only 1 is valid
+          [0, -1, 2, 3, 1] // 0 is checked first and is invalid
         );
 
         const response = await action({
@@ -1065,20 +1066,14 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
           params: { id: recipeId, stepId: step2.id },
         } as any);
 
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(302);
-
-        // Verify only valid step output use was created
-        const stepOutputUses = await db.stepOutputUse.findMany({
-          where: { recipeId, inputStepNum: 2 },
-        });
-        expect(stepOutputUses).toHaveLength(1);
-        expect(stepOutputUses[0].outputStepNum).toBe(1);
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe("Invalid step number");
       });
 
-      it("should not create step output uses for step 1", async () => {
+      it("should return validation error when step 1 tries to reference itself", async () => {
         // Step 1 exists from beforeEach
-        // Try to add usesSteps to step 1 (should be ignored since there are no previous steps)
+        // Try to add usesSteps to step 1 (should return error)
         const request = await createFormRequest(
           {
             stepTitle: "Updated Step 1",
@@ -1087,7 +1082,32 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
           testUserId,
           recipeId,
           stepId,
-          [1] // Invalid - can't reference itself or previous steps (there are none)
+          [1] // Self-reference - invalid
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe("Cannot reference the current step");
+      });
+
+      it("should allow step update without usesSteps for step 1", async () => {
+        // Step 1 exists from beforeEach
+        // Update step 1 without any usesSteps - should succeed
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 1",
+            description: "First step description updated",
+          },
+          testUserId,
+          recipeId,
+          stepId,
+          [] // No step references
         );
 
         const response = await action({
@@ -1099,11 +1119,9 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         expect(response).toBeInstanceOf(Response);
         expect(response.status).toBe(302);
 
-        // Verify no step output uses were created
-        const stepOutputUses = await db.stepOutputUse.findMany({
-          where: { recipeId, inputStepNum: 1 },
-        });
-        expect(stepOutputUses).toHaveLength(0);
+        // Verify step was updated
+        const updatedStep = await db.recipeStep.findUnique({ where: { id: stepId } });
+        expect(updatedStep?.stepTitle).toBe("Updated Step 1");
       });
 
       it("should return validation error when selecting current step (self-reference)", async () => {
