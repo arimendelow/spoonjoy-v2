@@ -10,6 +10,7 @@ import { Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Text, TextLink } from "~/components/ui/text";
+import { ValidationError } from "~/components/ui/validation-error";
 
 interface ActionData {
   errors?: {
@@ -98,12 +99,7 @@ export default function Login() {
         <OAuthError error={loaderData?.oauthError} className="mt-4" />
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div
-            role="alert"
-            className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400"
-          >
-            {actionData.errors.general}
-          </div>
+          <ValidationError error={actionData.errors.general} className="mt-4" />
         )}
 
         <Form method="post" className="mt-8 space-y-6">
