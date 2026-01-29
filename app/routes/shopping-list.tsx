@@ -1,5 +1,6 @@
 import type { Route } from "./+types/shopping-list";
-import { useLoaderData, Form, data } from "react-router";
+import { useState } from "react";
+import { useLoaderData, Form, data, useSubmit } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Heading, Subheading } from "~/components/ui/heading";
@@ -9,6 +10,7 @@ import { Input } from "~/components/ui/input";
 import { Field, Label } from "~/components/ui/fieldset";
 import { Select } from "~/components/ui/select";
 import { Link } from "~/components/ui/link";
+import { ConfirmationDialog } from "~/components/confirmation-dialog";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -279,9 +281,16 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function ShoppingList() {
   const { shoppingList, recipes } = useLoaderData<typeof loader>();
+  const [showClearDialog, setShowClearDialog] = useState(false);
+  const submit = useSubmit();
 
   const checkedCount = shoppingList.items.filter((item) => item.checked).length;
   const uncheckedCount = shoppingList.items.length - checkedCount;
+
+  const handleClearAllConfirm = () => {
+    setShowClearDialog(false);
+    submit({ intent: "clearAll" }, { method: "post" });
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -309,23 +318,24 @@ export default function ShoppingList() {
             </Form>
           )}
           {/* istanbul ignore next -- @preserve */ shoppingList.items.length > 0 && (
-            <Form method="post">
-              <input type="hidden" name="intent" value="clearAll" />
+            <>
               <Button
-                type="submit"
                 color="red"
-                onClick={
-                  /* istanbul ignore next -- @preserve browser confirm dialog */
-                  (e) => {
-                    if (!confirm("Clear all items from shopping list?")) {
-                      e.preventDefault();
-                    }
-                  }
-                }
+                onClick={() => setShowClearDialog(true)}
               >
                 Clear All
               </Button>
-            </Form>
+              <ConfirmationDialog
+                open={showClearDialog}
+                onClose={() => setShowClearDialog(false)}
+                onConfirm={handleClearAllConfirm}
+                title="Start fresh?"
+                description="All items will be cleared from your shopping list. Your cart will be squeaky clean!"
+                confirmLabel="Clear it all"
+                cancelLabel="Keep my stuff"
+                destructive
+              />
+            </>
           )}
         </div>
       </div>
