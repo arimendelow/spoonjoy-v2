@@ -3,7 +3,10 @@ import { db } from "~/lib/db.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { faker } from "@faker-js/faker";
 import { createUser } from "~/lib/auth.server";
-import { deleteExistingStepOutputUses } from "~/lib/step-output-use-mutations.server";
+import {
+  deleteExistingStepOutputUses,
+  createStepOutputUses,
+} from "~/lib/step-output-use-mutations.server";
 
 describe("step-output-use-mutations", () => {
   let testUserId: string;
@@ -259,6 +262,216 @@ describe("step-output-use-mutations", () => {
         where: { recipeId, inputStepNum: 5 },
       });
       expect(remaining).toBe(0);
+    });
+  });
+
+  describe("createStepOutputUses", () => {
+    it("should create StepOutputUse records for each outputStepNum in array", async () => {
+      // Create steps 1, 2, and 3
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 1, description: "Step 1" },
+      });
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 2, description: "Step 2" },
+      });
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 3, description: "Step 3" },
+      });
+
+      // Step 3 uses outputs from step 1 and step 2
+      const result = await createStepOutputUses(recipeId, 3, [1, 2]);
+
+      expect(result.count).toBe(2);
+
+      // Verify records were created
+      const records = await db.stepOutputUse.findMany({
+        where: { recipeId, inputStepNum: 3 },
+        orderBy: { outputStepNum: "asc" },
+      });
+
+      expect(records.length).toBe(2);
+      expect(records[0].outputStepNum).toBe(1);
+      expect(records[1].outputStepNum).toBe(2);
+    });
+
+    it("should return count of 0 when outputStepNums array is empty", async () => {
+      // Create step 1
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 1, description: "Step 1" },
+      });
+
+      // Create with empty array (no dependencies)
+      const result = await createStepOutputUses(recipeId, 1, []);
+
+      expect(result.count).toBe(0);
+
+      // Verify no records were created
+      const records = await db.stepOutputUse.findMany({
+        where: { recipeId, inputStepNum: 1 },
+      });
+      expect(records.length).toBe(0);
+    });
+
+    it("should create single StepOutputUse record when array has one element", async () => {
+      // Create steps 1 and 2
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 1, description: "Step 1" },
+      });
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 2, description: "Step 2" },
+      });
+
+      // Step 2 uses only step 1's output
+      const result = await createStepOutputUses(recipeId, 2, [1]);
+
+      expect(result.count).toBe(1);
+
+      const records = await db.stepOutputUse.findMany({
+        where: { recipeId, inputStepNum: 2 },
+      });
+
+      expect(records.length).toBe(1);
+      expect(records[0].outputStepNum).toBe(1);
+      expect(records[0].recipeId).toBe(recipeId);
+    });
+
+    it("should create records with correct recipeId and inputStepNum", async () => {
+      // Create steps 1, 2, 3, and 4
+      for (let i = 1; i <= 4; i++) {
+        await db.recipeStep.create({
+          data: { recipeId, stepNum: i, description: `Step ${i}` },
+        });
+      }
+
+      // Step 4 uses outputs from steps 1 and 3
+      await createStepOutputUses(recipeId, 4, [1, 3]);
+
+      const records = await db.stepOutputUse.findMany({
+        where: { recipeId, inputStepNum: 4 },
+      });
+
+      // Verify all records have correct recipeId and inputStepNum
+      for (const record of records) {
+        expect(record.recipeId).toBe(recipeId);
+        expect(record.inputStepNum).toBe(4);
+      }
+    });
+
+    it("should create multiple records for step using many previous steps", async () => {
+      // Create steps 1 through 5
+      for (let i = 1; i <= 5; i++) {
+        await db.recipeStep.create({
+          data: { recipeId, stepNum: i, description: `Step ${i}` },
+        });
+      }
+
+      // Step 5 uses outputs from steps 1, 2, 3, and 4
+      const result = await createStepOutputUses(recipeId, 5, [1, 2, 3, 4]);
+
+      expect(result.count).toBe(4);
+
+      const records = await db.stepOutputUse.findMany({
+        where: { recipeId, inputStepNum: 5 },
+        orderBy: { outputStepNum: "asc" },
+      });
+
+      expect(records.length).toBe(4);
+      expect(records.map((r) => r.outputStepNum)).toEqual([1, 2, 3, 4]);
+    });
+
+    it("should not affect StepOutputUse records for other steps", async () => {
+      // Create steps 1, 2, 3, and 4
+      for (let i = 1; i <= 4; i++) {
+        await db.recipeStep.create({
+          data: { recipeId, stepNum: i, description: `Step ${i}` },
+        });
+      }
+
+      // Step 2 already uses step 1
+      await db.stepOutputUse.create({
+        data: { recipeId, outputStepNum: 1, inputStepNum: 2 },
+      });
+
+      // Create new records for step 4
+      await createStepOutputUses(recipeId, 4, [1, 3]);
+
+      // Verify step 2's record is still there
+      const step2Uses = await db.stepOutputUse.count({
+        where: { recipeId, inputStepNum: 2 },
+      });
+      expect(step2Uses).toBe(1);
+
+      // Verify step 4 has its records
+      const step4Uses = await db.stepOutputUse.count({
+        where: { recipeId, inputStepNum: 4 },
+      });
+      expect(step4Uses).toBe(2);
+    });
+
+    it("should not affect StepOutputUse records for other recipes", async () => {
+      // Create another recipe
+      const otherRecipe = await db.recipe.create({
+        data: {
+          title: "Other Recipe " + faker.string.alphanumeric(6),
+          chefId: testUserId,
+        },
+      });
+
+      // Create steps in both recipes
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 1, description: "Step 1" },
+      });
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 2, description: "Step 2" },
+      });
+
+      await db.recipeStep.create({
+        data: { recipeId: otherRecipe.id, stepNum: 1, description: "Other Step 1" },
+      });
+      await db.recipeStep.create({
+        data: { recipeId: otherRecipe.id, stepNum: 2, description: "Other Step 2" },
+      });
+
+      // Other recipe step 2 uses step 1
+      await db.stepOutputUse.create({
+        data: { recipeId: otherRecipe.id, outputStepNum: 1, inputStepNum: 2 },
+      });
+
+      // Create record for first recipe
+      await createStepOutputUses(recipeId, 2, [1]);
+
+      // Verify other recipe's record is still there
+      const otherRecipeUses = await db.stepOutputUse.count({
+        where: { recipeId: otherRecipe.id, inputStepNum: 2 },
+      });
+      expect(otherRecipeUses).toBe(1);
+
+      // Verify first recipe has its record
+      const firstRecipeUses = await db.stepOutputUse.count({
+        where: { recipeId, inputStepNum: 2 },
+      });
+      expect(firstRecipeUses).toBe(1);
+    });
+
+    it("should handle non-consecutive outputStepNums correctly", async () => {
+      // Create steps 1 through 6
+      for (let i = 1; i <= 6; i++) {
+        await db.recipeStep.create({
+          data: { recipeId, stepNum: i, description: `Step ${i}` },
+        });
+      }
+
+      // Step 6 uses outputs from steps 1, 3, and 5 (non-consecutive)
+      const result = await createStepOutputUses(recipeId, 6, [1, 3, 5]);
+
+      expect(result.count).toBe(3);
+
+      const records = await db.stepOutputUse.findMany({
+        where: { recipeId, inputStepNum: 6 },
+        orderBy: { outputStepNum: "asc" },
+      });
+
+      expect(records.map((r) => r.outputStepNum)).toEqual([1, 3, 5]);
     });
   });
 });
