@@ -402,6 +402,41 @@ describe("Recipes $id Route", () => {
       expect(result.recipe.steps[1].usingSteps[0].outputOfStep.stepNum).toBe(1);
       expect(result.recipe.steps[1].usingSteps[0].outputOfStep.stepTitle).toBeNull();
     });
+
+    it("should handle single-step recipe with empty usingSteps array", async () => {
+      // Create a single step (step 1 can never have dependencies)
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "The only step in this recipe",
+          stepTitle: "Solo Step",
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      // Single-step recipe should have exactly one step
+      expect(result.recipe.steps).toHaveLength(1);
+      // Step 1 cannot have any dependencies (no previous steps exist)
+      expect(result.recipe.steps[0].usingSteps).toHaveLength(0);
+      expect(result.recipe.steps[0].stepNum).toBe(1);
+      expect(result.recipe.steps[0].stepTitle).toBe("Solo Step");
+    });
   });
 
   describe("action", () => {
@@ -951,6 +986,56 @@ describe("Recipes $id Route", () => {
 
       expect(await screen.findByText("Recipe without Dependencies")).toBeInTheDocument();
       // "Using outputs from" section should not be present
+      expect(screen.queryByText("Using outputs from")).not.toBeInTheDocument();
+    });
+
+    it("should render single-step recipe as owner with edit controls", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Single Step Recipe",
+          description: "A simple one-step recipe",
+          servings: "2",
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "The Only Step",
+              description: "Do everything in one step",
+              ingredients: [],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: true,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Recipe title and content should render
+      expect(await screen.findByRole("heading", { name: "Single Step Recipe" })).toBeInTheDocument();
+      expect(screen.getByText("A simple one-step recipe")).toBeInTheDocument();
+      expect(screen.getByText("Do everything in one step")).toBeInTheDocument();
+
+      // Single step should render with step number
+      expect(screen.getByText("1")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "The Only Step" })).toBeInTheDocument();
+
+      // Owner controls should be present
+      expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
+      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+
+      // "Using outputs from" should NOT appear (single step has no dependencies)
       expect(screen.queryByText("Using outputs from")).not.toBeInTheDocument();
     });
 
