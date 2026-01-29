@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id.steps.new";
@@ -740,6 +740,7 @@ describe("Recipes $id Steps New Route", () => {
           title: "Test Recipe",
         },
         nextStepNum: 1,
+        availableSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -767,6 +768,7 @@ describe("Recipes $id Steps New Route", () => {
           title: "Test Recipe",
         },
         nextStepNum: 5,
+        availableSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -790,6 +792,7 @@ describe("Recipes $id Steps New Route", () => {
           title: "Test Recipe",
         },
         nextStepNum: 1,
+        availableSteps: [],
       };
 
       const mockActionData = {
@@ -821,6 +824,7 @@ describe("Recipes $id Steps New Route", () => {
           title: "Test Recipe",
         },
         nextStepNum: 1,
+        availableSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -946,11 +950,15 @@ describe("Recipes $id Steps New Route", () => {
 
         // Click to open the listbox
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
-        listboxButton.click();
+        await act(async () => {
+          fireEvent.click(listboxButton);
+        });
 
         // Check that options are displayed correctly
-        expect(await screen.findByText("Step 1: Prep the ingredients")).toBeInTheDocument();
-        expect(screen.getByText("Step 2: Mix the batter")).toBeInTheDocument();
+        await waitFor(() => {
+          expect(screen.getByText("Step 1: Prep the ingredients")).toBeInTheDocument();
+          expect(screen.getByText("Step 2: Mix the batter")).toBeInTheDocument();
+        });
       });
 
       it("should display available steps without title correctly", async () => {
@@ -979,10 +987,14 @@ describe("Recipes $id Steps New Route", () => {
 
         // Click to open the listbox
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
-        listboxButton.click();
+        await act(async () => {
+          fireEvent.click(listboxButton);
+        });
 
         // Check that step without title shows just the number
-        expect(await screen.findByText("Step 1")).toBeInTheDocument();
+        await waitFor(() => {
+          expect(screen.getByText("Step 1")).toBeInTheDocument();
+        });
       });
     });
   });
