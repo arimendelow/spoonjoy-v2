@@ -6,6 +6,12 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
+import { Field, Label } from "~/components/ui/fieldset";
+import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
+import {
+  deleteExistingStepOutputUses,
+  createStepOutputUses,
+} from "~/lib/step-output-use-mutations.server";
 import {
   validateStepTitle,
   validateStepDescription,
@@ -131,7 +137,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   const step = await database.recipeStep.findUnique({
     where: { id: stepId },
-    select: { id: true, recipeId: true },
+    select: { id: true, recipeId: true, stepNum: true },
   });
 
   if (!step || step.recipeId !== id) {
@@ -258,6 +264,12 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return data({ errors }, { status: 400 });
   }
 
+  // Parse selected step output uses
+  const usesStepsRaw = formData.getAll("usesSteps");
+  const usesSteps = usesStepsRaw
+    .map((s) => parseInt(s.toString(), 10))
+    .filter((n) => !isNaN(n) && n > 0 && n < step.stepNum);
+
   try {
     await database.recipeStep.update({
       where: { id: stepId },
@@ -266,6 +278,12 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         description: description.trim(),
       },
     });
+
+    // Update step output uses: delete existing and create new
+    await deleteExistingStepOutputUses(id, step.stepNum);
+    if (usesSteps.length > 0) {
+      await createStepOutputUses(id, step.stepNum, usesSteps);
+    }
 
     return redirect(`/recipes/${id}/edit`);
   } catch (error) {
@@ -277,9 +295,14 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function EditStep() {
-  const { recipe, step } = useLoaderData<typeof loader>();
+  const { recipe, step, availableSteps } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const [showIngredientForm, setShowIngredientForm] = useState(false);
+
+  // Initialize selected steps from existing usingSteps
+  const [selectedSteps, setSelectedSteps] = useState<number[]>(
+    step.usingSteps?.map((u) => u.outputStepNum) || []
+  );
 
   return (
     <div className="font-sans leading-relaxed p-8">
@@ -314,6 +337,28 @@ export default function EditStep() {
               invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.stepTitle}
             />
           </div>
+
+          {step.stepNum > 1 && availableSteps.length > 0 && (
+            <Field>
+              <Label>Uses Output From (optional)</Label>
+              <Listbox
+                name="usesSteps"
+                multiple
+                value={selectedSteps}
+                onChange={setSelectedSteps}
+                aria-label="Select previous steps"
+                placeholder="Select previous steps (optional)"
+              >
+                {availableSteps.map((availableStep) => (
+                  <ListboxOption key={availableStep.stepNum} value={availableStep.stepNum}>
+                    <ListboxLabel>
+                      Step {availableStep.stepNum}{availableStep.stepTitle ? `: ${availableStep.stepTitle}` : ""}
+                    </ListboxLabel>
+                  </ListboxOption>
+                ))}
+              </Listbox>
+            </Field>
+          )}
 
           <div>
             <label htmlFor="description" className="block mb-2 font-bold">
