@@ -1,5 +1,6 @@
 import type { Preview } from '@storybook/react-vite'
 import { withThemeByClassName } from '@storybook/addon-themes'
+import { MemoryRouter } from 'react-router'
 import '../app/styles/tailwind.css'
 
 const preview: Preview = {
@@ -24,6 +25,12 @@ const preview: Preview = {
   },
 
   decorators: [
+    // Wrap all stories with MemoryRouter for react-router components
+    (Story) => (
+      <MemoryRouter>
+        <Story />
+      </MemoryRouter>
+    ),
     // Apply dark class to html element and set appropriate background
     withThemeByClassName({
       themes: {

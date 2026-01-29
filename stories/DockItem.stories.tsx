@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { fn, expect, userEvent, within } from 'storybook/test'
 import { DockItem } from '../app/components/navigation/dock-item'
 import { Home, BookOpen, Book, ShoppingCart, User, Heart, Settings, Search, Bell, ChefHat } from 'lucide-react'
-import { MemoryRouter } from 'react-router'
 
 /**
  * # DockItem
@@ -72,11 +71,9 @@ Includes press feedback animation and distinct active state with glow effect.
   },
   decorators: [
     (Story) => (
-      <MemoryRouter>
-        <div className="bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
-          <Story />
-        </div>
-      </MemoryRouter>
+      <div className="bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
+        <Story />
+      </div>
     ),
   ],
 }
@@ -153,14 +150,12 @@ export const Pressed: Story = {
  */
 export const AllNavItems: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="flex items-center gap-4 bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
-        <DockItem icon={BookOpen} label="Recipes" href="/recipes" active />
-        <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
-        <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
-        <DockItem icon={User} label="Profile" href="/account/settings" />
-      </div>
-    </MemoryRouter>
+    <div className="flex items-center gap-4 bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" active />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
+      <DockItem icon={User} label="Profile" href="/account/settings" />
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
@@ -181,20 +176,18 @@ export const AllNavItems: Story = {
  */
 export const DifferentIcons: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="grid grid-cols-5 gap-4 bg-black/60 backdrop-blur-xl rounded-2xl p-4 border border-white/10">
-        <DockItem icon={Home} label="Home" href="/" />
-        <DockItem icon={Search} label="Search" href="/search" />
-        <DockItem icon={Heart} label="Favorites" href="/favorites" />
-        <DockItem icon={Bell} label="Alerts" href="/notifications" />
-        <DockItem icon={Settings} label="Settings" href="/settings" />
-        <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
-        <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
-        <DockItem icon={ShoppingCart} label="Cart" href="/cart" />
-        <DockItem icon={User} label="Account" href="/account" />
-        <DockItem icon={ChefHat} label="Cook" href="/cook" />
-      </div>
-    </MemoryRouter>
+    <div className="grid grid-cols-5 gap-4 bg-black/60 backdrop-blur-xl rounded-2xl p-4 border border-white/10">
+      <DockItem icon={Home} label="Home" href="/" />
+      <DockItem icon={Search} label="Search" href="/search" />
+      <DockItem icon={Heart} label="Favorites" href="/favorites" />
+      <DockItem icon={Bell} label="Alerts" href="/notifications" />
+      <DockItem icon={Settings} label="Settings" href="/settings" />
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockItem icon={ShoppingCart} label="Cart" href="/cart" />
+      <DockItem icon={User} label="Account" href="/account" />
+      <DockItem icon={ChefHat} label="Cook" href="/cook" />
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
@@ -215,18 +208,16 @@ export const DifferentIcons: Story = {
  */
 export const ActiveComparison: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="flex items-center gap-8 bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
-        <div className="flex flex-col items-center gap-1">
-          <DockItem icon={Home} label="Inactive" href="/" active={false} />
-          <span className="text-[9px] text-white/40 mt-2">active=false</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <DockItem icon={Home} label="Active" href="/" active={true} />
-          <span className="text-[9px] text-white/40 mt-2">active=true</span>
-        </div>
+    <div className="flex items-center gap-8 bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
+      <div className="flex flex-col items-center gap-1">
+        <DockItem icon={Home} label="Inactive" href="/" active={false} />
+        <span className="text-[9px] text-white/40 mt-2">active=false</span>
       </div>
-    </MemoryRouter>
+      <div className="flex flex-col items-center gap-1">
+        <DockItem icon={Home} label="Active" href="/" active={true} />
+        <span className="text-[9px] text-white/40 mt-2">active=true</span>
+      </div>
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
@@ -278,14 +269,12 @@ export const KeyboardNavigation: Story = {
  */
 export const LongLabels: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="flex items-center gap-4 bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
-        <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
-        <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
-        <DockItem icon={ShoppingCart} label="Shopping" href="/shopping-list" />
-        <DockItem icon={Settings} label="Settings" href="/settings" />
-      </div>
-    </MemoryRouter>
+    <div className="flex items-center gap-4 bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockItem icon={ShoppingCart} label="Shopping" href="/shopping-list" />
+      <DockItem icon={Settings} label="Settings" href="/settings" />
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
@@ -313,13 +302,11 @@ export const OverLightContent: Story = {
   },
   decorators: [
     (Story) => (
-      <MemoryRouter>
-        <div className="p-8 bg-white">
-          <div className="bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
-            <Story />
-          </div>
+      <div className="p-8 bg-white">
+        <div className="bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
+          <Story />
         </div>
-      </MemoryRouter>
+      </div>
     ),
   ],
   parameters: {

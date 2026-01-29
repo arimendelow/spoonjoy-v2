@@ -5,7 +5,6 @@ import { SpoonDock } from '../app/components/navigation/spoon-dock'
 import { DockItem } from '../app/components/navigation/dock-item'
 import { DockCenter } from '../app/components/navigation/dock-center'
 import { BookOpen, Book, ShoppingCart, User, ArrowLeft, Edit, Share, Save, X } from 'lucide-react'
-import { MemoryRouter } from 'react-router'
 
 /**
  * # DockContext
@@ -182,41 +181,39 @@ export const Interactive: Story = {
     const [currentPage, setCurrentPage] = useState<'list' | 'detail' | 'edit'>('list')
 
     return (
-      <MemoryRouter>
-        <DockContextProvider>
-          <div className="min-h-screen bg-zinc-900 pb-20">
-            {/* Page navigation buttons */}
-            <div className="p-4 flex gap-2">
-              <button
-                onClick={() => setCurrentPage('list')}
-                className={`px-4 py-2 rounded ${currentPage === 'list' ? 'bg-blue-600' : 'bg-zinc-700'} text-white`}
-              >
-                Recipe List
-              </button>
-              <button
-                onClick={() => setCurrentPage('detail')}
-                className={`px-4 py-2 rounded ${currentPage === 'detail' ? 'bg-blue-600' : 'bg-zinc-700'} text-white`}
-              >
-                Recipe Detail
-              </button>
-              <button
-                onClick={() => setCurrentPage('edit')}
-                className={`px-4 py-2 rounded ${currentPage === 'edit' ? 'bg-blue-600' : 'bg-zinc-700'} text-white`}
-              >
-                Edit Recipe
-              </button>
-            </div>
-
-            {/* Current page content */}
-            {currentPage === 'list' && <RecipeListPage />}
-            {currentPage === 'detail' && <RecipeDetailPage />}
-            {currentPage === 'edit' && <RecipeEditPage />}
-
-            {/* Dock responds to context */}
-            <ContextualDock />
+      <DockContextProvider>
+        <div className="min-h-screen bg-zinc-900 pb-20">
+          {/* Page navigation buttons */}
+          <div className="p-4 flex gap-2">
+            <button
+              onClick={() => setCurrentPage('list')}
+              className={`px-4 py-2 rounded ${currentPage === 'list' ? 'bg-blue-600' : 'bg-zinc-700'} text-white`}
+            >
+              Recipe List
+            </button>
+            <button
+              onClick={() => setCurrentPage('detail')}
+              className={`px-4 py-2 rounded ${currentPage === 'detail' ? 'bg-blue-600' : 'bg-zinc-700'} text-white`}
+            >
+              Recipe Detail
+            </button>
+            <button
+              onClick={() => setCurrentPage('edit')}
+              className={`px-4 py-2 rounded ${currentPage === 'edit' ? 'bg-blue-600' : 'bg-zinc-700'} text-white`}
+            >
+              Edit Recipe
+            </button>
           </div>
-        </DockContextProvider>
-      </MemoryRouter>
+
+          {/* Current page content */}
+          {currentPage === 'list' && <RecipeListPage />}
+          {currentPage === 'detail' && <RecipeDetailPage />}
+          {currentPage === 'edit' && <RecipeEditPage />}
+
+          {/* Dock responds to context */}
+          <ContextualDock />
+        </div>
+      </DockContextProvider>
     )
   },
   parameters: {
@@ -239,14 +236,12 @@ Click the buttons to switch between pages and watch the dock change:
  */
 export const DefaultNavigation: Story = {
   render: () => (
-    <MemoryRouter>
-      <DockContextProvider>
-        <div className="min-h-screen bg-zinc-900 pb-20">
-          <RecipeListPage />
-          <ContextualDock />
-        </div>
-      </DockContextProvider>
-    </MemoryRouter>
+    <DockContextProvider>
+      <div className="min-h-screen bg-zinc-900 pb-20">
+        <RecipeListPage />
+        <ContextualDock />
+      </div>
+    </DockContextProvider>
   ),
   parameters: {
     viewport: { defaultViewport: 'mobile1' },
@@ -263,14 +258,12 @@ export const DefaultNavigation: Story = {
  */
 export const RecipeDetailContext: Story = {
   render: () => (
-    <MemoryRouter>
-      <DockContextProvider>
-        <div className="min-h-screen bg-zinc-900 pb-20">
-          <RecipeDetailPage />
-          <ContextualDock />
-        </div>
-      </DockContextProvider>
-    </MemoryRouter>
+    <DockContextProvider>
+      <div className="min-h-screen bg-zinc-900 pb-20">
+        <RecipeDetailPage />
+        <ContextualDock />
+      </div>
+    </DockContextProvider>
   ),
   parameters: {
     viewport: { defaultViewport: 'mobile1' },
@@ -287,14 +280,12 @@ export const RecipeDetailContext: Story = {
  */
 export const EditPageContext: Story = {
   render: () => (
-    <MemoryRouter>
-      <DockContextProvider>
-        <div className="min-h-screen bg-zinc-900 pb-20">
-          <RecipeEditPage />
-          <ContextualDock />
-        </div>
-      </DockContextProvider>
-    </MemoryRouter>
+    <DockContextProvider>
+      <div className="min-h-screen bg-zinc-900 pb-20">
+        <RecipeEditPage />
+        <ContextualDock />
+      </div>
+    </DockContextProvider>
   ),
   parameters: {
     viewport: { defaultViewport: 'mobile1' },

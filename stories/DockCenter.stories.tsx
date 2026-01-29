@@ -4,7 +4,6 @@ import { DockCenter } from '../app/components/navigation/dock-center'
 import { DockItem } from '../app/components/navigation/dock-item'
 import { SpoonDock } from '../app/components/navigation/spoon-dock'
 import { BookOpen, Book, ShoppingCart, User } from 'lucide-react'
-import { MemoryRouter } from 'react-router'
 
 /**
  * # DockCenter
@@ -63,11 +62,9 @@ Respects reduced motion preference - becomes static when user prefers reduced mo
   },
   decorators: [
     (Story) => (
-      <MemoryRouter>
-        <div className="bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
-          <Story />
-        </div>
-      </MemoryRouter>
+      <div className="bg-black/60 backdrop-blur-xl rounded-full p-4 border border-white/10">
+        <Story />
+      </div>
     ),
   ],
 }
@@ -108,15 +105,13 @@ export const CustomHref: Story = {
  */
 export const InContext: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="h-14 bg-black/60 backdrop-blur-xl rounded-full border border-white/10 flex items-center justify-around px-2 w-80">
-        <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
-        <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
-        <DockCenter href="/" />
-        <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
-        <DockItem icon={User} label="Profile" href="/account/settings" />
-      </div>
-    </MemoryRouter>
+    <div className="h-14 bg-black/60 backdrop-blur-xl rounded-full border border-white/10 flex items-center justify-around px-2 w-80">
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockCenter href="/" />
+      <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
+      <DockItem icon={User} label="Profile" href="/account/settings" />
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
@@ -133,21 +128,19 @@ export const InContext: Story = {
  */
 export const FullDock: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="h-screen w-full bg-zinc-900 relative">
-        <div className="p-4 text-white">
-          <h1 className="text-xl font-bold">Spoonjoy</h1>
-          <p className="text-zinc-400">Watch the logo breathe...</p>
-        </div>
-        <SpoonDock>
-          <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
-          <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
-          <DockCenter href="/" />
-          <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
-          <DockItem icon={User} label="Profile" href="/account/settings" />
-        </SpoonDock>
+    <div className="h-screen w-full bg-zinc-900 relative">
+      <div className="p-4 text-white">
+        <h1 className="text-xl font-bold">Spoonjoy</h1>
+        <p className="text-zinc-400">Watch the logo breathe...</p>
       </div>
-    </MemoryRouter>
+      <SpoonDock>
+        <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
+        <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+        <DockCenter href="/" />
+        <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
+        <DockItem icon={User} label="Profile" href="/account/settings" />
+      </SpoonDock>
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
@@ -200,24 +193,22 @@ To test in browser:
  */
 export const SizeVariations: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="flex flex-col gap-8 items-center">
-        <div className="text-white/60 text-sm">Small (12)</div>
-        <div className="bg-black/60 backdrop-blur-xl rounded-full p-3 border border-white/10">
-          <DockCenter href="/" className="w-12 h-12" />
-        </div>
-        
-        <div className="text-white/60 text-sm">Medium (14) - Default</div>
-        <div className="bg-black/60 backdrop-blur-xl rounded-full p-3 border border-white/10">
-          <DockCenter href="/" />
-        </div>
-        
-        <div className="text-white/60 text-sm">Large (16)</div>
-        <div className="bg-black/60 backdrop-blur-xl rounded-full p-3 border border-white/10">
-          <DockCenter href="/" className="w-16 h-16" />
-        </div>
+    <div className="flex flex-col gap-8 items-center">
+      <div className="text-white/60 text-sm">Small (12)</div>
+      <div className="bg-black/60 backdrop-blur-xl rounded-full p-3 border border-white/10">
+        <DockCenter href="/" className="w-12 h-12" />
       </div>
-    </MemoryRouter>
+      
+      <div className="text-white/60 text-sm">Medium (14) - Default</div>
+      <div className="bg-black/60 backdrop-blur-xl rounded-full p-3 border border-white/10">
+        <DockCenter href="/" />
+      </div>
+      
+      <div className="text-white/60 text-sm">Large (16)</div>
+      <div className="bg-black/60 backdrop-blur-xl rounded-full p-3 border border-white/10">
+        <DockCenter href="/" className="w-16 h-16" />
+      </div>
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
@@ -290,30 +281,28 @@ export const KeyboardNavigation: Story = {
  */
 export const BackgroundVariations: Story = {
   render: () => (
-    <MemoryRouter>
-      <div className="flex gap-8 items-center">
-        <div className="flex flex-col items-center gap-2">
-          <div className="text-white/60 text-xs">Subtle glass</div>
-          <div className="bg-white/5 rounded-full p-2">
-            <DockCenter href="/" />
-          </div>
-        </div>
-        
-        <div className="flex flex-col items-center gap-2">
-          <div className="text-white/60 text-xs">Medium glass</div>
-          <div className="bg-white/10 rounded-full p-2">
-            <DockCenter href="/" />
-          </div>
-        </div>
-        
-        <div className="flex flex-col items-center gap-2">
-          <div className="text-white/60 text-xs">Strong glass</div>
-          <div className="bg-white/20 rounded-full p-2">
-            <DockCenter href="/" />
-          </div>
+    <div className="flex gap-8 items-center">
+      <div className="flex flex-col items-center gap-2">
+        <div className="text-white/60 text-xs">Subtle glass</div>
+        <div className="bg-white/5 rounded-full p-2">
+          <DockCenter href="/" />
         </div>
       </div>
-    </MemoryRouter>
+      
+      <div className="flex flex-col items-center gap-2">
+        <div className="text-white/60 text-xs">Medium glass</div>
+        <div className="bg-white/10 rounded-full p-2">
+          <DockCenter href="/" />
+        </div>
+      </div>
+      
+      <div className="flex flex-col items-center gap-2">
+        <div className="text-white/60 text-xs">Strong glass</div>
+        <div className="bg-white/20 rounded-full p-2">
+          <DockCenter href="/" />
+        </div>
+      </div>
+    </div>
   ),
   decorators: [], // Remove default decorator
   parameters: {
