@@ -387,6 +387,251 @@ const step = await db.recipeStep.findUnique({
 
 ---
 
+## Unit 1.1: Step Routes Audit
+
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Overview
+
+Audited the existing step-related routes to identify where stepOutputUse selection UI will integrate.
+
+### Route 1: `app/routes/recipes.$id.steps.new.tsx` (Create Step)
+
+#### Current Loader Data Structure
+
+```ts
+return { recipe, nextStepNum };
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recipe` | `{ id, title, chefId, deletedAt, steps: [{ stepNum }] }` | Recipe with minimal step info |
+| `nextStepNum` | `number` | Calculated as `max(stepNum) + 1` or `1` if no steps |
+
+The loader fetches:
+- Recipe basic info (id, title, chefId, deletedAt)
+- Steps with only `stepNum` field (ordered desc, take 1) to calculate next step number
+
+#### Current Action Handler
+
+**Intent**: Creates a new step (no explicit intent, just POST)
+
+**Flow**:
+1. Validates user ownership
+2. Validates `stepTitle` (optional) and `description` (required)
+3. Creates `RecipeStep` with `recipeId`, `stepNum`, `stepTitle`, `description`
+4. Redirects to `/recipes/{id}/steps/{stepId}/edit`
+
+**Form Fields**:
+- `stepTitle` (optional, max 100 chars)
+- `description` (required, max 2000 chars)
+
+#### Where stepOutputUse UI Should Go
+
+**Location**: Between the step number display and the description field (lines 160-178)
+
+**Current structure**:
+```
+Step Number display (lines 154-158)
+  ↓
+Form with:
+  - stepTitle field
+  - description field
+  - Cancel/Submit buttons
+```
+
+**Proposed structure**:
+```
+Step Number display
+  ↓
+Form with:
+  - stepTitle field
+  - stepOutputUse selector (NEW) <-- Only if nextStepNum > 1
+  - description field
+  - Cancel/Submit buttons
+```
+
+#### Loader Changes Needed
+
+1. **Load available previous steps for selection**:
+   ```ts
+   const previousSteps = await database.recipeStep.findMany({
+     where: { recipeId: id, recipe: { deletedAt: null } },
+     select: { stepNum: true, stepTitle: true },
+     orderBy: { stepNum: 'asc' },
+   });
+   ```
+
+2. **Update return value**:
+   ```ts
+   return { recipe, nextStepNum, previousSteps };
+   ```
+
+3. **Only show selector if `nextStepNum > 1`** (first step cannot have dependencies)
+
+#### Action Changes Needed
+
+1. **Parse stepOutputUse selections from form data**:
+   - Form will submit multiple values like `usesSteps[0]`, `usesSteps[1]`, etc.
+   - Or as a comma-separated string of step numbers
+
+2. **Create StepOutputUse records** after step creation:
+   ```ts
+   for (const outputStepNum of selectedStepNums) {
+     await database.stepOutputUse.create({
+       data: {
+         recipeId: id,
+         outputStepNum,
+         inputStepNum: nextStepNum,
+       },
+     });
+   }
+   ```
+
+3. **Validation**:
+   - Each selected step must exist and have `stepNum < nextStepNum`
+   - No duplicate selections
+
+---
+
+### Route 2: `app/routes/recipes.$id.steps.$stepId.edit.tsx` (Edit Step)
+
+#### Current Loader Data Structure
+
+```ts
+return { recipe, step };
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recipe` | `{ id, title, chefId, deletedAt }` | Recipe basic info |
+| `step` | Full step with `ingredients` (including `unit` and `ingredientRef`) | Step being edited |
+
+The loader fetches:
+- Recipe basic info
+- Full step via `findUnique` with `include: { ingredients: { include: { unit, ingredientRef } } }`
+
+#### Current Action Handlers
+
+Multiple intents handled:
+
+| Intent | Form Field | Action |
+|--------|------------|--------|
+| `delete` | `intent="delete"` | Deletes the step, redirects to recipe edit |
+| `addIngredient` | `intent="addIngredient"` | Creates unit (if needed), ingredientRef (if needed), ingredient |
+| `deleteIngredient` | `intent="deleteIngredient"` | Deletes ingredient by ID |
+| (default) | No intent | Updates stepTitle and description |
+
+#### Where stepOutputUse UI Should Go
+
+**Location**: Between the step title field and description field (lines 282-315)
+
+**Current structure**:
+```
+stepTitle field (lines 283-295)
+  ↓
+description field (lines 297-315)
+  ↓
+Save/Cancel buttons
+  ↓
+Delete Step button
+  ↓
+Ingredients section (add/list/delete)
+```
+
+**Proposed structure**:
+```
+stepTitle field
+  ↓
+stepOutputUse selector (NEW) <-- Only if step.stepNum > 1
+  ↓
+description field
+  ↓
+Save/Cancel buttons
+  ↓
+Delete Step button
+  ↓
+Ingredients section
+```
+
+#### Loader Changes Needed
+
+1. **Load current step's stepOutputUse relations**:
+   ```ts
+   const step = await database.recipeStep.findUnique({
+     where: { id: stepId },
+     include: {
+       ingredients: { include: { unit: true, ingredientRef: true } },
+       usingSteps: {  // NEW
+         include: { outputOfStep: { select: { stepNum: true, stepTitle: true } } },
+         orderBy: { outputStepNum: 'asc' },
+       },
+     },
+   });
+   ```
+
+2. **Load available previous steps** (steps with `stepNum < current step's stepNum`):
+   ```ts
+   const previousSteps = await database.recipeStep.findMany({
+     where: {
+       recipeId: id,
+       stepNum: { lt: step.stepNum },
+     },
+     select: { stepNum: true, stepTitle: true },
+     orderBy: { stepNum: 'asc' },
+   });
+   ```
+
+3. **Update return value**:
+   ```ts
+   return { recipe, step, previousSteps };
+   ```
+
+#### Action Changes Needed
+
+1. **Add new intent `updateStepOutputUses`** (or include in default update):
+   - Parse selected step numbers from form
+   - Delete existing StepOutputUse records for this step (as inputStepNum)
+   - Create new StepOutputUse records for selected steps
+
+2. **Validation for step deletion** (existing `delete` intent):
+   - Before deleting, check if any other step depends on this step:
+     ```ts
+     const dependents = await database.stepOutputUse.count({
+       where: { recipeId: id, outputStepNum: step.stepNum },
+     });
+     if (dependents > 0) {
+       return data({ errors: { general: "Cannot delete: other steps depend on this step's output" } }, { status: 400 });
+     }
+     ```
+
+3. **Form field for stepOutputUse**:
+   - Multi-select Listbox submitting as `usesSteps[]` or similar
+   - Value format: array of step numbers
+
+---
+
+### Summary of Changes Needed
+
+| Route | Loader Changes | Action Changes | UI Changes |
+|-------|----------------|----------------|------------|
+| `steps.new.tsx` | Add `previousSteps` query | Create StepOutputUse records after step | Add multi-select before description |
+| `steps.$stepId.edit.tsx` | Add `usingSteps` to step include, add `previousSteps` query | Add delete validation, add update logic | Add multi-select before description |
+
+### Component Dependency
+
+Both routes will need access to a multi-select Listbox component. Per Unit 0.0, the current `app/components/ui/listbox.tsx` has `multiple={false}` hardcoded and needs modification in Unit 2.0.
+
+### Validation Rules to Implement
+
+1. **Forward-only references**: `outputStepNum < inputStepNum` (UI should only show previous steps)
+2. **No self-reference**: Implicitly handled by only showing previous steps
+3. **Deletion protection**: Check `usedBySteps` count before allowing step deletion
+4. **Same recipe**: Enforced by query filters (only query steps from same recipe)
+
+---
+
 ## Future Units
 
 (Notes will be added as units are completed)
