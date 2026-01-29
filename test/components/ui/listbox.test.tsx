@@ -496,6 +496,179 @@ describe('Listbox', () => {
     })
   })
 
+  describe('Multi-select mode', () => {
+    it('defaults to single-select when multiple prop is not specified', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(
+        <Listbox onChange={onChange} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      await user.click(screen.getByRole('button'))
+      await screen.findByRole('listbox')
+      await user.click(screen.getByText('Apple'))
+      // Should receive single value, not array
+      expect(onChange).toHaveBeenCalledWith(testOptions[0])
+    })
+
+    it('supports multiple={false} explicitly', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(
+        <Listbox multiple={false} onChange={onChange} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      await user.click(screen.getByRole('button'))
+      await screen.findByRole('listbox')
+      await user.click(screen.getByText('Apple'))
+      expect(onChange).toHaveBeenCalledWith(testOptions[0])
+    })
+
+    it('supports multiple={true} for multi-select', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(
+        <Listbox multiple={true} onChange={onChange} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      await user.click(screen.getByRole('button'))
+      await screen.findByRole('listbox')
+      await user.click(screen.getByText('Apple'))
+      // Multi-select should return array
+      expect(onChange).toHaveBeenCalledWith([testOptions[0]])
+    })
+
+    it('allows selecting multiple items in multi-select mode', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(
+        <Listbox multiple={true} onChange={onChange} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      await user.click(screen.getByRole('button'))
+      await screen.findByRole('listbox')
+      await user.click(screen.getByText('Apple'))
+      await user.click(screen.getByText('Banana'))
+      // Second call should have both items
+      expect(onChange).toHaveBeenLastCalledWith([testOptions[0], testOptions[1]])
+    })
+
+    it('keeps listbox open after selection in multi-select mode', async () => {
+      const user = userEvent.setup()
+      render(
+        <Listbox multiple={true} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      await user.click(screen.getByRole('button'))
+      await screen.findByRole('listbox')
+      await user.click(screen.getByText('Apple'))
+      // Listbox should still be open
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+    })
+
+    it('supports controlled value as array in multi-select mode', () => {
+      render(
+        <Listbox multiple={true} value={[testOptions[0], testOptions[2]]} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      // Selected items should be displayed
+      expect(screen.getByText('Apple')).toBeInTheDocument()
+      expect(screen.getByText('Cherry')).toBeInTheDocument()
+    })
+
+    it('supports defaultValue as array in multi-select mode', () => {
+      render(
+        <Listbox multiple={true} defaultValue={[testOptions[1]]} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      expect(screen.getByText('Banana')).toBeInTheDocument()
+    })
+
+    it('allows deselecting items in multi-select mode', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(
+        <Listbox multiple={true} defaultValue={[testOptions[0]]} onChange={onChange} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      await user.click(screen.getByRole('button'))
+      await screen.findByRole('listbox')
+      // Click Apple again to deselect
+      await user.click(screen.getByText('Apple'))
+      expect(onChange).toHaveBeenCalledWith([])
+    })
+
+    it('displays placeholder when no items selected in multi-select mode', () => {
+      render(
+        <Listbox multiple={true} placeholder="Select fruits" aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      expect(screen.getByText('Select fruits')).toBeInTheDocument()
+    })
+
+    it('marks multiple selected options in multi-select mode', async () => {
+      const user = userEvent.setup()
+      render(
+        <Listbox multiple={true} value={[testOptions[0], testOptions[2]]} aria-label="Fruit selector">
+          {testOptions.map((option) => (
+            <ListboxOption key={option.id} value={option}>
+              <ListboxLabel>{option.name}</ListboxLabel>
+            </ListboxOption>
+          ))}
+        </Listbox>
+      )
+      await user.click(screen.getByRole('button'))
+      await screen.findByRole('listbox')
+      const selectedOptions = screen.getAllByRole('option', { selected: true })
+      expect(selectedOptions.length).toBe(2)
+    })
+  })
+
   describe('Accessibility', () => {
     it('supports aria-label on listbox button', () => {
       render(
