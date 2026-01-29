@@ -1,4 +1,5 @@
 import type { Preview } from '@storybook/react-vite'
+import { withThemeByClassName } from '@storybook/addon-themes'
 import '../app/styles/tailwind.css'
 
 const preview: Preview = {
@@ -15,8 +16,23 @@ const preview: Preview = {
       // 'error' - fail CI on a11y violations
       // 'off' - skip a11y checks entirely
       test: 'todo'
-    }
+    },
+
+    backgrounds: {
+      disable: true, // Using theme addon instead
+    },
   },
+
+  decorators: [
+    // Apply dark class to html element and set appropriate background
+    withThemeByClassName({
+      themes: {
+        light: '',
+        dark: 'dark',
+      },
+      defaultTheme: 'light',
+    }),
+  ],
 };
 
 export default preview;

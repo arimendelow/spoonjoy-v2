@@ -10,6 +10,8 @@ import {
   Link,
 } from "react-router";
 import { getUserId } from "~/lib/session.server";
+import { ThemeProvider } from "~/components/ui/theme-provider";
+import { ThemeToggle } from "~/components/ui/theme-toggle";
 import "./styles/tailwind.css";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -21,97 +23,90 @@ export default function App() {
   const { userId } = useLoaderData<typeof loader>();
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-      </head>
-      <body style={{ margin: 0, padding: 0 }}>
-        <nav
-          style={{
-            backgroundColor: "#333",
-            color: "white",
-            padding: "1rem 2rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
+        {/* Prevent flash of wrong theme */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const stored = localStorage.getItem('spoonjoy-theme');
+                const theme = stored === 'light' || stored === 'dark' 
+                  ? stored 
+                  : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.classList.add(theme);
+              })();
+            `,
           }}
-        >
-          <Link
-            to="/"
-            style={{
-              color: "white",
-              textDecoration: "none",
-              fontSize: "1.5rem",
-              fontWeight: "bold",
-            }}
-          >
-            Spoonjoy
-          </Link>
-          <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
-            {userId ? (
-              <>
-                <Link
-                  to="/recipes"
-                  style={{ color: "white", textDecoration: "none" }}
-                >
-                  Recipes
-                </Link>
-                <Link
-                  to="/cookbooks"
-                  style={{ color: "white", textDecoration: "none" }}
-                >
-                  Cookbooks
-                </Link>
-                <Link
-                  to="/"
-                  style={{ color: "white", textDecoration: "none" }}
-                >
-                  Shopping List
-                </Link>
-                <Form method="post" action="/logout" style={{ margin: 0 }}>
-                  <button
-                    type="submit"
-                    style={{
-                      backgroundColor: "#dc3545",
-                      color: "white",
-                      border: "none",
-                      padding: "0.5rem 1rem",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
+        />
+      </head>
+      <body className="m-0 p-0 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors">
+        <ThemeProvider>
+          <nav className="bg-zinc-800 dark:bg-zinc-950 text-white px-8 py-4 flex justify-between items-center">
+            <Link
+              to="/"
+              className="text-white no-underline text-2xl font-bold hover:text-zinc-200 transition-colors"
+            >
+              Spoonjoy
+            </Link>
+            <div className="flex gap-6 items-center">
+              {userId ? (
+                <>
+                  <Link
+                    to="/recipes"
+                    className="text-white no-underline hover:text-zinc-300 transition-colors"
                   >
-                    Logout
-                  </button>
-                </Form>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  style={{ color: "white", textDecoration: "none" }}
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/signup"
-                  style={{
-                    backgroundColor: "#0066cc",
-                    color: "white",
-                    textDecoration: "none",
-                    padding: "0.5rem 1rem",
-                    borderRadius: "4px",
-                  }}
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
-          </div>
-        </nav>
-        <Outlet />
+                    Recipes
+                  </Link>
+                  <Link
+                    to="/cookbooks"
+                    className="text-white no-underline hover:text-zinc-300 transition-colors"
+                  >
+                    Cookbooks
+                  </Link>
+                  <Link
+                    to="/"
+                    className="text-white no-underline hover:text-zinc-300 transition-colors"
+                  >
+                    Shopping List
+                  </Link>
+                  <div className="flex items-center gap-4">
+                    <ThemeToggle />
+                    <Form method="post" action="/logout" className="m-0">
+                      <button
+                        type="submit"
+                        className="bg-red-600 hover:bg-red-700 text-white border-none px-4 py-2 rounded cursor-pointer transition-colors"
+                      >
+                        Logout
+                      </button>
+                    </Form>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <ThemeToggle />
+                  <Link
+                    to="/login"
+                    className="text-white no-underline hover:text-zinc-300 transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="bg-blue-600 hover:bg-blue-700 text-white no-underline px-4 py-2 rounded transition-colors"
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
+            </div>
+          </nav>
+          <Outlet />
+        </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

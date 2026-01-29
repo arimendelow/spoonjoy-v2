@@ -53,7 +53,7 @@ npm run test:ui
 |-------|------------|-------|
 | **Framework** | React Router v7 | File-based routing with loaders/actions |
 | **Styling** | Tailwind CSS v4 | With Catalyst UI component library |
-| **Database** | SQLite (Prisma) | Local dev; Cloudflare D1 in prod |
+| **Database** | SQLite (Prisma) | Local dev (file:./dev.db); Cloudflare D1 in prod |
 | **ORM** | Prisma | With D1 adapter for edge deployment |
 | **Auth** | Custom + OAuth | Google & Apple OAuth via Arctic |
 | **Testing** | Vitest + Testing Library | 21,000+ lines of tests |
@@ -875,9 +875,38 @@ The codebase handles both local SQLite and Cloudflare D1:
 ```typescript
 // In loaders/actions
 const database = context?.cloudflare?.env?.DB
-  ? getDb(context.cloudflare.env as { DB: D1Database })  // Production
-  : db;  // Development
+  ? getDb(context.cloudflare.env as { DB: D1Database })  // Production (D1)
+  : db;  // Development (SQLite via file:./dev.db)
 ```
+
+#### Configuration Split: `.env` vs `wrangler.json`
+
+The project separates configuration between two files:
+
+**`.env`** — Local secrets and development database:
+```bash
+DATABASE_URL="file:./dev.db"      # Local SQLite
+SESSION_SECRET="..."              # Session encryption
+GOOGLE_CLIENT_ID="..."            # OAuth secrets
+GOOGLE_CLIENT_SECRET="..."
+GOOGLE_CALLBACK_URL="..."
+# ... other secrets
+```
+
+**`wrangler.json`** — Cloudflare bindings and production config:
+```json
+{
+  "name": "spoonjoy-v2",
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "spoonjoy-local",
+    "database_id": "local"
+  }],
+  "vars": { "NODE_ENV": "production" }
+}
+```
+
+**Key insight**: Secrets stay in `.env` (never committed), while D1 bindings and Cloudflare-specific config go in `wrangler.json`.
 
 ### 6. OAuth Account Linking
 
