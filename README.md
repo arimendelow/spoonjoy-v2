@@ -6,17 +6,16 @@ Recipe management platform rebuilt with React Router v7 on Cloudflare.
 
 - **Framework**: React Router v7 (Remix)
 - **Platform**: Cloudflare Pages/Workers
-- **Database**: PostgreSQL (via Prisma)
+- **Database**: SQLite (local) / Cloudflare D1 (production) via Prisma
 - **Language**: TypeScript
-- **Styling**: TBD (Tailwind CSS planned)
+- **Styling**: Tailwind CSS
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
-- PostgreSQL database (local or remote)
+- npm
 
 ### Installation
 
@@ -29,7 +28,6 @@ Recipe management platform rebuilt with React Router v7 on Cloudflare.
 3. Set up environment variables:
    ```bash
    cp .env.example .env
-   # Edit .env with your database credentials
    ```
 
 4. Generate Prisma Client:
@@ -37,7 +35,7 @@ Recipe management platform rebuilt with React Router v7 on Cloudflare.
    npm run prisma:generate
    ```
 
-5. Push the database schema:
+5. Push the database schema (creates local SQLite DB):
    ```bash
    npm run prisma:push
    ```
@@ -57,24 +55,47 @@ Open [http://localhost:5173](http://localhost:5173) to view the app.
 - **Generate Prisma Client**: `npm run prisma:generate`
 - **Push schema changes**: `npm run prisma:push`
 - **Open Prisma Studio**: `npm run prisma:studio`
+- **Seed database**: `npm run db:seed`
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `wrangler.json` | Cloudflare Workers config (D1 bindings, vars) |
+| `.env` | Local dev secrets (SESSION_SECRET, OAuth keys) |
+
+**What goes where:**
+- **wrangler.json**: D1 database bindings, NODE_ENV, non-secret vars
+- **.env**: Secrets (SESSION_SECRET, OAuth credentials, API keys)
+
+Local dev uses SQLite (`file:./dev.db`). Production uses Cloudflare D1 via the `@prisma/adapter-d1` package.
 
 ### Deployment to Cloudflare
 
-1. Install Wrangler CLI (if not already installed):
-   ```bash
-   npm install -g wrangler
-   ```
-
-2. Login to Cloudflare:
+1. Login to Cloudflare:
    ```bash
    wrangler login
    ```
 
-3. Configure your database:
-   - **Option A**: Set up Cloudflare D1 (SQLite)
-   - **Option B**: Use Cloudflare Hyperdrive with external Postgres
+2. Create a D1 database (first time only):
+   ```bash
+   wrangler d1 create spoonjoy
+   # Update wrangler.json with the returned database_id
+   ```
 
-4. Deploy:
+3. Apply migrations to D1:
+   ```bash
+   wrangler d1 execute spoonjoy --file=./migrations/0001_create_users.sql
+   ```
+
+4. Set secrets:
+   ```bash
+   wrangler secret put SESSION_SECRET
+   wrangler secret put GOOGLE_CLIENT_SECRET
+   # etc.
+   ```
+
+5. Deploy:
    ```bash
    npm run deploy
    ```
