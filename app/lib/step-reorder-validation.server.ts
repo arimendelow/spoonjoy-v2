@@ -163,3 +163,45 @@ function formatBlockingDependenciesError(
   const last = blockingStepNums[blockingStepNums.length - 1];
   return `${prefix} Steps ${allButLast}, and ${last}`;
 }
+
+/**
+ * Validates whether a step can be safely reordered to a new position.
+ * This is the complete validation that checks both directions:
+ * - Incoming dependencies (steps that use this step's output)
+ * - Outgoing dependencies (steps whose output this step uses)
+ *
+ * @param recipeId - The ID of the recipe containing the step
+ * @param currentStepNum - The current step number being moved
+ * @param newPosition - The target position for the step
+ * @returns ValidationResult - { valid: true } if reorder is allowed, { valid: false, error: string } if not
+ */
+export async function validateStepReorderComplete(
+  recipeId: string,
+  currentStepNum: number,
+  newPosition: number
+): Promise<ValidationResult> {
+  // Run both validations
+  const [incomingResult, outgoingResult] = await Promise.all([
+    validateStepReorder(recipeId, currentStepNum, newPosition),
+    validateStepReorderOutgoing(recipeId, currentStepNum, newPosition),
+  ]);
+
+  // If both are valid, return valid
+  if (incomingResult.valid && outgoingResult.valid) {
+    return { valid: true };
+  }
+
+  // If only incoming failed
+  if (!incomingResult.valid && outgoingResult.valid) {
+    return incomingResult;
+  }
+
+  // If only outgoing failed
+  if (incomingResult.valid && !outgoingResult.valid) {
+    return outgoingResult;
+  }
+
+  // Both failed - combine error messages
+  const combinedError = `${incomingResult.error}. Additionally, ${outgoingResult.error.charAt(0).toLowerCase()}${outgoingResult.error.slice(1)}`;
+  return { valid: false, error: combinedError };
+}
