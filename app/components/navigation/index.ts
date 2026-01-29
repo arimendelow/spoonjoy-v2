@@ -18,3 +18,12 @@ export {
   type UseRecipeDetailActionsOptions,
   type UseRecipeEditActionsOptions,
 } from './use-recipe-dock-actions'
+export {
+  shareContent,
+  isNativeShareSupported,
+  addToShoppingList,
+  type ShareOptions,
+  type ShareResult,
+  type AddToListOptions,
+  type AddToListResult,
+} from './quick-actions'
