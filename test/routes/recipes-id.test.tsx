@@ -215,6 +215,193 @@ describe("Recipes $id Route", () => {
       expect(result.recipe.steps[0].ingredients).toHaveLength(1);
       expect(result.recipe.steps[0].ingredients[0].quantity).toBe(2);
     });
+
+    it("should include step output uses (usingSteps) in recipe data", async () => {
+      // Create step 1
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Chop vegetables",
+          stepTitle: "Prep veggies",
+        },
+      });
+
+      // Create step 2 that uses step 1's output
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          description: "Saute the chopped vegetables",
+          stepTitle: "Cook veggies",
+        },
+      });
+
+      // Create step output use: step 2 uses output of step 1
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 1,
+          inputStepNum: 2,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.recipe.steps).toHaveLength(2);
+
+      // Step 1 should have no usingSteps (it doesn't use any previous step)
+      expect(result.recipe.steps[0].usingSteps).toHaveLength(0);
+
+      // Step 2 should have one usingSteps entry pointing to step 1
+      expect(result.recipe.steps[1].usingSteps).toHaveLength(1);
+      expect(result.recipe.steps[1].usingSteps[0].outputStepNum).toBe(1);
+      expect(result.recipe.steps[1].usingSteps[0].outputOfStep.stepNum).toBe(1);
+      expect(result.recipe.steps[1].usingSteps[0].outputOfStep.stepTitle).toBe("Prep veggies");
+    });
+
+    it("should include multiple step output uses when a step depends on multiple previous steps", async () => {
+      // Create step 1
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Cook rice",
+          stepTitle: "Rice prep",
+        },
+      });
+
+      // Create step 2
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          description: "Prepare sauce",
+          stepTitle: "Sauce prep",
+        },
+      });
+
+      // Create step 3 that uses both step 1 and step 2
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 3,
+          description: "Combine rice and sauce",
+          stepTitle: null,
+        },
+      });
+
+      // Step 3 uses step 1
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 1,
+          inputStepNum: 3,
+        },
+      });
+
+      // Step 3 uses step 2
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 2,
+          inputStepNum: 3,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.recipe.steps).toHaveLength(3);
+
+      // Steps 1 and 2 have no dependencies
+      expect(result.recipe.steps[0].usingSteps).toHaveLength(0);
+      expect(result.recipe.steps[1].usingSteps).toHaveLength(0);
+
+      // Step 3 depends on both step 1 and step 2
+      expect(result.recipe.steps[2].usingSteps).toHaveLength(2);
+      // Should be ordered by outputStepNum ascending
+      expect(result.recipe.steps[2].usingSteps[0].outputStepNum).toBe(1);
+      expect(result.recipe.steps[2].usingSteps[0].outputOfStep.stepTitle).toBe("Rice prep");
+      expect(result.recipe.steps[2].usingSteps[1].outputStepNum).toBe(2);
+      expect(result.recipe.steps[2].usingSteps[1].outputOfStep.stepTitle).toBe("Sauce prep");
+    });
+
+    it("should include usingSteps with null stepTitle", async () => {
+      // Create step 1 with no title
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Do something",
+          stepTitle: null,
+        },
+      });
+
+      // Create step 2 that uses step 1
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          description: "Use the result",
+        },
+      });
+
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 1,
+          inputStepNum: 2,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.recipe.steps[1].usingSteps).toHaveLength(1);
+      expect(result.recipe.steps[1].usingSteps[0].outputOfStep.stepNum).toBe(1);
+      expect(result.recipe.steps[1].usingSteps[0].outputOfStep.stepTitle).toBeNull();
+    });
   });
 
   describe("action", () => {
@@ -444,6 +631,7 @@ describe("Recipes $id Route", () => {
                   ingredientRef: { name: "onion" },
                 },
               ],
+              usingSteps: [],
             },
             {
               id: "step-2",
@@ -451,6 +639,7 @@ describe("Recipes $id Route", () => {
               stepTitle: null,
               description: "Cook the pasta according to package instructions",
               ingredients: [],
+              usingSteps: [],
             },
           ],
         },
@@ -584,6 +773,7 @@ describe("Recipes $id Route", () => {
               stepTitle: null,
               description: "Just do the thing",
               ingredients: [],
+              usingSteps: [],
             },
           ],
         },
@@ -604,6 +794,164 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("Just do the thing")).toBeInTheDocument();
       // Only the Steps heading h2 should exist, no h3 for step title
       expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    });
+
+    it("should render step output uses when present", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe with Dependencies",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Cook rice",
+              description: "Boil rice in water",
+              ingredients: [],
+              usingSteps: [],
+            },
+            {
+              id: "step-2",
+              stepNum: 2,
+              stepTitle: "Make curry",
+              description: "Prepare the curry sauce",
+              ingredients: [],
+              usingSteps: [],
+            },
+            {
+              id: "step-3",
+              stepNum: 3,
+              stepTitle: "Combine",
+              description: "Mix everything together",
+              ingredients: [],
+              usingSteps: [
+                {
+                  id: "use-1",
+                  outputStepNum: 1,
+                  outputOfStep: { stepNum: 1, stepTitle: "Cook rice" },
+                },
+                {
+                  id: "use-2",
+                  outputStepNum: 2,
+                  outputOfStep: { stepNum: 2, stepTitle: "Make curry" },
+                },
+              ],
+            },
+          ],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByText("Recipe with Dependencies")).toBeInTheDocument();
+      // Step 3 should show "Using outputs from" section
+      expect(screen.getByText("Using outputs from")).toBeInTheDocument();
+      // Should display the step output uses
+      expect(screen.getByText(/output of step 1: Cook rice/)).toBeInTheDocument();
+      expect(screen.getByText(/output of step 2: Make curry/)).toBeInTheDocument();
+    });
+
+    it("should render step output use without title when stepTitle is null", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe with Untitled Dependency",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: null,
+              description: "First step without title",
+              ingredients: [],
+              usingSteps: [],
+            },
+            {
+              id: "step-2",
+              stepNum: 2,
+              stepTitle: "Second step",
+              description: "Uses the first step",
+              ingredients: [],
+              usingSteps: [
+                {
+                  id: "use-1",
+                  outputStepNum: 1,
+                  outputOfStep: { stepNum: 1, stepTitle: null },
+                },
+              ],
+            },
+          ],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByText("Recipe with Untitled Dependency")).toBeInTheDocument();
+      // Should display "output of step 1" without the colon and title
+      expect(screen.getByText("output of step 1")).toBeInTheDocument();
+    });
+
+    it("should not render using outputs section when usingSteps is empty", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe without Dependencies",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Only step",
+              description: "This step has no dependencies",
+              ingredients: [],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: false,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      expect(await screen.findByText("Recipe without Dependencies")).toBeInTheDocument();
+      // "Using outputs from" section should not be present
+      expect(screen.queryByText("Using outputs from")).not.toBeInTheDocument();
     });
   });
 });
