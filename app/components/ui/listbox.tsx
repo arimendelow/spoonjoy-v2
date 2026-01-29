@@ -4,12 +4,13 @@ import * as Headless from '@headlessui/react'
 import clsx from 'clsx'
 import { Fragment } from 'react'
 
-export function Listbox<T>({
+export function Listbox<T, Multiple extends boolean = false>({
   className,
   placeholder,
   autoFocus,
   'aria-label': ariaLabel,
   children: options,
+  multiple,
   ...props
 }: {
   className?: string
@@ -17,9 +18,10 @@ export function Listbox<T>({
   autoFocus?: boolean
   'aria-label'?: string
   children?: React.ReactNode
-} & Omit<Headless.ListboxProps<typeof Fragment, T>, 'as' | 'multiple'>) {
+  multiple?: Multiple
+} & Omit<Headless.ListboxProps<typeof Fragment, T, Multiple>, 'as' | 'multiple'>) {
   return (
-    <Headless.Listbox {...props} multiple={false}>
+    <Headless.Listbox {...props} multiple={multiple as Multiple}>
       <Headless.ListboxButton
         autoFocus={autoFocus}
         data-slot="control"
