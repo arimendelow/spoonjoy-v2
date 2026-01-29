@@ -69,9 +69,11 @@ npm run prisma:studio # Database GUI
 
 ### Philosophy
 - **100% TEST COVERAGE IS MANDATORY** — NO exceptions, NO edge case is minor. ALL edge cases MUST be tested (valid, invalid, boundary, null, empty, error paths). This is a hard rule.
+- **NO WARNINGS ALLOWED** — Warnings are treated as errors. ALL warnings must be addressed before committing. Zero warnings during test runs is MANDATORY, same as 100% coverage.
 - **Write tests alongside code** — not after, not "later", but as part of the same commit
-- **Use tests to validate your work** — run tests frequently to catch issues early
+- **Use tests to validate your work** — run tests frequently to catch issues early. Before every commit: verify zero warnings.
 - **Tests are documentation** — they show how code is meant to be used
+- **Both rules are MANDATORY** — 100% coverage AND zero warnings. No exceptions.
 
 ### Conventions
 - Test files live alongside or in `test/` directory
