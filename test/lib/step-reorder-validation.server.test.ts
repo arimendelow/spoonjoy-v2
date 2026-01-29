@@ -11,6 +11,7 @@ import {
   validateStepReorder,
   validateStepReorderOutgoing,
   validateStepReorderComplete,
+  combineValidationResults,
 } from "~/lib/step-reorder-validation.server";
 
 describe("validateStepReorder", () => {
@@ -1934,6 +1935,31 @@ describe("validateStepReorderComplete", () => {
       if (!forwardResult.valid) {
         expect(forwardResult.error).toBe(
           "Cannot move Step 2 to position 3 because Step 3 uses its output"
+        );
+      }
+    });
+
+    it("should combine error messages when both validators fail", () => {
+      // Test the combineValidationResults function directly since
+      // both validators can't fail simultaneously with valid data
+      // due to direction-based early exits.
+
+      const incomingResult = {
+        valid: false as const,
+        error: "Cannot move Step 3 to position 1 because Step 4 uses its output",
+      };
+      const outgoingResult = {
+        valid: false as const,
+        error:
+          "Cannot move Step 3 to position 1 because it uses output from Step 2",
+      };
+
+      const result = combineValidationResults(incomingResult, outgoingResult);
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error).toBe(
+          "Cannot move Step 3 to position 1 because Step 4 uses its output. Additionally, cannot move Step 3 to position 1 because it uses output from Step 2"
         );
       }
     });

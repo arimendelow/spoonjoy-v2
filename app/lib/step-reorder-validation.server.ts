@@ -165,6 +165,36 @@ function formatBlockingDependenciesError(
 }
 
 /**
+ * Combines two validation results into a single result.
+ * - If both valid, returns valid
+ * - If one invalid, returns that one
+ * - If both invalid, combines error messages
+ */
+export function combineValidationResults(
+  incomingResult: ValidationResult,
+  outgoingResult: ValidationResult
+): ValidationResult {
+  // If both are valid, return valid
+  if (incomingResult.valid && outgoingResult.valid) {
+    return { valid: true };
+  }
+
+  // If only incoming failed
+  if (!incomingResult.valid && outgoingResult.valid) {
+    return incomingResult;
+  }
+
+  // If only outgoing failed
+  if (incomingResult.valid && !outgoingResult.valid) {
+    return outgoingResult;
+  }
+
+  // Both failed - combine error messages
+  const combinedError = `${incomingResult.error}. Additionally, ${outgoingResult.error.charAt(0).toLowerCase()}${outgoingResult.error.slice(1)}`;
+  return { valid: false, error: combinedError };
+}
+
+/**
  * Validates whether a step can be safely reordered to a new position.
  * This is the complete validation that checks both directions:
  * - Incoming dependencies (steps that use this step's output)
@@ -186,22 +216,5 @@ export async function validateStepReorderComplete(
     validateStepReorderOutgoing(recipeId, currentStepNum, newPosition),
   ]);
 
-  // If both are valid, return valid
-  if (incomingResult.valid && outgoingResult.valid) {
-    return { valid: true };
-  }
-
-  // If only incoming failed
-  if (!incomingResult.valid && outgoingResult.valid) {
-    return incomingResult;
-  }
-
-  // If only outgoing failed
-  if (incomingResult.valid && !outgoingResult.valid) {
-    return outgoingResult;
-  }
-
-  // Both failed - combine error messages
-  const combinedError = `${incomingResult.error}. Additionally, ${outgoingResult.error.charAt(0).toLowerCase()}${outgoingResult.error.slice(1)}`;
-  return { valid: false, error: combinedError };
+  return combineValidationResults(incomingResult, outgoingResult);
 }
