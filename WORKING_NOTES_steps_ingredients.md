@@ -632,6 +632,199 @@ Both routes will need access to a multi-select Listbox component. Per Unit 0.0, 
 
 ---
 
+## Unit 1.2: Recipe Detail Audit
+
+**Date**: 2026-01-28
+**Status**: Complete
+
+### Overview
+
+Audited the recipe detail view (`app/routes/recipes.$id.tsx`) to understand how steps are rendered and where stepOutputUse display will integrate.
+
+### Current File Structure
+
+**Location**: `app/routes/recipes.$id.tsx` (214 lines)
+
+**Exports**:
+- `loader` - Fetches recipe with steps and ingredients
+- `action` - Handles recipe deletion (soft delete)
+- `RecipeDetail` - Default component
+
+### Current Loader Data Structure (lines 10-52)
+
+```ts
+const recipe = await database.recipe.findUnique({
+  where: { id },
+  include: {
+    chef: { select: { id: true, username: true } },
+    steps: {
+      orderBy: { stepNum: "asc" },
+      include: {
+        ingredients: {
+          include: {
+            unit: true,
+            ingredientRef: true,
+          },
+        },
+      },
+    },
+  },
+});
+
+return { recipe, isOwner };
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recipe.chef` | `{ id, username }` | Recipe author info |
+| `recipe.steps` | Step[] | Steps ordered by stepNum ascending |
+| `recipe.steps[].ingredients` | Ingredient[] | Each step's ingredients with unit/ingredientRef |
+| `isOwner` | `boolean` | Whether current user owns the recipe |
+
+### Current Step Rendering (lines 161-208)
+
+**Component Structure**:
+```
+<Heading level={2}>Steps</Heading>
+  ↓
+(if no steps) Empty state with "Add Steps" button
+  ↓
+(if has steps) For each step:
+  <div> (step card with border)
+    ├── Step number badge (blue circle)
+    ├── Step title (if exists) <Subheading>
+    ├── Description <Text>
+    └── Ingredients section (if has ingredients)
+        ├── "Ingredients" header
+        └── <ul> with ingredient items
+```
+
+**Current Display Order Within Each Step**:
+```
+1. Step number (in badge)
+2. Step title (optional)
+3. Description
+4. Ingredients list
+```
+
+### Required Display Order for stepOutputUse
+
+Per planning doc: **Title → Ingredients → Step Output Uses → Description**
+
+But looking at the current structure and the Redwood patterns from Unit 0.2, the order should be:
+
+```
+1. Step number (in badge)
+2. Step title (optional)
+3. Step Output Uses (NEW - checklist showing dependencies)
+4. Description
+5. Ingredients list
+```
+
+**Note**: The planning doc says "Title → Ingredients → Step Output Uses → Description" but Unit 0.2 shows Redwood uses "Ingredients → Step Output Uses → Description". For the recipe detail view (read-only), I recommend:
+
+```
+1. Step number + title
+2. Ingredients (things you need to gather)
+3. Step Output Uses (outputs from previous steps you're using)
+4. Description (the actual instructions)
+```
+
+This groups "inputs" (ingredients + step outputs) together before "instructions" (description).
+
+### Where stepOutputUse Checklist Should Appear
+
+**Location**: After the ingredients section, before the closing `</div>` of each step card (around line 204)
+
+**Current code structure** (lines 191-205):
+```tsx
+{step.ingredients.length > 0 && (
+  <div className="bg-gray-100 p-4 rounded mt-4">
+    <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-gray-500">
+      Ingredients
+    </Subheading>
+    <ul className="m-0 pl-6">
+      {step.ingredients.map((ingredient) => (
+        <li key={ingredient.id}>
+          {ingredient.quantity} {ingredient.unit.name} {ingredient.ingredientRef.name}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+```
+
+**Proposed addition** (after ingredients, before step card closes):
+```tsx
+{step.usingSteps && step.usingSteps.length > 0 && (
+  <div className="bg-gray-100 p-4 rounded mt-4">
+    <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-gray-500">
+      Using outputs from
+    </Subheading>
+    <ul className="m-0 pl-6">
+      {step.usingSteps.map((use) => (
+        <li key={use.id}>
+          output of step {use.outputStepNum}
+          {use.outputOfStep.stepTitle && `: ${use.outputOfStep.stepTitle}`}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+```
+
+### Loader Changes Needed
+
+Add `usingSteps` to the steps include:
+
+```ts
+steps: {
+  orderBy: { stepNum: "asc" },
+  include: {
+    ingredients: {
+      include: {
+        unit: true,
+        ingredientRef: true,
+      },
+    },
+    usingSteps: {  // NEW
+      include: {
+        outputOfStep: {
+          select: { stepNum: true, stepTitle: true },
+        },
+      },
+      orderBy: { outputStepNum: 'asc' },
+    },
+  },
+},
+```
+
+### No Action Changes Needed
+
+The recipe detail page's action only handles deletion. The stepOutputUse data is read-only on this page (editing happens in step edit routes audited in Unit 1.1).
+
+### TypeScript Considerations
+
+The loader return type will automatically include the new `usingSteps` field once added to the Prisma include. The component will need to handle:
+- `step.usingSteps` array (may be empty)
+- `step.usingSteps[].outputOfStep.stepNum` (always exists)
+- `step.usingSteps[].outputOfStep.stepTitle` (optional, may be null)
+
+### Visual Design Consistency
+
+To match the ingredients section styling:
+- Same `bg-gray-100 p-4 rounded mt-4` container
+- Same `Subheading level={4}` for section header
+- Same `<ul className="m-0 pl-6">` for list items
+
+The header text should be "Using outputs from" (or similar) to differentiate from ingredients. Per Redwood patterns (Unit 0.2), each item displays as "output of step X: [title]".
+
+### Checklist State (Future Enhancement)
+
+The Redwood implementation has checkbox state for tracking progress through ingredients and step outputs. This is noted but not in scope for the current stepOutputUse implementation—it's a follow-on enhancement to add "recipe following" mode with checkable items.
+
+---
+
 ## Future Units
 
 (Notes will be added as units are completed)
