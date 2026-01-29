@@ -1,5 +1,6 @@
 import type { Route } from "./+types/recipes.$id";
-import { Link, redirect, useLoaderData, Form } from "react-router";
+import { Link, redirect, useLoaderData, Form, useSubmit } from "react-router";
+import { useState } from "react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -7,6 +8,7 @@ import { Heading, Subheading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
 import { Text, Strong } from "~/components/ui/text";
 import { StepOutputUseDisplay } from "~/components/StepOutputUseDisplay";
+import { ConfirmationDialog } from "~/components/confirmation-dialog";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -105,6 +107,13 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
 export default function RecipeDetail() {
   const { recipe, isOwner } = useLoaderData<typeof loader>();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const submit = useSubmit();
+
+  const handleDeleteConfirm = () => {
+    setShowDeleteDialog(false);
+    submit({ intent: "delete" }, { method: "post" });
+  };
 
   return (
     <div className="font-sans leading-relaxed p-8">
@@ -137,23 +146,22 @@ export default function RecipeDetail() {
               <Button href={`/recipes/${recipe.id}/edit`} color="blue">
                 Edit
               </Button>
-              <Form method="post">
-                <input type="hidden" name="intent" value="delete" />
-                <Button
-                  type="submit"
-                  color="red"
-                  onClick={
-                    /* istanbul ignore next -- @preserve browser confirm dialog */
-                    (e) => {
-                      if (!confirm("Are you sure you want to delete this recipe?")) {
-                        e.preventDefault();
-                      }
-                    }
-                  }
-                >
-                  Delete
-                </Button>
-              </Form>
+              <Button
+                color="red"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                Delete
+              </Button>
+              <ConfirmationDialog
+                open={showDeleteDialog}
+                onClose={() => setShowDeleteDialog(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Banish this recipe?"
+                description={`"${recipe.title}" will be sent to the shadow realm. This cannot be undone!`}
+                confirmLabel="Delete it"
+                cancelLabel="Keep it"
+                destructive
+              />
             </div>
           )}
         </div>
