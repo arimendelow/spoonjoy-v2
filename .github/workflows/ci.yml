@@ -38,3 +38,15 @@ jobs:
       
       - name: 🏗️ Build
         run: npm run build
+
+      - name: 📚 Build Storybook
+        run: npm run build-storybook
+
+      # Chromatic visual regression testing
+      # Uncomment when CHROMATIC_PROJECT_TOKEN secret is configured
+      # - name: 🎨 Chromatic
+      #   uses: chromaui/action@latest
+      #   with:
+      #     projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+      #     exitZeroOnChanges: true
+      #     onlyChanged: true
