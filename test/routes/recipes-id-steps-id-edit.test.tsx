@@ -279,6 +279,227 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       expect(result.step.ingredients[0].unit.name).toBe(unit.name);
       expect(result.step.ingredients[0].ingredientRef.name).toBe(ingredientRef.name);
     });
+
+    it("should return availableSteps for steps that can be referenced", async () => {
+      // Create additional steps (step 1 already exists from beforeEach)
+      const step2 = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          stepTitle: "Step 2 Title",
+          description: "Step 2 description",
+        },
+      });
+      const step3 = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 3,
+          stepTitle: "Step 3 Title",
+          description: "Step 3 description",
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      // Request step 3 - should have step 1 and 2 as available
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${step3.id}/edit`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId, stepId: step3.id },
+      } as any);
+
+      expect(result.availableSteps).toBeDefined();
+      expect(result.availableSteps).toHaveLength(2);
+      expect(result.availableSteps[0].stepNum).toBe(1);
+      expect(result.availableSteps[0].stepTitle).toBe("Test Step Title");
+      expect(result.availableSteps[1].stepNum).toBe(2);
+      expect(result.availableSteps[1].stepTitle).toBe("Step 2 Title");
+    });
+
+    it("should return empty availableSteps for step 1", async () => {
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      // Step 1 has no previous steps
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${stepId}/edit`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId, stepId },
+      } as any);
+
+      expect(result.availableSteps).toBeDefined();
+      expect(result.availableSteps).toHaveLength(0);
+    });
+
+    it("should return current step's outputUses (dependencies on previous steps)", async () => {
+      // Create step 2 that will use step 1's output
+      const step2 = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          stepTitle: "Second Step",
+          description: "Uses output from step 1",
+        },
+      });
+
+      // Create the step output use relationship
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 1,
+          inputStepNum: 2,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${step2.id}/edit`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId, stepId: step2.id },
+      } as any);
+
+      expect(result.step.usingSteps).toBeDefined();
+      expect(result.step.usingSteps).toHaveLength(1);
+      expect(result.step.usingSteps[0].outputStepNum).toBe(1);
+      expect(result.step.usingSteps[0].outputOfStep.stepNum).toBe(1);
+      expect(result.step.usingSteps[0].outputOfStep.stepTitle).toBe("Test Step Title");
+    });
+
+    it("should return empty outputUses when step has no dependencies", async () => {
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${stepId}/edit`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId, stepId },
+      } as any);
+
+      expect(result.step.usingSteps).toBeDefined();
+      expect(result.step.usingSteps).toHaveLength(0);
+    });
+
+    it("should return multiple outputUses when step uses multiple previous steps", async () => {
+      // Create step 2 and 3
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          stepTitle: "Step 2",
+          description: "Step 2 description",
+        },
+      });
+      const step3 = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 3,
+          stepTitle: "Step 3",
+          description: "Uses output from step 1 and 2",
+        },
+      });
+
+      // Step 3 uses outputs from both step 1 and step 2
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 1,
+          inputStepNum: 3,
+        },
+      });
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 2,
+          inputStepNum: 3,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${step3.id}/edit`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId, stepId: step3.id },
+      } as any);
+
+      expect(result.step.usingSteps).toHaveLength(2);
+      // Should be ordered by outputStepNum
+      expect(result.step.usingSteps[0].outputStepNum).toBe(1);
+      expect(result.step.usingSteps[1].outputStepNum).toBe(2);
+    });
+
+    it("should return availableSteps with only stepNum and stepTitle selected", async () => {
+      // Create step 2
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          description: "Step 2 with no title",
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      // Request step 2 - should have step 1 as available
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${(await db.recipeStep.findFirst({ where: { recipeId, stepNum: 2 } }))!.id}/edit`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId, stepId: (await db.recipeStep.findFirst({ where: { recipeId, stepNum: 2 } }))!.id },
+      } as any);
+
+      expect(result.availableSteps).toHaveLength(1);
+      expect(result.availableSteps[0].stepNum).toBe(1);
+      expect(result.availableSteps[0].stepTitle).toBe("Test Step Title");
+      // Should not include other fields like description or id
+      expect(Object.keys(result.availableSteps[0])).toEqual(["stepNum", "stepTitle"]);
+    });
   });
 
   describe("action", () => {
