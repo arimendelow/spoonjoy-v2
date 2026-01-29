@@ -37,3 +37,6 @@ Thumbs.db
 coverage/
 test.db
 *.ts-e
+
+*storybook.log
+storybook-static

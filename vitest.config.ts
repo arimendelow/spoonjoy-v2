@@ -14,18 +14,13 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
       all: true,
       include: ["app/lib/**/*.ts", "app/routes/**/*.tsx", "app/components/**/*.tsx"],
-      exclude: [
-        "node_modules/**",
-        "test/**",
-        "**/*.config.ts",
-        "**/*.d.ts",
-        "**/types/**",
-      ],
+      exclude: ["node_modules/**", "test/**", "**/*.config.ts", "**/*.d.ts", "**/types/**"]
     },
   },
   resolve: {
     alias: {
       "~": resolve(__dirname, "./app"),
-    },
-  },
+      "@": resolve(__dirname, "./app/components"),
+    }
+  }
 });
