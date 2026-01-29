@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id.steps.$stepId.edit";
@@ -507,11 +507,19 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       formFields: Record<string, string>,
       userId?: string,
       recId?: string,
-      stId?: string
+      stId?: string,
+      usesSteps?: number[]
     ): Promise<UndiciRequest> {
       const formData = new UndiciFormData();
       for (const [key, value] of Object.entries(formFields)) {
         formData.append(key, value);
+      }
+
+      // Add usesSteps array values if provided
+      if (usesSteps) {
+        for (const stepNum of usesSteps) {
+          formData.append("usesSteps", stepNum.toString());
+        }
       }
 
       const headers = new Headers();
@@ -838,6 +846,264 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         // Verify step was deleted
         const deletedStep = await db.recipeStep.findUnique({ where: { id: stepId } });
         expect(deletedStep).toBeNull();
+      });
+    });
+
+    describe("step output uses update", () => {
+      it("should create step output uses when updating step", async () => {
+        // Create step 2 for testing
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step that will use step 1",
+          },
+        });
+
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "Uses output from step 1",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [1] // usesSteps
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify step output use was created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId, inputStepNum: 2 },
+        });
+        expect(stepOutputUses).toHaveLength(1);
+        expect(stepOutputUses[0].outputStepNum).toBe(1);
+      });
+
+      it("should create multiple step output uses when updating step", async () => {
+        // Create step 2 and 3
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+        const step3 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 3,
+            description: "Third step that will use step 1 and 2",
+          },
+        });
+
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 3",
+            description: "Uses output from step 1 and 2",
+          },
+          testUserId,
+          recipeId,
+          step3.id,
+          [1, 2] // usesSteps
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step3.id },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify step output uses were created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId, inputStepNum: 3 },
+          orderBy: { outputStepNum: "asc" },
+        });
+        expect(stepOutputUses).toHaveLength(2);
+        expect(stepOutputUses[0].outputStepNum).toBe(1);
+        expect(stepOutputUses[1].outputStepNum).toBe(2);
+      });
+
+      it("should delete existing step output uses and create new ones on update", async () => {
+        // Create step 2 and 3
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+        const step3 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 3,
+            description: "Third step",
+          },
+        });
+
+        // Create existing step output use: step 3 uses step 1
+        await db.stepOutputUse.create({
+          data: {
+            recipeId,
+            outputStepNum: 1,
+            inputStepNum: 3,
+          },
+        });
+
+        // Update to use step 2 instead of step 1
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 3",
+            description: "Now uses output from step 2 only",
+          },
+          testUserId,
+          recipeId,
+          step3.id,
+          [2] // usesSteps - changed from [1] to [2]
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step3.id },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify old step output use was deleted and new one created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId, inputStepNum: 3 },
+        });
+        expect(stepOutputUses).toHaveLength(1);
+        expect(stepOutputUses[0].outputStepNum).toBe(2);
+      });
+
+      it("should clear all step output uses when none selected", async () => {
+        // Create step 2
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+
+        // Create existing step output use
+        await db.stepOutputUse.create({
+          data: {
+            recipeId,
+            outputStepNum: 1,
+            inputStepNum: 2,
+          },
+        });
+
+        // Update with no usesSteps (empty selection)
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "No longer uses any previous steps",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [] // empty usesSteps
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify all step output uses were deleted
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId, inputStepNum: 2 },
+        });
+        expect(stepOutputUses).toHaveLength(0);
+      });
+
+      it("should ignore invalid step numbers in usesSteps", async () => {
+        // Create step 2
+        const step2 = await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Second step",
+          },
+        });
+
+        // Try to use invalid step numbers (0, negative, same as current, greater than current)
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 2",
+            description: "With invalid step references",
+          },
+          testUserId,
+          recipeId,
+          step2.id,
+          [0, -1, 2, 3, 1] // Only 1 is valid
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId: step2.id },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify only valid step output use was created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId, inputStepNum: 2 },
+        });
+        expect(stepOutputUses).toHaveLength(1);
+        expect(stepOutputUses[0].outputStepNum).toBe(1);
+      });
+
+      it("should not create step output uses for step 1", async () => {
+        // Step 1 exists from beforeEach
+        // Try to add usesSteps to step 1 (should be ignored since there are no previous steps)
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 1",
+            description: "First step cannot use previous steps",
+          },
+          testUserId,
+          recipeId,
+          stepId,
+          [1] // Invalid - can't reference itself or previous steps (there are none)
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify no step output uses were created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId, inputStepNum: 1 },
+        });
+        expect(stepOutputUses).toHaveLength(0);
       });
     });
 
@@ -1840,6 +2106,254 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
       // Wait for form to render
       await screen.findByLabelText(/Description/);
+    });
+
+    describe("uses output from section", () => {
+      it("should not show Uses Output From when stepNum is 1", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "First step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 1/i });
+
+        expect(screen.queryByText(/Uses Output From/i)).not.toBeInTheDocument();
+      });
+
+      it("should show Uses Output From when stepNum > 1 with available steps", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-2",
+            stepNum: 2,
+            stepTitle: null,
+            description: "Second step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "Prep the ingredients" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 2/i });
+
+        expect(screen.getByText(/Uses Output From/i)).toBeInTheDocument();
+      });
+
+      it("should display available steps in correct format with title", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-3",
+            stepNum: 3,
+            stepTitle: null,
+            description: "Third step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "Prep the ingredients" },
+            { stepNum: 2, stepTitle: "Mix the batter" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 3/i });
+
+        // Click to open the listbox
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        await act(async () => {
+          fireEvent.click(listboxButton);
+        });
+
+        // Check that options are displayed correctly
+        await waitFor(() => {
+          expect(screen.getByText("Step 1: Prep the ingredients")).toBeInTheDocument();
+          expect(screen.getByText("Step 2: Mix the batter")).toBeInTheDocument();
+        });
+      });
+
+      it("should display available steps without title correctly", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-2",
+            stepNum: 2,
+            stepTitle: null,
+            description: "Second step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: null },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 2/i });
+
+        // Click to open the listbox
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        await act(async () => {
+          fireEvent.click(listboxButton);
+        });
+
+        // Check that step without title shows just the number
+        await waitFor(() => {
+          expect(screen.getByText("Step 1")).toBeInTheDocument();
+        });
+      });
+
+      it("should pre-select existing step output uses", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-3",
+            stepNum: 3,
+            stepTitle: null,
+            description: "Third step",
+            ingredients: [],
+            usingSteps: [
+              {
+                id: "sou-1",
+                outputStepNum: 1,
+                outputOfStep: { stepNum: 1, stepTitle: "First step" },
+              },
+            ],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "First step" },
+            { stepNum: 2, stepTitle: "Second step" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 3/i });
+
+        // The listbox button should show the selected step
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        expect(listboxButton).toHaveTextContent("Step 1: First step");
+      });
+
+      it("should pre-select multiple existing step output uses", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-3",
+            stepNum: 3,
+            stepTitle: null,
+            description: "Third step",
+            ingredients: [],
+            usingSteps: [
+              {
+                id: "sou-1",
+                outputStepNum: 1,
+                outputOfStep: { stepNum: 1, stepTitle: "First step" },
+              },
+              {
+                id: "sou-2",
+                outputStepNum: 2,
+                outputOfStep: { stepNum: 2, stepTitle: "Second step" },
+              },
+            ],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "First step" },
+            { stepNum: 2, stepTitle: "Second step" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 3/i });
+
+        // The listbox button should show both selected steps
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        expect(listboxButton).toHaveTextContent("Step 1: First step");
+        expect(listboxButton).toHaveTextContent("Step 2: Second step");
+      });
     });
   });
 });
