@@ -1,1 +1,2 @@
 export { SpoonDock, type SpoonDockProps } from './spoon-dock'
+export { DockItem, type DockItemProps } from './dock-item'
