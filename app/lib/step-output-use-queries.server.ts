@@ -17,3 +17,27 @@ export async function loadRecipeStepOutputUses(recipeId: string) {
     orderBy: [{ inputStepNum: "asc" }, { outputStepNum: "asc" }],
   });
 }
+
+/**
+ * Load dependencies for a specific step - the list of steps whose outputs this step uses.
+ *
+ * @param recipeId - The ID of the recipe
+ * @param stepNum - The step number to load dependencies for
+ * @returns Array of {outputStepNum, stepTitle} for display
+ */
+export async function loadStepDependencies(recipeId: string, stepNum: number) {
+  const stepOutputUses = await db.stepOutputUse.findMany({
+    where: { recipeId, inputStepNum: stepNum },
+    include: {
+      outputOfStep: {
+        select: { stepNum: true, stepTitle: true, id: true },
+      },
+    },
+    orderBy: { outputStepNum: "asc" },
+  });
+
+  return stepOutputUses.map((use) => ({
+    outputStepNum: use.outputStepNum,
+    stepTitle: use.outputOfStep.stepTitle,
+  }));
+}
