@@ -20,6 +20,7 @@ import {
   validateUnitName,
   validateIngredientName,
   validateImageUrl,
+  validateStepReference,
 } from '~/lib/validation'
 
 describe('Validation Constants', () => {
@@ -507,5 +508,131 @@ describe('validateImageUrl', () => {
   it('trims whitespace before validating', () => {
     const result = validateImageUrl('  https://example.com/image.jpg  ')
     expect(result).toEqual({ valid: true })
+  })
+})
+
+describe('validateStepReference', () => {
+  it('returns valid when referencing a previous step', () => {
+    // Step 3 referencing step 1
+    const result = validateStepReference(1, 3)
+    expect(result).toEqual({ valid: true })
+  })
+
+  it('returns valid when referencing the immediately previous step', () => {
+    // Step 2 referencing step 1
+    const result = validateStepReference(1, 2)
+    expect(result).toEqual({ valid: true })
+  })
+
+  it('returns valid when step 10 references step 1', () => {
+    const result = validateStepReference(1, 10)
+    expect(result).toEqual({ valid: true })
+  })
+
+  it('returns error when referencing the same step', () => {
+    // Step 3 referencing itself
+    const result = validateStepReference(3, 3)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Cannot reference the current step',
+    })
+  })
+
+  it('returns error when referencing a future step', () => {
+    // Step 2 trying to reference step 5
+    const result = validateStepReference(5, 2)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Can only reference previous steps',
+    })
+  })
+
+  it('returns error when referencing the immediately next step', () => {
+    // Step 3 trying to reference step 4
+    const result = validateStepReference(4, 3)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Can only reference previous steps',
+    })
+  })
+
+  it('returns error when outputStepNum is zero', () => {
+    const result = validateStepReference(0, 3)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when outputStepNum is negative', () => {
+    const result = validateStepReference(-1, 3)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when inputStepNum is zero', () => {
+    const result = validateStepReference(1, 0)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when inputStepNum is negative', () => {
+    const result = validateStepReference(1, -1)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when outputStepNum is not an integer', () => {
+    const result = validateStepReference(1.5, 3)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when inputStepNum is not an integer', () => {
+    const result = validateStepReference(1, 3.5)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when outputStepNum is NaN', () => {
+    const result = validateStepReference(NaN, 3)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when inputStepNum is NaN', () => {
+    const result = validateStepReference(1, NaN)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when outputStepNum is Infinity', () => {
+    const result = validateStepReference(Infinity, 3)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
+  })
+
+  it('returns error when inputStepNum is Infinity', () => {
+    const result = validateStepReference(1, Infinity)
+    expect(result).toEqual({
+      valid: false,
+      error: 'Invalid step number',
+    })
   })
 })
