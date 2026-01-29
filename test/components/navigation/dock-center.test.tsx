@@ -139,9 +139,12 @@ describe('DockCenter', () => {
         </RouterWrapper>
       )
       
-      // The element should be rendered (Framer Motion manages animation internally)
+      // The container element should be rendered (Framer Motion wraps the component)
+      // The container is a DIV that animates, with a Link inside
       const center = screen.getByTestId('dock-center')
-      expect(center.tagName).toBe('A')
+      expect(center.tagName).toBe('DIV')
+      // The link should be inside
+      expect(center.querySelector('a')).toBeInTheDocument()
     })
   })
 
