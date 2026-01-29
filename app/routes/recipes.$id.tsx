@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
 import { Text, Strong } from "~/components/ui/text";
+import { StepOutputUseDisplay } from "~/components/StepOutputUseDisplay";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -216,22 +217,7 @@ export default function RecipeDetail() {
                     </div>
                   )}
 
-                  {step.usingSteps && step.usingSteps.length > 0 && (
-                    <div className="bg-gray-100 p-4 rounded mt-4">
-                      <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-gray-500">
-                        Using outputs from
-                      </Subheading>
-                      <ul className="m-0 pl-6">
-                        {step.usingSteps.map((use) => (
-                          <li key={use.id}>
-                            {use.outputOfStep.stepTitle
-                              ? `output of step ${use.outputStepNum}: ${use.outputOfStep.stepTitle}`
-                              : `output of step ${use.outputStepNum}`}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  <StepOutputUseDisplay usingSteps={step.usingSteps ?? []} />
                 </div>
               ))}
             </div>
