@@ -217,7 +217,12 @@ export default function NewStep() {
               )}
             </Field>
 
-            {nextStepNum > 1 && availableSteps.length > 0 && (
+            {nextStepNum === 1 ? (
+              <Field>
+                <Label>Uses Output From</Label>
+                <Text className="text-gray-500 italic">No previous steps available</Text>
+              </Field>
+            ) : availableSteps.length > 0 && (
               <Field>
                 <Label>Uses Output From (optional)</Label>
                 <Listbox

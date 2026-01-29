@@ -7,6 +7,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Field, Label } from "~/components/ui/fieldset";
+import { Text } from "~/components/ui/text";
 import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
 import {
   deleteExistingStepOutputUses,
@@ -361,7 +362,12 @@ export default function EditStep() {
             />
           </div>
 
-          {step.stepNum > 1 && availableSteps.length > 0 && (
+          {step.stepNum === 1 ? (
+            <Field>
+              <Label>Uses Output From</Label>
+              <Text className="text-gray-500 italic">No previous steps available</Text>
+            </Field>
+          ) : availableSteps.length > 0 && (
             <Field>
               <Label>Uses Output From (optional)</Label>
               <Listbox

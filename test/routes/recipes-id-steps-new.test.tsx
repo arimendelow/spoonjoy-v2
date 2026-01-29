@@ -1034,7 +1034,7 @@ describe("Recipes $id Steps New Route", () => {
     });
 
     describe("uses output from section", () => {
-      it("should not show Uses Output From when nextStepNum is 1", async () => {
+      it("should show Uses Output From label with disabled state when nextStepNum is 1", async () => {
         const mockData = {
           recipe: {
             id: "recipe-1",
@@ -1056,7 +1056,10 @@ describe("Recipes $id Steps New Route", () => {
 
         await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
 
-        expect(screen.queryByText(/Uses Output From/i)).not.toBeInTheDocument();
+        // Label should be shown but without "(optional)" suffix
+        expect(screen.getByText("Uses Output From")).toBeInTheDocument();
+        // Should not have the dropdown selector
+        expect(screen.queryByRole("button", { name: /Select previous steps/i })).not.toBeInTheDocument();
       });
 
       it("should show empty state message when creating Step 1", async () => {
