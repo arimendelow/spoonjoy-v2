@@ -2,6 +2,11 @@
 
 Recipe management platform rebuilt with React Router v7 on Cloudflare.
 
+## Links
+
+- **Storybook**: https://697bd34029fa33717b859aff-inamkrsowd.chromatic.com/
+- **Chromatic**: https://www.chromatic.com/builds?appId=697bd34029fa33717b859aff
+
 ## Tech Stack
 
 - **Framework**: React Router v7 (Remix)
