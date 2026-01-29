@@ -36,6 +36,19 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
               ingredientRef: true,
             },
           },
+          usingSteps: {
+            include: {
+              outputOfStep: {
+                select: {
+                  stepNum: true,
+                  stepTitle: true,
+                },
+              },
+            },
+            orderBy: {
+              outputStepNum: "asc",
+            },
+          },
         },
       },
     },
@@ -197,6 +210,23 @@ export default function RecipeDetail() {
                         {step.ingredients.map((ingredient) => (
                           <li key={ingredient.id}>
                             {ingredient.quantity} {ingredient.unit.name} {ingredient.ingredientRef.name}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {step.usingSteps && step.usingSteps.length > 0 && (
+                    <div className="bg-gray-100 p-4 rounded mt-4">
+                      <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-gray-500">
+                        Using outputs from
+                      </Subheading>
+                      <ul className="m-0 pl-6">
+                        {step.usingSteps.map((use) => (
+                          <li key={use.id}>
+                            {use.outputOfStep.stepTitle
+                              ? `output of step ${use.outputStepNum}: ${use.outputOfStep.stepTitle}`
+                              : `output of step ${use.outputStepNum}`}
                           </li>
                         ))}
                       </ul>
