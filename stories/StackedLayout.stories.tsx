@@ -3,7 +3,6 @@ import { expect, userEvent, within, waitFor } from 'storybook/test'
 import {
   Home,
   Search,
-  ChefHat,
   Book,
   Heart,
   Settings,
@@ -18,6 +17,7 @@ import {
   ShoppingCart,
   Calendar,
 } from 'lucide-react'
+import { SpoonjoyLogo } from '../app/components/ui/spoonjoy-logo'
 import { StackedLayout } from '../app/components/ui/stacked-layout'
 import { Navbar, NavbarItem, NavbarSection, NavbarSpacer, NavbarLabel, NavbarDivider } from '../app/components/ui/navbar'
 import { Sidebar, SidebarBody, SidebarHeader, SidebarItem, SidebarLabel, SidebarSection, SidebarFooter, SidebarSpacer } from '../app/components/ui/sidebar'
@@ -113,7 +113,7 @@ function SimpleNavbar({ currentPage = 'home' }: { currentPage?: string }) {
     <Navbar>
       <NavbarSection>
         <NavbarItem href="/" current={currentPage === 'home'}>
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <NavbarLabel>Spoonjoy</NavbarLabel>
         </NavbarItem>
       </NavbarSection>
@@ -147,7 +147,7 @@ function NavbarWithDropdown() {
     <Navbar>
       <NavbarSection>
         <NavbarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <NavbarLabel>Spoonjoy</NavbarLabel>
         </NavbarItem>
       </NavbarSection>
@@ -206,7 +206,7 @@ function SimpleSidebar({ currentPage = 'home' }: { currentPage?: string }) {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -257,7 +257,7 @@ function FullSidebar() {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -685,7 +685,7 @@ export const CenteredNavigation: Story = {
         <Navbar>
           <NavbarSection>
             <NavbarItem href="/">
-              <ChefHat data-slot="icon" />
+              <SpoonjoyLogo />
             </NavbarItem>
           </NavbarSection>
           <NavbarSpacer />
@@ -740,7 +740,7 @@ export const IconOnlyNavbar: Story = {
         <Navbar>
           <NavbarSection>
             <NavbarItem href="/">
-              <ChefHat data-slot="icon" />
+              <SpoonjoyLogo />
               <NavbarLabel>Spoonjoy</NavbarLabel>
             </NavbarItem>
           </NavbarSection>
@@ -800,7 +800,7 @@ export const NavbarWithActions: Story = {
         <Navbar>
           <NavbarSection>
             <NavbarItem href="/">
-              <ChefHat data-slot="icon" />
+              <SpoonjoyLogo />
               <NavbarLabel>Spoonjoy</NavbarLabel>
             </NavbarItem>
           </NavbarSection>
@@ -905,7 +905,7 @@ export const RecipeAppDashboard: Story = {
         <Navbar>
           <NavbarSection>
             <NavbarItem href="/">
-              <ChefHat data-slot="icon" />
+              <SpoonjoyLogo />
               <NavbarLabel>Spoonjoy</NavbarLabel>
             </NavbarItem>
           </NavbarSection>
@@ -1058,7 +1058,7 @@ export const BlogLayout: Story = {
         <Navbar>
           <NavbarSection>
             <NavbarItem href="/">
-              <ChefHat data-slot="icon" />
+              <SpoonjoyLogo />
               <NavbarLabel>Spoonjoy Blog</NavbarLabel>
             </NavbarItem>
           </NavbarSection>
@@ -1091,7 +1091,7 @@ export const BlogLayout: Story = {
                 <SidebarLabel>All Articles</SidebarLabel>
               </SidebarItem>
               <SidebarItem href="/blog/techniques">
-                <ChefHat data-slot="icon" />
+                <SpoonjoyLogo />
                 <SidebarLabel>Techniques</SidebarLabel>
               </SidebarItem>
               <SidebarItem href="/blog/ingredients">
@@ -1281,7 +1281,7 @@ export const NavbarInteraction: Story = {
         <Navbar>
           <NavbarSection>
             <NavbarItem href="/">
-              <ChefHat data-slot="icon" />
+              <SpoonjoyLogo />
               <NavbarLabel>Spoonjoy</NavbarLabel>
             </NavbarItem>
           </NavbarSection>

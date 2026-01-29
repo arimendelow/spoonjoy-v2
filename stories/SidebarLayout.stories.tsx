@@ -3,7 +3,6 @@ import { expect, userEvent, within, waitFor } from 'storybook/test'
 import {
   Home,
   Search,
-  ChefHat,
   Book,
   Heart,
   Settings,
@@ -28,6 +27,7 @@ import {
   Palette,
   Database,
 } from 'lucide-react'
+import { SpoonjoyLogo } from '../app/components/ui/spoonjoy-logo'
 import { SidebarLayout } from '../app/components/ui/sidebar-layout'
 import {
   Navbar,
@@ -141,7 +141,7 @@ function SimpleSidebar({ currentPage = 'home' }: { currentPage?: string }) {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -184,7 +184,7 @@ function FullFeaturedSidebar({ currentPage = 'home' }: { currentPage?: string })
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -995,7 +995,7 @@ export const SidebarWithIconEmphasis: Story = {
         <Sidebar>
           <SidebarHeader>
             <SidebarItem href="/">
-              <ChefHat data-slot="icon" />
+              <SpoonjoyLogo />
               <SidebarLabel>Spoonjoy</SidebarLabel>
             </SidebarItem>
           </SidebarHeader>

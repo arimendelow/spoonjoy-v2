@@ -3,7 +3,6 @@ import { expect, within } from 'storybook/test'
 import {
   Home,
   Search,
-  ChefHat,
   Book,
   Heart,
   Settings,
@@ -38,6 +37,7 @@ import {
   Lock,
   ChevronsUpDown,
 } from 'lucide-react'
+import { SpoonjoyLogo } from '../app/components/ui/spoonjoy-logo'
 import {
   Sidebar,
   SidebarBody,
@@ -155,7 +155,7 @@ export const Default: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -200,7 +200,7 @@ export const WithSectionHeadings: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -261,7 +261,7 @@ export const WithBadges: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -409,7 +409,7 @@ export const WithAvatar: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -462,7 +462,7 @@ export const WithUserDropdown: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -551,7 +551,7 @@ export const WithDivider: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -614,7 +614,7 @@ export const WithSpacer: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -683,7 +683,7 @@ export const WithButtons: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -750,7 +750,7 @@ export const RecipeAppSidebar: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -1207,7 +1207,7 @@ export const HeaderOnly: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
         <SidebarSection>
@@ -1253,7 +1253,7 @@ export const LongNavigation: Story = {
     <Sidebar>
       <SidebarHeader>
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>Spoonjoy</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
@@ -1461,7 +1461,7 @@ export const StructureTest: Story = {
     <Sidebar data-testid="sidebar">
       <SidebarHeader data-testid="header">
         <SidebarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <SidebarLabel>App</SidebarLabel>
         </SidebarItem>
       </SidebarHeader>

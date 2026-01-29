@@ -7,7 +7,6 @@ import {
   Heart,
   Settings,
   User,
-  ChefHat,
   Bell,
   Plus,
   UtensilsCrossed,
@@ -15,6 +14,7 @@ import {
   Calendar,
   Sparkles,
 } from 'lucide-react'
+import { SpoonjoyLogo } from '../app/components/ui/spoonjoy-logo'
 import {
   Navbar,
   NavbarSection,
@@ -208,7 +208,7 @@ export const WithSpacer: Story = {
     <Navbar>
       <NavbarSection>
         <NavbarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <NavbarLabel className="font-semibold">Spoonjoy</NavbarLabel>
         </NavbarItem>
       </NavbarSection>
@@ -299,7 +299,7 @@ export const WithButtons: Story = {
     <Navbar>
       <NavbarSection>
         <NavbarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <NavbarLabel className="font-semibold">Spoonjoy</NavbarLabel>
         </NavbarItem>
       </NavbarSection>
@@ -623,7 +623,7 @@ export const MinimalHeader: Story = {
     <Navbar>
       <NavbarSection>
         <NavbarItem href="/">
-          <ChefHat data-slot="icon" />
+          <SpoonjoyLogo />
           <NavbarLabel className="font-semibold">Spoonjoy</NavbarLabel>
         </NavbarItem>
       </NavbarSection>
@@ -674,7 +674,7 @@ export const ResponsiveConsiderations: Story = {
           <Navbar className="min-w-max">
             <NavbarSection>
               <NavbarItem href="/">
-                <ChefHat data-slot="icon" />
+                <SpoonjoyLogo />
                 <NavbarLabel>Spoonjoy</NavbarLabel>
               </NavbarItem>
             </NavbarSection>
