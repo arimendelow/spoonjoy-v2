@@ -739,26 +739,41 @@ describe("E2E: Step Reorder Protection", () => {
       const step3Id = await addStep(recipeId, "Right branch", "Step 3", [1]);
       await addStep(recipeId, "Top step", "Step 4", [2, 3]);
 
-      // Try to move step 1 down - blocked by steps 2 and (when moving further) 3
+      // Try to move step 1 down - blocked by step 2 (which uses step 1's output)
       let result = await reorderStep(recipeId, step1Id, "down");
       expect(result.status).toBe(400);
       expect(result.data.errors?.reorder).toContain("Step 2 uses its output");
 
-      // Try to move step 2 down - blocked by step 4
+      // Moving step 2 down to position 3 is ALLOWED because:
+      // - Step 4 (which uses step 2) is at position 4, not between 2 and 3
+      // - Step 3 (the step we swap with) doesn't use step 2
       result = await reorderStep(recipeId, step2Id, "down");
-      expect(result.status).toBe(400);
-      expect(result.data.errors?.reorder).toContain("Step 4 uses its output");
+      expect(result.status).toBe(200);
+      expect(result.data.success).toBe(true);
 
-      // Try to move step 3 down - blocked by step 4
-      result = await reorderStep(recipeId, step3Id, "down");
-      expect(result.status).toBe(400);
-      expect(result.data.errors?.reorder).toContain("Step 4 uses its output");
+      // After the swap: step 3 is at position 2, step 2 is at position 3
+      // Verify the positions swapped
+      const steps = await db.recipeStep.findMany({
+        where: { recipeId },
+        orderBy: { stepNum: "asc" },
+      });
+      expect(steps[1].id).toBe(step3Id); // Step 3 is now at position 2
+      expect(steps[2].id).toBe(step2Id); // Step 2 is now at position 3
 
-      // Steps 2 and 3 can swap positions (both use step 1, both used by step 4)
-      // Step 2 can move up - not blocked
+      // Moving step 2 up (from position 3 to position 2) is ALLOWED because:
+      // - Step 2 uses step 1 (at position 1), which is BEFORE position 2, not blocking
+      // - This just swaps step 2 and step 3, which are both at valid positions relative to step 1
       result = await reorderStep(recipeId, step2Id, "up");
-      expect(result.status).toBe(400); // Blocked because step 2 uses step 1
-      expect(result.data.errors?.reorder).toContain("uses output from Step 1");
+      expect(result.status).toBe(200);
+      expect(result.data.success).toBe(true);
+
+      // Now step 2 is back at position 2, step 3 is at position 3
+      const stepsAfter = await db.recipeStep.findMany({
+        where: { recipeId },
+        orderBy: { stepNum: "asc" },
+      });
+      expect(stepsAfter[1].id).toBe(step2Id); // Step 2 is at position 2 again
+      expect(stepsAfter[2].id).toBe(step3Id); // Step 3 is at position 3 again
     });
 
     it("should handle recipe with only one step", async () => {
