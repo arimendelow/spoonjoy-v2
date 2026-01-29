@@ -1059,6 +1059,31 @@ describe("Recipes $id Steps New Route", () => {
         expect(screen.queryByText(/Uses Output From/i)).not.toBeInTheDocument();
       });
 
+      it("should show empty state message when creating Step 1", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          nextStepNum: 1,
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/new",
+            Component: NewStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
+
+        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+
+        expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
+      });
+
       it("should show Uses Output From when nextStepNum > 1 with available steps", async () => {
         const mockData = {
           recipe: {

@@ -2421,6 +2421,38 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         expect(screen.queryByText(/Uses Output From/i)).not.toBeInTheDocument();
       });
 
+      it("should show empty state message when editing Step 1", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "First step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 1/i });
+
+        expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
+      });
+
       it("should show Uses Output From when stepNum > 1 with available steps", async () => {
         const mockData = {
           recipe: {
