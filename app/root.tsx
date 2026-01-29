@@ -12,6 +12,7 @@ import {
 import { getUserId } from "~/lib/session.server";
 import { ThemeProvider } from "~/components/ui/theme-provider";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
+import { MobileNav } from "~/components/navigation";
 import "./styles/tailwind.css";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -46,7 +47,8 @@ export default function App() {
       </head>
       <body className="m-0 p-0 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors">
         <ThemeProvider>
-          <nav className="bg-zinc-800 dark:bg-zinc-950 text-white px-8 py-4 flex justify-between items-center">
+          {/* Desktop navigation - hidden on mobile */}
+          <nav className="hidden lg:flex bg-zinc-800 dark:bg-zinc-950 text-white px-8 py-4 justify-between items-center">
             <Link
               to="/"
               className="text-white no-underline text-2xl font-bold hover:text-zinc-200 transition-colors"
@@ -105,7 +107,12 @@ export default function App() {
               )}
             </div>
           </nav>
-          <Outlet />
+          {/* Main content with bottom padding for mobile dock */}
+          <main className="pb-20 lg:pb-0">
+            <Outlet />
+          </main>
+          {/* Mobile navigation dock - only for authenticated users */}
+          {userId && <MobileNav />}
         </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
