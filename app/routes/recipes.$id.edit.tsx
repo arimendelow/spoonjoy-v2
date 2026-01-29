@@ -17,6 +17,7 @@ import {
   DESCRIPTION_MAX_LENGTH,
   SERVINGS_MAX_LENGTH,
 } from "~/lib/validation";
+import { validateStepReorderComplete } from "~/lib/step-reorder-validation.server";
 
 interface ActionData {
   errors?: {
@@ -25,7 +26,9 @@ interface ActionData {
     servings?: string;
     imageUrl?: string;
     general?: string;
+    reorder?: string;
   };
+  success?: boolean;
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
@@ -106,6 +109,12 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       if (step && step.recipeId === id) {
         const targetStepNum = direction === "up" ? step.stepNum - 1 : step.stepNum + 1;
 
+        // Validate that reordering won't break dependencies
+        const validationResult = await validateStepReorderComplete(id, step.stepNum, targetStepNum);
+        if (!validationResult.valid) {
+          return data({ errors: { reorder: validationResult.error } }, { status: 400 });
+        }
+
         // Find the step to swap with
         const targetStep = await database.recipeStep.findUnique({
           where: {
@@ -119,6 +128,10 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         if (targetStep) {
           // Swap step numbers using a temporary number to avoid unique constraint violation
           const tempStepNum = -1;
+
+          // Note: SQLite's ON UPDATE CASCADE automatically updates StepOutputUse
+          // references when RecipeStep.stepNum changes, so we don't need to
+          // manually update StepOutputUse records here.
 
           await database.recipeStep.update({
             where: { id: stepId },
@@ -300,6 +313,12 @@ export default function EditRecipe() {
               + Add Step
             </Button>
           </div>
+
+          {actionData?.errors?.reorder && (
+            <div className="p-3 mb-4 bg-red-50 border border-red-600 rounded text-red-600" role="alert">
+              {actionData.errors.reorder}
+            </div>
+          )}
 
           {recipe.steps.length === 0 ? (
             <div className="bg-gray-100 p-8 rounded-lg text-center">
