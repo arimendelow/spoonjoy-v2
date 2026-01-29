@@ -207,16 +207,87 @@ describe("Recipes $id Steps New Route", () => {
 
       expect(result.nextStepNum).toBe(3);
     });
+
+    it("should return empty availableSteps when nextStepNum is 1", async () => {
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/new`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.nextStepNum).toBe(1);
+      expect(result.availableSteps).toEqual([]);
+    });
+
+    it("should return availableSteps when nextStepNum > 1", async () => {
+      // Create existing steps
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          stepTitle: "Prep",
+          description: "Step 1 description",
+        },
+      });
+
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          stepTitle: null,
+          description: "Step 2 description",
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/new`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.nextStepNum).toBe(3);
+      expect(result.availableSteps).toHaveLength(2);
+      expect(result.availableSteps[0]).toEqual({ stepNum: 1, stepTitle: "Prep" });
+      expect(result.availableSteps[1]).toEqual({ stepNum: 2, stepTitle: null });
+    });
   });
 
   describe("action", () => {
     async function createFormRequest(
       formFields: Record<string, string>,
-      userId?: string
+      userId?: string,
+      usesSteps?: number[]
     ): Promise<UndiciRequest> {
       const formData = new UndiciFormData();
       for (const [key, value] of Object.entries(formFields)) {
         formData.append(key, value);
+      }
+
+      // Add usesSteps array values if provided
+      if (usesSteps) {
+        for (const stepNum of usesSteps) {
+          formData.append("usesSteps", stepNum.toString());
+        }
       }
 
       const headers = new Headers();
@@ -480,6 +551,185 @@ describe("Recipes $id Steps New Route", () => {
         db.recipeStep.create = originalCreate;
       }
     });
+
+    describe("step output uses", () => {
+      it("should create step without step output uses when none selected", async () => {
+        // Create existing step
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            description: "Step 1",
+          },
+        });
+
+        const request = await createFormRequest(
+          { description: "Step 2 description" },
+          testUserId
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify no StepOutputUse records created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId },
+        });
+        expect(stepOutputUses).toHaveLength(0);
+      });
+
+      it("should create step with single step output use", async () => {
+        // Create existing step
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            description: "Step 1",
+          },
+        });
+
+        const request = await createFormRequest(
+          { description: "Step 2 uses step 1" },
+          testUserId,
+          [1]
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify StepOutputUse record created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId },
+        });
+        expect(stepOutputUses).toHaveLength(1);
+        expect(stepOutputUses[0].outputStepNum).toBe(1);
+        expect(stepOutputUses[0].inputStepNum).toBe(2);
+      });
+
+      it("should create step with multiple step output uses", async () => {
+        // Create existing steps
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            description: "Step 1",
+          },
+        });
+
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            description: "Step 2",
+          },
+        });
+
+        const request = await createFormRequest(
+          { description: "Step 3 uses steps 1 and 2" },
+          testUserId,
+          [1, 2]
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify StepOutputUse records created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId },
+          orderBy: { outputStepNum: "asc" },
+        });
+        expect(stepOutputUses).toHaveLength(2);
+        expect(stepOutputUses[0].outputStepNum).toBe(1);
+        expect(stepOutputUses[0].inputStepNum).toBe(3);
+        expect(stepOutputUses[1].outputStepNum).toBe(2);
+        expect(stepOutputUses[1].inputStepNum).toBe(3);
+      });
+
+      it("should ignore invalid step numbers in usesSteps", async () => {
+        // Create existing step
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            description: "Step 1",
+          },
+        });
+
+        // Try to create step with non-existent step reference (step 5 doesn't exist)
+        // The form might submit invalid data, but we should handle it gracefully
+        const request = await createFormRequest(
+          { description: "Step 2" },
+          testUserId,
+          [1, 5] // Step 5 doesn't exist but step 1 does
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify only valid StepOutputUse record created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId },
+        });
+        expect(stepOutputUses).toHaveLength(1);
+        expect(stepOutputUses[0].outputStepNum).toBe(1);
+      });
+
+      it("should handle empty usesSteps array gracefully", async () => {
+        // Create existing step
+        await db.recipeStep.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            description: "Step 1",
+          },
+        });
+
+        const request = await createFormRequest(
+          { description: "Step 2" },
+          testUserId,
+          [] // Empty array
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        // Verify no StepOutputUse records created
+        const stepOutputUses = await db.stepOutputUse.findMany({
+          where: { recipeId },
+        });
+        expect(stepOutputUses).toHaveLength(0);
+      });
+    });
   });
 
   describe("component", () => {
@@ -595,6 +845,7 @@ describe("Recipes $id Steps New Route", () => {
           title: "Test Recipe",
         },
         nextStepNum: 1,
+        availableSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -613,6 +864,126 @@ describe("Recipes $id Steps New Route", () => {
       const stepTitleInput = screen.getByLabelText(/Step Title/i);
       expect(stepTitleInput).toHaveAttribute("type", "text");
       expect(stepTitleInput).toHaveAttribute("name", "stepTitle");
+    });
+
+    describe("uses output from section", () => {
+      it("should not show Uses Output From when nextStepNum is 1", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          nextStepNum: 1,
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/new",
+            Component: NewStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
+
+        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+
+        expect(screen.queryByText(/Uses Output From/i)).not.toBeInTheDocument();
+      });
+
+      it("should show Uses Output From when nextStepNum > 1 with available steps", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          nextStepNum: 2,
+          availableSteps: [
+            { stepNum: 1, stepTitle: "Prep the ingredients" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/new",
+            Component: NewStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
+
+        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+
+        expect(screen.getByText(/Uses Output From/i)).toBeInTheDocument();
+      });
+
+      it("should display available steps in correct format with title", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          nextStepNum: 3,
+          availableSteps: [
+            { stepNum: 1, stepTitle: "Prep the ingredients" },
+            { stepNum: 2, stepTitle: "Mix the batter" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/new",
+            Component: NewStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
+
+        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+
+        // Click to open the listbox
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        listboxButton.click();
+
+        // Check that options are displayed correctly
+        expect(await screen.findByText("Step 1: Prep the ingredients")).toBeInTheDocument();
+        expect(screen.getByText("Step 2: Mix the batter")).toBeInTheDocument();
+      });
+
+      it("should display available steps without title correctly", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          nextStepNum: 2,
+          availableSteps: [
+            { stepNum: 1, stepTitle: null },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/new",
+            Component: NewStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
+
+        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+
+        // Click to open the listbox
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        listboxButton.click();
+
+        // Check that step without title shows just the number
+        expect(await screen.findByText("Step 1")).toBeInTheDocument();
+      });
     });
   });
 });
