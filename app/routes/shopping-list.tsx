@@ -421,18 +421,14 @@ export default function ShoppingList() {
                     type="submit"
                     className={`
                       w-6 h-6 rounded border-2 flex items-center justify-center
-                      transition-colors cursor-pointer
+                      transition-colors cursor-pointer text-sm font-bold
                       ${item.checked 
-                        ? "bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500" 
+                        ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500" 
                         : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
                     `}
                     aria-label={item.checked ? "Uncheck item" : "Check item"}
                   >
-                    {item.checked && (
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                    {item.checked && "✓"}
                   </button>
                 </Form>
                 <span className={`text-lg ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
