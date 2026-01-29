@@ -633,8 +633,9 @@ describe('Listbox', () => {
       )
       await user.click(screen.getByRole('button'))
       await screen.findByRole('listbox')
-      // Click Apple again to deselect
-      await user.click(screen.getByText('Apple'))
+      // Click the Apple option in the listbox (not the button display) to deselect
+      const appleOption = screen.getByRole('option', { name: /Apple/ })
+      await user.click(appleOption)
       expect(onChange).toHaveBeenCalledWith([])
     })
 
