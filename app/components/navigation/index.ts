@@ -1,3 +1,4 @@
 export { SpoonDock, type SpoonDockProps } from './spoon-dock'
 export { DockItem, type DockItemProps } from './dock-item'
 export { DockIndicator, type DockIndicatorProps } from './dock-indicator'
+export { DockCenter, type DockCenterProps } from './dock-center'
