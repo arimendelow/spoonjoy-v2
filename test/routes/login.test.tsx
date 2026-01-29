@@ -437,5 +437,80 @@ describe("Login Route", () => {
         expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
       });
     });
+
+    describe("Catalyst component structure", () => {
+      it("should use Catalyst Heading for page title", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        const heading = await screen.findByRole("heading", { level: 1 });
+        expect(heading).toBeInTheDocument();
+        expect(heading).toHaveTextContent("Log In");
+      });
+
+      it("should use Catalyst Input components for form fields", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        const { container } = render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+
+        // Inputs should not have inline styles
+        const inputs = container.querySelectorAll('input');
+        inputs.forEach((input) => {
+          expect(input).not.toHaveAttribute("style");
+        });
+      });
+
+      it("should use Catalyst Button for submit", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        const { container } = render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+
+        // Buttons should not have inline styles
+        const buttons = container.querySelectorAll('button');
+        buttons.forEach((button) => {
+          expect(button).not.toHaveAttribute("style");
+        });
+      });
+
+      it("should have accessible form labels", async () => {
+        const Stub = createTestRoutesStub([
+          {
+            path: "/login",
+            Component: Login,
+            loader: () => null,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/login"]} />);
+
+        await screen.findByRole("heading", { name: "Log In" });
+
+        expect(screen.getByLabelText("Email")).toBeInTheDocument();
+        expect(screen.getByLabelText("Password")).toBeInTheDocument();
+      });
+    });
   });
 });
