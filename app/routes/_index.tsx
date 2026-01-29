@@ -82,22 +82,22 @@ export default function Index() {
 
       <div className="rounded-lg bg-zinc-50 p-6 dark:bg-zinc-800/50 mb-6">
         <Subheading level={2}>Account Info</Subheading>
-        <dl className="mt-4 space-y-2 text-sm">
+        <dl className="mt-4 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
           <div className="flex gap-2">
-            <Text as="dt" className="font-medium">User ID:</Text>
-            <Text as="dd">{user.id}</Text>
+            <dt className="font-medium text-zinc-900 dark:text-zinc-100">User ID:</dt>
+            <dd>{user.id}</dd>
           </div>
           <div className="flex gap-2">
-            <Text as="dt" className="font-medium">Email:</Text>
-            <Text as="dd">{user.email}</Text>
+            <dt className="font-medium text-zinc-900 dark:text-zinc-100">Email:</dt>
+            <dd>{user.email}</dd>
           </div>
           <div className="flex gap-2">
-            <Text as="dt" className="font-medium">Username:</Text>
-            <Text as="dd">{user.username}</Text>
+            <dt className="font-medium text-zinc-900 dark:text-zinc-100">Username:</dt>
+            <dd>{user.username}</dd>
           </div>
           <div className="flex gap-2">
-            <Text as="dt" className="font-medium">Member since:</Text>
-            <Text as="dd">{new Date(user.createdAt).toLocaleDateString()}</Text>
+            <dt className="font-medium text-zinc-900 dark:text-zinc-100">Member since:</dt>
+            <dd>{new Date(user.createdAt).toLocaleDateString()}</dd>
           </div>
         </dl>
       </div>
