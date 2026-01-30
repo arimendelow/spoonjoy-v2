@@ -341,13 +341,19 @@ describe('recipes.$id.steps.$stepId.edit - parseIngredients action', () => {
         body: formData,
       })
 
-      await expect(
-        action({
+      try {
+        await action({
           request,
           params: { id: testRecipe.id, stepId: testStep.id },
           context: mockContext,
         } as any)
-      ).rejects.toThrow('Unauthorized')
+        expect.fail('Expected action to throw')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response)
+        const response = error as Response
+        expect(response.status).toBe(403)
+        expect(await response.text()).toBe('Unauthorized')
+      }
     })
 
     it('rejects parsing for deleted recipe', async () => {
@@ -366,13 +372,19 @@ describe('recipes.$id.steps.$stepId.edit - parseIngredients action', () => {
         body: formData,
       })
 
-      await expect(
-        action({
+      try {
+        await action({
           request,
           params: { id: testRecipe.id, stepId: testStep.id },
           context: mockContext,
         } as any)
-      ).rejects.toThrow('Recipe not found')
+        expect.fail('Expected action to throw')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response)
+        const response = error as Response
+        expect(response.status).toBe(404)
+        expect(await response.text()).toBe('Recipe not found')
+      }
     })
 
     it('rejects parsing for non-existent recipe', async () => {
@@ -385,13 +397,19 @@ describe('recipes.$id.steps.$stepId.edit - parseIngredients action', () => {
         body: formData,
       })
 
-      await expect(
-        action({
+      try {
+        await action({
           request,
           params: { id: 'non-existent-recipe-id', stepId: testStep.id },
           context: mockContext,
         } as any)
-      ).rejects.toThrow('Recipe not found')
+        expect.fail('Expected action to throw')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response)
+        const response = error as Response
+        expect(response.status).toBe(404)
+        expect(await response.text()).toBe('Recipe not found')
+      }
     })
 
     it('rejects parsing for non-existent step', async () => {
@@ -404,13 +422,19 @@ describe('recipes.$id.steps.$stepId.edit - parseIngredients action', () => {
         body: formData,
       })
 
-      await expect(
-        action({
+      try {
+        await action({
           request,
           params: { id: testRecipe.id, stepId: 'non-existent-step-id' },
           context: mockContext,
         } as any)
-      ).rejects.toThrow('Step not found')
+        expect.fail('Expected action to throw')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response)
+        const response = error as Response
+        expect(response.status).toBe(404)
+        expect(await response.text()).toBe('Step not found')
+      }
     })
 
     it('rejects parsing for step that belongs to different recipe', async () => {
@@ -439,13 +463,19 @@ describe('recipes.$id.steps.$stepId.edit - parseIngredients action', () => {
       })
 
       // Use step from another recipe
-      await expect(
-        action({
+      try {
+        await action({
           request,
           params: { id: testRecipe.id, stepId: anotherStep.id },
           context: mockContext,
         } as any)
-      ).rejects.toThrow('Step not found')
+        expect.fail('Expected action to throw')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Response)
+        const response = error as Response
+        expect(response.status).toBe(404)
+        expect(await response.text()).toBe('Step not found')
+      }
     })
   })
 

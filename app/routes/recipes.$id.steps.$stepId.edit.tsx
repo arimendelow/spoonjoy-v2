@@ -18,6 +18,11 @@ import {
 } from "~/lib/step-output-use-mutations.server";
 import { validateStepDeletion } from "~/lib/step-deletion-validation.server";
 import {
+  parseIngredients,
+  IngredientParseError,
+  type ParsedIngredient,
+} from "~/lib/ingredient-parse.server";
+import {
   validateStepTitle,
   validateStepDescription,
   validateQuantity,
@@ -42,7 +47,10 @@ interface ActionData {
     usesSteps?: string;
     stepDeletion?: string;
     general?: string;
+    parse?: string;
   };
+  success?: boolean;
+  parsedIngredients?: ParsedIngredient[];
 }
 
 interface Ingredient {
@@ -150,6 +158,34 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   if (!step || step.recipeId !== id) {
     throw new Response("Step not found", { status: 404 });
+  }
+
+  // Handle parseIngredients intent
+  if (intent === "parseIngredients") {
+    const ingredientText = formData.get("ingredientText")?.toString() || "";
+
+    // Get API key from Cloudflare env or process.env
+    const apiKey =
+      context?.cloudflare?.env?.OPENAI_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      "";
+
+    try {
+      const parsedIngredients = await parseIngredients(ingredientText, apiKey);
+      return data({ parsedIngredients });
+    } catch (error) {
+      if (error instanceof IngredientParseError) {
+        return data(
+          { errors: { parse: error.message } },
+          { status: 400 }
+        );
+      }
+      // Unexpected errors
+      return data(
+        { errors: { parse: "An unexpected error occurred while parsing ingredients" } },
+        { status: 500 }
+      );
+    }
   }
 
   // Handle delete intent

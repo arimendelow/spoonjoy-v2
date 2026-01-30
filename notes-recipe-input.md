@@ -153,3 +153,38 @@ Verified ingredient parsing implementation completeness:
 ### Status
 **Tests written and FAIL as expected** - 15 tests fail, 4 pass (authentication, existing intents).
 Ready for Unit 2b implementation.
+
+---
+
+## Unit 2b: Parse Route Action Implementation
+
+### Implementation Summary
+Added `parseIngredients` intent to the step edit route action:
+
+1. **Import additions** to `app/routes/recipes.$id.steps.$stepId.edit.tsx`:
+   - `parseIngredients`, `IngredientParseError`, `ParsedIngredient` from `~/lib/ingredient-parse.server`
+
+2. **ActionData interface updated**:
+   - Added `parse?: string` to errors
+   - Added `parsedIngredients?: ParsedIngredient[]` for success response
+
+3. **New intent handler**:
+   - Handles `intent === 'parseIngredients'`
+   - Gets ingredient text from formData
+   - Gets API key from Cloudflare env or process.env
+   - Calls `parseIngredients()` and returns structured data
+   - Returns 400 for `IngredientParseError`, 500 for unexpected errors
+
+### Test Fix
+The original tests used `.rejects.toThrow('message')` which doesn't work with Response objects.
+Fixed to use try/catch pattern that properly checks Response status and body text.
+
+### Files Modified
+- `app/routes/recipes.$id.steps.$stepId.edit.tsx` - Added parseIngredients intent
+- `test/routes/recipes-step-edit-parse-action.test.ts` - Fixed Response assertion pattern
+
+### Verification
+- ✅ All 2620 tests passing (19 specific to parse action)
+- ✅ 100% coverage maintained
+- ✅ No warnings in test run
+- ✅ Build passes
