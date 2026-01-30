@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.new";
-import { Form, Link, redirect, data, useActionData } from "react-router";
+import { Form, redirect, data, useActionData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -8,6 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage, Description } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
+import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
 import {
   validateTitle,
@@ -104,7 +105,7 @@ export default function NewRecipe() {
         <div className="mb-8">
           <Heading level={1}>Create New Recipe</Heading>
           <Link
-            to="/recipes"
+            href="/recipes"
             className="text-blue-600 no-underline"
           >
             ← Back to recipes

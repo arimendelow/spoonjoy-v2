@@ -1,7 +1,13 @@
 import type { Route } from "./+types/cookbooks.new";
-import { Form, Link, redirect, data, useActionData } from "react-router";
+import { Form, redirect, data, useActionData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
+import { Heading } from "~/components/ui/heading";
+import { Link } from "~/components/ui/link";
+import { ValidationError } from "~/components/ui/validation-error";
 
 interface ActionData {
   errors?: {
@@ -65,92 +71,49 @@ export default function NewCookbook() {
   const actionData = useActionData<ActionData>();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "2rem" }}>
-          <h1>Create New Cookbook</h1>
+    <div className="font-sans leading-relaxed p-8">
+      <div className="max-w-[600px] mx-auto">
+        <div className="mb-8">
+          <Heading level={1}>Create New Cookbook</Heading>
           <Link
-            to="/cookbooks"
-            style={{
-              color: "#0066cc",
-              textDecoration: "none",
-            }}
+            href="/cookbooks"
+            className="text-blue-600 no-underline"
           >
             ← Back to cookbooks
           </Link>
         </div>
 
         {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <div
-            style={{
-              padding: "0.75rem",
-              marginBottom: "1rem",
-              backgroundColor: "#fee",
-              border: "1px solid #c33",
-              borderRadius: "4px",
-              color: "#c33",
-            }}
-          >
-            {actionData.errors.general}
-          </div>
+          <ValidationError error={actionData.errors.general} className="mb-4" />
         )}
 
-        <Form method="post" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div>
-            <label htmlFor="title" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
-              Cookbook Title *
-            </label>
-            <input
-              type="text"
-              id="title"
-              name="title"
-              required
-              placeholder="e.g., Family Favorites, Holiday Recipes"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: /* istanbul ignore next -- @preserve */ actionData?.errors?.title ? "1px solid #c33" : "1px solid #ccc",
-                borderRadius: "4px",
-              }}
-            />
-            {/* istanbul ignore next -- @preserve */ actionData?.errors?.title && (
-              <div style={{ color: "#c33", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                {actionData.errors.title}
-              </div>
-            )}
-          </div>
+        <Form method="post">
+          <Fieldset className="space-y-6">
+            <Field>
+              <Label>Cookbook Title *</Label>
+              <Input
+                type="text"
+                name="title"
+                required
+                placeholder="e.g., Family Favorites, Holiday Recipes"
+                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.title ? true : undefined}
+              />
+              {/* istanbul ignore next -- @preserve */ actionData?.errors?.title && (
+                <ErrorMessage>
+                  {actionData.errors.title}
+                </ErrorMessage>
+              )}
+            </Field>
 
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
-            <Link
-              to="/cookbooks"
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#6c757d",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-                textAlign: "center",
-              }}
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              style={{
-                padding: "0.75rem 1.5rem",
-                fontSize: "1rem",
-                backgroundColor: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Create Cookbook
-            </button>
-          </div>
+            <div className="flex gap-4 justify-end pt-4">
+              <Button href="/cookbooks" color="zinc">
+                Cancel
+              </Button>
+              <Button type="submit" color="green">
+                Create Cookbook
+              </Button>
+            </div>
+          </Fieldset>
         </Form>
       </div>
     </div>

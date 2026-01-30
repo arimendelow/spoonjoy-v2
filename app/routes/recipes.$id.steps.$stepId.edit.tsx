@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.$id.steps.$stepId.edit";
-import { Form, Link, redirect, data, useActionData, useLoaderData, useSubmit } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData, useSubmit } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { useState, useRef } from "react";
@@ -9,6 +9,7 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Field, Label } from "~/components/ui/fieldset";
 import { Text } from "~/components/ui/text";
+import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
 import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
 import {
@@ -340,7 +341,7 @@ export default function EditStep() {
         <div className="mb-8">
           <h1>Edit Step {step.stepNum}</h1>
           <Link
-            to={`/recipes/${recipe.id}/edit`}
+            href={`/recipes/${recipe.id}/edit`}
             className="text-blue-600 no-underline"
           >
             ← Back to recipe
@@ -419,12 +420,9 @@ export default function EditStep() {
           </div>
 
           <div className="flex gap-4 justify-end">
-            <Link
-              to={`/recipes/${recipe.id}/edit`}
-              className="px-6 py-3 text-base bg-gray-500 text-white no-underline rounded text-center"
-            >
+            <Button href={`/recipes/${recipe.id}/edit`} color="zinc">
               Cancel
-            </Link>
+            </Button>
             <Button type="submit" color="blue">
               Save Changes
             </Button>

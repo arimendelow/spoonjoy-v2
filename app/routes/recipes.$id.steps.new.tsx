@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.$id.steps.new";
-import { Form, Link, redirect, data, useActionData, useLoaderData } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -8,6 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Text, Strong } from "~/components/ui/text";
+import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
 import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
 import { validateStepTitle, validateStepDescription, validateStepReference, STEP_TITLE_MAX_LENGTH, STEP_DESCRIPTION_MAX_LENGTH } from "~/lib/validation";
@@ -181,7 +182,7 @@ export default function NewStep() {
         <div className="mb-8">
           <Heading level={1}>Add Step to {recipe.title}</Heading>
           <Link
-            to={`/recipes/${recipe.id}/edit`}
+            href={`/recipes/${recipe.id}/edit`}
             className="text-blue-600 no-underline"
           >
             ← Back to recipe

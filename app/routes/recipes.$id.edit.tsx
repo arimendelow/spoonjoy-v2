@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.$id.edit";
-import { Form, Link, redirect, data, useActionData, useLoaderData } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -8,6 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
+import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
 import {
   validateTitle,
@@ -217,7 +218,7 @@ export default function EditRecipe() {
         <div className="mb-8">
           <Heading level={1}>Edit Recipe</Heading>
           <Link
-            to={`/recipes/${recipe.id}`}
+            href={`/recipes/${recipe.id}`}
             className="text-blue-600 no-underline"
           >
             ← Back to recipe

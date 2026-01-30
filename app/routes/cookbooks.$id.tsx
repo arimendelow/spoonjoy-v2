@@ -1,10 +1,15 @@
 import type { Route } from "./+types/cookbooks.$id";
-import { Link, redirect, useLoaderData, Form, data, useSubmit } from "react-router";
+import { redirect, useLoaderData, Form, data, useSubmit } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { useState, useRef } from "react";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { Button } from "~/components/ui/button";
+import { Heading, Subheading } from "~/components/ui/heading";
+import { Text, Strong } from "~/components/ui/text";
+import { Link } from "~/components/ui/link";
+import { Input } from "~/components/ui/input";
+import { Select } from "~/components/ui/select";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -176,94 +181,61 @@ export default function CookbookDetail() {
   const deleteFormRef = useRef<HTMLFormElement>(null);
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "2rem" }}>
+    <div className="font-sans leading-relaxed p-8">
+      <div className="max-w-[1200px] mx-auto">
+        <div className="mb-8">
           <Link
-            to="/cookbooks"
-            style={{
-              color: "#0066cc",
-              textDecoration: "none",
-            }}
+            href="/cookbooks"
+            className="text-blue-600 no-underline"
           >
             ← Back to cookbooks
           </Link>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
-          <div style={{ flex: 1 }}>
+        <div className="flex justify-between items-start mb-8">
+          <div className="flex-1">
             {isEditingTitle && isOwner ? (
-              <Form method="post" style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.5rem" }}>
+              <Form method="post" className="flex gap-2 items-center mb-2">
                 <input type="hidden" name="intent" value="updateTitle" />
-                <input
+                <Input
                   type="text"
                   name="title"
                   defaultValue={cookbook.title}
                   required
                   autoFocus
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: "bold",
-                    padding: "0.25rem 0.5rem",
-                    border: "2px solid #0066cc",
-                    borderRadius: "4px",
-                  }}
+                  className="text-2xl font-bold"
                 />
-                <button
-                  type="submit"
-                  style={{
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#28a745",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
+                <Button type="submit" color="green">
                   Save
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  color="zinc"
                   onClick={() => setIsEditingTitle(false)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#6c757d",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
                 >
                   Cancel
-                </button>
+                </Button>
               </Form>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.5rem" }}>
-                <h1 style={{ margin: 0 }}>{cookbook.title}</h1>
+              <div className="flex items-center gap-4 mb-2">
+                <Heading level={1} className="m-0">{cookbook.title}</Heading>
                 {isOwner && (
-                  <button
+                  <Button
                     onClick={() => setIsEditingTitle(true)}
-                    style={{
-                      padding: "0.25rem 0.75rem",
-                      fontSize: "0.875rem",
-                      backgroundColor: "#0066cc",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
+                    color="blue"
+                    className="text-sm"
                   >
                     Edit Title
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
-            <p style={{ color: "#666", margin: 0 }}>
-              By <strong>{cookbook.author.username}</strong>
-            </p>
-            <p style={{ color: "#999", margin: "0.5rem 0 0 0", fontSize: "0.875rem" }}>
+            <Text className="m-0">
+              By <Strong>{cookbook.author.username}</Strong>
+            </Text>
+            <Text className="mt-2 mb-0 text-sm">
               {cookbook.recipes.length} {cookbook.recipes.length === 1 ? "recipe" : "recipes"}
-            </p>
+            </Text>
           </div>
           {isOwner && (
             <>
@@ -295,27 +267,14 @@ export default function CookbookDetail() {
         </div>
 
         {isOwner && availableRecipes.length > 0 && (
-          <div
-            style={{
-              backgroundColor: "#f8f9fa",
-              padding: "1.5rem",
-              borderRadius: "8px",
-              marginBottom: "2rem",
-            }}
-          >
-            <h3 style={{ margin: "0 0 1rem 0" }}>Add Recipe to Cookbook</h3>
-            <Form method="post" style={{ display: "flex", gap: "1rem" }}>
+          <div className="bg-zinc-100 dark:bg-zinc-800/50 p-6 rounded-lg mb-8">
+            <Subheading level={3} className="m-0 mb-4">Add Recipe to Cookbook</Subheading>
+            <Form method="post" className="flex gap-4">
               <input type="hidden" name="intent" value="addRecipe" />
-              <select
+              <Select
                 name="recipeId"
                 required
-                style={{
-                  flex: 1,
-                  padding: "0.5rem",
-                  fontSize: "1rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                }}
+                className="flex-1"
               >
                 <option value="">Select a recipe...</option>
                 {availableRecipes.map((recipe) => (
@@ -323,99 +282,52 @@ export default function CookbookDetail() {
                     {recipe.title}
                   </option>
                 ))}
-              </select>
-              <button
-                type="submit"
-                style={{
-                  padding: "0.5rem 1.5rem",
-                  fontSize: "1rem",
-                  backgroundColor: "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
+              </Select>
+              <Button type="submit" color="green">
                 Add Recipe
-              </button>
+              </Button>
             </Form>
           </div>
         )}
 
         {cookbook.recipes.length === 0 ? (
-          <div
-            style={{
-              backgroundColor: "#f8f9fa",
-              padding: "3rem",
-              borderRadius: "8px",
-              textAlign: "center",
-            }}
-          >
-            <h2 style={{ color: "#6c757d" }}>No recipes yet</h2>
-            <p style={{ color: "#999", marginBottom: "1.5rem" }}>
+          <div className="bg-zinc-100 dark:bg-zinc-800/50 p-12 rounded-lg text-center">
+            <Subheading level={2} className="text-zinc-500 dark:text-zinc-400">No recipes yet</Subheading>
+            <Text className="mb-6">
               {isOwner ? "Add recipes to your cookbook using the form above" : "This cookbook is empty"}
-            </p>
+            </Text>
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
             {cookbook.recipes.map((item) => (
               <div
                 key={item.id}
-                style={{
-                  backgroundColor: "white",
-                  border: "1px solid #dee2e6",
-                  borderRadius: "8px",
-                  overflow: "hidden",
-                }}
+                className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden"
               >
                 <Link
-                  to={`/recipes/${item.recipe.id}`}
-                  style={{
-                    display: "block",
-                    textDecoration: "none",
-                    color: "inherit",
-                  }}
+                  href={`/recipes/${item.recipe.id}`}
+                  className="block no-underline text-inherit"
                 >
                   <div
+                    className="w-full h-[200px] bg-zinc-100 dark:bg-zinc-700 bg-cover bg-center"
                     style={{
-                      width: "100%",
-                      height: "200px",
-                      backgroundColor: "#f8f9fa",
-                      backgroundImage: `url(${item.recipe.imageUrl})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
+                      backgroundImage: item.recipe.imageUrl ? `url(${item.recipe.imageUrl})` : undefined,
                     }}
                   />
-                  <div style={{ padding: "1rem" }}>
-                    <h3 style={{ margin: "0 0 0.5rem 0" }}>{item.recipe.title}</h3>
+                  <div className="p-4">
+                    <Subheading level={3} className="m-0 mb-2">{item.recipe.title}</Subheading>
                     {item.recipe.description && (
-                      <p
-                        style={{
-                          color: "#666",
-                          fontSize: "0.875rem",
-                          margin: "0 0 0.5rem 0",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
+                      <Text className="text-sm m-0 mb-2 line-clamp-2">
                         {item.recipe.description}
-                      </p>
+                      </Text>
                     )}
-                    <p style={{ color: "#999", fontSize: "0.875rem", margin: 0 }}>
+                    <Text className="text-sm m-0">
                       By {item.recipe.chef.username}
-                    </p>
+                    </Text>
                   </div>
                 </Link>
                 {isOwner && (
-                  <div style={{ padding: "0 1rem 1rem" }}>
+                  <div className="px-4 pb-4">
                     <Button
                       type="button"
                       color="red"

@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.$id";
-import { Link, redirect, useLoaderData, Form, useSubmit } from "react-router";
+import { redirect, useLoaderData, Form, useSubmit } from "react-router";
 import { useState } from "react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
@@ -7,6 +7,7 @@ import { Button } from "~/components/ui/button";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
 import { Text, Strong } from "~/components/ui/text";
+import { Link } from "~/components/ui/link";
 import { StepOutputUseDisplay } from "~/components/StepOutputUseDisplay";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
 
@@ -120,7 +121,7 @@ export default function RecipeDetail() {
       <div className="max-w-[900px] mx-auto">
         <div className="mb-8">
           <Link
-            to="/recipes"
+            href="/recipes"
             className="text-blue-600 no-underline"
           >
             ← Back to recipes
