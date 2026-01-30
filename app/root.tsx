@@ -36,6 +36,13 @@ import { SpoonjoyLogo } from "~/components/ui/spoonjoy-logo";
 import { BookOpen, Book, ShoppingCart, User, Home, Settings, LogOut } from "lucide-react";
 import "./styles/tailwind.css";
 
+export function links() {
+  return [
+    { rel: "icon", href: "/logos/sj_black.svg", type: "image/svg+xml" },
+    { rel: "apple-touch-icon", href: "/logos/sj_black.svg" },
+  ];
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
   const userId = await getUserId(request);
   return { userId };
