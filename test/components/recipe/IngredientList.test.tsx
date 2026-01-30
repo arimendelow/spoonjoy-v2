@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { IngredientList, type Ingredient } from '../../../app/components/recipe/IngredientList'
+import type { StepReference } from '../../../app/components/recipe/StepOutputUseCallout'
 
 const sampleIngredients: Ingredient[] = [
   { id: '1', quantity: 2, unit: 'cups', name: 'flour' },
@@ -355,6 +356,232 @@ describe('IngredientList', () => {
 
       const checkboxesAfter = screen.getAllByRole('checkbox')
       expect(checkboxesAfter[0]).toBeChecked()
+    })
+  })
+
+  describe('step output uses inline', () => {
+    const sampleStepOutputUses = [
+      { id: 'step-1', stepNumber: 1, stepTitle: 'Make the dough' },
+      { id: 'step-2', stepNumber: 2, stepTitle: null },
+    ]
+
+    it('renders step output uses at top when provided', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          onToggle={vi.fn()}
+        />
+      )
+
+      // Step outputs should render
+      expect(screen.getByText(/Step 1/)).toBeInTheDocument()
+      expect(screen.getByText(/Make the dough/)).toBeInTheDocument()
+      expect(screen.getByText(/Step 2/)).toBeInTheDocument()
+
+      // Regular ingredients should also render
+      expect(screen.getByText(/flour/)).toBeInTheDocument()
+    })
+
+    it('renders step output uses before ingredients in DOM order', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          onToggle={vi.fn()}
+        />
+      )
+
+      const listItems = screen.getAllByRole('listitem')
+      // First two should be step outputs, then ingredients
+      expect(listItems[0]).toHaveTextContent(/Step 1/)
+      expect(listItems[1]).toHaveTextContent(/Step 2/)
+      expect(listItems[2]).toHaveTextContent(/flour/)
+    })
+
+    it('step output uses have checkboxes', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          checkedStepOutputIds={new Set()}
+          onToggle={vi.fn()}
+          onStepOutputToggle={vi.fn()}
+        />
+      )
+
+      // 2 step outputs + 3 ingredients = 5 checkboxes
+      expect(screen.getAllByRole('checkbox')).toHaveLength(5)
+    })
+
+    it('step output uses show strikethrough when checked', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          checkedStepOutputIds={new Set(['step-1'])}
+          onToggle={vi.fn()}
+          onStepOutputToggle={vi.fn()}
+        />
+      )
+
+      // Find the step output item that should have strikethrough
+      const listItems = screen.getAllByRole('listitem')
+      const firstStepOutput = listItems[0]
+      expect(firstStepOutput.querySelector('.line-through')).toBeInTheDocument()
+    })
+
+    it('step output uses have amber/distinct styling', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          checkedStepOutputIds={new Set()}
+          onToggle={vi.fn()}
+          onStepOutputToggle={vi.fn()}
+        />
+      )
+
+      // Check for amber background styling on step output section
+      const stepOutputSection = screen.getByTestId('step-output-uses-section')
+      expect(stepOutputSection).toHaveClass('bg-amber-50')
+    })
+
+    it('empty stepOutputUses renders nothing extra', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={[]}
+          checkedIds={new Set()}
+          onToggle={vi.fn()}
+        />
+      )
+
+      // Should still render ingredients
+      expect(screen.getByTestId('ingredient-list')).toBeInTheDocument()
+      expect(screen.queryByTestId('step-output-uses-section')).not.toBeInTheDocument()
+    })
+
+    it('calls onStepOutputToggle when step output checkbox is clicked', async () => {
+      const onStepOutputToggle = vi.fn()
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          checkedStepOutputIds={new Set()}
+          onToggle={vi.fn()}
+          onStepOutputToggle={onStepOutputToggle}
+        />
+      )
+
+      // First checkbox should be a step output
+      const checkboxes = screen.getAllByRole('checkbox')
+      await userEvent.click(checkboxes[0])
+      expect(onStepOutputToggle).toHaveBeenCalledWith('step-1')
+    })
+
+    it('renders only step outputs when ingredients is empty', () => {
+      render(
+        <IngredientList
+          ingredients={[]}
+          stepOutputUses={sampleStepOutputUses}
+          checkedStepOutputIds={new Set()}
+          onStepOutputToggle={vi.fn()}
+        />
+      )
+
+      expect(screen.getByTestId('ingredient-list')).toBeInTheDocument()
+      expect(screen.getByText(/Step 1/)).toBeInTheDocument()
+    })
+
+    it('renders only ingredients when stepOutputUses is undefined', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          checkedIds={new Set()}
+          onToggle={vi.fn()}
+        />
+      )
+
+      expect(screen.getByTestId('ingredient-list')).toBeInTheDocument()
+      expect(screen.queryByTestId('step-output-uses-section')).not.toBeInTheDocument()
+      expect(screen.getByText(/flour/)).toBeInTheDocument()
+    })
+
+    it('step output checkbox checked state reflects checkedStepOutputIds', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          checkedStepOutputIds={new Set(['step-1', 'step-2'])}
+          onToggle={vi.fn()}
+          onStepOutputToggle={vi.fn()}
+        />
+      )
+
+      const checkboxes = screen.getAllByRole('checkbox')
+      // First two are step outputs
+      expect(checkboxes[0]).toBeChecked()
+      expect(checkboxes[1]).toBeChecked()
+      // Ingredients are not checked
+      expect(checkboxes[2]).not.toBeChecked()
+    })
+
+    it('clicking step output text toggles checkbox', async () => {
+      const onStepOutputToggle = vi.fn()
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          checkedStepOutputIds={new Set()}
+          onToggle={vi.fn()}
+          onStepOutputToggle={onStepOutputToggle}
+        />
+      )
+
+      // Click on step output text
+      const stepText = screen.getByText(/Make the dough/)
+      await userEvent.click(stepText)
+      expect(onStepOutputToggle).toHaveBeenCalledWith('step-1')
+    })
+
+    it('hides step output checkboxes when showCheckboxes is false', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          showCheckboxes={false}
+        />
+      )
+
+      // No checkboxes should render
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+      // But step output text should still show
+      expect(screen.getByText(/Step 1/)).toBeInTheDocument()
+    })
+
+    it('has accessible labels for step output checkboxes', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          stepOutputUses={sampleStepOutputUses}
+          checkedIds={new Set()}
+          checkedStepOutputIds={new Set()}
+          onToggle={vi.fn()}
+          onStepOutputToggle={vi.fn()}
+        />
+      )
+
+      expect(screen.getByRole('checkbox', { name: /Step 1.*Make the dough/i })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /Step 2/i })).toBeInTheDocument()
     })
   })
 })
