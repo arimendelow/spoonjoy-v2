@@ -188,3 +188,139 @@ Fixed to use try/catch pattern that properly checks Response status and body tex
 - ✅ 100% coverage maintained
 - ✅ No warnings in test run
 - ✅ Build passes
+
+---
+
+## Unit 2c: Parse Route Action - Work Check
+
+### Summary
+Verified completeness of the parse route action implementation.
+
+### Test Coverage Verified
+**Parse action tests** (`test/routes/recipes-step-edit-parse-action.test.ts`): 19 tests
+
+1. **Successful parsing** (4 tests):
+   - Single ingredient → structured data ✅
+   - Multiple ingredients (multi-line) ✅
+   - Empty input → empty array ✅
+   - Whitespace-only → empty array ✅
+
+2. **Error handling** (4 tests):
+   - LLM failure → 400 with parse error ✅
+   - Missing API key → 400 with parse error ✅
+   - Rate limited → 400 with parse error ✅
+   - Non-IngredientParseError → 500 with parse error ✅
+
+3. **Authentication/authorization** (6 tests):
+   - Requires authentication ✅
+   - Rejects non-owner → 403 ✅
+   - Rejects deleted recipe → 404 ✅
+   - Rejects non-existent recipe → 404 ✅
+   - Rejects non-existent step → 404 ✅
+   - Rejects step from different recipe → 404 ✅
+
+4. **API key retrieval** (2 tests):
+   - Uses process.env.OPENAI_API_KEY ✅
+   - Uses Cloudflare env when available ✅
+
+5. **Input validation** (1 test):
+   - Missing ingredientText field handled ✅
+
+6. **Non-interference** (2 tests):
+   - addIngredient intent still works ✅
+   - delete intent still works ✅
+
+### Final Verification
+- ✅ All 2620 tests passing
+- ✅ 100% line/statement coverage
+- ✅ 99.25% branch coverage
+- ✅ 99.74% function coverage
+- ✅ No warnings in test output (stdout/stderr logs are expected behavior for error handling tests)
+- ✅ Build passes
+
+**No fixes needed** - Unit 2c complete.
+
+---
+
+## Unit 3a: ManualIngredientInput Tests
+
+### Test File
+`test/components/recipe/ManualIngredientInput.test.tsx`
+
+### Component Design
+Extracting existing 3-field ingredient input from `app/routes/recipes.$id.steps.$stepId.edit.tsx` (lines 514-567) into a reusable component.
+
+**Props Interface:**
+```typescript
+interface ManualIngredientInputProps {
+  onAdd: (ingredient: { quantity: number; unit: string; ingredientName: string }) => void
+  disabled?: boolean
+  loading?: boolean
+}
+```
+
+**Layout:** Grid with 4 columns `[1fr 1fr 2fr auto]` matching existing step edit form.
+
+### Test Categories
+
+1. **Rendering** (8 tests):
+   - Renders three input fields (quantity, unit, ingredient name)
+   - Renders add button
+   - Correct input types (number, text, text)
+   - Grid layout with correct column widths
+   - Placeholder text
+
+2. **Validation** (8 tests):
+   - Required fields (all three)
+   - Quantity min/max (0.001 to 99999)
+   - Step attribute for decimals (0.01)
+   - Max length for unit (50) and ingredient (100)
+
+3. **Form submission** (8 tests):
+   - Calls onAdd with structured data
+   - Handles decimal quantities
+   - Clears form after submission
+   - Does not submit with empty fields
+   - Trims whitespace
+
+4. **Keyboard interaction** (2 tests):
+   - Enter key submits form
+   - Tab order (quantity → unit → ingredient → button)
+
+5. **Accessibility** (3 tests):
+   - Labels for all inputs
+   - Button has accessible name
+   - Autocomplete attributes
+
+6. **Disabled state** (3 tests):
+   - Disables all inputs and button
+   - Prevents submission when disabled
+
+7. **Loading state** (3 tests):
+   - Disables all inputs and button
+   - Shows loading indicator
+   - aria-busy on button
+
+8. **Edge cases** (4 tests):
+   - Small decimals (0.125)
+   - Special characters in names
+   - Compound ingredient names
+   - Max quantity value
+
+### Storybook Story
+`stories/ManualIngredientInput.stories.tsx`
+
+Stories include:
+- Default (empty state)
+- Disabled
+- Loading
+- FillAndSubmit (interaction test)
+- DecimalQuantity (interaction test)
+- KeyboardNavigation (interaction test)
+- SubmitWithEnter (interaction test)
+- ClearsAfterSubmit (interaction test)
+- Example: Butter, Eggs, Olive Oil
+
+### Status
+**Tests written and FAIL as expected** - Component file does not exist yet.
+Ready for Unit 3b implementation.
