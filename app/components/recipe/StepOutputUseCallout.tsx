@@ -1,4 +1,6 @@
 import { ArrowUp } from 'lucide-react'
+import { Checkbox, CheckboxField } from '../ui/checkbox'
+import { Label } from '../ui/fieldset'
 
 export interface StepReference {
   /** Unique identifier */
@@ -14,6 +16,12 @@ export interface StepOutputUseCalloutProps {
   references: StepReference[]
   /** Optional callback when a step reference is clicked */
   onStepClick?: (stepNumber: number) => void
+  /** Set of checked reference IDs */
+  checkedIds?: Set<string>
+  /** Callback when a reference is toggled */
+  onToggle?: (id: string) => void
+  /** Whether to show checkboxes (default: true) */
+  showCheckboxes?: boolean
 }
 
 /**
@@ -25,10 +33,14 @@ export interface StepOutputUseCalloutProps {
  * - Shows step title when available, falls back to step number
  * - Returns null for empty references (no render)
  * - Optional click handler for navigation
+ * - Optional checkboxes for tracking progress
  */
 export function StepOutputUseCallout({
   references,
   onStepClick,
+  checkedIds = new Set(),
+  onToggle,
+  showCheckboxes = true,
 }: StepOutputUseCalloutProps) {
   // Don't render anything for empty references
   if (references.length === 0) {
@@ -50,23 +62,51 @@ export function StepOutputUseCallout({
             Using output from:
           </span>
           <ul className="mt-1 space-y-1">
-            {references.map((ref) => (
-              <li key={ref.id}>
-                {onStepClick ? (
-                  <button
-                    type="button"
-                    onClick={() => onStepClick(ref.stepNumber)}
-                    className="text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:underline focus:outline-none focus:underline"
-                  >
-                    <StepReferenceText reference={ref} />
-                  </button>
-                ) : (
-                  <span className="text-sm text-amber-700 dark:text-amber-300">
-                    <StepReferenceText reference={ref} />
-                  </span>
-                )}
-              </li>
-            ))}
+            {references.map((ref) => {
+              const isChecked = checkedIds.has(ref.id)
+              const shouldShowCheckbox = showCheckboxes && onToggle
+
+              if (shouldShowCheckbox) {
+                return (
+                  <li key={ref.id}>
+                    <CheckboxField>
+                      <Checkbox
+                        checked={isChecked}
+                        onChange={() => onToggle(ref.id)}
+                        aria-label={`Mark Step ${ref.stepNumber}${ref.stepTitle ? `: ${ref.stepTitle}` : ''} as used`}
+                      />
+                      <Label
+                        className={`cursor-pointer text-sm ${
+                          isChecked
+                            ? 'line-through text-zinc-500 dark:text-zinc-500'
+                            : 'text-amber-700 dark:text-amber-300'
+                        }`}
+                      >
+                        <StepReferenceText reference={ref} />
+                      </Label>
+                    </CheckboxField>
+                  </li>
+                )
+              }
+
+              return (
+                <li key={ref.id}>
+                  {onStepClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onStepClick(ref.stepNumber)}
+                      className="text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:underline focus:outline-none focus:underline"
+                    >
+                      <StepReferenceText reference={ref} />
+                    </button>
+                  ) : (
+                    <span className="text-sm text-amber-700 dark:text-amber-300">
+                      <StepReferenceText reference={ref} />
+                    </span>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       </div>
