@@ -61,8 +61,8 @@ export default function RecipesList() {
         </div>
 
         {recipes.length === 0 ? (
-          <div className="bg-gray-100 p-12 rounded-lg text-center">
-            <Subheading level={2} className="text-gray-500">No recipes yet</Subheading>
+          <div className="bg-gray-100 dark:bg-zinc-800 p-12 rounded-lg text-center">
+            <Subheading level={2} className="text-gray-500 dark:text-zinc-400">No recipes yet</Subheading>
             <Text className="mb-6">
               Create your first recipe to get started
             </Text>
