@@ -513,6 +513,53 @@ export const NonOwnerNoEditDeleteTest: Story = {
   },
 }
 
+/**
+ * ## Share Button Renders Test
+ *
+ * Verify share button is always visible (for all users).
+ */
+export const ShareButtonRendersTest: Story = {
+  args: {
+    ...sampleRecipe,
+    scaleFactor: 1,
+    onScaleChange: fn(),
+    isOwner: false,
+    onShare: fn(),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Share button should be visible
+    const shareButton = canvas.getByRole('button', { name: /share/i })
+    await expect(shareButton).toBeInTheDocument()
+  },
+}
+
+/**
+ * ## Share Button Calls onShare Test
+ *
+ * Verify clicking share button calls the onShare callback.
+ */
+export const ShareButtonCallsOnShareTest: Story = {
+  args: {
+    ...sampleRecipe,
+    scaleFactor: 1,
+    onScaleChange: fn(),
+    isOwner: false,
+    onShare: fn(),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+
+    // Click the share button
+    const shareButton = canvas.getByRole('button', { name: /share/i })
+    await userEvent.click(shareButton)
+
+    // onShare should have been called
+    await expect(args.onShare).toHaveBeenCalled()
+  },
+}
+
 // =============================================================================
 // VISUAL STATES
 // =============================================================================
