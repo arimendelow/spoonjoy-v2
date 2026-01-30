@@ -1,6 +1,6 @@
 # 🍳 Spoonjoy v2 — Getting Started Guide
 
-*From zero to cooking in 10 minutes*
+*From zero to cooking in 5 minutes*
 
 ---
 
@@ -44,58 +44,25 @@ This installs everything: React Router, Prisma, Tailwind, testing tools, Storybo
 
 ---
 
-## Part 2: Environment Setup
+## Part 2: Database Setup
 
-### Create Your Environment File
+Spoonjoy uses Cloudflare D1 (SQLite at the edge). For local development, the Cloudflare Vite plugin runs a local D1 instance automatically — you just need to create the tables.
 
-```bash
-cp .env.example .env
-```
-
-Open `.env` in your editor. For local development, you only need to set one thing:
+### Generate Prisma Client
 
 ```bash
-# Generate a random secret
-openssl rand -base64 32
-```
-
-Paste the output as your `SESSION_SECRET`:
-
-```env
-DATABASE_URL="file:./dev.db"
-SESSION_SECRET="your-generated-secret-here"
-```
-
-That's it for basic setup. OAuth credentials are optional (you can skip Google/Apple login for now).
-
-### Initialize the Database
-
-Spoonjoy uses Prisma with SQLite for local development:
-
-```bash
-# Generate the Prisma client
 npm run prisma:generate
-
-# Create the database and apply the schema
-npm run prisma:push
 ```
 
-You now have a `dev.db` file with all the tables ready.
-
-### Seed Sample Data (Optional but Recommended)
-
-Want to jump right into exploring? Seed the database with sample users, recipes, and cookbooks:
+### Create the Database Tables
 
 ```bash
-npm run db:seed
+npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
 ```
 
-This creates:
-- **Demo user**: `demo@spoonjoy.com` / password: `demo1234`
-- Sample recipes with steps, ingredients, and step dependencies
-- Example cookbooks
+That's it! The local D1 database is ready.
 
-Great for exploring the app without manual data entry!
+> **Note:** No `.env` file needed for basic local development. Session secrets and other config have sensible defaults.
 
 ---
 
@@ -109,24 +76,18 @@ Open **http://localhost:5173** — welcome to Spoonjoy!
 
 ### What You'll See
 
-1. **Landing page** — Clean, minimal homepage
-2. **Navigation** — Links to Recipes, Cookbooks, Shopping List
-3. **Auth buttons** — Log In / Sign Up in the header
+1. **Landing page** — Clean, minimal homepage with "Get Started" prompt
+2. **Navigation** — Spoonjoy logo, theme toggle, Login/Sign Up buttons
+3. **Footer** — "Built with React Router v7 on Cloudflare"
 
-### Log In or Sign Up
+### Create Your Account
 
-**Option A: Use the seeded demo account**
-1. Click **Log In**
-2. Email: `demo@spoonjoy.com`
-3. Password: `demo1234`
-4. You're in — with sample recipes ready to explore!
-
-**Option B: Create your own account**
 1. Click **Sign Up**
-2. Enter an email, username, and password
-3. You're in — with a fresh slate to build your recipes!
+2. Enter your email, username, and password
+3. Click **Sign Up**
+4. You're redirected to `/recipes` — you're in!
 
-*Note: Passwords are securely hashed with bcrypt. OAuth login (Google/Apple) requires setting up API credentials in `.env`.*
+> **Tip:** Passwords are securely hashed with bcrypt. OAuth (Google/Apple) is available but requires API credentials.
 
 ---
 
@@ -136,7 +97,7 @@ Let's make something delicious — how about a classic grilled cheese?
 
 ### Step 1: Add the Recipe
 
-1. Navigate to **Recipes** in the nav
+1. Navigate to **Recipes** (you should already be there after signup)
 2. Click **New Recipe**
 3. Fill in:
    - **Title**: `Ultimate Grilled Cheese`
@@ -160,7 +121,7 @@ Recipes are built from steps, and each step can have its own ingredients. Click 
 
 **Step 3: Grill it**
 - Description: `Spread softened butter on the outside of each bread slice. Grill on medium heat until golden brown, about 2-3 minutes per side.`
-- Here's the magic: click **Uses output from** and select **Step 1** (the softened butter!)
+- Here's the magic: check **Uses output from** and select **Step 1** (the softened butter!)
 
 🎯 **This is Spoonjoy's killer feature**: steps can reference outputs from previous steps. It makes recipes flow naturally.
 
@@ -190,13 +151,13 @@ Organize recipes into collections:
 Every user gets a personal shopping list:
 
 1. Go to **Shopping List**
-2. Add items manually, or (in future features) generate from recipes
+2. Add items manually
 3. Check items off as you shop
 
 ### Account Settings ⚙️
 
 Under your profile:
-- Link OAuth providers (Google, Apple)
+- Link OAuth providers (Google, Apple) if configured
 - Update your account info
 
 ---
@@ -253,31 +214,7 @@ npm run test:coverage
 
 ---
 
-## Part 8: Explore the Database
-
-Want to poke around the data?
-
-```bash
-npm run prisma:studio
-```
-
-Opens a visual database browser at **http://localhost:5555**.
-
-### Key Tables
-
-| Table | Purpose |
-|-------|---------|
-| `User` | Accounts (email, username, password hash) |
-| `Recipe` | Recipe metadata (title, description, servings) |
-| `RecipeStep` | Individual steps with descriptions |
-| `Ingredient` | Ingredients tied to specific steps |
-| `StepOutputUse` | Step dependencies (the secret sauce!) |
-| `Cookbook` | Recipe collections |
-| `ShoppingList` | Personal shopping lists |
-
----
-
-## Part 9: Understand the Architecture
+## Part 8: Understand the Architecture
 
 ### Tech Stack at a Glance
 
@@ -285,7 +222,7 @@ Opens a visual database browser at **http://localhost:5555**.
 |-------|------|
 | Framework | React Router v7 (née Remix) |
 | Styling | Tailwind CSS v4 |
-| Database | SQLite (local) / Cloudflare D1 (production) |
+| Database | Cloudflare D1 (local & production) |
 | ORM | Prisma with D1 adapter |
 | Auth | Custom + Google/Apple OAuth |
 | Testing | Vitest + Testing Library |
@@ -303,9 +240,11 @@ spoonjoy-v2/
 │   └── root.tsx          # App shell with navigation
 ├── prisma/
 │   └── schema.prisma     # Database schema
+├── migrations/
+│   └── init.sql          # D1 migration (generated from Prisma schema)
 ├── test/                 # Comprehensive test suite
 ├── stories/              # Storybook documentation
-└── .env                  # Your local secrets
+└── .wrangler/            # Local D1 database (auto-created)
 ```
 
 ### The React Router Pattern
@@ -314,14 +253,15 @@ Every route follows this pattern:
 
 ```typescript
 // 1. Loader: Fetch data server-side
-export async function loader({ request }) {
-  const userId = await requireUserId(request);  // Auth check
+export async function loader({ request, context }) {
+  const userId = await requireUserId(request);
+  const db = getDb(context.cloudflare.env);
   const recipes = await db.recipe.findMany({ where: { chefId: userId } });
   return { recipes };
 }
 
 // 2. Action: Handle form submissions
-export async function action({ request }) {
+export async function action({ request, context }) {
   const formData = await request.formData();
   // Process the form...
   return redirect("/recipes");
@@ -336,7 +276,7 @@ export default function Recipes() {
 
 ---
 
-## Part 10: What's Next?
+## Part 9: What's Next?
 
 ### Ideas to Explore
 
@@ -368,7 +308,7 @@ export default function Recipes() {
 | `npm run storybook` | Launch component explorer |
 | `npm test` | Run test suite |
 | `npm run test:ui` | Tests with visual UI |
-| `npm run prisma:studio` | Database browser |
+| `npm run prisma:generate` | Regenerate Prisma client |
 | `npm run build` | Production build |
 | `npm run typecheck` | TypeScript validation |
 
@@ -376,21 +316,29 @@ export default function Recipes() {
 
 ## Troubleshooting
 
+### "The table `main.User` does not exist"
+
+The D1 database tables haven't been created. Run:
+
+```bash
+npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
+```
+
 ### "Cannot find module '@prisma/client'"
 
-Run `npm run prisma:generate` — the client needs to be generated after install.
+The Prisma client needs to be generated. Run:
 
-### "Database not found"
+```bash
+npm run prisma:generate
+```
 
-Run `npm run prisma:push` — this creates the SQLite database.
+### Port already in use
+
+The dev server will automatically try the next available port (5173 → 5174 → 5175...). Check the terminal output for the actual URL.
 
 ### OAuth login not working
 
-You need to set up Google/Apple credentials in `.env`. For local dev, email/password login works without any OAuth setup.
-
-### Port 5173 already in use
-
-Either stop whatever's using it, or modify `vite.config.ts` to use a different port.
+OAuth requires API credentials. For local development, email/password login works without any additional setup.
 
 ---
 
