@@ -247,6 +247,14 @@ describe("Recipe View Scaling Integration", () => {
       await user.click(checkboxes[0]);
       expect(checkboxes[0]).toBeChecked();
 
+      // Click again to uncheck (tests the delete branch)
+      await user.click(checkboxes[0]);
+      expect(checkboxes[0]).not.toBeChecked();
+
+      // Check again and then scale
+      await user.click(checkboxes[0]);
+      expect(checkboxes[0]).toBeChecked();
+
       // Now scale the recipe
       const plusButton = screen.getByTestId("scale-plus");
       await user.click(plusButton);

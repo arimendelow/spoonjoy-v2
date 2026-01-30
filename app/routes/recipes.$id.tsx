@@ -131,6 +131,7 @@ export default function RecipeDetail() {
     setCheckedIngredients(newChecked);
   };
 
+  /* istanbul ignore next -- @preserve browser scroll navigation */
   const handleStepReferenceClick = (stepNumber: number) => {
     // Scroll to the referenced step
     const stepElement = document.getElementById(`step-${stepNumber}`);
