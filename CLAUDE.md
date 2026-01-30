@@ -2,6 +2,10 @@
 
 This is Ari's recipe management platform, rebuilt with React Router v7 on Cloudflare.
 
+## Feedback
+
+Ongoing feedback and improvements are tracked in `feedback/YYYY-MM-DD.md` files. Check there for known issues and planned enhancements before making changes.
+
 ## Stack
 
 - **Framework**: React Router v7 (Remix-style file-based routing)

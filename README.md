@@ -156,6 +156,10 @@ Key models:
 - `Cookbook` - Recipe collections
 - `ShoppingList` - Personal shopping lists
 
+## Feedback
+
+Ongoing feedback is tracked in `feedback/YYYY-MM-DD.md` files. Check there for known issues and planned improvements.
+
 ## License
 
 ISC
