@@ -3,6 +3,8 @@ import { ImageOff, Pencil, Share2, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Heading } from '../ui/heading'
 import { Text, Strong } from '../ui/text'
+import { Link } from '../ui/link'
+import { Avatar } from '../ui/avatar'
 import { ConfirmationDialog } from '../confirmation-dialog'
 import { ScaleSelector } from './ScaleSelector'
 import { scaleServingsText } from '~/lib/quantity'
@@ -14,6 +16,10 @@ export interface RecipeHeaderProps {
   description?: string
   /** Chef's display name */
   chefName: string
+  /** Chef's user ID for profile link */
+  chefId?: string
+  /** Chef's photo URL (optional) */
+  chefPhotoUrl?: string
   /** URL to recipe image (optional) */
   imageUrl?: string
   /** Servings text (e.g., "Serves 4") */
@@ -47,6 +53,8 @@ export function RecipeHeader({
   title,
   description,
   chefName,
+  chefId,
+  chefPhotoUrl,
   imageUrl,
   servings,
   scaleFactor,
@@ -103,9 +111,26 @@ export function RecipeHeader({
             <Heading level={1} className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight break-words">
               {title}
             </Heading>
-            <Text className="mt-2">
-              By <Strong>{chefName}</Strong>
-            </Text>
+            <div className="mt-2 flex items-center gap-2">
+              <span data-testid="chef-avatar">
+                <Avatar
+                  src={chefPhotoUrl}
+                  initials={chefName.charAt(0).toUpperCase()}
+                  alt={chefName}
+                  className="size-8"
+                />
+              </span>
+              <Text>
+                By{' '}
+                {chefId ? (
+                  <Link href={`/users/${chefId}`} className="hover:underline">
+                    <Strong>{chefName}</Strong>
+                  </Link>
+                ) : (
+                  <Strong>{chefName}</Strong>
+                )}
+              </Text>
+            </div>
           </div>
 
           {/* Action Buttons */}
