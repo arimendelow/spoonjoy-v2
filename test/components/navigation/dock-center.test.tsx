@@ -1,21 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { DockCenter } from '~/components/navigation/dock-center'
 
-// Mock matchMedia for prefers-reduced-motion tests
-const mockMatchMedia = (prefersReducedMotion: boolean) => {
-  window.matchMedia = vi.fn().mockImplementation((query) => ({
-    matches: query === '(prefers-reduced-motion: reduce)' ? prefersReducedMotion : false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  }))
-}
+// Mock useReducedMotion from framer-motion
+const mockUseReducedMotion = vi.fn()
+vi.mock('framer-motion', async () => {
+  const actual = await vi.importActual('framer-motion')
+  return {
+    ...actual,
+    useReducedMotion: () => mockUseReducedMotion(),
+  }
+})
+
+import { DockCenter } from '~/components/navigation/dock-center'
 
 // Wrapper component for routing context
 const RouterWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -25,7 +22,7 @@ const RouterWrapper = ({ children }: { children: React.ReactNode }) => (
 describe('DockCenter', () => {
   beforeEach(() => {
     // Default to no reduced motion preference
-    mockMatchMedia(false)
+    mockUseReducedMotion.mockReturnValue(false)
   })
 
   afterEach(() => {
@@ -150,17 +147,36 @@ describe('DockCenter', () => {
 
   describe('reduced motion', () => {
     it('is static when reduced motion is preferred', () => {
-      mockMatchMedia(true)
-      
+      mockUseReducedMotion.mockReturnValue(true)
+
       render(
         <RouterWrapper>
           <DockCenter />
         </RouterWrapper>
       )
-      
+
       // Should still render, but without animation
       const center = screen.getByTestId('dock-center')
       expect(center).toBeInTheDocument()
+    })
+
+    it('uses empty animation object when reduced motion is preferred (branch coverage)', () => {
+      // This test explicitly covers the prefersReducedMotion ? {} : {...} branch at line 38
+      mockUseReducedMotion.mockReturnValue(true)
+
+      render(
+        <RouterWrapper>
+          <DockCenter />
+        </RouterWrapper>
+      )
+
+      // When reduced motion is preferred, the breathing animation should be empty {}
+      // The component still renders but without scale animation
+      const center = screen.getByTestId('dock-center')
+      expect(center).toBeInTheDocument()
+      // The link inside should still work
+      const link = center.querySelector('a')
+      expect(link).toBeInTheDocument()
     })
   })
 

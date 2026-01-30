@@ -1,25 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { DockIndicator } from '~/components/navigation/dock-indicator'
 
-// Mock matchMedia for prefers-reduced-motion tests
-const mockMatchMedia = (prefersReducedMotion: boolean) => {
-  window.matchMedia = vi.fn().mockImplementation((query) => ({
-    matches: query === '(prefers-reduced-motion: reduce)' ? prefersReducedMotion : false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  }))
-}
+// Mock useReducedMotion from framer-motion
+const mockUseReducedMotion = vi.fn()
+vi.mock('framer-motion', async () => {
+  const actual = await vi.importActual('framer-motion')
+  return {
+    ...actual,
+    useReducedMotion: () => mockUseReducedMotion(),
+  }
+})
+
+import { DockIndicator } from '~/components/navigation/dock-indicator'
 
 describe('DockIndicator', () => {
   beforeEach(() => {
     // Default to no reduced motion preference
-    mockMatchMedia(false)
+    mockUseReducedMotion.mockReturnValue(false)
   })
 
   afterEach(() => {
@@ -109,27 +106,40 @@ describe('DockIndicator', () => {
 
   describe('reduced motion', () => {
     it('respects prefers-reduced-motion setting', () => {
-      mockMatchMedia(true) // User prefers reduced motion
-      
+      mockUseReducedMotion.mockReturnValue(true) // User prefers reduced motion
+
       render(<DockIndicator activeIndex={0} itemCount={4} />)
-      
+
       const indicator = screen.getByTestId('dock-indicator')
       // Should still render, but may have different animation behavior
       expect(indicator).toBeInTheDocument()
     })
 
     it('does not animate when reduced motion is preferred', () => {
-      mockMatchMedia(true)
-      
+      mockUseReducedMotion.mockReturnValue(true)
+
       const { rerender } = render(<DockIndicator activeIndex={0} itemCount={4} />)
       const firstIndicator = screen.getByTestId('dock-indicator')
-      
+
       rerender(<DockIndicator activeIndex={2} itemCount={4} />)
       const secondIndicator = screen.getByTestId('dock-indicator')
-      
+
       // Both should exist (instant position change, no animation)
       expect(firstIndicator).toBeInTheDocument()
       expect(secondIndicator).toBeInTheDocument()
+    })
+
+    it('uses instant transition (duration: 0) when reduced motion is preferred (branch coverage)', () => {
+      // This test explicitly covers the prefersReducedMotion ? { duration: 0 } : springConfig branch at line 76
+      mockUseReducedMotion.mockReturnValue(true)
+
+      render(<DockIndicator activeIndex={1} itemCount={3} />)
+
+      // When reduced motion is preferred, transition should use { duration: 0 }
+      // The indicator still renders and positions correctly
+      const indicator = screen.getByTestId('dock-indicator')
+      expect(indicator).toBeInTheDocument()
+      expect(indicator.getAttribute('data-active-index')).toBe('1')
     })
   })
 

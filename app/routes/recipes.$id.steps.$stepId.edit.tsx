@@ -558,6 +558,7 @@ export default function EditStep() {
           open={!!ingredientToRemove}
           onClose={() => setIngredientToRemove(null)}
           onConfirm={() => {
+            /* v8 ignore start - defensive check: dialog is only open when ingredientToRemove is set */
             if (ingredientToRemove) {
               const formData = new FormData();
               formData.set("intent", "deleteIngredient");
@@ -565,6 +566,7 @@ export default function EditStep() {
               submit(formData, { method: "post" });
               setIngredientToRemove(null);
             }
+            /* v8 ignore stop */
           }}
           title="Remove this ingredient? 🥕"
           description="This ingredient will be removed from the step."

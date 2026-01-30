@@ -209,5 +209,18 @@ describe('Quick Actions', () => {
       // Empty array means no specific ingredients selected
       expect(result).toHaveProperty('success')
     })
+
+    it('returns error when recipeId is empty string (branch coverage)', async () => {
+      const emptyIdOptions: AddToListOptions = {
+        recipeId: '',
+      }
+
+      const result = await addToShoppingList(emptyIdOptions)
+
+      // Empty recipeId should fail with error
+      expect(result.success).toBe(false)
+      expect(result.itemsAdded).toBe(0)
+      expect(result.error).toBe('Recipe not found')
+    })
   })
 })

@@ -193,9 +193,49 @@ describe('Recipe Dock Actions', () => {
 
       const leftActions = capturedActions?.filter(a => a.position === 'left')
       const rightActions = capturedActions?.filter(a => a.position === 'right')
-      
+
       expect(leftActions?.map(a => a.id)).toEqual(['back', 'edit'])
       expect(rightActions?.map(a => a.id)).toEqual(['add-to-list', 'share'])
+    })
+
+    it('uses no-op fallback when onAddToList is not provided (function coverage)', () => {
+      // Test the () => {} fallback in onAddToList || (() => {})
+      render(
+        <MemoryRouter>
+          <DockContextProvider>
+            <ContextDisplay />
+            <RecipeDetailPage recipeId="123" />
+          </DockContextProvider>
+        </MemoryRouter>
+      )
+
+      const addAction = capturedActions?.find(a => a.id === 'add-to-list')
+      // Call the action without a handler provided - should use the no-op fallback
+      expect(() => {
+        if (typeof addAction?.onAction === 'function') {
+          addAction.onAction()
+        }
+      }).not.toThrow()
+    })
+
+    it('uses no-op fallback when onShare is not provided (function coverage)', () => {
+      // Test the () => {} fallback in onShare || (() => {})
+      render(
+        <MemoryRouter>
+          <DockContextProvider>
+            <ContextDisplay />
+            <RecipeDetailPage recipeId="123" />
+          </DockContextProvider>
+        </MemoryRouter>
+      )
+
+      const shareAction = capturedActions?.find(a => a.id === 'share')
+      // Call the action without a handler provided - should use the no-op fallback
+      expect(() => {
+        if (typeof shareAction?.onAction === 'function') {
+          shareAction.onAction()
+        }
+      }).not.toThrow()
     })
   })
 
@@ -323,9 +363,29 @@ describe('Recipe Dock Actions', () => {
 
       const leftActions = capturedActions?.filter(a => a.position === 'left')
       const rightActions = capturedActions?.filter(a => a.position === 'right')
-      
+
       expect(leftActions?.map(a => a.id)).toEqual(['cancel'])
       expect(rightActions?.map(a => a.id)).toEqual(['save'])
+    })
+
+    it('uses no-op fallback when onSave is not provided (function coverage)', () => {
+      // Test the () => {} fallback in onSave || (() => {})
+      render(
+        <MemoryRouter>
+          <DockContextProvider>
+            <ContextDisplay />
+            <RecipeEditPage recipeId="123" />
+          </DockContextProvider>
+        </MemoryRouter>
+      )
+
+      const saveAction = capturedActions?.find(a => a.id === 'save')
+      // Call the action without a handler provided - should use the no-op fallback
+      expect(() => {
+        if (typeof saveAction?.onAction === 'function') {
+          saveAction.onAction()
+        }
+      }).not.toThrow()
     })
   })
 })

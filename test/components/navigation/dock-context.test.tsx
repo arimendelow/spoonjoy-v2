@@ -54,6 +54,19 @@ describe('DockContext', () => {
       expect(typeof result.current.setActions).toBe('function')
     })
 
+    it('default setActions is a no-op function (function coverage)', () => {
+      // This test covers the default setActions: () => {} function in defaultValue
+      const { result } = renderHook(() => useDockContext())
+
+      // The default setActions should be callable but do nothing
+      expect(() => {
+        result.current.setActions(sampleActions)
+      }).not.toThrow()
+
+      // Since we're not in a provider, actions should still be null
+      expect(result.current.actions).toBeNull()
+    })
+
     it('returns context value when in provider', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
         <DockContextProvider>{children}</DockContextProvider>

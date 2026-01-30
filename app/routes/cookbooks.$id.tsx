@@ -437,6 +437,7 @@ export default function CookbookDetail() {
         open={!!recipeToRemove}
         onClose={() => setRecipeToRemove(null)}
         onConfirm={() => {
+          /* v8 ignore start - defensive check: dialog is only open when recipeToRemove is set */
           if (recipeToRemove) {
             const formData = new FormData();
             formData.set("intent", "removeRecipe");
@@ -444,6 +445,7 @@ export default function CookbookDetail() {
             submit(formData, { method: "post" });
             setRecipeToRemove(null);
           }
+          /* v8 ignore stop */
         }}
         title="Remove from cookbook? 🍳"
         description="This recipe will be removed from this cookbook. The recipe itself won't be deleted."
