@@ -438,6 +438,54 @@ describe("Recipes $id Route", () => {
       expect(result.recipe.steps[0].stepNum).toBe(1);
       expect(result.recipe.steps[0].stepTitle).toBe("Solo Step");
     });
+
+    it("should return savedInCookbookIds when recipe is saved in cookbooks", async () => {
+      // Create two cookbooks for the user
+      const cookbook1 = await db.cookbook.create({
+        data: {
+          title: "First Cookbook " + faker.string.alphanumeric(6),
+          authorId: testUserId,
+        },
+      });
+      const cookbook2 = await db.cookbook.create({
+        data: {
+          title: "Second Cookbook " + faker.string.alphanumeric(6),
+          authorId: testUserId,
+        },
+      });
+
+      // Add recipe to the first cookbook only
+      await db.recipeInCookbook.create({
+        data: {
+          cookbookId: cookbook1.id,
+          recipeId: recipeId,
+          addedById: testUserId,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      // Should return both cookbooks
+      expect(result.cookbooks).toHaveLength(2);
+
+      // Should return the cookbook ID where recipe is saved
+      expect(result.savedInCookbookIds).toContain(cookbook1.id);
+      expect(result.savedInCookbookIds).not.toContain(cookbook2.id);
+    });
   });
 
   describe("action", () => {
@@ -1358,6 +1406,9 @@ describe("Recipes $id Route", () => {
       // Should show cookbook options
       expect(await screen.findByText("My Favorites")).toBeInTheDocument();
       expect(screen.getByText("Quick Meals")).toBeInTheDocument();
+
+      // Close dropdown to avoid act() warnings
+      await user.keyboard("{Escape}");
     });
 
     it("should show checkmark on already saved cookbooks", async () => {
@@ -1399,6 +1450,9 @@ describe("Recipes $id Route", () => {
       // Quick Meals should not have checkmark
       expect(screen.getByText("Quick Meals")).toBeInTheDocument();
       expect(screen.queryByText("Quick Meals ✓")).not.toBeInTheDocument();
+
+      // Close dropdown to avoid act() warnings
+      await user.keyboard("{Escape}");
     });
 
     it("should show empty state when user has no cookbooks", async () => {
@@ -1470,6 +1524,140 @@ describe("Recipes $id Route", () => {
       // The share handler uses browser share API which is tested via integration
       // Here we just verify the button is clickable without errors
       expect(shareButton).toBeInTheDocument();
+    });
+
+    it("should toggle step output checkbox when clicked", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe with Step Outputs",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "First step",
+              description: "Prepare base",
+              ingredients: [],
+              usingSteps: [],
+            },
+            {
+              id: "step-2",
+              stepNum: 2,
+              stepTitle: "Second step",
+              description: "Combine with first step output",
+              ingredients: [],
+              usingSteps: [
+                {
+                  id: "use-1",
+                  outputStepNum: 1,
+                  outputOfStep: { stepNum: 1, stepTitle: "First step" },
+                },
+              ],
+            },
+          ],
+        },
+        isOwner: false,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Wait for recipe to render
+      await screen.findByRole("heading", { name: "Recipe with Step Outputs" });
+
+      // Find the step output uses section
+      const stepOutputSection = screen.getByTestId("step-output-uses-section");
+      expect(stepOutputSection).toBeInTheDocument();
+
+      // Find all checkboxes - the first should be the step output
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBeGreaterThan(0);
+
+      // First checkbox is the step output checkbox
+      const stepOutputCheckbox = checkboxes[0];
+      expect(stepOutputCheckbox).not.toBeChecked();
+
+      // Click to check
+      await user.click(stepOutputCheckbox);
+      expect(stepOutputCheckbox).toBeChecked();
+
+      // Click again to uncheck (tests the delete branch in handleStepOutputToggle)
+      await user.click(stepOutputCheckbox);
+      expect(stepOutputCheckbox).not.toBeChecked();
+    });
+
+    it("should save recipe to cookbook via dropdown (optimistic UI)", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe to Save to Cookbook",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [
+          { id: "cb-1", title: "My Favorites" },
+          { id: "cb-2", title: "Quick Meals" },
+        ],
+        savedInCookbookIds: [],
+      };
+
+      let actionCalled = false;
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+          action: async () => {
+            actionCalled = true;
+            return { success: true };
+          },
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Click Save button to open dropdown
+      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
+      await user.click(saveButton);
+
+      // Wait for dropdown to render
+      const cookbookOption = await screen.findByText("My Favorites");
+      expect(cookbookOption).toBeInTheDocument();
+
+      // Click on the cookbook option to save
+      await user.click(cookbookOption);
+
+      // Verify action was called (submit was invoked)
+      await waitFor(() => {
+        expect(actionCalled).toBe(true);
+      });
+
+      // Optimistic UI: cookbook should now show as saved
+      // Re-open the dropdown to verify
+      await user.click(saveButton);
+      expect(await screen.findByText("My Favorites ✓")).toBeInTheDocument();
+
+      // Close dropdown to avoid act() warnings
+      await user.keyboard("{Escape}");
     });
   });
 
