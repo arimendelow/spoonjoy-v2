@@ -245,7 +245,12 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
     // For now, store the photo as a data URL
     // In production, this would upload to Cloudflare R2 or similar storage
     const arrayBuffer = await photo.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
     const photoUrl = `data:${photo.type};base64,${base64}`;
 
     await database.user.update({
