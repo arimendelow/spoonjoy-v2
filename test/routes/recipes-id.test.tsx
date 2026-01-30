@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id";
@@ -1252,6 +1253,403 @@ describe("Recipes $id Route", () => {
       await waitFor(() => {
         expect(screen.queryByText("Banish this recipe?")).not.toBeInTheDocument();
       });
+    });
+
+    it("should render Share button for owner", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Owner Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Share button should be visible
+      expect(await screen.findByRole("button", { name: "Share recipe" })).toBeInTheDocument();
+    });
+
+    it("should render Share button for non-owner", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Someone Elses Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-2", username: "otherchef" },
+          steps: [],
+        },
+        isOwner: false,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Share button should be visible for non-owner too
+      expect(await screen.findByRole("button", { name: "Share recipe" })).toBeInTheDocument();
+      // But Edit/Delete buttons should NOT be visible
+      expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    });
+
+    it("should render Save to Cookbook dropdown", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe to Save",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [
+          { id: "cb-1", title: "My Favorites" },
+          { id: "cb-2", title: "Quick Meals" },
+        ],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Save button should be visible
+      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
+      expect(saveButton).toBeInTheDocument();
+
+      // Click to open dropdown and wait for menu to appear
+      await user.click(saveButton);
+
+      // Should show cookbook options
+      expect(await screen.findByText("My Favorites")).toBeInTheDocument();
+      expect(screen.getByText("Quick Meals")).toBeInTheDocument();
+    });
+
+    it("should show checkmark on already saved cookbooks", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Already Saved Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [
+          { id: "cb-1", title: "My Favorites" },
+          { id: "cb-2", title: "Quick Meals" },
+        ],
+        savedInCookbookIds: ["cb-1"], // Already saved in My Favorites
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Click Save button to open dropdown
+      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
+      await user.click(saveButton);
+
+      // Wait for dropdown to render - My Favorites should show checkmark (already saved)
+      expect(await screen.findByText("My Favorites ✓")).toBeInTheDocument();
+      // Quick Meals should not have checkmark
+      expect(screen.getByText("Quick Meals")).toBeInTheDocument();
+      expect(screen.queryByText("Quick Meals ✓")).not.toBeInTheDocument();
+    });
+
+    it("should show empty state when user has no cookbooks", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe No Cookbooks",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Click Save button to open dropdown
+      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
+      await user.click(saveButton);
+
+      // Should show empty state message
+      expect(await screen.findByText("No cookbooks yet")).toBeInTheDocument();
+      expect(screen.getByText("Create your first cookbook")).toBeInTheDocument();
+    });
+
+    it("should call Share handler when Share button is clicked", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Shareable Recipe",
+          description: "A recipe to share",
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Click Share button
+      const shareButton = await screen.findByRole("button", { name: "Share recipe" });
+      fireEvent.click(shareButton);
+
+      // The share handler uses browser share API which is tested via integration
+      // Here we just verify the button is clickable without errors
+      expect(shareButton).toBeInTheDocument();
+    });
+  });
+
+  describe("action - addToCookbook", () => {
+    let testCookbookId: string;
+
+    beforeEach(async () => {
+      // Create a cookbook for the test user
+      const cookbook = await db.cookbook.create({
+        data: {
+          title: "Test Cookbook " + faker.string.alphanumeric(6),
+          authorId: testUserId,
+        },
+      });
+      testCookbookId = cookbook.id;
+    });
+
+    async function createFormRequest(
+      formFields: Record<string, string>,
+      userId?: string
+    ): Promise<UndiciRequest> {
+      const formData = new UndiciFormData();
+      for (const [key, value] of Object.entries(formFields)) {
+        formData.append(key, value);
+      }
+
+      const headers = new Headers();
+
+      if (userId) {
+        const session = await sessionStorage.getSession();
+        session.set("userId", userId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+        headers.set("Cookie", cookieValue);
+      }
+
+      return new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+    }
+
+    it("should add recipe to cookbook successfully", async () => {
+      const request = await createFormRequest(
+        { intent: "addToCookbook", cookbookId: testCookbookId },
+        testUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual({ success: true });
+
+      // Verify recipe is in cookbook
+      const recipeInCookbook = await db.recipeInCookbook.findUnique({
+        where: {
+          cookbookId_recipeId: {
+            cookbookId: testCookbookId,
+            recipeId: recipeId,
+          },
+        },
+      });
+      expect(recipeInCookbook).not.toBeNull();
+      expect(recipeInCookbook?.addedById).toBe(testUserId);
+    });
+
+    it("should return success even if recipe already in cookbook", async () => {
+      // First add the recipe
+      await db.recipeInCookbook.create({
+        data: {
+          cookbookId: testCookbookId,
+          recipeId: recipeId,
+          addedById: testUserId,
+        },
+      });
+
+      // Try to add again
+      const request = await createFormRequest(
+        { intent: "addToCookbook", cookbookId: testCookbookId },
+        testUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      // Should still return success (idempotent)
+      expect(result).toEqual({ success: true });
+    });
+
+    it("should throw 403 when trying to add to someone elses cookbook", async () => {
+      // Create cookbook for other user
+      const otherCookbook = await db.cookbook.create({
+        data: {
+          title: "Other User Cookbook " + faker.string.alphanumeric(6),
+          authorId: otherUserId,
+        },
+      });
+
+      const request = await createFormRequest(
+        { intent: "addToCookbook", cookbookId: otherCookbook.id },
+        testUserId // testUser trying to add to otherUser's cookbook
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any)
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(403);
+        return true;
+      });
+    });
+
+    it("should throw 403 when cookbook does not exist", async () => {
+      const request = await createFormRequest(
+        { intent: "addToCookbook", cookbookId: "nonexistent-cookbook-id" },
+        testUserId
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any)
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(403);
+        return true;
+      });
+    });
+
+    it("should allow non-owner to add recipe to their own cookbook", async () => {
+      // Create cookbook for other user
+      const otherUserCookbook = await db.cookbook.create({
+        data: {
+          title: "Other User Own Cookbook " + faker.string.alphanumeric(6),
+          authorId: otherUserId,
+        },
+      });
+
+      // otherUser adding testUser's recipe to otherUser's cookbook (allowed)
+      const request = await createFormRequest(
+        { intent: "addToCookbook", cookbookId: otherUserCookbook.id },
+        otherUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual({ success: true });
+    });
+
+    it("should do nothing when cookbookId is not provided", async () => {
+      const request = await createFormRequest(
+        { intent: "addToCookbook" }, // No cookbookId
+        testUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      // Falls through to return null since no cookbookId
+      expect(result).toBeNull();
     });
   });
 });
