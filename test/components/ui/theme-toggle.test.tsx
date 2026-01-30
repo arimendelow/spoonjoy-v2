@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ThemeToggle, ThemeDropdown } from '~/components/ui/theme-toggle'
 import { ThemeProvider } from '~/components/ui/theme-provider'
 
@@ -295,7 +295,9 @@ describe('ThemeDropdown', () => {
     const lightMenuItem = screen.getByRole('menuitem', { name: /Light/i })
 
     // Focus the menu item directly and trigger keyboard events
-    lightMenuItem.focus()
+    await act(async () => {
+      lightMenuItem.focus()
+    })
     fireEvent.keyDown(lightMenuItem, { key: 'ArrowDown' })
 
     // After keyboard navigation, HeadlessUI should track focus state internally

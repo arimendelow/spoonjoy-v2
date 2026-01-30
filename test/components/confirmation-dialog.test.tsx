@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
 
@@ -17,66 +17,80 @@ describe("ConfirmationDialog", () => {
   });
 
   describe("rendering", () => {
-    it("should render when open is true", () => {
-      render(<ConfirmationDialog {...defaultProps} />);
+    it("should render when open is true", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} />);
+      });
 
       expect(screen.getByText("Confirm Action")).toBeInTheDocument();
       expect(screen.getByText("Are you sure you want to proceed?")).toBeInTheDocument();
     });
 
-    it("should not render when open is false", () => {
-      render(<ConfirmationDialog {...defaultProps} open={false} />);
+    it("should not render when open is false", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} open={false} />);
+      });
 
       expect(screen.queryByText("Confirm Action")).not.toBeInTheDocument();
     });
 
-    it("should render with custom title", () => {
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          title="Delete Recipe?"
-        />
-      );
+    it("should render with custom title", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            title="Delete Recipe?"
+          />
+        );
+      });
 
       expect(screen.getByText("Delete Recipe?")).toBeInTheDocument();
     });
 
-    it("should render with custom description", () => {
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          description="This will banish the recipe to the shadow realm!"
-        />
-      );
+    it("should render with custom description", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            description="This will banish the recipe to the shadow realm!"
+          />
+        );
+      });
 
       expect(screen.getByText("This will banish the recipe to the shadow realm!")).toBeInTheDocument();
     });
 
-    it("should render default button labels", () => {
-      render(<ConfirmationDialog {...defaultProps} />);
+    it("should render default button labels", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} />);
+      });
 
       expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     });
 
-    it("should render custom confirm label", () => {
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          confirmLabel="Yes, delete it!"
-        />
-      );
+    it("should render custom confirm label", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            confirmLabel="Yes, delete it!"
+          />
+        );
+      });
 
       expect(screen.getByRole("button", { name: "Yes, delete it!" })).toBeInTheDocument();
     });
 
-    it("should render custom cancel label", () => {
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          cancelLabel="Nevermind"
-        />
-      );
+    it("should render custom cancel label", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            cancelLabel="Nevermind"
+          />
+        );
+      });
 
       expect(screen.getByRole("button", { name: "Nevermind" })).toBeInTheDocument();
     });
@@ -133,13 +147,15 @@ describe("ConfirmationDialog", () => {
   });
 
   describe("destructive variant", () => {
-    it("should show destructive styling when destructive is true", () => {
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          destructive
-        />
-      );
+    it("should show destructive styling when destructive is true", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            destructive
+          />
+        );
+      });
 
       const confirmButton = screen.getByRole("button", { name: "Confirm" });
       // Destructive buttons in Catalyst use red color
@@ -147,8 +163,10 @@ describe("ConfirmationDialog", () => {
       // The button should have data-color="red" or similar class
     });
 
-    it("should not show destructive styling by default", () => {
-      render(<ConfirmationDialog {...defaultProps} />);
+    it("should not show destructive styling by default", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} />);
+      });
 
       const confirmButton = screen.getByRole("button", { name: "Confirm" });
       expect(confirmButton).toBeInTheDocument();
@@ -156,14 +174,18 @@ describe("ConfirmationDialog", () => {
   });
 
   describe("accessibility", () => {
-    it("should have dialog role", () => {
-      render(<ConfirmationDialog {...defaultProps} />);
+    it("should have dialog role", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} />);
+      });
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
-    it("should have proper dialog title", () => {
-      render(<ConfirmationDialog {...defaultProps} />);
+    it("should have proper dialog title", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} />);
+      });
 
       // The title should be associated with the dialog via aria-labelledby
       const dialog = screen.getByRole("dialog");
@@ -171,8 +193,10 @@ describe("ConfirmationDialog", () => {
       expect(screen.getByText("Confirm Action")).toBeInTheDocument();
     });
 
-    it("should have proper dialog description", () => {
-      render(<ConfirmationDialog {...defaultProps} />);
+    it("should have proper dialog description", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} />);
+      });
 
       expect(screen.getByText("Are you sure you want to proceed?")).toBeInTheDocument();
     });
@@ -180,7 +204,9 @@ describe("ConfirmationDialog", () => {
     it("should trap focus within dialog", async () => {
       const user = userEvent.setup();
 
-      render(<ConfirmationDialog {...defaultProps} />);
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} />);
+      });
 
       // Tab through the dialog - focus should cycle within
       const cancelButton = screen.getByRole("button", { name: "Cancel" });
@@ -201,12 +227,14 @@ describe("ConfirmationDialog", () => {
       const user = userEvent.setup();
       const onConfirm = vi.fn();
 
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          onConfirm={onConfirm}
-        />
-      );
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            onConfirm={onConfirm}
+          />
+        );
+      });
 
       // Tab to confirm button and press Enter
       await user.tab();
@@ -223,12 +251,14 @@ describe("ConfirmationDialog", () => {
       const user = userEvent.setup();
       const onConfirm = vi.fn();
 
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          onConfirm={onConfirm}
-        />
-      );
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            onConfirm={onConfirm}
+          />
+        );
+      });
 
       const confirmButton = screen.getByRole("button", { name: "Confirm" });
 
@@ -241,25 +271,29 @@ describe("ConfirmationDialog", () => {
       expect(onConfirm).toHaveBeenCalled();
     });
 
-    it("should handle empty title gracefully", () => {
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          title=""
-        />
-      );
+    it("should handle empty title gracefully", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            title=""
+          />
+        );
+      });
 
       // Should still render dialog
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
-    it("should handle empty description gracefully", () => {
-      render(
-        <ConfirmationDialog
-          {...defaultProps}
-          description=""
-        />
-      );
+    it("should handle empty description gracefully", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            {...defaultProps}
+            description=""
+          />
+        );
+      });
 
       // Should still render dialog
       expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -267,19 +301,21 @@ describe("ConfirmationDialog", () => {
   });
 
   describe("fun and playful content", () => {
-    it("should support playful delete recipe confirmation", () => {
-      render(
-        <ConfirmationDialog
-          open={true}
-          onClose={vi.fn()}
-          onConfirm={vi.fn()}
-          title="Banish this recipe?"
-          description="This recipe will be sent to the shadow realm. There's no coming back!"
-          confirmLabel="Send it!"
-          cancelLabel="Spare it"
-          destructive
-        />
-      );
+    it("should support playful delete recipe confirmation", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            open={true}
+            onClose={vi.fn()}
+            onConfirm={vi.fn()}
+            title="Banish this recipe?"
+            description="This recipe will be sent to the shadow realm. There's no coming back!"
+            confirmLabel="Send it!"
+            cancelLabel="Spare it"
+            destructive
+          />
+        );
+      });
 
       expect(screen.getByText("Banish this recipe?")).toBeInTheDocument();
       expect(screen.getByText("This recipe will be sent to the shadow realm. There's no coming back!")).toBeInTheDocument();
@@ -287,18 +323,20 @@ describe("ConfirmationDialog", () => {
       expect(screen.getByRole("button", { name: "Spare it" })).toBeInTheDocument();
     });
 
-    it("should support playful clear shopping list confirmation", () => {
-      render(
-        <ConfirmationDialog
-          open={true}
-          onClose={vi.fn()}
-          onConfirm={vi.fn()}
-          title="Start fresh?"
-          description="All items will be cleared. Your shopping list will be squeaky clean!"
-          confirmLabel="Clear it all"
-          cancelLabel="Keep my stuff"
-        />
-      );
+    it("should support playful clear shopping list confirmation", async () => {
+      await act(async () => {
+        render(
+          <ConfirmationDialog
+            open={true}
+            onClose={vi.fn()}
+            onConfirm={vi.fn()}
+            title="Start fresh?"
+            description="All items will be cleared. Your shopping list will be squeaky clean!"
+            confirmLabel="Clear it all"
+            cancelLabel="Keep my stuff"
+          />
+        );
+      });
 
       expect(screen.getByText("Start fresh?")).toBeInTheDocument();
       expect(screen.getByText("All items will be cleared. Your shopping list will be squeaky clean!")).toBeInTheDocument();

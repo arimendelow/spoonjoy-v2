@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useNavigate } from "react-router";
 import { Link } from "~/components/ui/link";
@@ -296,7 +296,9 @@ describe("Link Component", () => {
       );
 
       const link = screen.getByRole("link", { name: "Enter Key" });
-      link.focus();
+      await act(async () => {
+        link.focus();
+      });
       await user.keyboard("{Enter}");
       expect(onClick).toHaveBeenCalled();
     });

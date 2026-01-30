@@ -1,6 +1,7 @@
 import type { Route } from "./+types/recipes.$id";
 import { redirect, useLoaderData, useSubmit } from "react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { usePostHog } from "@posthog/react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -110,6 +111,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 export default function RecipeDetail() {
   const { recipe, isOwner } = useLoaderData<typeof loader>();
   const submit = useSubmit();
+  const posthog = usePostHog();
 
   // Scale state for recipe scaling
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -117,18 +119,72 @@ export default function RecipeDetail() {
   // Track which ingredients have been checked off
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
 
+  // Track view start time for engagement metrics
+  const viewStartTime = useRef<number>(Date.now());
+
+  // PostHog: Track recipe view on mount
+  useEffect(() => {
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("recipe_viewed", {
+        recipe_id: recipe.id,
+        recipe_title: recipe.title,
+        chef_id: recipe.chef.id,
+        step_count: recipe.steps.length,
+        is_owner: isOwner,
+      });
+    }
+
+    // Track time on recipe when leaving
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    return () => {
+      if (posthog) {
+        const timeOnRecipe = Math.round((Date.now() - viewStartTime.current) / 1000);
+        posthog.capture("recipe_view_ended", {
+          recipe_id: recipe.id,
+          time_on_recipe_seconds: timeOnRecipe,
+        });
+      }
+    };
+  }, [recipe.id, recipe.title, recipe.chef.id, recipe.steps.length, isOwner, posthog]);
+
+  // PostHog: Track scale changes
+  const handleScaleChange = (newScale: number) => {
+    setScaleFactor(newScale);
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("recipe_scaled", {
+        recipe_id: recipe.id,
+        scale_factor: newScale,
+        previous_scale: scaleFactor,
+      });
+    }
+  };
+
   const handleDeleteConfirm = () => {
     submit({ intent: "delete" }, { method: "post" });
   };
 
   const handleIngredientToggle = (id: string) => {
     const newChecked = new Set(checkedIngredients);
-    if (newChecked.has(id)) {
+    const wasChecked = newChecked.has(id);
+    if (wasChecked) {
       newChecked.delete(id);
     } else {
       newChecked.add(id);
     }
     setCheckedIngredients(newChecked);
+
+    // PostHog: Track ingredient check/uncheck
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("ingredient_toggled", {
+        recipe_id: recipe.id,
+        ingredient_id: id,
+        is_checked: !wasChecked,
+        total_checked: newChecked.size,
+      });
+    }
   };
 
   /* istanbul ignore next -- @preserve browser scroll navigation */
@@ -188,7 +244,7 @@ export default function RecipeDetail() {
         imageUrl={recipe.imageUrl ?? undefined}
         servings={recipe.servings ?? undefined}
         scaleFactor={scaleFactor}
-        onScaleChange={setScaleFactor}
+        onScaleChange={handleScaleChange}
         isOwner={isOwner}
         recipeId={recipe.id}
         onDelete={handleDeleteConfirm}

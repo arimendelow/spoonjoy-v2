@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ScaleSelector } from '../../../app/components/recipe/ScaleSelector'
@@ -133,7 +133,9 @@ describe('ScaleSelector', () => {
       render(<ScaleSelector value={1} onChange={onChange} />)
 
       const minusButton = screen.getByTestId('scale-minus')
-      minusButton.focus()
+      await act(async () => {
+        minusButton.focus()
+      })
       await userEvent.keyboard('{Enter}')
       expect(onChange).toHaveBeenCalledWith(0.75)
     })
@@ -143,7 +145,9 @@ describe('ScaleSelector', () => {
       render(<ScaleSelector value={1} onChange={onChange} />)
 
       const plusButton = screen.getByTestId('scale-plus')
-      plusButton.focus()
+      await act(async () => {
+        plusButton.focus()
+      })
       await userEvent.keyboard('{Enter}')
       expect(onChange).toHaveBeenCalledWith(1.25)
     })

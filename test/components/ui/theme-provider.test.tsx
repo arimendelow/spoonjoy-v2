@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ThemeProvider, useTheme } from '~/components/ui/theme-provider'
 
 // Helper to temporarily remove window for SSR tests
@@ -231,9 +231,11 @@ describe('ThemeProvider', () => {
 
     // Simulate system switching to dark
     mockMediaQueryList.matches = true
-    if (changeHandler) {
-      changeHandler({ matches: true })
-    }
+    await act(async () => {
+      if (changeHandler) {
+        changeHandler({ matches: true })
+      }
+    })
 
     await waitFor(() => {
       expect(screen.getByTestId('resolved')).toHaveTextContent('dark')

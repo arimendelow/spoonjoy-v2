@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import {
   DockContextProvider,
@@ -98,7 +98,7 @@ describe('Recipe Dock Actions', () => {
       expect(backAction?.onAction).toBe('/recipes')
     })
 
-    it('Edit action is a function that navigates to edit page', () => {
+    it('Edit action is a function that navigates to edit page', async () => {
       render(
         <MemoryRouter>
           <DockContextProvider>
@@ -111,9 +111,11 @@ describe('Recipe Dock Actions', () => {
       const editAction = capturedActions?.find(a => a.id === 'edit')
       expect(typeof editAction?.onAction).toBe('function')
       // Call the edit action to ensure it executes without error
-      if (typeof editAction?.onAction === 'function') {
-        editAction.onAction()
-      }
+      await act(async () => {
+        if (typeof editAction?.onAction === 'function') {
+          editAction.onAction()
+        }
+      })
     })
 
     it('calls onAddToList handler when provided', () => {
