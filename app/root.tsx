@@ -9,6 +9,8 @@ import {
   Form,
   useLocation,
 } from "react-router";
+import { useEffect } from "react";
+import { usePostHog } from "@posthog/react";
 import { getUserId } from "~/lib/session.server";
 import { ThemeProvider } from "~/components/ui/theme-provider";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
@@ -199,6 +201,24 @@ function AppSidebar({ userId }: { userId: string | null }) {
 
 export default function App() {
   const { userId } = useLoaderData<typeof loader>();
+  const location = useLocation();
+  const posthog = usePostHog();
+
+  // Track page views on route changes
+  useEffect(() => {
+    if (posthog) {
+      posthog.capture("$pageview", {
+        $current_url: window.location.href,
+      });
+    }
+  }, [location.pathname, posthog]);
+
+  // Identify user when logged in
+  useEffect(() => {
+    if (posthog && userId) {
+      posthog.identify(userId);
+    }
+  }, [userId, posthog]);
 
   return (
     <html lang="en" suppressHydrationWarning>

@@ -32,6 +32,7 @@
     "@cloudflare/vite-plugin": "^1.22.1",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
+    "@posthog/react": "^1.7.0",
     "@prisma/adapter-d1": "^7.3.0",
     "@prisma/client": "6.19.2",
     "@react-router/cloudflare": "^7.13.0",
@@ -44,6 +45,7 @@
     "isbot": "^5.1.33",
     "lucide-react": "^0.563.0",
     "motion": "^12.29.2",
+    "posthog-js": "^1.336.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router": "^7.13.0"
