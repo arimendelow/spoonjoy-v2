@@ -242,16 +242,36 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
       };
     }
 
-    // For now, store the photo as a data URL
-    // In production, this would upload to Cloudflare R2 or similar storage
-    const arrayBuffer = await photo.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    // Upload to Cloudflare R2 if available, otherwise fall back to base64
+    const r2Bucket = context?.cloudflare?.env?.PHOTOS as R2Bucket | undefined;
+    let photoUrl: string;
+
+    if (r2Bucket) {
+      // Generate unique key for the photo
+      const ext = photo.name.split('.').pop() || 'jpg';
+      const key = `profiles/${userId}/${Date.now()}.${ext}`;
+
+      // Upload to R2
+      await r2Bucket.put(key, photo, {
+        httpMetadata: {
+          contentType: photo.type,
+        },
+      });
+
+      // Store the R2 key as the photo URL (will be served via public bucket or Worker)
+      // In production, configure R2 public access or a Worker to serve images
+      photoUrl = `/photos/${key}`;
+    } else {
+      // Fallback to base64 for local development without R2
+      const arrayBuffer = await photo.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      photoUrl = `data:${photo.type};base64,${base64}`;
     }
-    const base64 = btoa(binary);
-    const photoUrl = `data:${photo.type};base64,${base64}`;
 
     await database.user.update({
       where: { id: userId },
@@ -262,6 +282,21 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
   }
 
   if (intent === "removePhoto") {
+    // Get current photo URL to delete from R2
+    const user = await database.user.findUnique({
+      where: { id: userId },
+      select: { photoUrl: true },
+    });
+
+    // Delete from R2 if it's an R2 path
+    if (user?.photoUrl?.startsWith('/photos/')) {
+      const r2Bucket = context?.cloudflare?.env?.PHOTOS as R2Bucket | undefined;
+      if (r2Bucket) {
+        const key = user.photoUrl.replace('/photos/', '');
+        await r2Bucket.delete(key);
+      }
+    }
+
     await database.user.update({
       where: { id: userId },
       data: { photoUrl: null },

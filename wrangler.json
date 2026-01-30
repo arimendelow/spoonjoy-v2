@@ -13,6 +13,13 @@
       "database_id": "local"
     }
   ],
+
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "spoonjoy-photos"
+    }
+  ],
   
   "vars": {
     "NODE_ENV": "production"
