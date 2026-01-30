@@ -1,4 +1,5 @@
 import { Checkbox, CheckboxField } from '../ui/checkbox'
+import { Label } from '../ui/fieldset'
 import { ScaledQuantity } from './ScaledQuantity'
 
 export interface Ingredient {
@@ -63,12 +64,12 @@ export function IngredientList({
                   onChange={() => onToggle(ingredient.id)}
                   aria-label={`Mark ${ingredient.name} as used`}
                 />
-                <span
-                  className={
+                <Label
+                  className={`cursor-pointer ${
                     isChecked
                       ? 'line-through text-zinc-500 dark:text-zinc-500'
                       : 'text-zinc-900 dark:text-white'
-                  }
+                  }`}
                 >
                   <ScaledQuantity
                     quantity={ingredient.quantity}
@@ -76,7 +77,7 @@ export function IngredientList({
                     name={ingredient.name}
                     scaleFactor={scaleFactor}
                   />
-                </span>
+                </Label>
               </CheckboxField>
             </li>
           )
