@@ -13,6 +13,7 @@ import { StepCard } from "~/components/recipe/StepCard";
 import type { Ingredient } from "~/components/recipe/IngredientList";
 import type { StepReference } from "~/components/recipe/StepOutputUseCallout";
 import { shareContent } from "~/components/navigation/quick-actions";
+import { SaveToCookbookDropdown } from "~/components/recipe/SaveToCookbookDropdown";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -68,7 +69,30 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   // Check if user owns this recipe
   const isOwner = recipe.chefId === userId;
 
-  return { recipe, isOwner };
+  // Fetch user's cookbooks for save functionality
+  const userCookbooks = await database.cookbook.findMany({
+    where: { authorId: userId },
+    select: {
+      id: true,
+      title: true,
+      recipes: {
+        where: { recipeId: id },
+        select: { id: true },
+      },
+    },
+    orderBy: { title: "asc" },
+  });
+
+  // Transform cookbooks and track which already contain this recipe
+  const cookbooks = userCookbooks.map((cb) => ({
+    id: cb.id,
+    title: cb.title,
+  }));
+  const savedInCookbookIds = userCookbooks
+    .filter((cb) => cb.recipes.length > 0)
+    .map((cb) => cb.id);
+
+  return { recipe, isOwner, cookbooks, savedInCookbookIds };
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -82,7 +106,35 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     ? getDb(context.cloudflare.env as { DB: D1Database })
     : db;
 
-  // Verify ownership
+  // Add to cookbook doesn't require recipe ownership
+  if (intent === "addToCookbook") {
+    const cookbookId = formData.get("cookbookId")?.toString();
+    if (cookbookId) {
+      // Verify user owns the cookbook
+      const cookbook = await database.cookbook.findUnique({
+        where: { id: cookbookId },
+        select: { authorId: true },
+      });
+      if (!cookbook || cookbook.authorId !== userId) {
+        throw new Response("Unauthorized", { status: 403 });
+      }
+      try {
+        await database.recipeInCookbook.create({
+          data: {
+            cookbookId,
+            recipeId: id,
+            addedById: userId,
+          },
+        });
+        return { success: true };
+      } catch (error: unknown) {
+        // Already in cookbook - ignore
+        return { success: true };
+      }
+    }
+  }
+
+  // Verify ownership for other actions
   const recipe = await database.recipe.findUnique({
     where: { id },
     select: { chefId: true, deletedAt: true },
@@ -110,7 +162,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function RecipeDetail() {
-  const { recipe, isOwner } = useLoaderData<typeof loader>();
+  const { recipe, isOwner, cookbooks, savedInCookbookIds } = useLoaderData<typeof loader>();
   const submit = useSubmit();
   const posthog = usePostHog();
 
@@ -122,6 +174,11 @@ export default function RecipeDetail() {
 
   // Track which step outputs have been checked off
   const [checkedStepOutputs, setCheckedStepOutputs] = useState<Set<string>>(new Set());
+
+  // Track which cookbooks this recipe is saved in (optimistic UI)
+  const [savedCookbookIds, setSavedCookbookIds] = useState<Set<string>>(
+    () => new Set(savedInCookbookIds)
+  );
 
   // Track view start time for engagement metrics
   const viewStartTime = useRef<number>(Date.now());
@@ -231,6 +288,33 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleSaveToCookbook = (cookbookId: string) => {
+    // Optimistic UI update
+    setSavedCookbookIds((prev) => new Set([...prev, cookbookId]));
+
+    // Submit the form
+    submit(
+      { intent: "addToCookbook", cookbookId },
+      { method: "post" }
+    );
+
+    // PostHog: Track recipe saved to cookbook
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("recipe_saved_to_cookbook", {
+        recipe_id: recipe.id,
+        cookbook_id: cookbookId,
+      });
+    }
+  };
+
+  const handleCreateNewCookbook = () => {
+    /* istanbul ignore next -- @preserve browser navigation */
+    if (typeof window !== "undefined") {
+      window.location.href = "/cookbooks/new";
+    }
+  };
+
   /* istanbul ignore next -- @preserve browser scroll navigation */
   const handleStepReferenceClick = (stepNumber: number) => {
     // Scroll to the referenced step
@@ -293,6 +377,14 @@ export default function RecipeDetail() {
         recipeId={recipe.id}
         onDelete={handleDeleteConfirm}
         onShare={handleShare}
+        renderSaveButton={() => (
+          <SaveToCookbookDropdown
+            cookbooks={cookbooks}
+            savedInCookbookIds={savedCookbookIds}
+            onSave={handleSaveToCookbook}
+            onCreateNew={handleCreateNewCookbook}
+          />
+        )}
       />
 
       {/* Steps Section */}

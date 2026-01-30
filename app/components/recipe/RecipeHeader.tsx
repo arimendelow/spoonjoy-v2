@@ -30,6 +30,8 @@ export interface RecipeHeaderProps {
   onDelete?: () => void
   /** Callback when share is clicked */
   onShare?: () => void
+  /** Optional custom save button (for SaveToCookbookDropdown) */
+  renderSaveButton?: () => React.ReactNode
 }
 
 /**
@@ -53,6 +55,7 @@ export function RecipeHeader({
   recipeId,
   onDelete,
   onShare,
+  renderSaveButton,
 }: RecipeHeaderProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
@@ -107,6 +110,9 @@ export function RecipeHeader({
 
           {/* Action Buttons */}
           <div className="flex gap-2 shrink-0">
+            {/* Save to cookbook - visible for all users */}
+            {renderSaveButton?.()}
+
             {/* Share button - visible for all users */}
             {onShare && (
               <Button
