@@ -110,6 +110,84 @@ describe('IngredientList', () => {
     })
   })
 
+  describe('click-to-toggle behavior', () => {
+    it('toggles checkbox when ingredient text is clicked', async () => {
+      const onToggle = vi.fn()
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          checkedIds={new Set()}
+          onToggle={onToggle}
+        />
+      )
+
+      // Click on the ingredient text (not the checkbox)
+      const flourText = screen.getByText(/flour/)
+      await userEvent.click(flourText)
+      expect(onToggle).toHaveBeenCalledWith('1')
+    })
+
+    it('clicking checkbox still works', async () => {
+      const onToggle = vi.fn()
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          checkedIds={new Set()}
+          onToggle={onToggle}
+        />
+      )
+
+      const checkboxes = screen.getAllByRole('checkbox')
+      await userEvent.click(checkboxes[0])
+      expect(onToggle).toHaveBeenCalledWith('1')
+    })
+
+    it('clicking text toggles from checked to unchecked', async () => {
+      const onToggle = vi.fn()
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          checkedIds={new Set(['1'])}
+          onToggle={onToggle}
+        />
+      )
+
+      // Click on the ingredient text
+      const flourText = screen.getByText(/flour/)
+      await userEvent.click(flourText)
+      expect(onToggle).toHaveBeenCalledWith('1')
+    })
+
+    it('keyboard activation (Space) on text toggles checkbox', async () => {
+      const onToggle = vi.fn()
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          checkedIds={new Set()}
+          onToggle={onToggle}
+        />
+      )
+
+      // Focus on a label and press space
+      const labels = screen.getAllByRole('checkbox')
+      labels[0].focus()
+      await userEvent.keyboard(' ')
+      expect(onToggle).toHaveBeenCalledWith('1')
+    })
+
+    it('strikethrough styling applies on check', () => {
+      render(
+        <IngredientList
+          ingredients={sampleIngredients}
+          checkedIds={new Set(['1'])}
+          onToggle={vi.fn()}
+        />
+      )
+      const strikethroughElements = document.querySelectorAll('.line-through')
+      expect(strikethroughElements.length).toBeGreaterThan(0)
+    })
+  })
+
   describe('checked state', () => {
     it('renders unchecked by default', () => {
       render(
