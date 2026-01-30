@@ -6,15 +6,8 @@ on:
   pull_request:
     branches: [main]
 
-# Sets permissions for GitHub Pages deployment
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 concurrency:
-  group: "pages"
+  group: storybook-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,22 +33,34 @@ jobs:
       - name: 📚 Build Storybook
         run: npm run build-storybook
       
-      - name: 📤 Upload artifact
+      - name: 📤 Upload build artifact
         if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
+          name: storybook-static
           path: storybook-static
+          retention-days: 1
 
   deploy-storybook:
-    name: 🚀 Deploy Storybook
+    name: 🚀 Deploy to Cloudflare Pages
     if: github.ref == 'refs/heads/main'
     needs: build-storybook
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      deployments: write
     
     steps:
-      - name: 🚀 Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: 📥 Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: storybook-static
+          path: storybook-static
+      
+      - name: 🚀 Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: spoonjoy-storybook
+          directory: storybook-static
