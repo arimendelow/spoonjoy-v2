@@ -88,6 +88,8 @@ const sampleRecipe = {
   description:
     'Crispy on the edges, chewy in the middle. These cookies are the perfect balance of sweet and salty, with pools of melted chocolate in every bite.',
   chefName: 'Julia Baker',
+  chefPhotoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
+  chefId: 'chef-123',
   imageUrl: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=1200&h=800&fit=crop',
   servings: 'Makes 24 cookies',
   recipeId: 'recipe-123',
@@ -557,6 +559,71 @@ export const ShareButtonCallsOnShareTest: Story = {
 
     // onShare should have been called
     await expect(args.onShare).toHaveBeenCalled()
+  },
+}
+
+/**
+ * ## Chef Avatar Renders Test
+ *
+ * Verify chef avatar renders when photo URL provided.
+ */
+export const ChefAvatarRendersTest: Story = {
+  args: {
+    ...sampleRecipe,
+    scaleFactor: 1,
+    onScaleChange: fn(),
+    isOwner: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Chef avatar should be present
+    const avatar = canvas.getByTestId('chef-avatar')
+    await expect(avatar).toBeInTheDocument()
+  },
+}
+
+/**
+ * ## Chef Avatar Fallback Test
+ *
+ * Verify chef avatar shows initials when no photo URL.
+ */
+export const ChefAvatarFallbackTest: Story = {
+  args: {
+    ...sampleRecipe,
+    chefPhotoUrl: undefined,
+    scaleFactor: 1,
+    onScaleChange: fn(),
+    isOwner: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Chef avatar should still be present (with initials)
+    const avatar = canvas.getByTestId('chef-avatar')
+    await expect(avatar).toBeInTheDocument()
+  },
+}
+
+/**
+ * ## Chef Name Links to Profile Test
+ *
+ * Verify chef name/avatar links to chef profile.
+ */
+export const ChefLinkTest: Story = {
+  args: {
+    ...sampleRecipe,
+    scaleFactor: 1,
+    onScaleChange: fn(),
+    isOwner: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Chef link should go to profile
+    const chefLink = canvas.getByRole('link', { name: /julia baker/i })
+    await expect(chefLink).toBeInTheDocument()
+    await expect(chefLink).toHaveAttribute('href', expect.stringContaining('/users/'))
   },
 }
 
