@@ -19,4 +19,5 @@ export default [
     route(":id", "routes/cookbooks.$id.tsx"),
   ]),
   route("shopping-list", "routes/shopping-list.tsx"),
+  route("account/settings", "routes/account.settings.tsx"),
 ] satisfies RouteConfig;
