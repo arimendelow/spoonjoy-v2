@@ -15,13 +15,13 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 const STORAGE_KEY = 'spoonjoy-theme'
 
 function getSystemTheme(): 'light' | 'dark' {
-  /* v8 ignore next - SSR safety: window is undefined during server-side rendering */
+  /* istanbul ignore next -- @preserve SSR safety: window is undefined during server-side rendering */
   if (typeof window === 'undefined') return 'light'
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 function getStoredTheme(): Theme {
-  /* v8 ignore next - SSR safety: window is undefined during server-side rendering */
+  /* istanbul ignore next -- @preserve SSR safety: window is undefined during server-side rendering */
   if (typeof window === 'undefined') return 'system'
   const stored = localStorage.getItem(STORAGE_KEY)
   if (stored === 'light' || stored === 'dark' || stored === 'system') {

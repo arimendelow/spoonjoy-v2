@@ -1781,6 +1781,246 @@ describe("Account Settings Route", () => {
         expect(updatedUser?.photoUrl).toBe(result.photoUrl);
       });
     });
+
+    describe("action - photo upload with R2", () => {
+      it("should upload photo to R2 when bucket is available", async () => {
+        const mockR2Bucket = {
+          put: vi.fn().mockResolvedValue(undefined),
+        };
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new UndiciFormData();
+        formData.append("intent", "uploadPhoto");
+        const mockFile = new File(["fake image data"], "test-photo.jpg", { type: "image/jpeg" });
+        formData.append("photo", mockFile);
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+          duplex: "half",
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: { PHOTOS: mockR2Bucket } } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.photoUrl).toMatch(/^\/photos\/profiles\//);
+        expect(result.photoUrl).toMatch(/\.jpg$/);
+        expect(mockR2Bucket.put).toHaveBeenCalled();
+
+        // Verify R2 put was called with correct params
+        const putCallArgs = mockR2Bucket.put.mock.calls[0];
+        expect(putCallArgs[0]).toMatch(/^profiles\/[^/]+\/\d+\.jpg$/);
+        expect(putCallArgs[2]).toEqual({ httpMetadata: { contentType: "image/jpeg" } });
+      });
+
+      it("should extract correct extension from filename", async () => {
+        const mockR2Bucket = {
+          put: vi.fn().mockResolvedValue(undefined),
+        };
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new UndiciFormData();
+        formData.append("intent", "uploadPhoto");
+        const mockFile = new File(["fake image data"], "test-photo.png", { type: "image/png" });
+        formData.append("photo", mockFile);
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+          duplex: "half",
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: { PHOTOS: mockR2Bucket } } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(result.photoUrl).toMatch(/\.png$/);
+      });
+
+      it("should default to jpg when file extension is empty", async () => {
+        const mockR2Bucket = {
+          put: vi.fn().mockResolvedValue(undefined),
+        };
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new UndiciFormData();
+        formData.append("intent", "uploadPhoto");
+        // File ending with a dot - split('.').pop() returns empty string, triggering 'jpg' fallback
+        const mockFile = new File(["fake image data"], "photo.", { type: "image/jpeg" });
+        formData.append("photo", mockFile);
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: formData,
+          duplex: "half",
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: { PHOTOS: mockR2Bucket } } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        // Should fall back to 'jpg' since split('.').pop() returns empty string
+        expect(result.photoUrl).toMatch(/\.jpg$/);
+      });
+    });
+
+    describe("action - photo removal with R2", () => {
+      it("should delete photo from R2 when removing an R2-stored photo", async () => {
+        const mockR2Bucket = {
+          delete: vi.fn().mockResolvedValue(undefined),
+        };
+
+        // Set up user with an R2 photo URL
+        await db.user.update({
+          where: { id: testUserId },
+          data: { photoUrl: "/photos/profiles/user123/1234567890.jpg" },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePhoto");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: { PHOTOS: mockR2Bucket } } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        expect(mockR2Bucket.delete).toHaveBeenCalledWith("profiles/user123/1234567890.jpg");
+
+        // Verify photoUrl was reset to null in database
+        const updatedUser = await db.user.findUnique({ where: { id: testUserId } });
+        expect(updatedUser?.photoUrl).toBeNull();
+      });
+
+      it("should not attempt R2 delete when photo URL is not an R2 path", async () => {
+        const mockR2Bucket = {
+          delete: vi.fn().mockResolvedValue(undefined),
+        };
+
+        // Set up user with a non-R2 photo URL (base64 or external URL)
+        await db.user.update({
+          where: { id: testUserId },
+          data: { photoUrl: "https://example.com/external-photo.jpg" },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePhoto");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        const result = await action({
+          request,
+          context: { cloudflare: { env: { PHOTOS: mockR2Bucket } } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+        // Should NOT have called R2 delete since it's not an R2 path
+        expect(mockR2Bucket.delete).not.toHaveBeenCalled();
+      });
+
+      it("should skip R2 delete when bucket is not available but photo URL is R2 path", async () => {
+        // Set up user with an R2 photo URL
+        await db.user.update({
+          where: { id: testUserId },
+          data: { photoUrl: "/photos/profiles/user123/1234567890.jpg" },
+        });
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+
+        const formData = new FormData();
+        formData.append("intent", "removePhoto");
+
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+        headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+        const request = new UndiciRequest("http://localhost:3000/account/settings", {
+          method: "POST",
+          headers,
+          body: new URLSearchParams(formData as any).toString(),
+        });
+
+        // Call without R2 bucket (simulating local dev)
+        const result = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(result.success).toBe(true);
+
+        // Verify photoUrl was reset to null in database (even though R2 delete didn't happen)
+        const updatedUser = await db.user.findUnique({ where: { id: testUserId } });
+        expect(updatedUser?.photoUrl).toBeNull();
+      });
+    });
   });
 
   describe("OAuth management", () => {
