@@ -594,7 +594,7 @@ function ProfilePhotoUpload({ photoUrl }: { photoUrl: string | null }) {
           {photoUrl && (
             <Form method="post">
               <input type="hidden" name="intent" value="removePhoto" />
-              <Button type="submit" outline color="red">
+              <Button type="submit" outline className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-400 data-hover:bg-red-50 dark:data-hover:bg-red-950/25">
                 Remove Photo
               </Button>
             </Form>
@@ -892,7 +892,7 @@ export default function AccountSettings() {
                   Change Password
                 </Button>
                 {canRemovePassword && (
-                  <Button type="button" outline color="red" onClick={() => setPasswordFormState("removeConfirm")}>
+                  <Button type="button" outline className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-400 data-hover:bg-red-50 dark:data-hover:bg-red-950/25" onClick={() => setPasswordFormState("removeConfirm")}>
                     Remove Password
                   </Button>
                 )}
