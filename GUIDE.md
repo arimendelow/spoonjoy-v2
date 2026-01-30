@@ -338,7 +338,19 @@ The dev server will automatically try the next available port (5173 → 5174 →
 
 ### OAuth login not working
 
-OAuth requires API credentials. For local development, email/password login works without any additional setup.
+OAuth requires API credentials configured in `wrangler.json` under the `vars` section:
+
+```json
+{
+  "vars": {
+    "GOOGLE_CLIENT_ID": "your-client-id",
+    "GOOGLE_CLIENT_SECRET": "your-secret",
+    "GOOGLE_CALLBACK_URL": "http://localhost:5173/auth/google/callback"
+  }
+}
+```
+
+For local development, email/password login works without any additional setup.
 
 ---
 
