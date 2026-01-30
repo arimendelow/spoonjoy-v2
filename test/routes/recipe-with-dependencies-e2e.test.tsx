@@ -254,15 +254,17 @@ describe("E2E: Create Recipe with Step Dependencies", () => {
       // Wait for recipe to render
       expect(await screen.findByText(/Stir Fry/)).toBeInTheDocument();
 
-      // Verify "Using outputs from" sections appear
-      expect(screen.getAllByText("Using outputs from")).toHaveLength(2);
+      // Verify "Using output from:" callouts appear (new component format)
+      const callouts = screen.getAllByTestId("step-output-callout");
+      expect(callouts).toHaveLength(2);
 
-      // Verify step 3 shows dependency on step 1
-      expect(screen.getByText(/output of step 1: Prep Protein/)).toBeInTheDocument();
-
-      // Verify step 4 shows dependencies on steps 2 and 3
-      expect(screen.getByText(/output of step 2: Prep Vegetables/)).toBeInTheDocument();
-      expect(screen.getByText(/output of step 3: Cook Protein/)).toBeInTheDocument();
+      // Verify step references are shown in the callouts
+      expect(screen.getAllByText(/using output from/i)).toHaveLength(2);
+      // The step titles appear both in the step card and in the callouts
+      // Just verify the callouts contain the references
+      expect(callouts[0]).toHaveTextContent("Prep Protein");
+      expect(callouts[1]).toHaveTextContent("Prep Vegetables");
+      expect(callouts[1]).toHaveTextContent("Cook Protein");
     });
   });
 
@@ -353,8 +355,9 @@ describe("E2E: Create Recipe with Step Dependencies", () => {
       render(<Stub initialEntries={[`/recipes/${recipeId}`]} />);
 
       await screen.findByText(/Untitled Step Recipe/);
-      // Should display "output of step 1" without a title
-      expect(screen.getByText("output of step 1")).toBeInTheDocument();
+      // Should display "Step 1" in the callout (new format without title)
+      const callout = screen.getByTestId("step-output-callout");
+      expect(callout).toHaveTextContent("Step 1");
     });
 
     it("should handle recipe with no dependencies (all independent steps)", async () => {

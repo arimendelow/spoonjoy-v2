@@ -1,15 +1,16 @@
 import type { Route } from "./+types/recipes.$id";
-import { redirect, useLoaderData, Form, useSubmit } from "react-router";
+import { redirect, useLoaderData, useSubmit } from "react-router";
 import { useState } from "react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
-import { Heading, Subheading } from "~/components/ui/heading";
-import { Input } from "~/components/ui/input";
-import { Text, Strong } from "~/components/ui/text";
+import { Heading } from "~/components/ui/heading";
+import { Text } from "~/components/ui/text";
 import { Link } from "~/components/ui/link";
-import { StepOutputUseDisplay } from "~/components/StepOutputUseDisplay";
-import { ConfirmationDialog } from "~/components/confirmation-dialog";
+import { RecipeHeader } from "~/components/recipe/RecipeHeader";
+import { StepCard } from "~/components/recipe/StepCard";
+import type { Ingredient } from "~/components/recipe/IngredientList";
+import type { StepReference } from "~/components/recipe/StepOutputUseCallout";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -108,131 +109,125 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
 export default function RecipeDetail() {
   const { recipe, isOwner } = useLoaderData<typeof loader>();
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const submit = useSubmit();
 
+  // Scale state for recipe scaling
+  const [scaleFactor, setScaleFactor] = useState(1);
+
+  // Track which ingredients have been checked off
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
+
   const handleDeleteConfirm = () => {
-    setShowDeleteDialog(false);
     submit({ intent: "delete" }, { method: "post" });
   };
 
+  const handleIngredientToggle = (id: string) => {
+    const newChecked = new Set(checkedIngredients);
+    if (newChecked.has(id)) {
+      newChecked.delete(id);
+    } else {
+      newChecked.add(id);
+    }
+    setCheckedIngredients(newChecked);
+  };
+
+  const handleStepReferenceClick = (stepNumber: number) => {
+    // Scroll to the referenced step
+    const stepElement = document.getElementById(`step-${stepNumber}`);
+    if (stepElement) {
+      stepElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Transform step data to component format
+  const transformIngredients = (
+    ingredients: Array<{
+      id: string;
+      quantity: number | null;
+      unit: { name: string };
+      ingredientRef: { name: string };
+    }>
+  ): Ingredient[] => {
+    return ingredients.map((ing) => ({
+      id: ing.id,
+      quantity: ing.quantity,
+      unit: ing.unit.name,
+      name: ing.ingredientRef.name,
+    }));
+  };
+
+  const transformStepOutputUses = (
+    usingSteps: Array<{
+      id: string;
+      outputStepNum: number;
+      outputOfStep: { stepNum: number; stepTitle: string | null };
+    }>
+  ): StepReference[] => {
+    return usingSteps.map((use) => ({
+      id: use.id,
+      stepNumber: use.outputOfStep.stepNum,
+      stepTitle: use.outputOfStep.stepTitle,
+    }));
+  };
+
   return (
-    <div className="font-sans leading-relaxed p-8">
-      <div className="max-w-[900px] mx-auto">
-        <div className="mb-8">
-          <Link
-            href="/recipes"
-            className="text-blue-600 no-underline"
-          >
-            ← Back to recipes
-          </Link>
-        </div>
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      {/* Back Link */}
+      <div className="px-4 py-3 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+        <Link href="/recipes" className="text-blue-600 dark:text-blue-400 text-sm hover:underline">
+          ← Back to recipes
+        </Link>
+      </div>
 
-        <div
-          className="w-full h-[300px] bg-gray-100 bg-cover bg-center rounded-lg mb-8"
-          data-image-url={recipe.imageUrl}
-          aria-label={`Image for ${recipe.title}`}
-        />
+      {/* Recipe Header with prominent image */}
+      <RecipeHeader
+        title={recipe.title}
+        description={recipe.description ?? undefined}
+        chefName={recipe.chef.username}
+        imageUrl={recipe.imageUrl ?? undefined}
+        servings={recipe.servings ?? undefined}
+        scaleFactor={scaleFactor}
+        onScaleChange={setScaleFactor}
+        isOwner={isOwner}
+        recipeId={recipe.id}
+        onDelete={handleDeleteConfirm}
+      />
 
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <Heading level={1} className="m-0 mb-2">{recipe.title}</Heading>
-            <Text className="m-0">
-              By <Strong>{recipe.chef.username}</Strong>
-            </Text>
-          </div>
-          {/* istanbul ignore next -- @preserve owner-only UI rendering */}
-          {isOwner && (
-            <div className="flex gap-2">
+      {/* Steps Section */}
+      <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-4xl mx-auto">
+        <Heading level={2} className="text-2xl font-bold mb-6">
+          Steps
+        </Heading>
+
+        {recipe.steps.length === 0 ? (
+          <div className="bg-zinc-100 dark:bg-zinc-800 p-8 rounded-xl text-center">
+            <Text className="mb-4">No steps added yet</Text>
+            {/* istanbul ignore next -- @preserve owner-only UI rendering */}
+            {isOwner && (
               <Button href={`/recipes/${recipe.id}/edit`} color="blue">
-                Edit
+                Add Steps
               </Button>
-              <Button
-                color="red"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                Delete
-              </Button>
-              <ConfirmationDialog
-                open={showDeleteDialog}
-                onClose={() => setShowDeleteDialog(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Banish this recipe?"
-                description={`"${recipe.title}" will be sent to the shadow realm. This cannot be undone!`}
-                confirmLabel="Delete it"
-                cancelLabel="Keep it"
-                destructive
-              />
-            </div>
-          )}
-        </div>
-
-        {recipe.description && (
-          <div className="bg-gray-100 p-6 rounded-lg mb-8">
-            <Text className="m-0">{recipe.description}</Text>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {recipe.steps.map((step) => (
+              <div key={step.id} id={`step-${step.stepNum}`}>
+                <StepCard
+                  stepNumber={step.stepNum}
+                  title={step.stepTitle ?? undefined}
+                  description={step.description}
+                  ingredients={transformIngredients(step.ingredients)}
+                  stepOutputUses={transformStepOutputUses(step.usingSteps ?? [])}
+                  scaleFactor={scaleFactor}
+                  checkedIngredientIds={checkedIngredients}
+                  onIngredientToggle={handleIngredientToggle}
+                  onStepReferenceClick={handleStepReferenceClick}
+                />
+              </div>
+            ))}
           </div>
         )}
-
-        {recipe.servings && (
-          <div className="mb-8">
-            <Text>
-              <Strong>Servings:</Strong> {recipe.servings}
-            </Text>
-          </div>
-        )}
-
-        <div>
-          <Heading level={2}>Steps</Heading>
-          {recipe.steps.length === 0 ? (
-            <div className="bg-gray-100 p-8 rounded-lg text-center">
-              <Text className="mb-4">No steps added yet</Text>
-              {isOwner && (
-                <Button href={`/recipes/${recipe.id}/edit`} color="blue">
-                  Add Steps
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {recipe.steps.map((step) => (
-                <div
-                  key={step.id}
-                  className="bg-white border border-gray-200 rounded-lg p-6"
-                >
-                  <div className="flex gap-4 mb-4">
-                    <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold shrink-0">
-                      {step.stepNum}
-                    </div>
-                    <div className="flex-1">
-                      {step.stepTitle && (
-                        <Subheading level={3} className="m-0 mb-2">{step.stepTitle}</Subheading>
-                      )}
-                    </div>
-                  </div>
-
-                  <StepOutputUseDisplay usingSteps={step.usingSteps ?? []} />
-
-                  <Text className="m-0">{step.description}</Text>
-
-                  {step.ingredients.length > 0 && (
-                    <div className="bg-gray-100 p-4 rounded mt-4">
-                      <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-gray-500">
-                        Ingredients
-                      </Subheading>
-                      <ul className="m-0 pl-6">
-                        {step.ingredients.map((ingredient) => (
-                          <li key={ingredient.id}>
-                            {ingredient.quantity} {ingredient.unit.name} {ingredient.ingredientRef.name}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
