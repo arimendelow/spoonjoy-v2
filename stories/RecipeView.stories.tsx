@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, userEvent, within } from 'storybook/test'
 import { useState } from 'react'
 import { RecipeHeader } from '../app/components/recipe/RecipeHeader'
 import { StepCard } from '../app/components/recipe/StepCard'
 import type { Ingredient } from '../app/components/recipe/IngredientList'
 import type { StepReference } from '../app/components/recipe/StepOutputUseCallout'
+import { SaveToCookbookDropdown, type Cookbook } from '../app/components/recipe/SaveToCookbookDropdown'
 
 /**
  * # RecipeView Walkthrough
@@ -136,6 +137,16 @@ const chocolateChipCookies = {
 }
 
 // =============================================================================
+// MOCK COOKBOOKS DATA
+// =============================================================================
+
+const mockCookbooks: Cookbook[] = [
+  { id: 'cb-1', title: 'Weeknight Dinners' },
+  { id: 'cb-2', title: 'Holiday Favorites' },
+  { id: 'cb-3', title: 'Baking Projects' },
+]
+
+// =============================================================================
 // INTERACTIVE FULL RECIPE VIEW
 // =============================================================================
 
@@ -148,6 +159,8 @@ interface FullRecipeViewProps {
 function FullRecipeView({ recipe, initialScale = 1, isOwner = false }: FullRecipeViewProps) {
   const [scaleFactor, setScaleFactor] = useState(initialScale)
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set())
+  const [checkedStepOutputs, setCheckedStepOutputs] = useState<Set<string>>(new Set())
+  const [savedCookbookIds, setSavedCookbookIds] = useState<Set<string>>(new Set())
 
   const handleIngredientToggle = (id: string) => {
     const newChecked = new Set(checkedIngredients)
@@ -157,6 +170,23 @@ function FullRecipeView({ recipe, initialScale = 1, isOwner = false }: FullRecip
       newChecked.add(id)
     }
     setCheckedIngredients(newChecked)
+  }
+
+  const handleStepOutputToggle = (id: string) => {
+    setCheckedStepOutputs(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleSaveToCookbook = (cookbookId: string) => {
+    setSavedCookbookIds(prev => new Set([...prev, cookbookId]))
+    alert(`Saved to cookbook: ${mockCookbooks.find(c => c.id === cookbookId)?.title}`)
   }
 
   const handleStepReferenceClick = (stepNumber: number) => {
@@ -188,6 +218,21 @@ function FullRecipeView({ recipe, initialScale = 1, isOwner = false }: FullRecip
         isOwner={isOwner}
         recipeId={recipe.recipeId}
         onDelete={() => alert('Delete clicked!')}
+        onShare={() => {
+          if (navigator.share) {
+            navigator.share({ title: recipe.title, url: window.location.href })
+          } else {
+            alert('Share clicked! (Web Share API not available)')
+          }
+        }}
+        renderSaveButton={() => (
+          <SaveToCookbookDropdown
+            cookbooks={mockCookbooks}
+            savedInCookbookIds={savedCookbookIds}
+            onSave={handleSaveToCookbook}
+            onCreateNew={() => alert('Create new cookbook clicked!')}
+          />
+        )}
       />
 
       {/* Steps Section */}
@@ -205,6 +250,8 @@ function FullRecipeView({ recipe, initialScale = 1, isOwner = false }: FullRecip
                 scaleFactor={scaleFactor}
                 checkedIngredientIds={checkedIngredients}
                 onIngredientToggle={handleIngredientToggle}
+                checkedStepOutputIds={checkedStepOutputs}
+                onStepOutputToggle={handleStepOutputToggle}
                 onStepReferenceClick={handleStepReferenceClick}
               />
             </div>
@@ -387,5 +434,78 @@ export const MinimalRecipeMobile: Story = {
   render: () => <FullRecipeView recipe={minimalRecipe} />,
   parameters: {
     viewport: { defaultViewport: 'mobile1' },
+  },
+}
+
+// =============================================================================
+// SHARE/SAVE BUTTON TESTS
+// =============================================================================
+
+/**
+ * ## Share Button Test
+ *
+ * Verify that the share button is visible and clickable.
+ */
+export const ShareButtonTest: Story = {
+  render: () => <FullRecipeView recipe={chocolateChipCookies} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Share button should be visible
+    const shareButton = canvas.getByRole('button', { name: /share/i })
+    await expect(shareButton).toBeInTheDocument()
+    await expect(shareButton).toBeVisible()
+  },
+}
+
+/**
+ * ## Save to Cookbook Test
+ *
+ * Verify that the save dropdown works correctly.
+ */
+export const SaveToCookbookTest: Story = {
+  render: () => <FullRecipeView recipe={chocolateChipCookies} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Save button should be visible
+    const saveButton = canvas.getByRole('button', { name: /save/i })
+    await expect(saveButton).toBeInTheDocument()
+
+    // Click to open dropdown
+    await userEvent.click(saveButton)
+
+    // Cookbooks should be visible in dropdown
+    await expect(canvas.getByText('Weeknight Dinners')).toBeInTheDocument()
+    await expect(canvas.getByText('Holiday Favorites')).toBeInTheDocument()
+    await expect(canvas.getByText('Baking Projects')).toBeInTheDocument()
+  },
+}
+
+/**
+ * ## Step Output Checkbox Test
+ *
+ * Verify that step output items can be checked off.
+ */
+export const StepOutputCheckboxTest: Story = {
+  render: () => <FullRecipeView recipe={chocolateChipCookies} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+
+    // Find step output items (amber-styled items that reference previous steps)
+    // Step 2 has a step output use (reference to step 1)
+    const stepOutputItems = canvas.getAllByText(/from step/i)
+    await expect(stepOutputItems.length).toBeGreaterThan(0)
+
+    // The checkboxes in step output section should be interactive
+    const checkboxes = canvas.getAllByRole('checkbox')
+    const initialCount = checkboxes.filter(cb => (cb as HTMLInputElement).checked).length
+
+    // Click first unchecked checkbox
+    const uncheckedBox = checkboxes.find(cb => !(cb as HTMLInputElement).checked)
+    if (uncheckedBox) {
+      await userEvent.click(uncheckedBox)
+      await expect(uncheckedBox).toBeChecked()
+    }
   },
 }
