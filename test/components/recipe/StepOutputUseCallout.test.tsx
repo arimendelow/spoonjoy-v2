@@ -172,6 +172,132 @@ describe('StepOutputUseCallout', () => {
     })
   })
 
+  describe('checkable behavior', () => {
+    it('renders checkboxes when onToggle provided', () => {
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 2, stepTitle: 'Make sauce' }]}
+          onToggle={vi.fn()}
+          checkedIds={new Set()}
+        />
+      )
+      expect(screen.getByRole('checkbox')).toBeInTheDocument()
+    })
+
+    it('does not render checkboxes when showCheckboxes is false', () => {
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 2, stepTitle: 'Make sauce' }]}
+          onToggle={vi.fn()}
+          checkedIds={new Set()}
+          showCheckboxes={false}
+        />
+      )
+      expect(screen.queryByRole('checkbox')).toBeNull()
+    })
+
+    it('does not render checkboxes when onToggle not provided', () => {
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 2, stepTitle: 'Make sauce' }]}
+          checkedIds={new Set()}
+        />
+      )
+      expect(screen.queryByRole('checkbox')).toBeNull()
+    })
+
+    it('toggles checkbox when clicked', async () => {
+      const onToggle = vi.fn()
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 2, stepTitle: 'Make sauce' }]}
+          onToggle={onToggle}
+          checkedIds={new Set()}
+        />
+      )
+
+      const checkbox = screen.getByRole('checkbox')
+      await userEvent.click(checkbox)
+      expect(onToggle).toHaveBeenCalledWith('1')
+    })
+
+    it('toggles checkbox when text is clicked', async () => {
+      const onToggle = vi.fn()
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 2, stepTitle: 'Make sauce' }]}
+          onToggle={onToggle}
+          checkedIds={new Set()}
+        />
+      )
+
+      const text = screen.getByText(/Make sauce/)
+      await userEvent.click(text)
+      expect(onToggle).toHaveBeenCalledWith('1')
+    })
+
+    it('renders checked state from checkedIds', () => {
+      render(
+        <StepOutputUseCallout
+          references={[
+            { id: '1', stepNumber: 2, stepTitle: 'First' },
+            { id: '2', stepNumber: 3, stepTitle: 'Second' },
+          ]}
+          onToggle={vi.fn()}
+          checkedIds={new Set(['1'])}
+        />
+      )
+
+      const checkboxes = screen.getAllByRole('checkbox')
+      expect(checkboxes[0]).toBeChecked()
+      expect(checkboxes[1]).not.toBeChecked()
+    })
+
+    it('applies visual distinction to checked items', () => {
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 2, stepTitle: 'Make sauce' }]}
+          onToggle={vi.fn()}
+          checkedIds={new Set(['1'])}
+        />
+      )
+
+      // Should have strikethrough or muted styling
+      const mutedElements = document.querySelectorAll('.line-through, .text-zinc-500')
+      expect(mutedElements.length).toBeGreaterThan(0)
+    })
+
+    it('calls onToggle with correct id for multiple references', async () => {
+      const onToggle = vi.fn()
+      render(
+        <StepOutputUseCallout
+          references={[
+            { id: 'ref-a', stepNumber: 1, stepTitle: 'First' },
+            { id: 'ref-b', stepNumber: 2, stepTitle: 'Second' },
+            { id: 'ref-c', stepNumber: 3, stepTitle: 'Third' },
+          ]}
+          onToggle={onToggle}
+          checkedIds={new Set()}
+        />
+      )
+
+      const checkboxes = screen.getAllByRole('checkbox')
+      await userEvent.click(checkboxes[1])
+      expect(onToggle).toHaveBeenCalledWith('ref-b')
+    })
+
+    it('still returns null for empty references with checkable props', () => {
+      render(
+        <StepOutputUseCallout
+          references={[]}
+          onToggle={vi.fn()}
+          checkedIds={new Set()}
+        />
+      )
+      expect(screen.queryByTestId('step-output-callout')).toBeNull()
+    })
+  })
+
   describe('accessibility', () => {
     it('has testid for testing', () => {
       render(
