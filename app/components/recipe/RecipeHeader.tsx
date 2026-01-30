@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ImageOff, Pencil, Trash2 } from 'lucide-react'
+import { ImageOff, Pencil, Share2, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Heading } from '../ui/heading'
 import { Text, Strong } from '../ui/text'
@@ -28,6 +28,8 @@ export interface RecipeHeaderProps {
   recipeId: string
   /** Callback when delete is confirmed */
   onDelete?: () => void
+  /** Callback when share is clicked */
+  onShare?: () => void
 }
 
 /**
@@ -50,6 +52,7 @@ export function RecipeHeader({
   isOwner,
   recipeId,
   onDelete,
+  onShare,
 }: RecipeHeaderProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
@@ -91,7 +94,7 @@ export function RecipeHeader({
 
       {/* Content Section */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-4xl mx-auto">
-        {/* Title and Owner Actions Row */}
+        {/* Title and Actions Row */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
           <div className="flex-1 min-w-0">
             <Heading level={1} className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight break-words">
@@ -102,37 +105,53 @@ export function RecipeHeader({
             </Text>
           </div>
 
-          {/* Owner Actions */}
-          {isOwner && (
-            <div className="flex gap-2 shrink-0">
+          {/* Action Buttons */}
+          <div className="flex gap-2 shrink-0">
+            {/* Share button - visible for all users */}
+            {onShare && (
               <Button
-                href={`/recipes/${recipeId}/edit`}
-                color="blue"
+                outline
+                onClick={onShare}
                 className="flex items-center gap-1.5"
+                aria-label="Share recipe"
               >
-                <Pencil className="w-4 h-4" aria-hidden="true" />
-                Edit
+                <Share2 className="w-4 h-4" aria-hidden="true" />
+                Share
               </Button>
-              <Button
-                color="red"
-                onClick={() => setShowDeleteDialog(true)}
-                className="flex items-center gap-1.5"
-              >
-                <Trash2 className="w-4 h-4" aria-hidden="true" />
-                Delete
-              </Button>
-              <ConfirmationDialog
-                open={showDeleteDialog}
-                onClose={() => setShowDeleteDialog(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Banish this recipe?"
-                description={`"${title}" will be sent to the shadow realm. This cannot be undone!`}
-                confirmLabel="Delete it"
-                cancelLabel="Keep it"
-                destructive
-              />
-            </div>
-          )}
+            )}
+
+            {/* Owner-only actions */}
+            {isOwner && (
+              <>
+                <Button
+                  href={`/recipes/${recipeId}/edit`}
+                  color="blue"
+                  className="flex items-center gap-1.5"
+                >
+                  <Pencil className="w-4 h-4" aria-hidden="true" />
+                  Edit
+                </Button>
+                <Button
+                  color="red"
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
+                  Delete
+                </Button>
+                <ConfirmationDialog
+                  open={showDeleteDialog}
+                  onClose={() => setShowDeleteDialog(false)}
+                  onConfirm={handleDeleteConfirm}
+                  title="Banish this recipe?"
+                  description={`"${title}" will be sent to the shadow realm. This cannot be undone!`}
+                  confirmLabel="Delete it"
+                  cancelLabel="Keep it"
+                  destructive
+                />
+              </>
+            )}
+          </div>
         </div>
 
         {/* Description */}

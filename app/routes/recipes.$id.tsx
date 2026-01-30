@@ -12,6 +12,7 @@ import { RecipeHeader } from "~/components/recipe/RecipeHeader";
 import { StepCard } from "~/components/recipe/StepCard";
 import type { Ingredient } from "~/components/recipe/IngredientList";
 import type { StepReference } from "~/components/recipe/StepOutputUseCallout";
+import { shareContent } from "~/components/navigation/quick-actions";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -212,6 +213,24 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleShare = async () => {
+    /* istanbul ignore next -- @preserve browser share API */
+    const result = await shareContent({
+      title: recipe.title,
+      text: recipe.description ?? `Check out this recipe: ${recipe.title}`,
+      url: typeof window !== "undefined" ? window.location.href : `/recipes/${recipe.id}`,
+    });
+
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("recipe_shared", {
+        recipe_id: recipe.id,
+        share_method: result.method,
+        share_success: result.success,
+      });
+    }
+  };
+
   /* istanbul ignore next -- @preserve browser scroll navigation */
   const handleStepReferenceClick = (stepNumber: number) => {
     // Scroll to the referenced step
@@ -273,6 +292,7 @@ export default function RecipeDetail() {
         isOwner={isOwner}
         recipeId={recipe.id}
         onDelete={handleDeleteConfirm}
+        onShare={handleShare}
       />
 
       {/* Steps Section */}
