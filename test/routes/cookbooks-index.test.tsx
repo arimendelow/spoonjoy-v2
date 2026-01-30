@@ -308,7 +308,7 @@ describe("Cookbooks Index Route", () => {
       expect(cookbookLink).toHaveAttribute("href", "/cookbooks/cookbook-123");
     });
 
-    it("should handle mouse hover events on cookbook cards", async () => {
+    it("should have hover styles on cookbook cards via Tailwind classes", async () => {
       const mockCookbooks = [
         {
           id: "cookbook-1",
@@ -329,13 +329,8 @@ describe("Cookbooks Index Route", () => {
 
       const cookbookLink = await screen.findByRole("link", { name: /Hover Test Cookbook/ });
 
-      // Test mouseEnter event
-      fireEvent.mouseEnter(cookbookLink);
-      expect(cookbookLink.style.boxShadow).toBe("0 4px 8px rgba(0,102,204,0.2)");
-
-      // Test mouseLeave event
-      fireEvent.mouseLeave(cookbookLink);
-      expect(cookbookLink.style.boxShadow).toBe("none");
+      // Verify hover:shadow-lg class is present (Tailwind handles the hover effect)
+      expect(cookbookLink.className).toContain("hover:shadow-lg");
     });
   });
 });

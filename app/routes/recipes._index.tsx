@@ -1,10 +1,11 @@
 import type { Route } from "./+types/recipes._index";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
+import { Link } from "~/components/ui/link";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -74,8 +75,8 @@ export default function RecipesList() {
             {recipes.map((recipe) => (
               <Link
                 key={recipe.id}
-                to={`/recipes/${recipe.id}`}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden no-underline text-inherit transition-shadow duration-200 hover:shadow-lg"
+                href={`/recipes/${recipe.id}`}
+                className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden no-underline text-inherit transition-shadow duration-200 hover:shadow-lg block"
               >
                 <div
                   className="w-full h-[200px] bg-gray-100 bg-cover bg-center"

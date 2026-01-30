@@ -7,17 +7,187 @@ import {
   ScrollRestoration,
   useLoaderData,
   Form,
-  Link,
+  useLocation,
 } from "react-router";
 import { getUserId } from "~/lib/session.server";
 import { ThemeProvider } from "~/components/ui/theme-provider";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
 import { MobileNav } from "~/components/navigation";
+import { StackedLayout } from "~/components/ui/stacked-layout";
+import {
+  Navbar,
+  NavbarSection,
+  NavbarItem,
+  NavbarLabel,
+  NavbarSpacer,
+  NavbarDivider,
+} from "~/components/ui/navbar";
+import {
+  Sidebar,
+  SidebarBody,
+  SidebarHeader,
+  SidebarSection,
+  SidebarItem,
+  SidebarLabel,
+  SidebarFooter,
+} from "~/components/ui/sidebar";
+import { Button } from "~/components/ui/button";
+import { SpoonjoyLogo } from "~/components/ui/spoonjoy-logo";
+import { BookOpen, Book, ShoppingCart, User, Home, Settings, LogOut } from "lucide-react";
 import "./styles/tailwind.css";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const userId = await getUserId(request);
   return { userId };
+}
+
+/**
+ * Determine which nav item is active based on current path
+ */
+function getActiveNav(pathname: string): string | null {
+  if (pathname === "/" || pathname === "") return "home";
+  if (pathname.startsWith("/recipes")) return "recipes";
+  if (pathname.startsWith("/cookbooks")) return "cookbooks";
+  if (pathname.startsWith("/shopping-list")) return "shopping";
+  if (pathname.startsWith("/account")) return "account";
+  return null;
+}
+
+/**
+ * Desktop Navbar component - shown in StackedLayout header
+ */
+function AppNavbar({ userId }: { userId: string | null }) {
+  const location = useLocation();
+  const currentNav = getActiveNav(location.pathname);
+
+  return (
+    <Navbar>
+      <NavbarSection>
+        <NavbarItem href="/" current={currentNav === "home"}>
+          <SpoonjoyLogo />
+          <NavbarLabel className="font-semibold">Spoonjoy</NavbarLabel>
+        </NavbarItem>
+      </NavbarSection>
+      <NavbarDivider />
+      {userId ? (
+        <>
+          <NavbarSection>
+            <NavbarItem href="/recipes" current={currentNav === "recipes"}>
+              <BookOpen data-slot="icon" />
+              <NavbarLabel>Recipes</NavbarLabel>
+            </NavbarItem>
+            <NavbarItem href="/cookbooks" current={currentNav === "cookbooks"}>
+              <Book data-slot="icon" />
+              <NavbarLabel>Cookbooks</NavbarLabel>
+            </NavbarItem>
+            <NavbarItem href="/shopping-list" current={currentNav === "shopping"}>
+              <ShoppingCart data-slot="icon" />
+              <NavbarLabel>Shopping List</NavbarLabel>
+            </NavbarItem>
+          </NavbarSection>
+          <NavbarSpacer />
+          <NavbarSection>
+            <ThemeToggle />
+            <NavbarItem href="/account/settings" current={currentNav === "account"}>
+              <User data-slot="icon" />
+            </NavbarItem>
+            <Form method="post" action="/logout" className="m-0">
+              <Button type="submit" color="red">
+                <LogOut data-slot="icon" />
+                Logout
+              </Button>
+            </Form>
+          </NavbarSection>
+        </>
+      ) : (
+        <>
+          <NavbarSpacer />
+          <NavbarSection>
+            <ThemeToggle />
+            <NavbarItem href="/login">
+              <NavbarLabel>Login</NavbarLabel>
+            </NavbarItem>
+            <Button href="/signup" color="blue">
+              Sign Up
+            </Button>
+          </NavbarSection>
+        </>
+      )}
+    </Navbar>
+  );
+}
+
+/**
+ * Mobile Sidebar component - shown when hamburger menu is clicked
+ */
+function AppSidebar({ userId }: { userId: string | null }) {
+  const location = useLocation();
+  const currentNav = getActiveNav(location.pathname);
+
+  return (
+    <Sidebar>
+      <SidebarHeader>
+        <SidebarItem href="/">
+          <SpoonjoyLogo />
+          <SidebarLabel>Spoonjoy</SidebarLabel>
+        </SidebarItem>
+      </SidebarHeader>
+      <SidebarBody>
+        {userId ? (
+          <SidebarSection>
+            <SidebarItem href="/" current={currentNav === "home"}>
+              <Home data-slot="icon" />
+              <SidebarLabel>Home</SidebarLabel>
+            </SidebarItem>
+            <SidebarItem href="/recipes" current={currentNav === "recipes"}>
+              <BookOpen data-slot="icon" />
+              <SidebarLabel>Recipes</SidebarLabel>
+            </SidebarItem>
+            <SidebarItem href="/cookbooks" current={currentNav === "cookbooks"}>
+              <Book data-slot="icon" />
+              <SidebarLabel>Cookbooks</SidebarLabel>
+            </SidebarItem>
+            <SidebarItem href="/shopping-list" current={currentNav === "shopping"}>
+              <ShoppingCart data-slot="icon" />
+              <SidebarLabel>Shopping List</SidebarLabel>
+            </SidebarItem>
+          </SidebarSection>
+        ) : (
+          <SidebarSection>
+            <SidebarItem href="/" current={currentNav === "home"}>
+              <Home data-slot="icon" />
+              <SidebarLabel>Home</SidebarLabel>
+            </SidebarItem>
+            <SidebarItem href="/login">
+              <User data-slot="icon" />
+              <SidebarLabel>Login</SidebarLabel>
+            </SidebarItem>
+          </SidebarSection>
+        )}
+      </SidebarBody>
+      <SidebarFooter>
+        {userId ? (
+          <>
+            <SidebarItem href="/account/settings" current={currentNav === "account"}>
+              <Settings data-slot="icon" />
+              <SidebarLabel>Settings</SidebarLabel>
+            </SidebarItem>
+            <Form method="post" action="/logout" className="w-full">
+              <Button type="submit" color="red" className="w-full justify-start">
+                <LogOut data-slot="icon" />
+                Logout
+              </Button>
+            </Form>
+          </>
+        ) : (
+          <SidebarItem href="/signup">
+            <User data-slot="icon" />
+            <SidebarLabel>Sign Up</SidebarLabel>
+          </SidebarItem>
+        )}
+      </SidebarFooter>
+    </Sidebar>
+  );
 }
 
 export default function App() {
@@ -36,8 +206,8 @@ export default function App() {
             __html: `
               (function() {
                 const stored = localStorage.getItem('spoonjoy-theme');
-                const theme = stored === 'light' || stored === 'dark' 
-                  ? stored 
+                const theme = stored === 'light' || stored === 'dark'
+                  ? stored
                   : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.classList.add(theme);
               })();
@@ -45,72 +215,17 @@ export default function App() {
           }}
         />
       </head>
-      <body className="m-0 p-0 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors">
+      <body className="m-0 p-0">
         <ThemeProvider>
-          {/* Desktop navigation - hidden on mobile */}
-          <nav className="hidden lg:flex bg-zinc-800 dark:bg-zinc-950 text-white px-8 py-4 justify-between items-center">
-            <Link
-              to="/"
-              className="text-white no-underline text-2xl font-bold hover:text-zinc-200 transition-colors"
-            >
-              Spoonjoy
-            </Link>
-            <div className="flex gap-6 items-center">
-              {userId ? (
-                <>
-                  <Link
-                    to="/recipes"
-                    className="text-white no-underline hover:text-zinc-300 transition-colors"
-                  >
-                    Recipes
-                  </Link>
-                  <Link
-                    to="/cookbooks"
-                    className="text-white no-underline hover:text-zinc-300 transition-colors"
-                  >
-                    Cookbooks
-                  </Link>
-                  <Link
-                    to="/"
-                    className="text-white no-underline hover:text-zinc-300 transition-colors"
-                  >
-                    Shopping List
-                  </Link>
-                  <div className="flex items-center gap-4">
-                    <ThemeToggle />
-                    <Form method="post" action="/logout" className="m-0">
-                      <button
-                        type="submit"
-                        className="bg-red-600 hover:bg-red-700 text-white border-none px-4 py-2 rounded cursor-pointer transition-colors"
-                      >
-                        Logout
-                      </button>
-                    </Form>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <ThemeToggle />
-                  <Link
-                    to="/login"
-                    className="text-white no-underline hover:text-zinc-300 transition-colors"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    to="/signup"
-                    className="bg-blue-600 hover:bg-blue-700 text-white no-underline px-4 py-2 rounded transition-colors"
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
+          <StackedLayout
+            navbar={<AppNavbar userId={userId} />}
+            sidebar={<AppSidebar userId={userId} />}
+          >
+            {/* Main content with bottom padding for mobile dock */}
+            <div className="pb-20 lg:pb-0">
+              <Outlet />
             </div>
-          </nav>
-          {/* Main content with bottom padding for mobile dock */}
-          <main className="pb-20 lg:pb-0">
-            <Outlet />
-          </main>
+          </StackedLayout>
           {/* Mobile navigation dock - only for authenticated users */}
           {userId && <MobileNav />}
         </ThemeProvider>
