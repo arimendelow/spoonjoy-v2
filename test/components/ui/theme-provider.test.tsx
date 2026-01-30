@@ -174,11 +174,60 @@ describe('ThemeProvider', () => {
 
   it('throws error when useTheme is used outside provider', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    
+
     expect(() => {
       render(<TestConsumer />)
     }).toThrow('useTheme must be used within a ThemeProvider')
 
     consoleError.mockRestore()
+  })
+
+  it('responds to system theme changes when theme is system', async () => {
+    // Create a mock that captures the event listener
+    let changeHandler: ((e: { matches: boolean }) => void) | null = null
+    const mockMediaQueryList = {
+      matches: false,
+      media: '(prefers-color-scheme: dark)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn((event: string, handler: (e: { matches: boolean }) => void) => {
+        if (event === 'change') {
+          changeHandler = handler
+        }
+      }),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }
+
+    Object.defineProperty(window, 'matchMedia', {
+      value: vi.fn().mockReturnValue(mockMediaQueryList),
+      configurable: true,
+    })
+
+    // Start with system theme (light system)
+    localStorageMock.getItem.mockReturnValue('system')
+
+    render(
+      <ThemeProvider>
+        <TestConsumer />
+      </ThemeProvider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('theme')).toHaveTextContent('system')
+      expect(screen.getByTestId('resolved')).toHaveTextContent('light')
+    })
+
+    // Simulate system switching to dark
+    mockMediaQueryList.matches = true
+    if (changeHandler) {
+      changeHandler({ matches: true })
+    }
+
+    await waitFor(() => {
+      expect(screen.getByTestId('resolved')).toHaveTextContent('dark')
+      expect(document.documentElement.classList.contains('dark')).toBe(true)
+    })
   })
 })

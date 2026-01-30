@@ -97,6 +97,18 @@ describe('Quick Actions', () => {
       expect(result.success).toBe(false)
     })
 
+    it('handles missing clipboard API', async () => {
+      vi.stubGlobal('navigator', {
+        share: undefined,
+        clipboard: undefined,
+      })
+
+      const result = await shareContent(shareOptions)
+
+      expect(result.success).toBe(false)
+      expect(result.method).toBe('clipboard')
+    })
+
     it('shares with minimal options (title and url only)', async () => {
       const mockShare = vi.fn().mockResolvedValue(undefined)
       vi.stubGlobal('navigator', {

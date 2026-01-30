@@ -3023,5 +3023,200 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         expect(deletionAlert).toBeUndefined();
       });
     });
+
+    describe("delete step dialog", () => {
+      it("should open delete step dialog and allow confirmation", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: "Step to Delete",
+            description: "Step description",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => null,
+          },
+          {
+            path: "/recipes/:id/edit",
+            Component: () => <div>Recipe Edit Page</div>,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click delete button
+        const deleteButton = await screen.findByRole("button", { name: "Delete Step" });
+        fireEvent.click(deleteButton);
+
+        // Dialog should be open
+        expect(await screen.findByText("Delete this step? 🗑️")).toBeInTheDocument();
+        expect(screen.getByText(/This step and all its ingredients/)).toBeInTheDocument();
+
+        // Click confirm button
+        const confirmButton = screen.getByRole("button", { name: "Delete it" });
+        fireEvent.click(confirmButton);
+
+        // Dialog should close (may need to wait for animation)
+        await waitFor(() => {
+          expect(screen.queryByText("Delete this step? 🗑️")).not.toBeInTheDocument();
+        });
+      });
+
+      it("should close delete step dialog when clicking cancel", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: "Keep This Step",
+            description: "Step description",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click delete button
+        const deleteButton = await screen.findByRole("button", { name: "Delete Step" });
+        fireEvent.click(deleteButton);
+
+        // Click cancel
+        const cancelButton = screen.getByRole("button", { name: "Keep it" });
+        fireEvent.click(cancelButton);
+
+        // Dialog should close (may need to wait for animation)
+        await waitFor(() => {
+          expect(screen.queryByText("Delete this step? 🗑️")).not.toBeInTheDocument();
+        });
+      });
+    });
+
+    describe("remove ingredient dialog", () => {
+      it("should open remove ingredient dialog and allow confirmation", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "Step with ingredient",
+            ingredients: [
+              {
+                id: "ing-1",
+                quantity: 2,
+                unit: { name: "cups" },
+                ingredientRef: { name: "flour" },
+              },
+            ],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => ({ success: true }),
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click remove button
+        const removeButton = await screen.findByRole("button", { name: "Remove" });
+        fireEvent.click(removeButton);
+
+        // Dialog should be open
+        expect(await screen.findByText("Remove this ingredient? 🥕")).toBeInTheDocument();
+
+        // Click confirm button
+        const confirmButton = screen.getByRole("button", { name: "Remove it" });
+        fireEvent.click(confirmButton);
+
+        // Dialog should close after submission (may need to wait for animation)
+        await waitFor(() => {
+          expect(screen.queryByText("Remove this ingredient? 🥕")).not.toBeInTheDocument();
+        });
+      });
+
+      it("should close remove ingredient dialog when clicking cancel", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "Step with ingredient",
+            ingredients: [
+              {
+                id: "ing-1",
+                quantity: 2,
+                unit: { name: "cups" },
+                ingredientRef: { name: "flour" },
+              },
+            ],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click remove button
+        const removeButton = await screen.findByRole("button", { name: "Remove" });
+        fireEvent.click(removeButton);
+
+        // Click cancel
+        const cancelButton = screen.getByRole("button", { name: "Keep it" });
+        fireEvent.click(cancelButton);
+
+        // Dialog should close (may need to wait for animation)
+        await waitFor(() => {
+          expect(screen.queryByText("Remove this ingredient? 🥕")).not.toBeInTheDocument();
+        });
+      });
+    });
   });
 });

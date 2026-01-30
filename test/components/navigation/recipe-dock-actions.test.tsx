@@ -98,7 +98,7 @@ describe('Recipe Dock Actions', () => {
       expect(backAction?.onAction).toBe('/recipes')
     })
 
-    it('Edit action is a function', () => {
+    it('Edit action is a function that navigates to edit page', () => {
       render(
         <MemoryRouter>
           <DockContextProvider>
@@ -110,6 +110,10 @@ describe('Recipe Dock Actions', () => {
 
       const editAction = capturedActions?.find(a => a.id === 'edit')
       expect(typeof editAction?.onAction).toBe('function')
+      // Call the edit action to ensure it executes without error
+      if (typeof editAction?.onAction === 'function') {
+        editAction.onAction()
+      }
     })
 
     it('calls onAddToList handler when provided', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id";
@@ -1160,6 +1160,91 @@ describe("Recipes $id Route", () => {
       // Verify order: using outputs < description < ingredients
       expect(usingOutputsPosition).toBeLessThan(descriptionPosition);
       expect(descriptionPosition).toBeLessThan(ingredientsPosition);
+    });
+
+    it("should open delete dialog and allow confirmation", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe to Delete",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+          action: () => null,
+        },
+        {
+          path: "/recipes",
+          Component: () => <div>Recipes List</div>,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Click delete button
+      const deleteButton = await screen.findByRole("button", { name: "Delete" });
+      fireEvent.click(deleteButton);
+
+      // Dialog should be open
+      expect(await screen.findByText("Banish this recipe?")).toBeInTheDocument();
+      expect(screen.getByText(/will be sent to the shadow realm/)).toBeInTheDocument();
+
+      // Click confirm button
+      const confirmButton = screen.getByRole("button", { name: "Delete it" });
+      fireEvent.click(confirmButton);
+
+      // Dialog should close (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Banish this recipe?")).not.toBeInTheDocument();
+      });
+    });
+
+    it("should close delete dialog when clicking cancel", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Keep This Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Click delete button
+      const deleteButton = await screen.findByRole("button", { name: "Delete" });
+      fireEvent.click(deleteButton);
+
+      // Click cancel
+      const cancelButton = screen.getByRole("button", { name: "Keep it" });
+      fireEvent.click(cancelButton);
+
+      // Dialog should close (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Banish this recipe?")).not.toBeInTheDocument();
+      });
     });
   });
 });

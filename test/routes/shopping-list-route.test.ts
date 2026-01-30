@@ -1148,6 +1148,53 @@ describe("Shopping List Route", () => {
     });
   });
 
+  describe("action - unknown intent", () => {
+    async function createFormRequest(
+      formFields: Record<string, string>,
+      userId?: string
+    ): Promise<UndiciRequest> {
+      const formData = new UndiciFormData();
+      for (const [key, value] of Object.entries(formFields)) {
+        formData.append(key, value);
+      }
+
+      const headers = new Headers();
+
+      if (userId) {
+        const session = await sessionStorage.getSession();
+        session.set("userId", userId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+        headers.set("Cookie", cookieValue);
+      }
+
+      return new UndiciRequest("http://localhost:3000/shopping-list", {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+    }
+
+    it("should return null for unknown intent", async () => {
+      await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const request = await createFormRequest(
+        { intent: "unknownIntent" },
+        testUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("action - creates shopping list if not exists", () => {
     async function createFormRequest(
       formFields: Record<string, string>,

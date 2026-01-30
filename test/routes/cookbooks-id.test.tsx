@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/cookbooks.$id";
@@ -996,6 +996,185 @@ describe("Cookbooks $id Route", () => {
       expect(await screen.findByRole("heading", { name: "My Cookbook" })).toBeInTheDocument();
       // But Edit Title button should be visible
       expect(screen.getByRole("button", { name: "Edit Title" })).toBeInTheDocument();
+    });
+
+    it("should open delete cookbook dialog and allow confirmation", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Delete Me",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+          action: () => null,
+        },
+        {
+          path: "/cookbooks",
+          Component: () => <div>Cookbooks List</div>,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      // Click delete button
+      const deleteButton = await screen.findByRole("button", { name: "Delete Cookbook" });
+      fireEvent.click(deleteButton);
+
+      // Dialog should be open
+      expect(await screen.findByText("Banish this cookbook? 📚")).toBeInTheDocument();
+      expect(screen.getByText(/This will permanently delete/)).toBeInTheDocument();
+
+      // Click confirm button
+      const confirmButton = screen.getByRole("button", { name: "Delete it" });
+      fireEvent.click(confirmButton);
+
+      // Dialog should close (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Banish this cookbook? 📚")).not.toBeInTheDocument();
+      });
+    });
+
+    it("should close delete dialog when clicking cancel", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "Keep Me",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      // Click delete button
+      const deleteButton = await screen.findByRole("button", { name: "Delete Cookbook" });
+      fireEvent.click(deleteButton);
+
+      // Click cancel
+      const cancelButton = screen.getByRole("button", { name: "Keep it" });
+      fireEvent.click(cancelButton);
+
+      // Dialog should close (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Banish this cookbook? 📚")).not.toBeInTheDocument();
+      });
+    });
+
+    it("should open remove recipe dialog and allow confirmation", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "My Cookbook",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [
+            {
+              id: "ric-1",
+              recipe: {
+                id: "recipe-1",
+                title: "Recipe to Remove",
+                description: null,
+                imageUrl: null,
+                chef: { username: "testchef" },
+              },
+            },
+          ],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+          action: () => ({ success: true }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      // Click remove button
+      const removeButton = await screen.findByRole("button", { name: "Remove from Cookbook" });
+      fireEvent.click(removeButton);
+
+      // Dialog should be open
+      expect(await screen.findByText("Remove from cookbook? 🍳")).toBeInTheDocument();
+
+      // Click confirm button
+      const confirmButton = screen.getByRole("button", { name: "Remove it" });
+      fireEvent.click(confirmButton);
+
+      // Dialog should close after submission (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Remove from cookbook? 🍳")).not.toBeInTheDocument();
+      });
+    });
+
+    it("should close remove recipe dialog when clicking cancel", async () => {
+      const mockData = {
+        cookbook: {
+          id: "cookbook-1",
+          title: "My Cookbook",
+          author: { id: "user-1", username: "testchef" },
+          recipes: [
+            {
+              id: "ric-1",
+              recipe: {
+                id: "recipe-1",
+                title: "Recipe to Keep",
+                description: null,
+                imageUrl: null,
+                chef: { username: "testchef" },
+              },
+            },
+          ],
+        },
+        isOwner: true,
+        availableRecipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/cookbooks/:id",
+          Component: CookbookDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
+
+      // Click remove button
+      const removeButton = await screen.findByRole("button", { name: "Remove from Cookbook" });
+      fireEvent.click(removeButton);
+
+      // Click cancel
+      const cancelButton = screen.getByRole("button", { name: "Keep it" });
+      fireEvent.click(cancelButton);
+
+      // Dialog should close (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Remove from cookbook? 🍳")).not.toBeInTheDocument();
+      });
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import ShoppingList from "~/routes/shopping-list";
@@ -942,6 +942,95 @@ describe("Shopping List Routes", () => {
       // Button-style toggles with aria-label are acceptable
       const toggleButton = screen.getByRole("button", { name: "Check item" });
       expect(toggleButton).toBeInTheDocument();
+    });
+  });
+
+  describe("Clear All dialog", () => {
+    it("should open clear all dialog and allow confirmation", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "flour" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+          action: () => ({ success: true }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Click clear all button
+      const clearAllButton = await screen.findByRole("button", { name: "Clear All" });
+      fireEvent.click(clearAllButton);
+
+      // Dialog should be open
+      expect(await screen.findByText("Start fresh?")).toBeInTheDocument();
+      expect(screen.getByText(/All items will be cleared/)).toBeInTheDocument();
+
+      // Click confirm button
+      const confirmButton = screen.getByRole("button", { name: "Clear it all" });
+      fireEvent.click(confirmButton);
+
+      // Dialog should close after submission (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Start fresh?")).not.toBeInTheDocument();
+      });
+    });
+
+    it("should close clear all dialog when clicking cancel", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "flour" },
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      // Click clear all button
+      const clearAllButton = await screen.findByRole("button", { name: "Clear All" });
+      fireEvent.click(clearAllButton);
+
+      // Click cancel
+      const cancelButton = screen.getByRole("button", { name: "Keep my stuff" });
+      fireEvent.click(cancelButton);
+
+      // Dialog should close (may need to wait for animation)
+      await waitFor(() => {
+        expect(screen.queryByText("Start fresh?")).not.toBeInTheDocument();
+      });
     });
   });
 });
