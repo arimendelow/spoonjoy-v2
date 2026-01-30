@@ -44,7 +44,112 @@ const ParsedIngredientsResponseSchema = z.object({
 
 ---
 
+## Unit 1b: LLM Integration Implementation
+
+### Implementation Summary
+- Added OpenAI SDK (`openai` npm package)
+- Implemented `parseIngredients` function using gpt-4o-mini with structured outputs
+- Uses JSON schema response format for guaranteed structure
+- System prompt handles: fractions, unit normalization, compound ingredients, prep notes
+
+### Key Files Modified
+- `app/lib/ingredient-parse.server.ts` - Full implementation
+- `package.json` - Added openai dependency
+- `test/lib/ingredient-parse.server.test.ts` - Fixed mock to use class pattern for vitest
+
+### Mock Fix
+Original mock used `vi.fn().mockImplementation(() => ({...}))` which doesn't work with `new` operator.
+Fixed to use class pattern:
+```typescript
+vi.mock('openai', () => {
+  return {
+    default: class MockOpenAI {
+      chat = { completions: { create: mockCreate } }
+    },
+  }
+})
+```
+
+---
+
 ## Progress Log
 
 ### 2026-01-30 - Unit 1a Started
 Writing failing tests for ingredient parsing LLM integration.
+
+### 2026-01-30 - Unit 1b Complete
+Implemented OpenAI ingredient parsing with gpt-4o-mini structured outputs. All 55 tests passing, 100% coverage.
+
+### 2026-01-30 - Unit 1c Complete (Work Check)
+Verified ingredient parsing implementation completeness:
+- ✅ All 2601 tests passing (55 specific to ingredient parsing)
+- ✅ 100% coverage maintained
+- ✅ No warnings
+- ✅ Build passes
+
+**Zod Schema Edge Cases Verified:**
+- Positive quantity validation (rejects 0 and negative)
+- Non-empty unit and ingredient name validation
+- Decimal quantities supported (0.5, 0.125, etc.)
+- Empty response array allowed (for empty/whitespace input)
+
+**Error Handling Verified:**
+- Missing API key throws IngredientParseError
+- API request failures wrapped in IngredientParseError with cause
+- Invalid JSON response handled
+- Schema validation failures handled
+- Empty choices array handled
+- Null content handled
+- Rate limit errors (429) handled
+- Authentication errors (401) handled
+
+**No fixes needed** - implementation is complete and all acceptance criteria met.
+
+---
+
+## Unit 2a: Parse Route Action Tests
+
+### Test File
+`test/routes/recipes-step-edit-parse-action.test.ts`
+
+### Test Categories
+1. **Successful parsing** (4 tests)
+   - Single ingredient text → returns structured data
+   - Multiple ingredients from multi-line text
+   - Empty input → returns empty array
+   - Whitespace-only input → returns empty array
+
+2. **Error handling** (4 tests)
+   - LLM parsing failure → returns 400 with parse error
+   - Missing API key → returns 400 with parse error
+   - Rate limited → returns 400 with parse error
+   - Unexpected error → returns 500 with parse error
+
+3. **Authentication and authorization** (6 tests)
+   - Requires authentication (throws on unauthenticated)
+   - Rejects for non-owner
+   - Rejects for deleted recipe
+   - Rejects for non-existent recipe
+   - Rejects for non-existent step
+   - Rejects for step belonging to different recipe
+
+4. **API key retrieval** (2 tests)
+   - Uses OPENAI_API_KEY from environment
+   - Retrieves from Cloudflare env when available
+
+5. **Input validation** (1 test)
+   - Handles missing ingredientText field
+
+6. **Non-interference** (2 tests)
+   - addIngredient intent still works
+   - delete intent still works
+
+### Mocking Strategy
+- Mock `~/lib/session.server` for authentication control
+- Mock `~/lib/ingredient-parse.server` for LLM response control
+- Use `UndiciRequest` and `UndiciFormData` for proper request simulation
+- Extract data from React Router's `data()` response format
+
+### Status
+**Tests written and FAIL as expected** - 15 tests fail, 4 pass (authentication, existing intents).
+Ready for Unit 2b implementation.
