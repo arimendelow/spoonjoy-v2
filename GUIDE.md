@@ -62,6 +62,23 @@ npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
 
 That's it! The local D1 database is ready.
 
+### Optional: Seed Demo Data
+
+To populate the database with sample recipes and a demo user:
+
+```bash
+npx wrangler d1 execute spoonjoy-local --local --file=./migrations/seed.sql
+```
+
+This creates:
+- **Demo account** — Ready to log in immediately
+- **3 sample recipes** — Including step dependencies (StepOutputUse)
+- **Units & ingredients** — Common cooking measurements
+
+**Demo login credentials:**
+- Email: `demo@spoonjoy.com`
+- Password: `demo1234`
+
 > **Note:** No `.env` file needed for basic local development. Session secrets and other config have sensible defaults.
 
 ---
