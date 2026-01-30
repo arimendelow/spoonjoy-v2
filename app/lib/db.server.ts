@@ -10,7 +10,7 @@ declare global {
 // For Cloudflare D1 in production
 export function getDb(env: { DB: D1Database }) {
   const adapter = new PrismaD1(env.DB);
-  return new PrismaClient({ adapter });
+  return new PrismaClient({ adapter, log: ['error'] });
 }
 
 // For local development (SQLite)
