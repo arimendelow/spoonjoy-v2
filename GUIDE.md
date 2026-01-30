@@ -82,6 +82,21 @@ npm run prisma:push
 
 You now have a `dev.db` file with all the tables ready.
 
+### Seed Sample Data (Optional but Recommended)
+
+Want to jump right into exploring? Seed the database with sample users, recipes, and cookbooks:
+
+```bash
+npm run db:seed
+```
+
+This creates:
+- **Demo user**: `demo@spoonjoy.com` / password: `demo1234`
+- Sample recipes with steps, ingredients, and step dependencies
+- Example cookbooks
+
+Great for exploring the app without manual data entry!
+
 ---
 
 ## Part 3: Run the App! 🎉
@@ -95,14 +110,21 @@ Open **http://localhost:5173** — welcome to Spoonjoy!
 ### What You'll See
 
 1. **Landing page** — Clean, minimal homepage
-2. **Sign up flow** — Create an account (email/password)
-3. **Recipe dashboard** — Your empty recipe list (time to fix that!)
+2. **Navigation** — Links to Recipes, Cookbooks, Shopping List
+3. **Auth buttons** — Log In / Sign Up in the header
 
-### Create Your First Account
+### Log In or Sign Up
 
+**Option A: Use the seeded demo account**
+1. Click **Log In**
+2. Email: `demo@spoonjoy.com`
+3. Password: `demo1234`
+4. You're in — with sample recipes ready to explore!
+
+**Option B: Create your own account**
 1. Click **Sign Up**
 2. Enter an email, username, and password
-3. You're in!
+3. You're in — with a fresh slate to build your recipes!
 
 *Note: Passwords are securely hashed with bcrypt. OAuth login (Google/Apple) requires setting up API credentials in `.env`.*
 
