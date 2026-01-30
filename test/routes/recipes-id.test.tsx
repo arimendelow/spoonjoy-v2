@@ -890,15 +890,14 @@ describe("Recipes $id Route", () => {
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
       expect(await screen.findByText("Recipe with Dependencies")).toBeInTheDocument();
-      // Step 3 should show "Using output from:" callout
-      const callout = screen.getByTestId("step-output-callout");
-      expect(callout).toBeInTheDocument();
-      expect(screen.getByText(/using output from/i)).toBeInTheDocument();
-      // Should display the step references in the callout
-      expect(callout).toHaveTextContent("Step 1");
-      expect(callout).toHaveTextContent("Cook rice");
-      expect(callout).toHaveTextContent("Step 2");
-      expect(callout).toHaveTextContent("Make curry");
+      // Step 3 should show step output uses inline with ingredients
+      const stepOutputSection = screen.getByTestId("step-output-uses-section");
+      expect(stepOutputSection).toBeInTheDocument();
+      // Should display the step references
+      expect(stepOutputSection).toHaveTextContent("Step 1");
+      expect(stepOutputSection).toHaveTextContent("Cook rice");
+      expect(stepOutputSection).toHaveTextContent("Step 2");
+      expect(stepOutputSection).toHaveTextContent("Make curry");
     });
 
     it("should render step output use without title when stepTitle is null", async () => {
@@ -949,9 +948,9 @@ describe("Recipes $id Route", () => {
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
       expect(await screen.findByText("Recipe with Untitled Dependency")).toBeInTheDocument();
-      // Should display "Step 1" in the callout (new format)
-      const callout = screen.getByTestId("step-output-callout");
-      expect(callout).toHaveTextContent("Step 1");
+      // Should display "Step 1" in the step output uses section
+      const stepOutputSection = screen.getByTestId("step-output-uses-section");
+      expect(stepOutputSection).toHaveTextContent("Step 1");
     });
 
     it("should not render using outputs section when usingSteps is empty", async () => {
@@ -988,8 +987,8 @@ describe("Recipes $id Route", () => {
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
       expect(await screen.findByText("Recipe without Dependencies")).toBeInTheDocument();
-      // "Using output from" callout should not be present
-      expect(screen.queryByTestId("step-output-callout")).not.toBeInTheDocument();
+      // Step output uses section should not be present
+      expect(screen.queryByTestId("step-output-uses-section")).not.toBeInTheDocument();
     });
 
     it("should handle step with undefined usingSteps (nullish coalescing)", async () => {
@@ -1028,8 +1027,8 @@ describe("Recipes $id Route", () => {
       // Recipe should render successfully despite undefined usingSteps
       expect(await screen.findByText("Recipe with Undefined UsingSteps")).toBeInTheDocument();
       expect(screen.getByText("This step has usingSteps as undefined")).toBeInTheDocument();
-      // "Using output from" callout should not be present since usingSteps defaults to []
-      expect(screen.queryByTestId("step-output-callout")).not.toBeInTheDocument();
+      // Step output uses section should not be present since usingSteps defaults to []
+      expect(screen.queryByTestId("step-output-uses-section")).not.toBeInTheDocument();
     });
 
     it("should render single-step recipe as owner with edit controls", async () => {
@@ -1078,8 +1077,8 @@ describe("Recipes $id Route", () => {
       expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
       expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
 
-      // "Using output from" callout should NOT appear (single step has no dependencies)
-      expect(screen.queryByTestId("step-output-callout")).not.toBeInTheDocument();
+      // Step output uses section should NOT appear (single step has no dependencies)
+      expect(screen.queryByTestId("step-output-uses-section")).not.toBeInTheDocument();
     });
 
     it("should render step output uses BEFORE description (display order test)", async () => {
@@ -1138,11 +1137,11 @@ describe("Recipes $id Route", () => {
 
       await screen.findByText("Recipe with Display Order");
 
-      // Get step 2's step-output-callout
-      const callout = screen.getByTestId("step-output-callout");
+      // Get step 2's step-output-uses-section (now inline with ingredients)
+      const stepOutputSection = screen.getByTestId("step-output-uses-section");
 
-      // Get the step card containing the callout
-      const stepCard = callout.closest("article");
+      // Get the step card containing the section
+      const stepCard = stepOutputSection.closest("article");
       expect(stepCard).not.toBeNull();
 
       // Extract text content to verify order
@@ -1150,22 +1149,24 @@ describe("Recipes $id Route", () => {
 
       // The display order should be:
       // 1. Step number and title
-      // 2. Step output uses ("Using output from:" section)
-      // 3. Ingredients
-      // 4. Description
+      // 2. Ingredients (containing step output uses at top)
+      // 3. Description
 
-      // "Using output from" should appear BEFORE "This is the step description"
-      const usingOutputsPosition = textContent.indexOf("Using output from");
+      // Step output uses are now inside the Ingredients section
+      // Verify Step 1 appears in the content (from step output uses)
+      const stepReferencePosition = textContent.indexOf("Step 1");
       const descriptionPosition = textContent.indexOf("This is the step description");
       const ingredientsPosition = textContent.indexOf("Ingredients");
 
-      expect(usingOutputsPosition).toBeGreaterThan(-1);
+      expect(stepReferencePosition).toBeGreaterThan(-1);
       expect(descriptionPosition).toBeGreaterThan(-1);
       expect(ingredientsPosition).toBeGreaterThan(-1);
 
-      // Verify order: using outputs < ingredients < description (new StepCard order)
-      expect(usingOutputsPosition).toBeLessThan(ingredientsPosition);
+      // Verify order: ingredients (with step outputs) < description
       expect(ingredientsPosition).toBeLessThan(descriptionPosition);
+      // Step outputs are inside ingredients section, after the "Ingredients" heading
+      expect(stepReferencePosition).toBeGreaterThan(ingredientsPosition);
+      expect(stepReferencePosition).toBeLessThan(descriptionPosition);
     });
 
     it("should open delete dialog and allow confirmation", async () => {

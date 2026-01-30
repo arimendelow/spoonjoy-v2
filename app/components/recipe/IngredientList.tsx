@@ -1,6 +1,7 @@
 import { Checkbox, CheckboxField } from '../ui/checkbox'
 import { Label } from '../ui/fieldset'
 import { ScaledQuantity } from './ScaledQuantity'
+import type { StepReference } from './StepOutputUseCallout'
 
 export interface Ingredient {
   /** Unique identifier */
@@ -24,6 +25,12 @@ export interface IngredientListProps {
   onToggle?: (id: string) => void
   /** Whether to show checkboxes (default: true) */
   showCheckboxes?: boolean
+  /** Optional step output uses to render at the top of the list */
+  stepOutputUses?: StepReference[]
+  /** Set of checked step output IDs */
+  checkedStepOutputIds?: Set<string>
+  /** Callback when a step output is toggled */
+  onStepOutputToggle?: (id: string) => void
 }
 
 /**
@@ -34,6 +41,7 @@ export interface IngredientListProps {
  * - Scaled quantities using ScaledQuantity component
  * - Strikethrough styling for checked items
  * - Large touch targets for kitchen use
+ * - Optional step output uses rendered at the top with amber styling
  */
 export function IngredientList({
   ingredients,
@@ -41,9 +49,15 @@ export function IngredientList({
   checkedIds = new Set(),
   onToggle,
   showCheckboxes = true,
+  stepOutputUses = [],
+  checkedStepOutputIds = new Set(),
+  onStepOutputToggle,
 }: IngredientListProps) {
-  // Return nothing for empty list
-  if (ingredients.length === 0) {
+  const hasStepOutputUses = stepOutputUses.length > 0
+  const hasIngredients = ingredients.length > 0
+
+  // Return nothing for empty list (no ingredients and no step outputs)
+  if (!hasIngredients && !hasStepOutputUses) {
     return null
   }
 
@@ -52,6 +66,51 @@ export function IngredientList({
       data-testid="ingredient-list"
       className="space-y-2"
     >
+      {/* Step Output Uses (rendered at top with amber styling) */}
+      {hasStepOutputUses && (
+        <div
+          data-testid="step-output-uses-section"
+          className="bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2 -mx-1 space-y-1"
+        >
+          {stepOutputUses.map((ref) => {
+            const isChecked = checkedStepOutputIds.has(ref.id)
+            const shouldShowCheckbox = showCheckboxes && onStepOutputToggle
+
+            if (shouldShowCheckbox) {
+              return (
+                <li key={ref.id}>
+                  <CheckboxField>
+                    <Checkbox
+                      checked={isChecked}
+                      onChange={() => onStepOutputToggle(ref.id)}
+                      aria-label={`Mark Step ${ref.stepNumber}${ref.stepTitle ? `: ${ref.stepTitle}` : ''} as used`}
+                    />
+                    <Label
+                      className={`cursor-pointer text-sm ${
+                        isChecked
+                          ? 'line-through text-zinc-500 dark:text-zinc-500'
+                          : 'text-amber-700 dark:text-amber-300'
+                      }`}
+                    >
+                      <StepReferenceText reference={ref} />
+                    </Label>
+                  </CheckboxField>
+                </li>
+              )
+            }
+
+            return (
+              <li key={ref.id} className="py-1">
+                <span className="text-sm text-amber-700 dark:text-amber-300">
+                  <StepReferenceText reference={ref} />
+                </span>
+              </li>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Ingredients */}
       {ingredients.map((ingredient) => {
         const isChecked = checkedIds.has(ingredient.id)
 
@@ -96,4 +155,18 @@ export function IngredientList({
       })}
     </ul>
   )
+}
+
+function StepReferenceText({ reference }: { reference: StepReference }) {
+  if (reference.stepTitle) {
+    return (
+      <>
+        <span className="font-medium">Step {reference.stepNumber}</span>
+        {': '}
+        {reference.stepTitle}
+      </>
+    )
+  }
+
+  return <span className="font-medium">Step {reference.stepNumber}</span>
 }

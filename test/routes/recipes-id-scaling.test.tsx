@@ -444,13 +444,12 @@ describe("Recipe View Scaling Integration", () => {
 
       await screen.findByRole("heading", { name: "Recipe with Step References" });
 
-      // Step output callout should be present
-      const callout = screen.getByTestId("step-output-callout");
-      expect(callout).toBeInTheDocument();
-      expect(screen.getByText(/using output from/i)).toBeInTheDocument();
-      // Verify the step reference appears in the callout
-      expect(callout).toHaveTextContent("Step 1");
-      expect(callout).toHaveTextContent("Make the base");
+      // Step output uses section should be present (inline with ingredients)
+      const stepOutputSection = screen.getByTestId("step-output-uses-section");
+      expect(stepOutputSection).toBeInTheDocument();
+      // Verify the step reference appears in the section
+      expect(stepOutputSection).toHaveTextContent("Step 1");
+      expect(stepOutputSection).toHaveTextContent("Make the base");
     });
 
     it("should show owner controls when isOwner is true", async () => {

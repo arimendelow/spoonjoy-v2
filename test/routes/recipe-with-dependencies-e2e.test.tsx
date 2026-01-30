@@ -254,17 +254,15 @@ describe("E2E: Create Recipe with Step Dependencies", () => {
       // Wait for recipe to render
       expect(await screen.findByText(/Stir Fry/)).toBeInTheDocument();
 
-      // Verify "Using output from:" callouts appear (new component format)
-      const callouts = screen.getAllByTestId("step-output-callout");
-      expect(callouts).toHaveLength(2);
+      // Verify step output uses sections appear (inline with ingredients)
+      const stepOutputSections = screen.getAllByTestId("step-output-uses-section");
+      expect(stepOutputSections).toHaveLength(2);
 
-      // Verify step references are shown in the callouts
-      expect(screen.getAllByText(/using output from/i)).toHaveLength(2);
-      // The step titles appear both in the step card and in the callouts
-      // Just verify the callouts contain the references
-      expect(callouts[0]).toHaveTextContent("Prep Protein");
-      expect(callouts[1]).toHaveTextContent("Prep Vegetables");
-      expect(callouts[1]).toHaveTextContent("Cook Protein");
+      // Verify step references are shown in the sections
+      // The step titles appear both in the step card and in the sections
+      expect(stepOutputSections[0]).toHaveTextContent("Prep Protein");
+      expect(stepOutputSections[1]).toHaveTextContent("Prep Vegetables");
+      expect(stepOutputSections[1]).toHaveTextContent("Cook Protein");
     });
   });
 
@@ -355,9 +353,9 @@ describe("E2E: Create Recipe with Step Dependencies", () => {
       render(<Stub initialEntries={[`/recipes/${recipeId}`]} />);
 
       await screen.findByText(/Untitled Step Recipe/);
-      // Should display "Step 1" in the callout (new format without title)
-      const callout = screen.getByTestId("step-output-callout");
-      expect(callout).toHaveTextContent("Step 1");
+      // Should display "Step 1" in the step output uses section
+      const stepOutputSection = screen.getByTestId("step-output-uses-section");
+      expect(stepOutputSection).toHaveTextContent("Step 1");
     });
 
     it("should handle recipe with no dependencies (all independent steps)", async () => {

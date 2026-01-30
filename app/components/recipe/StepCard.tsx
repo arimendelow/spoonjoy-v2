@@ -1,7 +1,7 @@
 import { Subheading } from '../ui/heading'
 import { Text } from '../ui/text'
 import { IngredientList, type Ingredient } from './IngredientList'
-import { StepOutputUseCallout, type StepReference } from './StepOutputUseCallout'
+import type { StepReference } from './StepOutputUseCallout'
 
 export interface StepCardProps {
   /** Step number (1-indexed) */
@@ -92,17 +92,8 @@ export function StepCard({
 
       {/* Content Area */}
       <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-4">
-        {/* Step Output Uses - shows references to previous steps */}
-        <StepOutputUseCallout
-          references={stepOutputUses}
-          onStepClick={onStepReferenceClick}
-          checkedIds={checkedStepOutputIds}
-          onToggle={onStepOutputToggle}
-          showCheckboxes={!!onStepOutputToggle}
-        />
-
-        {/* Ingredients Section */}
-        {ingredients.length > 0 && (
+        {/* Ingredients Section (includes step output uses inline) */}
+        {(ingredients.length > 0 || stepOutputUses.length > 0) && (
           <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">
               Ingredients
@@ -112,7 +103,10 @@ export function StepCard({
               scaleFactor={scaleFactor}
               checkedIds={checkedIngredientIds}
               onToggle={onIngredientToggle}
-              showCheckboxes={!!onIngredientToggle}
+              showCheckboxes={!!onIngredientToggle || !!onStepOutputToggle}
+              stepOutputUses={stepOutputUses}
+              checkedStepOutputIds={checkedStepOutputIds}
+              onStepOutputToggle={onStepOutputToggle}
             />
           </div>
         )}
