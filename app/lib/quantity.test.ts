@@ -159,6 +159,13 @@ describe('quantity utilities', () => {
         // Could be "⅙" or a decimal representation
         expect(result).toMatch(/^(⅙|0\.2|¼)$/)
       })
+
+      it('handles fractions not in Unicode map (like 2/7)', () => {
+        // 2/7 ≈ 0.2857, which is close to 1/3 (0.333)
+        const result = formatQuantity(2 / 7)
+        // Should round to ⅓ (closest common fraction)
+        expect(result).toBe('⅓')
+      })
     })
   })
 
