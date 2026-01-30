@@ -31,6 +31,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
         select: {
           id: true,
           username: true,
+          photoUrl: true,
         },
       },
       steps: {
@@ -369,6 +370,8 @@ export default function RecipeDetail() {
         title={recipe.title}
         description={recipe.description ?? undefined}
         chefName={recipe.chef.username}
+        chefId={recipe.chef.id}
+        chefPhotoUrl={recipe.chef.photoUrl ?? undefined}
         imageUrl={recipe.imageUrl ?? undefined}
         servings={recipe.servings ?? undefined}
         scaleFactor={scaleFactor}

@@ -596,7 +596,8 @@ describe("Recipes $id Route", () => {
 
       expect(await screen.findByRole("heading", { name: "Test Recipe" })).toBeInTheDocument();
       expect(screen.getByText(/By/)).toBeInTheDocument();
-      expect(screen.getByText("testchef")).toBeInTheDocument();
+      // Chef name in link (Avatar also has it as title, so use link role to be specific)
+      expect(screen.getByRole("link", { name: "testchef" })).toBeInTheDocument();
       expect(screen.getByText("A delicious test dish")).toBeInTheDocument();
       // Servings display with new component format
       expect(screen.getByText("4")).toBeInTheDocument();
