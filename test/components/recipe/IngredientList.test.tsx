@@ -160,6 +160,7 @@ describe('IngredientList', () => {
     })
 
     it('keyboard activation (Space) on text toggles checkbox', async () => {
+      const user = userEvent.setup()
       const onToggle = vi.fn()
       render(
         <IngredientList
@@ -169,10 +170,16 @@ describe('IngredientList', () => {
         />
       )
 
-      // Focus on a label and press space
-      const labels = screen.getAllByRole('checkbox')
-      labels[0].focus()
-      await userEvent.keyboard(' ')
+      // Focus on a checkbox and press space using userEvent
+      const checkboxes = screen.getAllByRole('checkbox')
+      await user.click(checkboxes[0])
+      // Reset the mock since click also toggles
+      onToggle.mockClear()
+
+      // Tab away and back to ensure keyboard interaction
+      await user.tab()
+      await user.tab({ shift: true })
+      await user.keyboard(' ')
       expect(onToggle).toHaveBeenCalledWith('1')
     })
 
