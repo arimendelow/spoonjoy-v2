@@ -627,7 +627,10 @@ describe('Dropdown', () => {
       expect(screen.getByRole('menu')).toBeInTheDocument()
 
       await user.keyboard('{Escape}')
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      // Wait for the menu to close (transition animation)
+      await waitFor(() => {
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      })
     })
   })
 })
