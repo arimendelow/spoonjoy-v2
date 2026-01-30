@@ -9,6 +9,9 @@ export default defineConfig({
     pool: "threads",
     maxWorkers: 1,
     fileParallelism: false,
+    sequence: {
+      concurrent: false,
+    },
     coverage: {
       provider: "istanbul",
       reporter: ["text", "json", "html"],
