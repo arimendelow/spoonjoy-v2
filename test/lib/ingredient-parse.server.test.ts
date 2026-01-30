@@ -19,15 +19,17 @@ import {
 
 // Mock the OpenAI SDK
 const mockCreate = vi.fn()
-vi.mock('openai', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
-        create: mockCreate,
-      },
+vi.mock('openai', () => {
+  return {
+    default: class MockOpenAI {
+      chat = {
+        completions: {
+          create: mockCreate,
+        },
+      }
     },
-  })),
-}))
+  }
+})
 
 describe('Ingredient Parsing', () => {
   const TEST_API_KEY = 'test-openai-api-key'
