@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import {
   Pagination,
   PaginationPrevious,
@@ -8,6 +9,10 @@ import {
   PaginationPage,
   PaginationGap,
 } from '~/components/ui/pagination'
+
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Pagination components', () => {
   describe('Pagination', () => {
@@ -68,12 +73,12 @@ describe('Pagination components', () => {
     })
 
     it('renders as link when href is provided', () => {
-      render(<PaginationPrevious href="/page/1" />)
+      render(<PaginationPrevious href="/page/1" />, { wrapper: TestWrapper })
       expect(screen.getByRole('link', { name: 'Previous page' })).toHaveAttribute('href', '/page/1')
     })
 
     it('has aria-label "Previous page"', () => {
-      render(<PaginationPrevious href="/page/1" />)
+      render(<PaginationPrevious href="/page/1" />, { wrapper: TestWrapper })
       expect(screen.getByLabelText('Previous page')).toBeInTheDocument()
     })
 
@@ -116,12 +121,12 @@ describe('Pagination components', () => {
     })
 
     it('renders as link when href is provided', () => {
-      render(<PaginationNext href="/page/3" />)
+      render(<PaginationNext href="/page/3" />, { wrapper: TestWrapper })
       expect(screen.getByRole('link', { name: 'Next page' })).toHaveAttribute('href', '/page/3')
     })
 
     it('has aria-label "Next page"', () => {
-      render(<PaginationNext href="/page/3" />)
+      render(<PaginationNext href="/page/3" />, { wrapper: TestWrapper })
       expect(screen.getByLabelText('Next page')).toBeInTheDocument()
     })
 
@@ -197,17 +202,17 @@ describe('Pagination components', () => {
 
   describe('PaginationPage', () => {
     it('renders children', () => {
-      render(<PaginationPage href="/page/1">1</PaginationPage>)
+      render(<PaginationPage href="/page/1">1</PaginationPage>, { wrapper: TestWrapper })
       expect(screen.getByText('1')).toBeInTheDocument()
     })
 
     it('renders as link', () => {
-      render(<PaginationPage href="/page/5">5</PaginationPage>)
+      render(<PaginationPage href="/page/5">5</PaginationPage>, { wrapper: TestWrapper })
       expect(screen.getByRole('link', { name: 'Page 5' })).toHaveAttribute('href', '/page/5')
     })
 
     it('has aria-label with page number', () => {
-      render(<PaginationPage href="/page/3">3</PaginationPage>)
+      render(<PaginationPage href="/page/3">3</PaginationPage>, { wrapper: TestWrapper })
       expect(screen.getByLabelText('Page 3')).toBeInTheDocument()
     })
 
@@ -215,7 +220,8 @@ describe('Pagination components', () => {
       const { container } = render(
         <PaginationPage href="/page/1" className="custom-page">
           1
-        </PaginationPage>
+        </PaginationPage>,
+        { wrapper: TestWrapper }
       )
       const link = container.querySelector('a')
       expect(link?.className).toContain('custom-page')
@@ -225,14 +231,15 @@ describe('Pagination components', () => {
       render(
         <PaginationPage href="/page/1" current={false}>
           1
-        </PaginationPage>
+        </PaginationPage>,
+        { wrapper: TestWrapper }
       )
       const link = screen.getByRole('link', { name: 'Page 1' })
       expect(link).not.toHaveAttribute('aria-current')
     })
 
     it('does not set aria-current when current is undefined', () => {
-      render(<PaginationPage href="/page/1">1</PaginationPage>)
+      render(<PaginationPage href="/page/1">1</PaginationPage>, { wrapper: TestWrapper })
       const link = screen.getByRole('link', { name: 'Page 1' })
       expect(link).not.toHaveAttribute('aria-current')
     })
@@ -241,7 +248,8 @@ describe('Pagination components', () => {
       render(
         <PaginationPage href="/page/2" current>
           2
-        </PaginationPage>
+        </PaginationPage>,
+        { wrapper: TestWrapper }
       )
       const link = screen.getByRole('link', { name: 'Page 2' })
       expect(link).toHaveAttribute('aria-current', 'page')
@@ -251,20 +259,21 @@ describe('Pagination components', () => {
       const { container } = render(
         <PaginationPage href="/page/1" current>
           1
-        </PaginationPage>
+        </PaginationPage>,
+        { wrapper: TestWrapper }
       )
       const link = container.querySelector('a')
       expect(link?.className).toContain('before:bg-zinc-950/5')
     })
 
     it('applies min-w-9 class for consistent sizing', () => {
-      const { container } = render(<PaginationPage href="/page/1">1</PaginationPage>)
+      const { container } = render(<PaginationPage href="/page/1">1</PaginationPage>, { wrapper: TestWrapper })
       const link = container.querySelector('a')
       expect(link?.className).toContain('min-w-9')
     })
 
     it('wraps children in span with negative margin', () => {
-      const { container } = render(<PaginationPage href="/page/1">1</PaginationPage>)
+      const { container } = render(<PaginationPage href="/page/1">1</PaginationPage>, { wrapper: TestWrapper })
       // The page number is wrapped in a span with -mx-0.5 class
       // Find all spans and look for the one with the negative margin class
       const spans = container.querySelectorAll('a span')
@@ -347,7 +356,8 @@ describe('Pagination components', () => {
             <PaginationPage href="/page/10">10</PaginationPage>
           </PaginationList>
           <PaginationNext href="/page/3" />
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('navigation', { name: 'Page navigation' })).toBeInTheDocument()
@@ -370,7 +380,8 @@ describe('Pagination components', () => {
             <PaginationPage href="/page/2">2</PaginationPage>
           </PaginationList>
           <PaginationNext href="/page/2" />
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
@@ -388,7 +399,8 @@ describe('Pagination components', () => {
             </PaginationPage>
           </PaginationList>
           <PaginationNext />
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('link', { name: 'Previous page' })).not.toBeDisabled()
@@ -411,7 +423,8 @@ describe('Pagination components', () => {
             <PaginationPage href="/page/20">20</PaginationPage>
           </PaginationList>
           <PaginationNext href="/page/6" />
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       const gaps = screen.getAllByText('…')
@@ -447,7 +460,8 @@ describe('Pagination components', () => {
         <Pagination>
           <PaginationPrevious href="/page/1" />
           <PaginationNext href="/page/2" />
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
       const svgs = container.querySelectorAll('svg')
       svgs.forEach((svg) => {
@@ -460,7 +474,8 @@ describe('Pagination components', () => {
         <Pagination>
           <PaginationPrevious href="/page/1" />
           <PaginationNext href="/page/2" />
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByLabelText('Previous page')).toBeInTheDocument()
@@ -474,7 +489,8 @@ describe('Pagination components', () => {
             <PaginationPage href="/page/1">1</PaginationPage>
             <PaginationPage href="/page/2">2</PaginationPage>
           </PaginationList>
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByLabelText('Page 1')).toBeInTheDocument()
@@ -491,7 +507,8 @@ describe('Pagination components', () => {
             </PaginationPage>
             <PaginationPage href="/page/3">3</PaginationPage>
           </PaginationList>
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       const page1 = screen.getByRole('link', { name: 'Page 1' })
@@ -513,7 +530,8 @@ describe('Pagination components', () => {
             </PaginationPage>
           </PaginationList>
           <PaginationNext href="/page/3" />
-        </Pagination>
+        </Pagination>,
+        { wrapper: TestWrapper }
       )
 
       const prevLink = screen.getByRole('link', { name: 'Previous page' })

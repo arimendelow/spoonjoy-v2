@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { Text, TextLink, Strong, Code } from '~/components/ui/text'
+
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Text components', () => {
   describe('Text', () => {
@@ -33,7 +38,7 @@ describe('Text components', () => {
 
   describe('TextLink', () => {
     it('renders as a link with href', () => {
-      render(<TextLink href="/test">Link text</TextLink>)
+      render(<TextLink href="/test">Link text</TextLink>, { wrapper: TestWrapper })
       expect(screen.getByRole('link', { name: 'Link text' })).toHaveAttribute('href', '/test')
     })
 
@@ -41,7 +46,8 @@ describe('Text components', () => {
       render(
         <TextLink href="/test" className="custom-link">
           Styled link
-        </TextLink>
+        </TextLink>,
+        { wrapper: TestWrapper }
       )
       expect(screen.getByRole('link', { name: 'Styled link' })).toHaveClass('custom-link')
     })

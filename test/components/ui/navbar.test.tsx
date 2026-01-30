@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import userEvent from '@testing-library/user-event'
 import {
   Navbar,
@@ -9,6 +10,10 @@ import {
   NavbarItem,
   NavbarLabel,
 } from '~/components/ui/navbar'
+
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Navbar components', () => {
   describe('Navbar', () => {
@@ -190,12 +195,12 @@ describe('Navbar components', () => {
 
     describe('as link (with href)', () => {
       it('renders as link when href is provided', () => {
-        render(<NavbarItem href="/home">Home</NavbarItem>)
+        render(<NavbarItem href="/home">Home</NavbarItem>, { wrapper: TestWrapper })
         expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
       })
 
       it('has correct href attribute', () => {
-        render(<NavbarItem href="/about">About</NavbarItem>)
+        render(<NavbarItem href="/about">About</NavbarItem>, { wrapper: TestWrapper })
         expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about')
       })
 
@@ -203,7 +208,8 @@ describe('Navbar components', () => {
         const { container } = render(
           <NavbarItem href="/test" className="custom-link">
             Link
-          </NavbarItem>
+          </NavbarItem>,
+          { wrapper: TestWrapper }
         )
         const wrapper = container.querySelector('span')
         expect(wrapper?.className).toContain('custom-link')
@@ -213,7 +219,8 @@ describe('Navbar components', () => {
         render(
           <NavbarItem href="/external" target="_blank" rel="noopener noreferrer">
             External
-          </NavbarItem>
+          </NavbarItem>,
+          { wrapper: TestWrapper }
         )
         const link = screen.getByRole('link', { name: 'External' })
         expect(link).toHaveAttribute('target', '_blank')
@@ -263,7 +270,8 @@ describe('Navbar components', () => {
         render(
           <NavbarItem href="/current" current>
             Current Link
-          </NavbarItem>
+          </NavbarItem>,
+          { wrapper: TestWrapper }
         )
         const link = screen.getByRole('link', { name: 'Current Link' })
         expect(link).toHaveAttribute('data-current', 'true')
@@ -335,7 +343,8 @@ describe('Navbar components', () => {
               <NavbarLabel>Login</NavbarLabel>
             </NavbarItem>
           </NavbarSection>
-        </Navbar>
+        </Navbar>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
@@ -354,7 +363,8 @@ describe('Navbar components', () => {
           <NavbarSection>
             <NavbarItem href="/settings">Settings</NavbarItem>
           </NavbarSection>
-        </Navbar>
+        </Navbar>,
+        { wrapper: TestWrapper }
       )
 
       const divider = container.querySelector('[aria-hidden="true"]')
@@ -370,7 +380,8 @@ describe('Navbar components', () => {
             <NavbarItem href="/home">Home</NavbarItem>
             <NavbarItem onClick={handleClick}>Menu</NavbarItem>
           </NavbarSection>
-        </Navbar>
+        </Navbar>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
@@ -390,7 +401,8 @@ describe('Navbar components', () => {
             <NavbarItem href="/about">About</NavbarItem>
             <NavbarItem href="/contact">Contact</NavbarItem>
           </NavbarSection>
-        </Navbar>
+        </Navbar>,
+        { wrapper: TestWrapper }
       )
 
       const homeLink = screen.getByRole('link', { name: 'Home' })
@@ -432,7 +444,8 @@ describe('Navbar components', () => {
             <NavbarItem href="/home">Home</NavbarItem>
             <NavbarItem onClick={() => {}}>Menu</NavbarItem>
           </NavbarSection>
-        </Navbar>
+        </Navbar>,
+        { wrapper: TestWrapper }
       )
 
       const link = screen.getByRole('link', { name: 'Home' })
@@ -450,7 +463,8 @@ describe('Navbar components', () => {
               Current Page
             </NavbarItem>
           </NavbarSection>
-        </Navbar>
+        </Navbar>,
+        { wrapper: TestWrapper }
       )
 
       const link = screen.getByRole('link', { name: 'Current Page' })

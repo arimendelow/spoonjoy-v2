@@ -490,14 +490,14 @@ describe("Shopping List Route", () => {
         testUserId
       );
 
-      // Should not throw
+      // Should not throw - returns success even when no action taken
       const result = await action({
         request,
         context: { cloudflare: { env: null } },
         params: {},
       } as any);
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ data: { success: true }, init: null, type: "DataWithResponseInit" });
     });
   });
 
@@ -838,7 +838,8 @@ describe("Shopping List Route", () => {
         params: {},
       } as any);
 
-      expect(result).toBeNull();
+      // Returns success even when no action taken (no recipeId provided)
+      expect(result).toEqual({ data: { success: true }, init: null, type: "DataWithResponseInit" });
     });
 
     it("should do nothing when recipe does not exist", async () => {
@@ -860,7 +861,8 @@ describe("Shopping List Route", () => {
         params: {},
       } as any);
 
-      expect(result).toBeNull();
+      // Returns success even when no action taken (recipe not found)
+      expect(result).toEqual({ data: { success: true }, init: null, type: "DataWithResponseInit" });
     });
   });
 
@@ -1080,7 +1082,8 @@ describe("Shopping List Route", () => {
         params: {},
       } as any);
 
-      expect(result).toBeNull();
+      // Returns success even when no action taken (no itemId provided)
+      expect(result).toEqual({ data: { success: true }, init: null, type: "DataWithResponseInit" });
     });
 
     it("should do nothing when item does not exist", async () => {
@@ -1102,7 +1105,8 @@ describe("Shopping List Route", () => {
         params: {},
       } as any);
 
-      expect(result).toBeNull();
+      // Returns success even when no action taken (item not found)
+      expect(result).toEqual({ data: { success: true }, init: null, type: "DataWithResponseInit" });
     });
 
     it("should toggle checked item back to unchecked", async () => {

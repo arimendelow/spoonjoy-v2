@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import {
   Dropdown,
   DropdownButton,
@@ -14,6 +15,11 @@ import {
   DropdownDescription,
   DropdownShortcut,
 } from '~/components/ui/dropdown'
+
+// Wrapper component to provide React Router context for link tests
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Dropdown', () => {
   describe('Dropdown component', () => {
@@ -142,12 +148,14 @@ describe('Dropdown', () => {
     it('renders as a link when href is provided', async () => {
       const user = userEvent.setup()
       render(
-        <Dropdown>
-          <DropdownButton>Open</DropdownButton>
-          <DropdownMenu>
-            <DropdownItem href="/test">Link Item</DropdownItem>
-          </DropdownMenu>
-        </Dropdown>
+        <TestWrapper>
+          <Dropdown>
+            <DropdownButton>Open</DropdownButton>
+            <DropdownMenu>
+              <DropdownItem href="/test">Link Item</DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+        </TestWrapper>
       )
 
       await user.click(screen.getByRole('button', { name: 'Open' }))
@@ -534,34 +542,36 @@ describe('Dropdown', () => {
     it('renders a complete dropdown with all components', async () => {
       const user = userEvent.setup()
       render(
-        <Dropdown>
-          <DropdownButton>Actions</DropdownButton>
-          <DropdownMenu>
-            <DropdownHeader>User Actions</DropdownHeader>
-            <DropdownSection>
-              <DropdownHeading>Edit</DropdownHeading>
-              <DropdownItem>
-                <DropdownLabel>Cut</DropdownLabel>
-                <DropdownShortcut keys="⌘X" />
-              </DropdownItem>
-              <DropdownItem>
-                <DropdownLabel>Copy</DropdownLabel>
-                <DropdownDescription>Copy to clipboard</DropdownDescription>
-                <DropdownShortcut keys="⌘C" />
-              </DropdownItem>
-            </DropdownSection>
-            <DropdownDivider />
-            <DropdownSection>
-              <DropdownHeading>File</DropdownHeading>
-              <DropdownItem href="/save">
-                <DropdownLabel>Save</DropdownLabel>
-              </DropdownItem>
-              <DropdownItem disabled>
-                <DropdownLabel>Delete</DropdownLabel>
-              </DropdownItem>
-            </DropdownSection>
-          </DropdownMenu>
-        </Dropdown>
+        <TestWrapper>
+          <Dropdown>
+            <DropdownButton>Actions</DropdownButton>
+            <DropdownMenu>
+              <DropdownHeader>User Actions</DropdownHeader>
+              <DropdownSection>
+                <DropdownHeading>Edit</DropdownHeading>
+                <DropdownItem>
+                  <DropdownLabel>Cut</DropdownLabel>
+                  <DropdownShortcut keys="⌘X" />
+                </DropdownItem>
+                <DropdownItem>
+                  <DropdownLabel>Copy</DropdownLabel>
+                  <DropdownDescription>Copy to clipboard</DropdownDescription>
+                  <DropdownShortcut keys="⌘C" />
+                </DropdownItem>
+              </DropdownSection>
+              <DropdownDivider />
+              <DropdownSection>
+                <DropdownHeading>File</DropdownHeading>
+                <DropdownItem href="/save">
+                  <DropdownLabel>Save</DropdownLabel>
+                </DropdownItem>
+                <DropdownItem disabled>
+                  <DropdownLabel>Delete</DropdownLabel>
+                </DropdownItem>
+              </DropdownSection>
+            </DropdownMenu>
+          </Dropdown>
+        </TestWrapper>
       )
 
       await user.click(screen.getByRole('button', { name: 'Actions' }))

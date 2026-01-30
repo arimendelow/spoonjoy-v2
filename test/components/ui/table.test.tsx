@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '~/components/ui/table'
+
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Table', () => {
   describe('Table component', () => {
@@ -289,7 +294,8 @@ describe('Table', () => {
               <TableCell>Clickable Row</TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+        </Table>,
+        { wrapper: TestWrapper }
       )
       const tr = screen.getByTestId('tr')
       expect(tr.className).toContain('hover:bg-zinc-950/2.5')
@@ -303,7 +309,8 @@ describe('Table', () => {
               <TableCell>Clickable Row</TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+        </Table>,
+        { wrapper: TestWrapper }
       )
       const tr = screen.getByTestId('tr')
       expect(tr.className).toContain('hover:bg-zinc-950/5')
@@ -546,7 +553,8 @@ describe('Table', () => {
               <TableCell data-testid="td">Clickable Cell</TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+        </Table>,
+        { wrapper: TestWrapper }
       )
       const td = screen.getByTestId('td')
       const link = td.querySelector('a')
@@ -562,7 +570,8 @@ describe('Table', () => {
               <TableCell data-testid="td">External Link</TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+        </Table>,
+        { wrapper: TestWrapper }
       )
       const td = screen.getByTestId('td')
       const link = td.querySelector('a')
@@ -577,7 +586,8 @@ describe('Table', () => {
               <TableCell data-testid="td">Row</TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+        </Table>,
+        { wrapper: TestWrapper }
       )
       const td = screen.getByTestId('td')
       const link = td.querySelector('a')
@@ -593,7 +603,8 @@ describe('Table', () => {
               <TableCell data-testid="td2">Second Cell</TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+        </Table>,
+        { wrapper: TestWrapper }
       )
       const td1 = screen.getByTestId('td1')
       const td2 = screen.getByTestId('td2')
@@ -765,7 +776,8 @@ describe('Table', () => {
               <TableCell>jane@example.com</TableCell>
             </TableRow>
           </TableBody>
-        </Table>
+        </Table>,
+        { wrapper: TestWrapper }
       )
 
       const rows = screen.getAllByRole('row')

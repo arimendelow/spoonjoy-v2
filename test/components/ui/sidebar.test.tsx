@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import userEvent from '@testing-library/user-event'
 import {
   Sidebar,
@@ -13,6 +14,10 @@ import {
   SidebarItem,
   SidebarLabel,
 } from '~/components/ui/sidebar'
+
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Sidebar components', () => {
   describe('Sidebar', () => {
@@ -326,12 +331,12 @@ describe('Sidebar components', () => {
 
     describe('as link (with href)', () => {
       it('renders as link when href is provided', () => {
-        render(<SidebarItem href="/home">Home</SidebarItem>)
+        render(<SidebarItem href="/home">Home</SidebarItem>, { wrapper: TestWrapper })
         expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
       })
 
       it('has correct href attribute', () => {
-        render(<SidebarItem href="/about">About</SidebarItem>)
+        render(<SidebarItem href="/about">About</SidebarItem>, { wrapper: TestWrapper })
         expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about')
       })
 
@@ -339,7 +344,8 @@ describe('Sidebar components', () => {
         const { container } = render(
           <SidebarItem href="/test" className="custom-link">
             Link
-          </SidebarItem>
+          </SidebarItem>,
+          { wrapper: TestWrapper }
         )
         const wrapper = container.querySelector('span')
         expect(wrapper?.className).toContain('custom-link')
@@ -349,7 +355,8 @@ describe('Sidebar components', () => {
         render(
           <SidebarItem href="/external" target="_blank" rel="noopener noreferrer">
             External
-          </SidebarItem>
+          </SidebarItem>,
+          { wrapper: TestWrapper }
         )
         const link = screen.getByRole('link', { name: 'External' })
         expect(link).toHaveAttribute('target', '_blank')
@@ -398,7 +405,8 @@ describe('Sidebar components', () => {
         render(
           <SidebarItem href="/current" current>
             Current Link
-          </SidebarItem>
+          </SidebarItem>,
+          { wrapper: TestWrapper }
         )
         const link = screen.getByRole('link', { name: 'Current Link' })
         expect(link).toHaveAttribute('data-current', 'true')
@@ -451,7 +459,8 @@ describe('Sidebar components', () => {
         render(
           <SidebarItem href="/test" ref={ref}>
             Link
-          </SidebarItem>
+          </SidebarItem>,
+          { wrapper: TestWrapper }
         )
         expect(ref).toHaveBeenCalled()
         expect(ref.mock.calls[0][0]).toBeInstanceOf(HTMLAnchorElement)
@@ -518,7 +527,8 @@ describe('Sidebar components', () => {
               </SidebarItem>
             </SidebarSection>
           </SidebarFooter>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
@@ -541,7 +551,8 @@ describe('Sidebar components', () => {
               <SidebarItem href="/settings">Settings</SidebarItem>
             </SidebarSection>
           </SidebarBody>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       const hr = container.querySelector('hr')
@@ -560,7 +571,8 @@ describe('Sidebar components', () => {
               <SidebarItem href="/help">Help</SidebarItem>
             </SidebarSection>
           </SidebarBody>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       const spacer = container.querySelector('[aria-hidden="true"]')
@@ -578,7 +590,8 @@ describe('Sidebar components', () => {
               <SidebarItem onClick={handleClick}>Menu</SidebarItem>
             </SidebarSection>
           </SidebarBody>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
@@ -600,7 +613,8 @@ describe('Sidebar components', () => {
               <SidebarItem href="/contact">Contact</SidebarItem>
             </SidebarSection>
           </SidebarBody>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       const homeLink = screen.getByRole('link', { name: 'Home' })
@@ -645,7 +659,8 @@ describe('Sidebar components', () => {
               <SidebarItem onClick={() => {}}>Menu</SidebarItem>
             </SidebarSection>
           </SidebarBody>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       const link = screen.getByRole('link', { name: 'Home' })
@@ -665,7 +680,8 @@ describe('Sidebar components', () => {
               </SidebarItem>
             </SidebarSection>
           </SidebarBody>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       const link = screen.getByRole('link', { name: 'Current Page' })
@@ -681,7 +697,8 @@ describe('Sidebar components', () => {
               <SidebarItem href="/item">Item</SidebarItem>
             </SidebarSection>
           </SidebarBody>
-        </Sidebar>
+        </Sidebar>,
+        { wrapper: TestWrapper }
       )
 
       expect(screen.getByRole('heading', { level: 3, name: 'Section Title' })).toBeInTheDocument()

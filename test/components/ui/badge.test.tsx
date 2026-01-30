@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { Badge, BadgeButton } from '~/components/ui/badge'
+
+// Wrapper component to provide React Router context for link tests
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Badge', () => {
   describe('Badge component', () => {
@@ -100,7 +106,11 @@ describe('Badge', () => {
     })
 
     it('renders as a link when href is provided', () => {
-      render(<BadgeButton href="/test">Link badge</BadgeButton>)
+      render(
+        <TestWrapper>
+          <BadgeButton href="/test">Link badge</BadgeButton>
+        </TestWrapper>
+      )
       expect(screen.getByRole('link', { name: 'Link badge' })).toHaveAttribute('href', '/test')
     })
 
@@ -152,7 +162,11 @@ describe('Badge', () => {
     })
 
     it('renders link badge with correct href', () => {
-      render(<BadgeButton href="/destination">Navigate</BadgeButton>)
+      render(
+        <TestWrapper>
+          <BadgeButton href="/destination">Navigate</BadgeButton>
+        </TestWrapper>
+      )
       expect(screen.getByRole('link', { name: 'Navigate' })).toHaveAttribute('href', '/destination')
     })
 
@@ -167,7 +181,9 @@ describe('Badge', () => {
     it('forwards ref to anchor element when href provided', () => {
       const ref = { current: null } as React.RefObject<HTMLElement>
       render(
-        <BadgeButton href="/test" ref={ref}>Ref link badge</BadgeButton>
+        <TestWrapper>
+          <BadgeButton href="/test" ref={ref}>Ref link badge</BadgeButton>
+        </TestWrapper>
       )
       expect(ref.current).toBeInstanceOf(HTMLAnchorElement)
     })

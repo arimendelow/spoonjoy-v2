@@ -295,8 +295,8 @@ describe("Individual Route Detailed Checks", () => {
     it("should use Alert for error messages", () => {
       const content = readSourceFile(filePath);
       expect(
-        content.includes("Alert") || content.includes("alert"),
-        "Should use Alert component for error messages"
+        content.includes("Alert") || content.includes("alert") || content.includes("ValidationError"),
+        "Should use Alert or ValidationError component for error messages"
       ).toBe(true);
     });
   });

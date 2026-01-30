@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { Button, TouchTarget } from '~/components/ui/button'
+
+// Wrapper component to provide React Router context for link tests
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
 
 describe('Button', () => {
   describe('TouchTarget', () => {
@@ -23,7 +29,11 @@ describe('Button', () => {
     })
 
     it('renders as a link when href is provided', () => {
-      render(<Button href="/test">Link button</Button>)
+      render(
+        <TestWrapper>
+          <Button href="/test">Link button</Button>
+        </TestWrapper>
+      )
       expect(screen.getByRole('link', { name: 'Link button' })).toHaveAttribute('href', '/test')
     })
 
@@ -68,9 +78,11 @@ describe('Button', () => {
 
     it('renders link button with target attribute', () => {
       render(
-        <Button href="/external" target="_blank">
-          External
-        </Button>
+        <TestWrapper>
+          <Button href="/external" target="_blank">
+            External
+          </Button>
+        </TestWrapper>
       )
       expect(screen.getByRole('link', { name: 'External' })).toHaveAttribute('target', '_blank')
     })
