@@ -119,6 +119,9 @@ export default function RecipeDetail() {
   // Track which ingredients have been checked off
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
 
+  // Track which step outputs have been checked off
+  const [checkedStepOutputs, setCheckedStepOutputs] = useState<Set<string>>(new Set());
+
   // Track view start time for engagement metrics
   const viewStartTime = useRef<number>(Date.now());
 
@@ -181,6 +184,28 @@ export default function RecipeDetail() {
       posthog.capture("ingredient_toggled", {
         recipe_id: recipe.id,
         ingredient_id: id,
+        is_checked: !wasChecked,
+        total_checked: newChecked.size,
+      });
+    }
+  };
+
+  const handleStepOutputToggle = (id: string) => {
+    const newChecked = new Set(checkedStepOutputs);
+    const wasChecked = newChecked.has(id);
+    if (wasChecked) {
+      newChecked.delete(id);
+    } else {
+      newChecked.add(id);
+    }
+    setCheckedStepOutputs(newChecked);
+
+    // PostHog: Track step output check/uncheck
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("step_output_toggled", {
+        recipe_id: recipe.id,
+        step_output_id: id,
         is_checked: !wasChecked,
         total_checked: newChecked.size,
       });
@@ -279,6 +304,8 @@ export default function RecipeDetail() {
                   scaleFactor={scaleFactor}
                   checkedIngredientIds={checkedIngredients}
                   onIngredientToggle={handleIngredientToggle}
+                  checkedStepOutputIds={checkedStepOutputs}
+                  onStepOutputToggle={handleStepOutputToggle}
                   onStepReferenceClick={handleStepReferenceClick}
                 />
               </div>

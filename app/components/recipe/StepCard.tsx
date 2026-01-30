@@ -20,6 +20,10 @@ export interface StepCardProps {
   checkedIngredientIds?: Set<string>
   /** Callback when an ingredient is toggled */
   onIngredientToggle?: (id: string) => void
+  /** Set of checked step output IDs */
+  checkedStepOutputIds?: Set<string>
+  /** Callback when a step output is toggled */
+  onStepOutputToggle?: (id: string) => void
   /** Callback when a step reference is clicked */
   onStepReferenceClick?: (stepNumber: number) => void
 }
@@ -44,6 +48,8 @@ export function StepCard({
   scaleFactor = 1,
   checkedIngredientIds = new Set(),
   onIngredientToggle,
+  checkedStepOutputIds = new Set(),
+  onStepOutputToggle,
   onStepReferenceClick,
 }: StepCardProps) {
   return (
@@ -90,6 +96,9 @@ export function StepCard({
         <StepOutputUseCallout
           references={stepOutputUses}
           onStepClick={onStepReferenceClick}
+          checkedIds={checkedStepOutputIds}
+          onToggle={onStepOutputToggle}
+          showCheckboxes={!!onStepOutputToggle}
         />
 
         {/* Ingredients Section */}
