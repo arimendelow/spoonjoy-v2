@@ -27,5 +27,12 @@ const config: StorybookConfig = {
       },
     },
   },
+  viteFinal: async (config) => {
+    // Storybook's internal chunks (axe, docs blocks, iframe) exceed default 500KB limit.
+    // These are expected and not under our control, so we raise the threshold.
+    config.build = config.build || {};
+    config.build.chunkSizeWarningLimit = 1500;
+    return config;
+  },
 };
 export default config;
