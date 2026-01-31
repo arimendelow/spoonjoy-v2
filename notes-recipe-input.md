@@ -780,5 +780,194 @@ Stories include:
 - Edge cases: Long alt text, Long error message
 
 ### Status
+**Unit 7b COMPLETE** - All 52 tests passing, no warnings, build passes.
+
+---
+
+## Unit 7b: RecipeImageUpload Implementation
+
+### Implementation Summary
+
+**File Created:** `app/components/recipe/RecipeImageUpload.tsx`
+
+**Features:**
+- File picker with hidden input and button trigger (following ProfilePhotoUpload pattern)
+- Preview area with aspect-video dimensions (larger than avatar for recipe context)
+- Drag-and-drop support with visual feedback
+- Clear/remove image action with URL.revokeObjectURL cleanup
+- File validation: image/* types, max 5MB size
+- Loading state with spinner and aria-busy
+- Disabled state propagated to all controls
+- Error display with role="alert" for accessibility
+- Returns file to parent via onFileSelect callback for form handling
+
+**Props:**
+- `onFileSelect: (file: File) => void` - Required callback
+- `onClear?: () => void` - Called when image is cleared
+- `onValidationError?: (message: string) => void` - Called on validation failure
+- `imageUrl?: string` - Existing image URL
+- `alt?: string` - Alt text for preview
+- `disabled?: boolean` - Disable all interactions
+- `loading?: boolean` - Show loading state
+- `error?: string` - Error message to display
+
+### Test Fixes
+
+During implementation, three test issues were discovered and fixed:
+
+1. **Placeholder text test** - Used `getAllByText` since both placeholder and button text matched the regex
+2. **File type validation test** - Added `applyAccept: false` to userEvent setup to bypass browser-level filtering and test JS validation
+3. **Focus test** - Changed to direct focus() instead of tab() since tab order isn't guaranteed
+4. **Drag/drop tests** - Wrapped dispatchEvent calls in `act()` to fix React state update warnings
+
+### Verification
+- ✅ All 52 RecipeImageUpload tests passing
+- ✅ All 2873 tests passing overall
+- ✅ No warnings in test output
+- ✅ Build passes
+
+---
+
+## Unit 8a: RecipeForm + Storybook Stories Tests
+
+### Test File
+`test/components/recipe/RecipeForm.test.tsx`
+
+### Component Design
+A unified form component for creating and editing recipes. Handles recipe metadata (title, description, servings, image) but NOT ingredients (ingredients are per-step).
+
+**Props Interface:**
+```typescript
+interface RecipeFormProps {
+  mode: 'create' | 'edit'
+  recipe?: {
+    id: string
+    title: string
+    description: string | null
+    servings: string | null
+    imageUrl: string
+  }
+  onSubmit: (data: RecipeFormData) => void
+  onCancel?: () => void
+  disabled?: boolean
+  loading?: boolean
+  errors?: {
+    title?: string
+    description?: string
+    servings?: string
+    general?: string
+    image?: string
+  }
+}
+
+interface RecipeFormData {
+  id?: string           // Only in edit mode
+  title: string
+  description: string
+  servings: string
+  imageFile: File | null
+  clearImage?: boolean  // Only in edit mode when removing existing image
+}
+```
+
+### Test Categories
+
+1. **Rendering - create mode** (10 tests):
+   - Renders all form fields (title, description, servings, image upload)
+   - Submit button says "Create Recipe"
+   - Title is required, description/servings optional
+   - Empty fields in create mode
+   - Placeholder text for all fields
+
+2. **Rendering - edit mode** (9 tests):
+   - Submit button says "Save Changes"
+   - Fields populated with existing values
+   - Shows existing image preview
+   - Handles null description/servings gracefully
+   - Shows Change/Remove buttons for existing image
+
+3. **Form validation** (5 tests):
+   - Title required
+   - Max lengths enforced (title: 200, description: 2000, servings: 100)
+
+4. **Form submission - create mode** (5 tests):
+   - Calls onSubmit with form data
+   - Trims whitespace from all fields
+   - Empty optional fields passed as empty strings
+
+5. **Form submission - edit mode** (3 tests):
+   - Includes recipe ID in submission
+   - Sends clearImage flag when image removed
+
+6. **Image upload** (3 tests):
+   - Accepts image file selection
+   - Includes image file in submission
+   - Clears image on remove button click
+
+7. **Cancel button** (2 tests):
+   - Calls onCancel, not onSubmit
+
+8. **Disabled state** (4 tests):
+   - Disables all inputs and buttons
+
+9. **Loading state** (3 tests):
+   - Disables inputs, shows loading on submit button
+
+10. **Error display** (6 tests):
+    - Displays field-specific error messages
+    - Displays general error message
+    - Marks invalid fields with data-invalid
+
+11. **Accessibility** (5 tests):
+    - Proper labels, fieldset structure
+    - Accessible button names
+    - Error association via aria-describedby
+
+12. **Keyboard interaction** (2 tests):
+    - Tab navigation
+    - Enter submits form
+
+13. **Edge cases** (4 tests):
+    - Long title, special characters, multiline description, unicode
+
+### Storybook Stories
+`stories/RecipeForm.stories.tsx`
+
+**Create mode stories:**
+- CreateMode (default)
+- CreateModeDisabled
+- CreateModeLoading
+- CreateModeWithErrors
+
+**Edit mode stories:**
+- EditMode (with sample recipe)
+- EditModeNoImage
+- EditModeMinimalData
+- EditModeLoading
+- EditModeWithErrors
+
+**Interaction tests:**
+- FillAndSubmitCreate
+- EditAndSave
+- CancelForm
+- ValidationTitleRequired
+- KeyboardNavigation
+- DisabledInteraction
+
+**Real-world examples:**
+- ExampleNewRecipe
+- ExampleEditRecipe
+
+**Edge cases:**
+- LongTitle
+- LongDescription
+- UnicodeCharacters
+- AllErrors
+
+### Status
 **Tests written and FAIL as expected** - Component file does not exist yet.
-Ready for Unit 7b implementation.
+- 61 tests written in test file
+- 21 stories written in Storybook file
+- Both fail to import as component doesn't exist
+
+Ready for Unit 8b implementation.
