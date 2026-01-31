@@ -137,7 +137,7 @@ describe('RecipeForm', () => {
     it('shows Change Image and Remove buttons when image exists', () => {
       render(<RecipeForm mode="edit" recipe={existingRecipe} onSubmit={vi.fn()} />)
 
-      expect(screen.getByRole('button', { name: /change/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /change image/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument()
     })
 
