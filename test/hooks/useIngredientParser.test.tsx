@@ -291,6 +291,35 @@ describe('useIngredientParser', () => {
   })
 
   describe('manual parsing', () => {
+    it('does not trigger parse when text is empty', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Click parse without entering any text
+      fireEvent.click(screen.getByTestId('parse'))
+
+      // Wait a bit to ensure nothing was triggered
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(actionHandler).not.toHaveBeenCalled()
+    })
+
+    it('does not trigger parse when text is whitespace-only', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Enter whitespace only
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '   ' } })
+      fireEvent.click(screen.getByTestId('parse'))
+
+      // Wait a bit to ensure nothing was triggered
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(actionHandler).not.toHaveBeenCalled()
+    })
+
     it('triggers parse immediately when parse() is called', async () => {
       const actionHandler = vi.fn().mockResolvedValue({
         parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
@@ -515,6 +544,25 @@ describe('useIngredientParser', () => {
   })
 
   describe('fetcher data', () => {
+    it('handles empty response from action (no parsedIngredients, no errors)', async () => {
+      // This tests the edge case where action returns something but without
+      // parsedIngredients or errors (e.g., empty object or unexpected response)
+      const actionHandler = vi.fn().mockResolvedValue({})
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
+
+      await waitFor(() => {
+        expect(actionHandler).toHaveBeenCalled()
+      })
+
+      // Should not show error or results
+      expect(screen.queryByTestId('error')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('results')).not.toBeInTheDocument()
+    })
+
     it('sends correct form data to action', async () => {
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
       const Wrapper = createTestWrapper(actionHandler)
