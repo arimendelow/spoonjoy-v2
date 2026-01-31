@@ -365,8 +365,18 @@ describe('StepEditorCard', () => {
     })
 
     it('shows existing ingredients in ParsedIngredientList', () => {
+      // Use a step with description that doesn't contain ingredient names to avoid ambiguous text matches
+      const stepWithIngredients: StepData = {
+        id: 'step-1',
+        stepNum: 1,
+        description: 'Prepare the vegetables',
+        ingredients: [
+          { quantity: 2, unit: 'whole', ingredientName: 'onion' },
+          { quantity: 4, unit: 'clove', ingredientName: 'garlic' },
+        ],
+      }
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
-        step: existingStep,
+        step: stepWithIngredients,
       })
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
 
