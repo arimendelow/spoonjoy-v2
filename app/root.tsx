@@ -14,7 +14,7 @@ import { usePostHog } from "@posthog/react";
 import { getUserId } from "~/lib/session.server";
 import { ThemeProvider } from "~/components/ui/theme-provider";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
-import { MobileNav } from "~/components/navigation";
+import { MobileNav, DockContextProvider } from "~/components/navigation";
 import { StackedLayout } from "~/components/ui/stacked-layout";
 import {
   Navbar,
@@ -244,25 +244,27 @@ export default function App() {
       </head>
       <body className="m-0 p-0">
         <ThemeProvider>
-          {/* Desktop: StackedLayout */}
-          <div className="hidden lg:block">
-            <StackedLayout
-              navbar={<AppNavbar userId={userId} />}
-              sidebar={<AppSidebar userId={userId} />}
-            >
-              <Outlet />
-            </StackedLayout>
-          </div>
+          <DockContextProvider>
+            {/* Desktop: StackedLayout */}
+            <div className="hidden lg:block">
+              <StackedLayout
+                navbar={<AppNavbar userId={userId} />}
+                sidebar={<AppSidebar userId={userId} />}
+              >
+                <Outlet />
+              </StackedLayout>
+            </div>
 
-          {/* Mobile: Content only */}
-          <div className="lg:hidden">
-            <main className="pb-20">
-              <Outlet />
-            </main>
-          </div>
+            {/* Mobile: Content only */}
+            <div className="lg:hidden">
+              <main className="pb-20">
+                <Outlet />
+              </main>
+            </div>
 
-          {/* SpoonDock - mobile only (MobileNav has lg:hidden) */}
-          <MobileNav isAuthenticated={!!userId} />
+            {/* SpoonDock - mobile only (MobileNav has lg:hidden) */}
+            <MobileNav isAuthenticated={!!userId} />
+          </DockContextProvider>
         </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
