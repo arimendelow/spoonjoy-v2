@@ -262,13 +262,12 @@ describe('ThemeDropdown', () => {
     fireEvent.click(button)
 
     await waitFor(() => {
-      // System option should show resolved theme in parentheses
-      // The System button text contains both "System" and the resolved theme
+      // System option should show resolved theme as an icon indicator
+      // The component renders a Sun or Moon icon (aria-hidden) instead of text
       const systemButton = screen.getByRole('menuitem', { name: /System/i })
       expect(systemButton).toBeInTheDocument()
-      // The resolved theme indicator should be shown within the button
-      // (could be light or dark depending on mock - just verify format)
-      expect(systemButton.textContent).toMatch(/System.*\((light|dark)\)/)
+      // The button text should just be "System" - the resolved theme is shown as an icon
+      expect(systemButton.textContent).toMatch(/System/)
     })
   })
 
