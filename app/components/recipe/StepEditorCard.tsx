@@ -78,7 +78,11 @@ export interface StepEditorCardProps {
   onRemove: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   disabled?: boolean
+  /** Render prop for drag handle */
+  dragHandle?: React.ReactNode
 }
 
 export function StepEditorCard({
@@ -89,7 +93,10 @@ export function StepEditorCard({
   onRemove,
   onMoveUp,
   onMoveDown,
+  canMoveUp = true,
+  canMoveDown = true,
   disabled = false,
+  dragHandle,
 }: StepEditorCardProps) {
   const id = useId()
   const instructionsId = `${id}-instructions`
@@ -278,7 +285,7 @@ export function StepEditorCard({
           <button
             type="button"
             onClick={handleMoveUp}
-            disabled={disabled}
+            disabled={disabled || !canMoveUp}
             className={clsx(buttonBaseStyles, buttonOutlineStyles, 'cursor-default')}
           >
             <ArrowUp className="size-4" aria-hidden="true" />
@@ -290,13 +297,15 @@ export function StepEditorCard({
           <button
             type="button"
             onClick={handleMoveDown}
-            disabled={disabled}
+            disabled={disabled || !canMoveDown}
             className={clsx(buttonBaseStyles, buttonOutlineStyles, 'cursor-default')}
           >
             <ArrowDown className="size-4" aria-hidden="true" />
             Move Down
           </button>
         )}
+
+        {dragHandle}
       </div>
     </article>
   )

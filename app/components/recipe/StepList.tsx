@@ -4,12 +4,15 @@
  * Manages a collection of StepEditorCard instances with:
  * - '+ Add Step' button to add new steps at end
  * - Remove step with confirmation dialog
+ * - Drag-to-reorder with Framer Motion
+ * - Up/down buttons for accessible reordering
  * - Empty state handling
  * - Steps array management (controlled component)
  */
 
-import { Plus } from 'lucide-react'
-import { useState } from 'react'
+import { Reorder } from 'framer-motion'
+import { GripVertical, Plus } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from '~/components/ui/dialog'
 import { StepEditorCard, type StepData } from './StepEditorCard'
@@ -62,24 +65,102 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
     onChange(newSteps)
   }
 
+  // Renumber steps after reorder and call onChange
+  const handleReorder = useCallback(
+    (newOrder: StepData[]) => {
+      const renumberedSteps = newOrder.map((step, index) => ({
+        ...step,
+        stepNum: index + 1,
+      }))
+      onChange(renumberedSteps)
+    },
+    [onChange]
+  )
+
+  // Move step up in list
+  const handleMoveUp = useCallback(
+    (index: number) => {
+      if (index <= 0) return
+      const newSteps = [...steps]
+      const temp = newSteps[index]
+      newSteps[index] = newSteps[index - 1]
+      newSteps[index - 1] = temp
+      handleReorder(newSteps)
+    },
+    [steps, handleReorder]
+  )
+
+  // Move step down in list
+  const handleMoveDown = useCallback(
+    (index: number) => {
+      if (index >= steps.length - 1) return
+      const newSteps = [...steps]
+      const temp = newSteps[index]
+      newSteps[index] = newSteps[index + 1]
+      newSteps[index + 1] = temp
+      handleReorder(newSteps)
+    },
+    [steps, handleReorder]
+  )
+
+  // Handle keyboard reorder on drag handle
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent, index: number) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          handleMoveUp(index)
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          handleMoveDown(index)
+        }
+      }
+    },
+    [handleMoveUp, handleMoveDown]
+  )
+
   return (
     <div>
       {steps.length === 0 ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">No steps yet. Add your first step below.</p>
       ) : (
-        <div className="space-y-4 mb-4">
-          {steps.map((step) => (
-            <StepEditorCard
+        <Reorder.Group
+          axis="y"
+          values={steps}
+          onReorder={handleReorder}
+          className="space-y-4 mb-4"
+        >
+          {steps.map((step, index) => (
+            <Reorder.Item
               key={step.id}
-              stepNumber={step.stepNum}
-              step={step}
-              recipeId={recipeId}
-              onSave={(data) => handleStepSave(step.id, data)}
-              onRemove={() => handleRemoveStep(step.id)}
-              disabled={disabled}
-            />
+              value={step}
+              dragListener={false}
+            >
+              <StepEditorCard
+                stepNumber={step.stepNum}
+                step={step}
+                recipeId={recipeId}
+                onSave={(data) => handleStepSave(step.id, data)}
+                onRemove={() => handleRemoveStep(step.id)}
+                onMoveUp={() => handleMoveUp(index)}
+                onMoveDown={() => handleMoveDown(index)}
+                canMoveUp={index > 0}
+                canMoveDown={index < steps.length - 1}
+                disabled={disabled}
+                dragHandle={
+                  <button
+                    type="button"
+                    aria-label="Drag to reorder"
+                    onKeyDown={(e) => handleKeyDown(e, index)}
+                    className="cursor-grab active:cursor-grabbing p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  >
+                    <GripVertical className="h-5 w-5" />
+                  </button>
+                }
+              />
+            </Reorder.Item>
           ))}
-        </div>
+        </Reorder.Group>
       )}
 
       <Button
