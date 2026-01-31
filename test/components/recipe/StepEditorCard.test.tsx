@@ -71,6 +71,14 @@ function createTestWrapper(
         return actionHandler(formData)
       },
     },
+    // Route for AI ingredient parsing (useIngredientParser submits to this)
+    {
+      path: '/recipes/:id/steps/:stepId/edit',
+      action: async ({ request }) => {
+        const formData = await request.formData()
+        return actionHandler(formData)
+      },
+    },
   ])
 }
 
@@ -682,8 +690,10 @@ describe('StepEditorCard', () => {
         'Test instructions'
       )
 
-      // Focus the save button and press Enter
-      screen.getByRole('button', { name: /save/i }).focus()
+      // Focus the save button and press Enter (wrapped in act to avoid warnings)
+      await act(async () => {
+        screen.getByRole('button', { name: /save/i }).focus()
+      })
       await userEvent.keyboard('{Enter}')
 
       expect(onSave).toHaveBeenCalled()
@@ -691,6 +701,47 @@ describe('StepEditorCard', () => {
   })
 
   describe('ingredient management', () => {
+    it('updates ingredients when AI parses text', async () => {
+      const onSave = vi.fn()
+      const parsedResult = [{ quantity: 2, unit: 'cups', ingredientName: 'flour' }]
+
+      // Create action handler that returns parsed ingredients
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: parsedResult }), {
+        onSave,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Fill in instructions first using fireEvent (works with fake timers)
+      fireEvent.change(screen.getByRole('textbox', { name: /instructions/i }), {
+        target: { value: 'Mix dry ingredients' },
+      })
+
+      // Type in the AI parse textarea to trigger parsing
+      vi.useFakeTimers()
+      const ingredientTextarea = screen.getByPlaceholderText(/enter ingredients/i)
+      fireEvent.change(ingredientTextarea, { target: { value: '2 cups flour' } })
+
+      // Advance timers to trigger debounce
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      // Wait for the parsed ingredient to appear in the list
+      await waitFor(() => {
+        expect(screen.getByText(/flour/i)).toBeInTheDocument()
+      })
+
+      // Save and verify ingredients are included
+      await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: parsedResult,
+        })
+      )
+    })
+
     it('displays ParsedIngredientList when ingredients exist', async () => {
       const existingStep: StepData = {
         id: 'step-1',
@@ -726,6 +777,119 @@ describe('StepEditorCard', () => {
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({
           ingredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
+        })
+      )
+    })
+
+    it('adds ingredient via manual mode and includes in save', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Fill in instructions first
+      await userEvent.type(
+        screen.getByRole('textbox', { name: /instructions/i }),
+        'Test step with ingredient'
+      )
+
+      // Toggle to manual mode
+      await userEvent.click(screen.getByRole('switch'))
+
+      // Fill in manual ingredient fields
+      await userEvent.type(screen.getByLabelText(/quantity/i), '3')
+      await userEvent.type(screen.getByLabelText(/unit/i), 'tbsp')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'olive oil')
+
+      // Add the ingredient
+      await userEvent.click(screen.getByRole('button', { name: /add/i }))
+
+      // Verify ingredient appears in the list
+      expect(screen.getByText(/olive oil/i)).toBeInTheDocument()
+
+      // Save and verify ingredient is included
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: expect.arrayContaining([
+            expect.objectContaining({ ingredientName: 'olive oil' }),
+          ]),
+        })
+      )
+    })
+
+    it('edits ingredient in parsed list and includes updated value in save', async () => {
+      const existingStep: StepData = {
+        id: 'step-1',
+        stepNum: 1,
+        description: 'Test step',
+        ingredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
+      }
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+        onSave,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Click edit button on the ingredient row (uses specific aria-label)
+      const editButton = screen.getByRole('button', { name: /edit flour/i })
+      await userEvent.click(editButton)
+
+      // Find the quantity input in edit mode and change it
+      const quantityInput = screen.getByLabelText(/quantity/i)
+      await userEvent.clear(quantityInput)
+      await userEvent.type(quantityInput, '5')
+
+      // Save the edit - the row Save button has specific aria-label "Save"
+      // Get all Save buttons and find the one in the ingredient row (first one)
+      const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
+      await userEvent.click(saveButtons[0]) // First Save button is in the ingredient row
+
+      // Save the step (this is the step-level Save button with icon)
+      await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: [{ quantity: 5, unit: 'cup', ingredientName: 'flour' }],
+        })
+      )
+    })
+
+    it('removes ingredient from parsed list', async () => {
+      const existingStep: StepData = {
+        id: 'step-1',
+        stepNum: 1,
+        description: 'Test step',
+        ingredients: [
+          { quantity: 2, unit: 'cup', ingredientName: 'flour' },
+          { quantity: 1, unit: 'tsp', ingredientName: 'salt' },
+        ],
+      }
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+        onSave,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Verify both ingredients are shown
+      expect(screen.getByText(/flour/i)).toBeInTheDocument()
+      expect(screen.getByText(/salt/i)).toBeInTheDocument()
+
+      // Click the remove button for flour (uses specific aria-label)
+      await userEvent.click(screen.getByRole('button', { name: /remove flour/i }))
+
+      // Verify flour is removed, salt remains
+      expect(screen.queryByText(/flour/i)).not.toBeInTheDocument()
+      expect(screen.getByText(/salt/i)).toBeInTheDocument()
+
+      // Save and verify only salt is included (use step Save button)
+      await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: [{ quantity: 1, unit: 'tsp', ingredientName: 'salt' }],
         })
       )
     })
