@@ -1,6 +1,6 @@
 import type { Preview } from '@storybook/react-vite'
 import { withThemeByClassName } from '@storybook/addon-themes'
-import { MemoryRouter } from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import '../app/styles/tailwind.css'
 
 const preview: Preview = {
@@ -25,12 +25,22 @@ const preview: Preview = {
   },
 
   decorators: [
-    // Wrap all stories with MemoryRouter for react-router components
-    (Story) => (
-      <MemoryRouter>
-        <Story />
-      </MemoryRouter>
-    ),
+    // Wrap all stories with a data router for react-router components
+    // Uses createMemoryRouter to support data APIs like useFetcher
+    (Story) => {
+      const router = createMemoryRouter(
+        [
+          {
+            path: '*',
+            element: <Story />,
+          },
+        ],
+        {
+          initialEntries: ['/'],
+        }
+      )
+      return <RouterProvider router={router} />
+    },
     // Apply dark class to html element and set appropriate background
     withThemeByClassName({
       themes: {
