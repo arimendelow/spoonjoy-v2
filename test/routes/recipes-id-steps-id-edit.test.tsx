@@ -2171,11 +2171,11 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
       fireEvent.click(addButton);
 
-      // Now form should be visible
-      expect(screen.getByLabelText(/Quantity/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Unit/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Ingredient/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
+      // Now form should be visible with AI mode (default)
+      // AI mode shows the mode toggle switch and AI parse input
+      expect(screen.getByRole("switch")).toBeInTheDocument();
+      expect(screen.getByText(/AI Parse/)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Enter ingredients/)).toBeInTheDocument();
       // Button text should change to Cancel
       expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     });
@@ -2209,14 +2209,15 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
       fireEvent.click(addButton);
 
-      expect(screen.getByLabelText(/Quantity/)).toBeInTheDocument();
+      // AI mode is default - check for AI parse input
+      expect(screen.getByPlaceholderText(/Enter ingredients/)).toBeInTheDocument();
 
       // Click cancel (the button with "Cancel" text in the ingredient form section)
       const cancelButton = screen.getByRole("button", { name: "Cancel" });
       fireEvent.click(cancelButton);
 
       // Form should be hidden
-      expect(screen.queryByLabelText(/Quantity/)).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/Enter ingredients/)).not.toBeInTheDocument();
       // Button should be back to "+ Add Ingredient"
       expect(screen.getByRole("button", { name: "+ Add Ingredient" })).toBeInTheDocument();
     });

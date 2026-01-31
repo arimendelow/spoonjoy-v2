@@ -31,11 +31,11 @@ import {
   validateStepReference,
   STEP_TITLE_MAX_LENGTH,
   STEP_DESCRIPTION_MAX_LENGTH,
-  UNIT_NAME_MAX_LENGTH,
-  INGREDIENT_NAME_MAX_LENGTH,
-  QUANTITY_MIN,
-  QUANTITY_MAX,
 } from "~/lib/validation";
+import { IngredientInputToggle, type IngredientInputMode } from "~/components/recipe/IngredientInputToggle";
+import { ManualIngredientInput } from "~/components/recipe/ManualIngredientInput";
+import { IngredientParseInput } from "~/components/recipe/IngredientParseInput";
+import { ParsedIngredientList } from "~/components/recipe/ParsedIngredientList";
 
 interface ActionData {
   errors?: {
@@ -363,6 +363,8 @@ export default function EditStep() {
   const [showIngredientForm, setShowIngredientForm] = useState(false);
   const [showDeleteStepDialog, setShowDeleteStepDialog] = useState(false);
   const [ingredientToRemove, setIngredientToRemove] = useState<string | null>(null);
+  const [ingredientInputMode, setIngredientInputMode] = useState<IngredientInputMode>('ai');
+  const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
   const submit = useSubmit();
   const deleteStepFormRef = useRef<HTMLFormElement>(null);
 
@@ -378,6 +380,50 @@ export default function EditStep() {
   const stepDeletionErrorElement = stepDeletionError
     ? <ValidationError error={stepDeletionError} className="mb-4" />
     : null;
+
+  // Ingredient input mode handlers
+  const handleModeChange = (mode: IngredientInputMode) => {
+    setIngredientInputMode(mode);
+  };
+
+  const handleManualAdd = (ingredient: { quantity: number; unit: string; ingredientName: string }) => {
+    const formData = new FormData();
+    formData.set("intent", "addIngredient");
+    formData.set("quantity", String(ingredient.quantity));
+    formData.set("unitName", ingredient.unit);
+    formData.set("ingredientName", ingredient.ingredientName);
+    submit(formData, { method: "post" });
+  };
+
+  const handleParsed = (ingredients: ParsedIngredient[]) => {
+    setParsedIngredients(ingredients);
+  };
+
+  const handleEditParsed = (index: number, ingredient: ParsedIngredient) => {
+    setParsedIngredients((prev) => {
+      const updated = [...prev];
+      updated[index] = ingredient;
+      return updated;
+    });
+  };
+
+  const handleRemoveParsed = (index: number) => {
+    setParsedIngredients((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddAll = (ingredients: ParsedIngredient[]) => {
+    // Add all parsed ingredients sequentially
+    for (const ingredient of ingredients) {
+      const formData = new FormData();
+      formData.set("intent", "addIngredient");
+      formData.set("quantity", String(ingredient.quantity));
+      formData.set("unitName", ingredient.unit);
+      formData.set("ingredientName", ingredient.ingredientName);
+      submit(formData, { method: "post" });
+    }
+    // Clear parsed ingredients after adding all
+    setParsedIngredients([]);
+  };
 
   return (
     <div className="font-sans leading-relaxed p-8">
@@ -512,58 +558,31 @@ export default function EditStep() {
           </div>
 
           {showIngredientForm && (
-            <Form
-              method="post"
-              className="bg-gray-100 p-6 rounded-lg mb-4 flex flex-col gap-4"
-            >
-              <input type="hidden" name="intent" value="addIngredient" />
-              <div className="grid grid-cols-[1fr_1fr_2fr_auto] gap-4 items-end">
-                <div>
-                  <label htmlFor="quantity" className="block mb-2 text-sm font-bold">
-                    Quantity
-                  </label>
-                  <Input
-                    type="number"
-                    id="quantity"
-                    name="quantity"
-                    step="0.01"
-                    min={QUANTITY_MIN}
-                    max={QUANTITY_MAX}
-                    required
-                    placeholder="1.5"
+            <div className="bg-gray-100 p-6 rounded-lg mb-4 flex flex-col gap-4">
+              {/* Toggle between AI and Manual modes */}
+              <IngredientInputToggle onChange={handleModeChange} />
+
+              {/* Conditional rendering based on mode */}
+              {ingredientInputMode === "manual" ? (
+                <ManualIngredientInput onAdd={handleManualAdd} />
+              ) : (
+                <>
+                  <IngredientParseInput
+                    recipeId={recipe.id}
+                    stepId={step.id}
+                    onParsed={handleParsed}
                   />
-                </div>
-                <div>
-                  <label htmlFor="unitName" className="block mb-2 text-sm font-bold">
-                    Unit
-                  </label>
-                  <Input
-                    type="text"
-                    id="unitName"
-                    name="unitName"
-                    required
-                    maxLength={UNIT_NAME_MAX_LENGTH}
-                    placeholder="cup"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ingredientName" className="block mb-2 text-sm font-bold">
-                    Ingredient
-                  </label>
-                  <Input
-                    type="text"
-                    id="ingredientName"
-                    name="ingredientName"
-                    required
-                    maxLength={INGREDIENT_NAME_MAX_LENGTH}
-                    placeholder="flour"
-                  />
-                </div>
-                <Button type="submit" color="green">
-                  Add
-                </Button>
-              </div>
-            </Form>
+                  {parsedIngredients.length > 0 && (
+                    <ParsedIngredientList
+                      ingredients={parsedIngredients}
+                      onEdit={handleEditParsed}
+                      onRemove={handleRemoveParsed}
+                      onAddAll={handleAddAll}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           {step.ingredients.length === 0 ? (

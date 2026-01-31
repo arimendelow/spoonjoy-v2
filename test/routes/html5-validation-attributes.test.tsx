@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import NewRecipe from "~/routes/recipes.new";
@@ -17,6 +17,26 @@ import {
   QUANTITY_MIN,
   QUANTITY_MAX,
 } from "~/lib/validation";
+
+// Mock localStorage for IngredientInputToggle
+let localStorageStore: Record<string, string> = {};
+
+const localStorageMock = {
+  getItem: vi.fn((key: string) => localStorageStore[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageStore[key] = value;
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localStorageStore[key];
+  }),
+  clear: vi.fn(() => {
+    localStorageStore = {};
+  }),
+};
+
+Object.defineProperty(window, "localStorage", {
+  value: localStorageMock,
+});
 
 /**
  * Tests for HTML5 validation attributes on recipe CRUD forms.
@@ -205,8 +225,13 @@ describe("HTML5 validation attributes", () => {
       },
     };
 
+    beforeEach(() => {
+      // Reset localStorage mock before each test
+      localStorageStore = {};
+      vi.clearAllMocks();
+    });
+
     const renderEditStepWithIngredientForm = async () => {
-      const user = userEvent.setup();
       const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id/steps/:stepId/edit",
@@ -220,7 +245,19 @@ describe("HTML5 validation attributes", () => {
 
       // Click "Add Ingredient" button to show the form
       const addButton = screen.getByRole("button", { name: /Add Ingredient/i });
-      await user.click(addButton);
+      await userEvent.click(addButton);
+
+      // Wait for the AI mode toggle to be visible
+      const toggle = await screen.findByRole("switch");
+
+      // Toggle to manual mode to access the quantity/unit/ingredient fields
+      // (AI mode is now the default, so we need to switch to manual)
+      await userEvent.click(toggle);
+
+      // Wait for manual mode fields to appear (quantity is a spinbutton)
+      await waitFor(() => {
+        expect(screen.getByRole("spinbutton", { name: /Quantity/i })).toBeInTheDocument();
+      });
     };
 
     it("quantity field has min attribute", async () => {
