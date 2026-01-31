@@ -10,7 +10,7 @@ describe('ManualIngredientInput', () => {
 
       expect(screen.getByLabelText(/quantity/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/unit/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/ingredient/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Ingredient')).toBeInTheDocument()
     })
 
     it('renders add button', () => {
@@ -36,16 +36,18 @@ describe('ManualIngredientInput', () => {
     it('renders ingredient name input as text type', () => {
       render(<ManualIngredientInput onAdd={vi.fn()} />)
 
-      const ingredientInput = screen.getByLabelText(/ingredient/i)
+      const ingredientInput = screen.getByLabelText('Ingredient')
       expect(ingredientInput).toHaveAttribute('type', 'text')
     })
 
-    it('has grid layout with 4 columns', () => {
+    it('has grid layout with 4 columns on desktop', () => {
       const { container } = render(<ManualIngredientInput onAdd={vi.fn()} />)
 
       const gridContainer = container.querySelector('.grid')
       expect(gridContainer).toBeInTheDocument()
-      expect(gridContainer).toHaveClass('grid-cols-[1fr_1fr_2fr_auto]')
+      // Responsive: grid-cols-1 on mobile, sm:grid-cols-[1fr_1fr_2fr_auto] on desktop
+      expect(gridContainer).toHaveClass('grid-cols-1')
+      expect(gridContainer).toHaveClass('sm:grid-cols-[1fr_1fr_2fr_auto]')
     })
 
     it('renders with placeholder text', () => {
@@ -75,7 +77,7 @@ describe('ManualIngredientInput', () => {
     it('requires ingredient name field', () => {
       render(<ManualIngredientInput onAdd={vi.fn()} />)
 
-      const ingredientInput = screen.getByLabelText(/ingredient/i)
+      const ingredientInput = screen.getByLabelText('Ingredient')
       expect(ingredientInput).toHaveAttribute('required')
     })
 
@@ -110,7 +112,7 @@ describe('ManualIngredientInput', () => {
     it('has max length for ingredient name', () => {
       render(<ManualIngredientInput onAdd={vi.fn()} />)
 
-      const ingredientInput = screen.getByLabelText(/ingredient/i)
+      const ingredientInput = screen.getByLabelText('Ingredient')
       expect(ingredientInput).toHaveAttribute('maxLength', '100')
     })
   })
@@ -122,7 +124,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({
@@ -138,7 +140,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '1.5')
       await userEvent.type(screen.getByLabelText(/unit/i), 'tbsp')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'butter')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'butter')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({
@@ -154,12 +156,12 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(screen.getByLabelText(/quantity/i)).toHaveValue(null)
       expect(screen.getByLabelText(/unit/i)).toHaveValue('')
-      expect(screen.getByLabelText(/ingredient/i)).toHaveValue('')
+      expect(screen.getByLabelText('Ingredient')).toHaveValue('')
     })
 
     it('does not call onAdd with empty quantity', async () => {
@@ -167,7 +169,7 @@ describe('ManualIngredientInput', () => {
       render(<ManualIngredientInput onAdd={onAdd} />)
 
       await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).not.toHaveBeenCalled()
@@ -178,7 +180,7 @@ describe('ManualIngredientInput', () => {
       render(<ManualIngredientInput onAdd={onAdd} />)
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).not.toHaveBeenCalled()
@@ -201,7 +203,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), '  cups  ')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({
@@ -217,7 +219,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), '  flour  ')
+      await userEvent.type(screen.getByLabelText('Ingredient'), '  flour  ')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({
@@ -235,7 +237,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour{enter}')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour{enter}')
 
       expect(onAdd).toHaveBeenCalledWith({
         quantity: 2,
@@ -249,7 +251,7 @@ describe('ManualIngredientInput', () => {
 
       const quantityInput = screen.getByLabelText(/quantity/i)
       const unitInput = screen.getByLabelText(/unit/i)
-      const ingredientInput = screen.getByLabelText(/ingredient/i)
+      const ingredientInput = screen.getByLabelText('Ingredient')
       const addButton = screen.getByRole('button', { name: /add/i })
 
       // Focus quantity input
@@ -277,7 +279,7 @@ describe('ManualIngredientInput', () => {
       // Labels should be associated with inputs
       expect(screen.getByLabelText(/quantity/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/unit/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/ingredient/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Ingredient')).toBeInTheDocument()
     })
 
     it('add button has accessible name', () => {
@@ -291,7 +293,7 @@ describe('ManualIngredientInput', () => {
 
       const quantityInput = screen.getByLabelText(/quantity/i)
       const unitInput = screen.getByLabelText(/unit/i)
-      const ingredientInput = screen.getByLabelText(/ingredient/i)
+      const ingredientInput = screen.getByLabelText('Ingredient')
 
       expect(quantityInput).toHaveAttribute('autocomplete', 'off')
       expect(unitInput).toHaveAttribute('autocomplete', 'off')
@@ -305,7 +307,7 @@ describe('ManualIngredientInput', () => {
 
       expect(screen.getByLabelText(/quantity/i)).toBeDisabled()
       expect(screen.getByLabelText(/unit/i)).toBeDisabled()
-      expect(screen.getByLabelText(/ingredient/i)).toBeDisabled()
+      expect(screen.getByLabelText('Ingredient')).toBeDisabled()
     })
 
     it('disables add button when disabled prop is true', () => {
@@ -332,7 +334,7 @@ describe('ManualIngredientInput', () => {
 
       expect(screen.getByLabelText(/quantity/i)).toBeDisabled()
       expect(screen.getByLabelText(/unit/i)).toBeDisabled()
-      expect(screen.getByLabelText(/ingredient/i)).toBeDisabled()
+      expect(screen.getByLabelText('Ingredient')).toBeDisabled()
     })
 
     it('disables add button when loading prop is true', () => {
@@ -357,7 +359,7 @@ describe('ManualIngredientInput', () => {
 
       // Fill unit and ingredient but not quantity
       await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
 
       // Programmatically submit the form to bypass HTML5 validation
       const form = screen.getByRole('button', { name: /add/i }).closest('form')!
@@ -372,7 +374,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), '   ')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
 
       // Programmatically submit the form to bypass HTML5 validation
       const form = screen.getByRole('button', { name: /add/i }).closest('form')!
@@ -387,7 +389,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), '   ')
+      await userEvent.type(screen.getByLabelText('Ingredient'), '   ')
 
       // Programmatically submit the form to bypass HTML5 validation
       const form = screen.getByRole('button', { name: /add/i }).closest('form')!
@@ -405,7 +407,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '0.125')
       await userEvent.type(screen.getByLabelText(/unit/i), 'tsp')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'vanilla')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'vanilla')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({
@@ -421,7 +423,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '1')
       await userEvent.type(screen.getByLabelText(/unit/i), 'tbsp')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), "baker's chocolate (70%)")
+      await userEvent.type(screen.getByLabelText('Ingredient'), "baker's chocolate (70%)")
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({
@@ -437,7 +439,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '2')
       await userEvent.type(screen.getByLabelText(/unit/i), 'tbsp')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'extra virgin olive oil')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'extra virgin olive oil')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({
@@ -453,7 +455,7 @@ describe('ManualIngredientInput', () => {
 
       await userEvent.type(screen.getByLabelText(/quantity/i), '99999')
       await userEvent.type(screen.getByLabelText(/unit/i), 'g')
-      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+      await userEvent.type(screen.getByLabelText('Ingredient'), 'flour')
       await userEvent.click(screen.getByRole('button', { name: /add/i }))
 
       expect(onAdd).toHaveBeenCalledWith({

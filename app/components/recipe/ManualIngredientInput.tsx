@@ -84,7 +84,7 @@ export function ManualIngredientInput({
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="grid grid-cols-[1fr_1fr_2fr_auto] gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_auto] gap-4 items-end">
         <div>
           <label htmlFor="quantity" className="block mb-2 text-sm font-bold">
             Quantity
@@ -142,7 +142,8 @@ export function ManualIngredientInput({
           type="submit"
           disabled={isDisabled}
           aria-busy={loading}
-          className={clsx(buttonBaseStyles, buttonSolidStyles, buttonGreenStyles, 'cursor-default')}
+          aria-label="Add ingredient"
+          className={clsx(buttonBaseStyles, buttonSolidStyles, buttonGreenStyles, 'cursor-default sm:self-end')}
         >
           Add
         </button>

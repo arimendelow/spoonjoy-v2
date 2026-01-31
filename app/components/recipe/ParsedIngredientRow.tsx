@@ -1,13 +1,13 @@
 import clsx from 'clsx'
 import { Pencil, Trash2, Check, X } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Input } from '~/components/ui/input'
 import type { ParsedIngredient } from '~/lib/ingredient-parse.server'
 
 // Button styles extracted from ~/components/ui/button.tsx for native button compatibility
 const iconButtonBaseStyles = [
   'relative isolate inline-flex items-center justify-center rounded-lg border text-sm/6 font-semibold',
-  'p-1.5',
+  'min-h-11 min-w-11', // 44px minimum touch target
   'focus:outline-2 focus:outline-offset-2 focus:outline-blue-500',
   'disabled:opacity-50 disabled:cursor-not-allowed',
 ]
@@ -90,6 +90,10 @@ export function ParsedIngredientRow({
   const [editIngredientName, setEditIngredientName] = useState(ingredient.ingredientName)
   const [showValidation, setShowValidation] = useState(false)
 
+  // Refs for focus management
+  const quantityInputRef = useRef<HTMLInputElement>(null)
+  const editButtonRef = useRef<HTMLButtonElement>(null)
+
   // Real-time validation
   const validationErrors = useMemo(
     () => validateIngredientFields(editQuantity, editUnit, editIngredientName),
@@ -97,6 +101,13 @@ export function ParsedIngredientRow({
   )
 
   const hasErrors = Object.keys(validationErrors).length > 0
+
+  // Focus first input when entering edit mode
+  useEffect(() => {
+    if (isEditing && quantityInputRef.current) {
+      quantityInputRef.current.focus()
+    }
+  }, [isEditing])
 
   const handleEditClick = () => {
     // Reset edit values to current ingredient values
@@ -130,6 +141,10 @@ export function ParsedIngredientRow({
   const handleCancel = () => {
     setIsEditing(false)
     setShowValidation(false)
+    // Return focus to edit button after exiting edit mode
+    requestAnimationFrame(() => {
+      editButtonRef.current?.focus()
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -154,13 +169,14 @@ export function ParsedIngredientRow({
 
     return (
       <li className="py-2" onKeyDown={handleKeyDown}>
-        <div className="flex items-start gap-2">
-          <div className="flex-1 grid grid-cols-[1fr_1fr_2fr] gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr] gap-2">
             <div>
               <label htmlFor="edit-quantity" className="sr-only">
                 Quantity
               </label>
               <Input
+                ref={quantityInputRef}
                 type="number"
                 id="edit-quantity"
                 value={editQuantity}
@@ -222,14 +238,14 @@ export function ParsedIngredientRow({
               )}
             </div>
           </div>
-          <div className="flex gap-1 pt-0.5">
+          <div className="flex gap-1 sm:pt-0.5">
             <button
               type="button"
               onClick={handleSave}
               className={clsx(iconButtonBaseStyles, iconButtonGreenStyles, 'cursor-default')}
               aria-label="Save"
             >
-              <Check className="size-4" />
+              <Check className="size-4" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -237,7 +253,7 @@ export function ParsedIngredientRow({
               className={clsx(iconButtonBaseStyles, iconButtonPlainStyles, 'cursor-default')}
               aria-label="Cancel"
             >
-              <X className="size-4" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -247,29 +263,30 @@ export function ParsedIngredientRow({
 
   return (
     <li className="flex items-center gap-2 py-2">
-      <div className="flex-1 flex items-center gap-2">
+      <div className="flex-1 flex items-center gap-2 flex-wrap">
         <span className="font-medium">{formatQuantity(ingredient.quantity)}</span>
         <span className="text-zinc-600 dark:text-zinc-400">{ingredient.unit}</span>
         <span>{ingredient.ingredientName}</span>
       </div>
       <div className="flex gap-1">
         <button
+          ref={editButtonRef}
           type="button"
           onClick={handleEditClick}
           disabled={disabled}
           className={clsx(iconButtonBaseStyles, iconButtonPlainStyles, 'cursor-default')}
-          aria-label="Edit"
+          aria-label={`Edit ${ingredient.ingredientName}`}
         >
-          <Pencil className="size-4" />
+          <Pencil className="size-4" aria-hidden="true" />
         </button>
         <button
           type="button"
           onClick={() => onRemove(ingredient)}
           disabled={disabled}
           className={clsx(iconButtonBaseStyles, iconButtonRedStyles, 'cursor-default')}
-          aria-label="Remove"
+          aria-label={`Remove ${ingredient.ingredientName}`}
         >
-          <Trash2 className="size-4" />
+          <Trash2 className="size-4" aria-hidden="true" />
         </button>
       </div>
     </li>

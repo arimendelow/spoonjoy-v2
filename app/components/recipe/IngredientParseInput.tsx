@@ -179,6 +179,7 @@ export function IngredientParseInput({
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <circle
               className="opacity-25"
@@ -214,8 +215,9 @@ export function IngredientParseInput({
                 disabled={parser.isLoading}
                 className={clsx(buttonBaseStyles, buttonOutlineStyles, 'cursor-default')}
                 data-testid="try-again-button"
+                aria-label="Try parsing ingredients again"
               >
-                <RefreshCw className="size-4" />
+                <RefreshCw className="size-4" aria-hidden="true" />
                 Try Again
               </button>
             )}
@@ -225,6 +227,7 @@ export function IngredientParseInput({
                 onClick={handleSwitchToManual}
                 className={clsx(buttonBaseStyles, buttonOutlineStyles, 'cursor-default')}
                 data-testid="switch-to-manual-button"
+                aria-label="Switch to manual ingredient entry"
               >
                 Add Manually
               </button>

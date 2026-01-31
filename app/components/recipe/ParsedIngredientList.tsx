@@ -63,7 +63,7 @@ export function ParsedIngredientList({
 
   if (ingredients.length === 0) {
     return (
-      <div className="py-4">
+      <div className="py-4" aria-live="polite">
         <p className="text-zinc-500 dark:text-zinc-400 text-center">No ingredients parsed yet</p>
       </div>
     )
@@ -91,9 +91,10 @@ export function ParsedIngredientList({
           onClick={handleAddAll}
           disabled={isDisabled}
           aria-busy={loading}
+          aria-label={`Add all ${ingredients.length} ingredients to recipe`}
           className={clsx(buttonBaseStyles, buttonSolidStyles, buttonGreenStyles, 'cursor-default')}
         >
-          <Plus className="size-4" />
+          <Plus className="size-4" aria-hidden="true" />
           Add All ({ingredients.length})
         </button>
       </div>

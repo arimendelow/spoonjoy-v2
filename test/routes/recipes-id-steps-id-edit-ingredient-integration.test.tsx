@@ -222,7 +222,7 @@ describe('Step Edit Ingredient Integration', () => {
       // Manual mode should show quantity, unit, and ingredient name fields
       expect(screen.getByLabelText(/quantity/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/unit/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/ingredient/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Ingredient')).toBeInTheDocument()
     })
 
     it('shows Add button in manual mode', async () => {
@@ -234,7 +234,7 @@ describe('Step Edit Ingredient Integration', () => {
       await userEvent.click(addButton)
 
       // There should be an Add button for manual submission
-      expect(screen.getByRole('button', { name: /^add$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /add ingredient/i })).toBeInTheDocument()
     })
 
     it('does not show IngredientParseInput textarea in manual mode', async () => {
@@ -450,14 +450,14 @@ describe('Step Edit Ingredient Integration', () => {
       // Fill in the form
       const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
       const unitInput = screen.getByLabelText(/unit/i)
-      const ingredientInput = screen.getByLabelText(/ingredient/i)
+      const ingredientInput = screen.getByLabelText('Ingredient')
 
       await userEvent.type(quantityInput, '2')
       await userEvent.type(unitInput, 'cups')
       await userEvent.type(ingredientInput, 'flour')
 
       // Submit
-      const submitButton = screen.getByRole('button', { name: /^add$/i })
+      const submitButton = screen.getByRole('button', { name: /add ingredient/i })
       await userEvent.click(submitButton)
 
       // Form should be cleared after submission (component behavior)
@@ -476,13 +476,13 @@ describe('Step Edit Ingredient Integration', () => {
 
       const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
       const unitInput = screen.getByLabelText(/unit/i)
-      const ingredientInput = screen.getByLabelText(/ingredient/i)
+      const ingredientInput = screen.getByLabelText('Ingredient')
 
       await userEvent.type(quantityInput, '1.5')
       await userEvent.type(unitInput, 'tsp')
       await userEvent.type(ingredientInput, 'salt')
 
-      const submitButton = screen.getByRole('button', { name: /^add$/i })
+      const submitButton = screen.getByRole('button', { name: /add ingredient/i })
       await userEvent.click(submitButton)
 
       await waitFor(() => {
@@ -501,7 +501,7 @@ describe('Step Edit Ingredient Integration', () => {
       await userEvent.click(addButton)
 
       // Just submit without filling fields
-      const submitButton = screen.getByRole('button', { name: /^add$/i })
+      const submitButton = screen.getByRole('button', { name: /add ingredient/i })
       await userEvent.click(submitButton)
 
       // Form should not be submitted - fields should still be present (not cleared)
@@ -804,19 +804,19 @@ describe('Step Edit Ingredient Integration', () => {
       // Wait for Remove buttons to appear in the parsed list
       await waitFor(
         () => {
-          const removeButtons = screen.getAllByRole('button', { name: 'Remove' })
+          const removeButtons = screen.getAllByRole('button', { name: /^Remove / })
           expect(removeButtons.length).toBe(2)
         },
         { timeout: 3000 }
       )
 
       // Click the first remove button
-      const removeButtons = screen.getAllByRole('button', { name: 'Remove' })
+      const removeButtons = screen.getAllByRole('button', { name: /^Remove / })
       await userEvent.click(removeButtons[0])
 
       // One ingredient should be removed
       await waitFor(() => {
-        const remainingRemoveButtons = screen.queryAllByRole('button', { name: 'Remove' })
+        const remainingRemoveButtons = screen.queryAllByRole('button', { name: /^Remove / })
         expect(remainingRemoveButtons.length).toBe(1)
       })
     })
