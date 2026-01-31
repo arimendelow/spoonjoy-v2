@@ -26,7 +26,8 @@ import type { ParsedIngredient } from '~/lib/ingredient-parse.server'
 // Button styles extracted for native button compatibility
 const buttonBaseStyles = [
   'relative isolate inline-flex items-center justify-center gap-x-2 rounded-lg border text-sm/6 font-semibold',
-  'px-3 py-1.5',
+  // min-h-[44px] for WCAG 2.5.5 Level AAA touch targets
+  'px-3 py-1.5 min-h-[44px]',
   'focus:outline-2 focus:outline-offset-2 focus:outline-blue-500',
   'disabled:opacity-50 disabled:cursor-not-allowed',
 ]
