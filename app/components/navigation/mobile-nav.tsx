@@ -4,6 +4,7 @@ import { useLocation } from 'react-router'
 import { SpoonDock } from './spoon-dock'
 import { DockItem } from './dock-item'
 import { DockCenter } from './dock-center'
+import { useDockContext, type DockAction } from './dock-context'
 import { BookOpen, Book, ShoppingCart, User, Home } from 'lucide-react'
 
 /**
@@ -11,6 +12,9 @@ import { BookOpen, Book, ShoppingCart, User, Home } from 'lucide-react'
  *
  * Uses the current route to determine the active navigation item.
  * Hidden on desktop (lg breakpoint and above).
+ *
+ * Supports contextual actions via DockContext - when a page registers
+ * contextual actions, those replace the default navigation items.
  *
  * @param isAuthenticated - When false, shows unauthenticated variant (Home, Logo, Login)
  *                          When true or undefined, shows authenticated variant
@@ -58,38 +62,76 @@ interface MobileNavProps {
 
 export function MobileNav({ isAuthenticated = true }: MobileNavProps) {
   const location = useLocation()
-  const navItems = isAuthenticated ? authenticatedNavItems : unauthenticatedNavItems
-  const activeHref = getActiveHref(location.pathname, navItems)
-  
-  const leftItems = navItems.filter(item => item.position === 'left')
-  const rightItems = navItems.filter(item => item.position === 'right')
+  const { actions, isContextual } = useDockContext()
+  const defaultNavItems = isAuthenticated ? authenticatedNavItems : unauthenticatedNavItems
+  const activeHref = getActiveHref(location.pathname, defaultNavItems)
+
+  // When contextual, use actions from context; otherwise use default nav
+  const leftItems = isContextual
+    ? (actions ?? []).filter((a) => a.position === 'left')
+    : defaultNavItems.filter((item) => item.position === 'left')
+  const rightItems = isContextual
+    ? (actions ?? []).filter((a) => a.position === 'right')
+    : defaultNavItems.filter((item) => item.position === 'right')
 
   return (
     <SpoonDock>
       {/* Left items */}
-      {leftItems.map((item) => (
-        <DockItem
-          key={item.href}
-          icon={item.icon}
-          label={item.label}
-          href={item.href}
-          active={activeHref === item.href}
-        />
-      ))}
-      
+      {leftItems.map((item) => {
+        if (isContextual) {
+          const action = item as DockAction
+          const isHref = typeof action.onAction === 'string'
+          return (
+            <DockItem
+              key={action.id}
+              icon={action.icon}
+              label={action.label}
+              href={isHref ? action.onAction : '#'}
+              onClick={isHref ? undefined : (action.onAction as () => void)}
+            />
+          )
+        }
+        const navItem = item as NavItem
+        return (
+          <DockItem
+            key={navItem.href}
+            icon={navItem.icon}
+            label={navItem.label}
+            href={navItem.href}
+            active={activeHref === navItem.href}
+          />
+        )
+      })}
+
       {/* Center logo */}
       <DockCenter href="/" />
-      
+
       {/* Right items */}
-      {rightItems.map((item) => (
-        <DockItem
-          key={item.href}
-          icon={item.icon}
-          label={item.label}
-          href={item.href}
-          active={activeHref === item.href}
-        />
-      ))}
+      {rightItems.map((item) => {
+        if (isContextual) {
+          const action = item as DockAction
+          const isHref = typeof action.onAction === 'string'
+          return (
+            <DockItem
+              key={action.id}
+              icon={action.icon}
+              label={action.label}
+              href={isHref ? action.onAction : '#'}
+              onClick={isHref ? undefined : (action.onAction as () => void)}
+            />
+          )
+        }
+        const navItem = item as NavItem
+        return (
+          <DockItem
+            key={navItem.href}
+            icon={navItem.icon}
+            label={navItem.label}
+            href={navItem.href}
+            active={activeHref === navItem.href}
+          />
+        )
+      })}
     </SpoonDock>
   )
 }
