@@ -277,6 +277,48 @@ describe('RecipeBuilder', () => {
       const saveButton = screen.getByRole('button', { name: /save recipe/i })
       expect(saveButton).toBeEnabled()
     })
+
+    it('converts empty description to null on save', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper({ onSave })
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Fill in only title, leave description empty
+      await userEvent.type(screen.getByLabelText(/title/i), 'Title Only Recipe')
+
+      // Click save
+      await userEvent.click(screen.getByRole('button', { name: /save recipe/i }))
+
+      // onSave should be called with null description
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Title Only Recipe',
+          description: null,
+        })
+      )
+    })
+
+    it('converts empty servings to null on save', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper({ onSave })
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Fill in title and description, leave servings empty
+      await userEvent.type(screen.getByLabelText(/title/i), 'Recipe Without Servings')
+      await userEvent.type(screen.getByLabelText(/description/i), 'A description')
+
+      // Click save
+      await userEvent.click(screen.getByRole('button', { name: /save recipe/i }))
+
+      // onSave should be called with null servings
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Recipe Without Servings',
+          description: 'A description',
+          servings: null,
+        })
+      )
+    })
   })
 
   describe('cancel functionality', () => {
