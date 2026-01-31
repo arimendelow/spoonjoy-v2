@@ -247,4 +247,191 @@ describe('DockContext', () => {
       expect(action.onAction).toBe('/some/route')
     })
   })
+
+  describe('Root layout integration', () => {
+    it('DockContextProvider provides default context value (no actions)', () => {
+      function ContextChecker() {
+        const context = useDockContext()
+        return (
+          <div>
+            <span data-testid="actions">{context.actions === null ? 'null' : 'has-actions'}</span>
+            <span data-testid="contextual">{context.isContextual ? 'true' : 'false'}</span>
+          </div>
+        )
+      }
+
+      render(
+        <DockContextProvider>
+          <ContextChecker />
+        </DockContextProvider>
+      )
+
+      expect(screen.getByTestId('actions')).toHaveTextContent('null')
+      expect(screen.getByTestId('contextual')).toHaveTextContent('false')
+    })
+
+    it('context is accessible from deeply nested child components', () => {
+      function DeepChild() {
+        const context = useDockContext()
+        return <div data-testid="deep-child">{context.isContextual ? 'contextual' : 'default'}</div>
+      }
+
+      function MiddleLevel({ children }: { children: React.ReactNode }) {
+        return <div className="middle">{children}</div>
+      }
+
+      function Layout({ children }: { children: React.ReactNode }) {
+        return <div className="layout">{children}</div>
+      }
+
+      render(
+        <DockContextProvider>
+          <Layout>
+            <MiddleLevel>
+              <MiddleLevel>
+                <DeepChild />
+              </MiddleLevel>
+            </MiddleLevel>
+          </Layout>
+        </DockContextProvider>
+      )
+
+      expect(screen.getByTestId('deep-child')).toHaveTextContent('default')
+    })
+
+    it('setActions updates context state across the tree', () => {
+      function ActionSetter() {
+        const { setActions } = useDockContext()
+        return (
+          <button
+            data-testid="set-actions-btn"
+            onClick={() => setActions(sampleActions)}
+          >
+            Set Actions
+          </button>
+        )
+      }
+
+      function ActionDisplay() {
+        const { actions, isContextual } = useDockContext()
+        return (
+          <div>
+            <span data-testid="action-count">{actions?.length ?? 0}</span>
+            <span data-testid="is-contextual">{isContextual ? 'yes' : 'no'}</span>
+          </div>
+        )
+      }
+
+      render(
+        <DockContextProvider>
+          <ActionSetter />
+          <ActionDisplay />
+        </DockContextProvider>
+      )
+
+      // Initial state
+      expect(screen.getByTestId('action-count')).toHaveTextContent('0')
+      expect(screen.getByTestId('is-contextual')).toHaveTextContent('no')
+
+      // Update actions
+      act(() => {
+        screen.getByTestId('set-actions-btn').click()
+      })
+
+      // State should be updated
+      expect(screen.getByTestId('action-count')).toHaveTextContent('4')
+      expect(screen.getByTestId('is-contextual')).toHaveTextContent('yes')
+    })
+
+    it('multiple consumers receive same state', () => {
+      function Consumer({ id }: { id: string }) {
+        const { actions, isContextual } = useDockContext()
+        return (
+          <div data-testid={`consumer-${id}`}>
+            <span data-testid={`${id}-count`}>{actions?.length ?? 0}</span>
+            <span data-testid={`${id}-contextual`}>{isContextual ? 'yes' : 'no'}</span>
+          </div>
+        )
+      }
+
+      function ActionUpdater() {
+        const { setActions } = useDockContext()
+        return (
+          <button
+            data-testid="update-btn"
+            onClick={() => setActions(sampleActions)}
+          >
+            Update
+          </button>
+        )
+      }
+
+      render(
+        <DockContextProvider>
+          <Consumer id="a" />
+          <Consumer id="b" />
+          <Consumer id="c" />
+          <ActionUpdater />
+        </DockContextProvider>
+      )
+
+      // All consumers start with default state
+      expect(screen.getByTestId('a-count')).toHaveTextContent('0')
+      expect(screen.getByTestId('b-count')).toHaveTextContent('0')
+      expect(screen.getByTestId('c-count')).toHaveTextContent('0')
+
+      // Update actions
+      act(() => {
+        screen.getByTestId('update-btn').click()
+      })
+
+      // All consumers receive the same updated state
+      expect(screen.getByTestId('a-count')).toHaveTextContent('4')
+      expect(screen.getByTestId('b-count')).toHaveTextContent('4')
+      expect(screen.getByTestId('c-count')).toHaveTextContent('4')
+      expect(screen.getByTestId('a-contextual')).toHaveTextContent('yes')
+      expect(screen.getByTestId('b-contextual')).toHaveTextContent('yes')
+      expect(screen.getByTestId('c-contextual')).toHaveTextContent('yes')
+    })
+
+    it('provider does not interfere with existing navigation rendering', () => {
+      // Simulates the root layout structure with navigation components
+      function MockMobileNav() {
+        return (
+          <nav data-testid="mobile-nav" aria-label="Mobile navigation">
+            <a href="/">Home</a>
+            <a href="/recipes">Recipes</a>
+            <a href="/cookbooks">Cookbooks</a>
+          </nav>
+        )
+      }
+
+      function MockContent() {
+        return (
+          <main data-testid="content">
+            <h1>Page Content</h1>
+          </main>
+        )
+      }
+
+      render(
+        <DockContextProvider>
+          <div className="layout">
+            <MockContent />
+            <MockMobileNav />
+          </div>
+        </DockContextProvider>
+      )
+
+      // Navigation renders correctly
+      expect(screen.getByTestId('mobile-nav')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+      expect(screen.getByRole('link', { name: 'Recipes' })).toHaveAttribute('href', '/recipes')
+      expect(screen.getByRole('link', { name: 'Cookbooks' })).toHaveAttribute('href', '/cookbooks')
+
+      // Content renders correctly
+      expect(screen.getByTestId('content')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Page Content' })).toBeInTheDocument()
+    })
+  })
 })
