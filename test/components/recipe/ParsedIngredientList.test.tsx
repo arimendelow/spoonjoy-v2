@@ -198,7 +198,7 @@ describe('ParsedIngredientList', () => {
   })
 
   describe('edit action on individual rows', () => {
-    it('calls onEdit when row edit button is clicked', async () => {
+    it('enters edit mode when row edit button is clicked', async () => {
       const onEdit = vi.fn()
       const ingredients = [
         createIngredient({ ingredientName: 'flour' }),
@@ -218,10 +218,12 @@ describe('ParsedIngredientList', () => {
       const editButton = within(firstRow).getByRole('button', { name: /edit/i })
       await userEvent.click(editButton)
 
-      expect(onEdit).toHaveBeenCalled()
+      // Should enter edit mode (show input fields) but not call onEdit yet
+      expect(within(firstRow).getByRole('spinbutton', { name: /quantity/i })).toBeInTheDocument()
+      expect(onEdit).not.toHaveBeenCalled()
     })
 
-    it('passes correct ingredient index to onEdit', async () => {
+    it('passes correct ingredient index to onEdit after save', async () => {
       const onEdit = vi.fn()
       const ingredients = [
         createIngredient({ ingredientName: 'flour' }),
@@ -236,10 +238,11 @@ describe('ParsedIngredientList', () => {
         />
       )
 
-      // Click edit on the second ingredient
+      // Click edit on the second ingredient and save
       const secondRow = screen.getByText('sugar').closest('li')!
       const editButton = within(secondRow).getByRole('button', { name: /edit/i })
       await userEvent.click(editButton)
+      await userEvent.click(within(secondRow).getByRole('button', { name: /save/i }))
 
       // onEdit should receive the index and ingredient
       expect(onEdit).toHaveBeenCalledWith(1, ingredients[1])

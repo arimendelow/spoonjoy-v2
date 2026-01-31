@@ -114,7 +114,7 @@ describe('ParsedIngredientRow', () => {
   })
 
   describe('edit action', () => {
-    it('calls onEdit when edit button is clicked', async () => {
+    it('enters edit mode when edit button is clicked', async () => {
       const onEdit = vi.fn()
       const ingredient = createIngredient()
       render(
@@ -123,10 +123,13 @@ describe('ParsedIngredientRow', () => {
 
       await userEvent.click(screen.getByRole('button', { name: /edit/i }))
 
-      expect(onEdit).toHaveBeenCalledTimes(1)
+      // Should enter edit mode (show input fields)
+      expect(screen.getByRole('spinbutton', { name: /quantity/i })).toBeInTheDocument()
+      // onEdit should NOT be called until save
+      expect(onEdit).not.toHaveBeenCalled()
     })
 
-    it('passes the ingredient to onEdit callback', async () => {
+    it('calls onEdit with unchanged values when save clicked without modification', async () => {
       const onEdit = vi.fn()
       const ingredient = createIngredient({ quantity: 3, unit: 'tbsp', ingredientName: 'butter' })
       render(
@@ -134,6 +137,7 @@ describe('ParsedIngredientRow', () => {
       )
 
       await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
       expect(onEdit).toHaveBeenCalledWith(ingredient)
     })
