@@ -6,13 +6,20 @@
  * - Loading state management
  * - Error state management
  * - Parsed ingredients result
+ *
+ * Note: These tests use fireEvent with fake timers for debounce-specific tests,
+ * and real timers with short delays for router integration tests. This is because
+ * React Router's createRoutesStub has internal async mechanisms that don't work
+ * well with vitest's fake timers.
  */
 
-import { render, screen, waitFor, act } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { createRoutesStub } from 'react-router'
 import { useIngredientParser } from '~/hooks/useIngredientParser'
+
+// Configurable debounce delay for testing - allows shorter delay in real timer tests
+const TEST_DEBOUNCE_DELAY = 50 // ms - short delay for real timer tests
 
 // Helper component to test the hook
 function TestComponent({
@@ -33,7 +40,7 @@ function TestComponent({
 
   return (
     <div>
-      <input
+      <textarea
         data-testid="input"
         value={parser.text}
         onChange={(e) => parser.setText(e.target.value)}
@@ -74,14 +81,6 @@ function createTestWrapper(actionHandler: (formData: FormData) => Promise<unknow
 }
 
 describe('useIngredientParser', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   describe('initialization', () => {
     it('initializes with empty text', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
@@ -113,72 +112,75 @@ describe('useIngredientParser', () => {
   })
 
   describe('text input', () => {
-    it('updates text when setText is called', async () => {
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    it('updates text when setText is called', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
 
       expect(screen.getByTestId('input')).toHaveValue('2 cups flour')
     })
 
-    it('clears text when clear is called', async () => {
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    it('clears text when clear is called', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('clear'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('clear'))
 
       expect(screen.getByTestId('input')).toHaveValue('')
     })
 
     it('clears parsed ingredients when clear is called', async () => {
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(async () => ({
         parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
       }))
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      // Parse first
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      // Parse first using manual parse
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
       await waitFor(() => expect(screen.getByTestId('results')).toBeInTheDocument())
 
       // Clear
-      await user.click(screen.getByTestId('clear'))
+      fireEvent.click(screen.getByTestId('clear'))
 
       expect(screen.queryByTestId('results')).not.toBeInTheDocument()
     })
 
     it('clears error when clear is called', async () => {
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(async () => ({
         errors: { parse: 'Parse failed' },
       }))
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      // Trigger error
-      await user.type(screen.getByTestId('input'), 'invalid')
-      await user.click(screen.getByTestId('parse'))
+      // Trigger error using manual parse
+      fireEvent.change(screen.getByTestId('input'), { target: { value: 'invalid' } })
+      fireEvent.click(screen.getByTestId('parse'))
       await waitFor(() => expect(screen.getByTestId('error')).toBeInTheDocument())
 
       // Clear
-      await user.click(screen.getByTestId('clear'))
+      fireEvent.click(screen.getByTestId('clear'))
 
       expect(screen.queryByTestId('error')).not.toBeInTheDocument()
     })
   })
 
   describe('debounced parsing', () => {
-    it('does not trigger parse immediately on text change', async () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('does not trigger parse immediately on text change', () => {
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
 
       // Immediately after typing, action should not be called
       expect(actionHandler).not.toHaveBeenCalled()
@@ -188,41 +190,52 @@ describe('useIngredientParser', () => {
       const actionHandler = vi.fn().mockResolvedValue({
         parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+
+      // Before debounce
+      expect(actionHandler).not.toHaveBeenCalled()
 
       // Advance timers by 1 second
-      await act(async () => {
+      act(() => {
         vi.advanceTimersByTime(1000)
       })
 
-      await waitFor(() => {
-        expect(actionHandler).toHaveBeenCalled()
-      })
+      // The debounce triggered, but the actual action runs async
+      // Since we're testing debounce behavior, verify the timeout was set up correctly
+      // by checking that the action wasn't called before the delay
+      expect(actionHandler).not.toHaveBeenCalled() // Still not called because router async hasn't resolved
+
+      // Switch to real timers to let the router resolve
+      vi.useRealTimers()
+      await waitFor(
+        () => {
+          expect(actionHandler).toHaveBeenCalled()
+        },
+        { timeout: 3000 }
+      )
     })
 
     it('resets debounce timer on each keystroke', async () => {
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
       // Type first character
-      await user.type(screen.getByTestId('input'), '2')
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2' } })
 
       // Wait 500ms
-      await act(async () => {
+      act(() => {
         vi.advanceTimersByTime(500)
       })
 
       // Type more
-      await user.type(screen.getByTestId('input'), ' cups')
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups' } })
 
       // Wait 500ms more (total 1000ms from first char, but only 500ms from last)
-      await act(async () => {
+      act(() => {
         vi.advanceTimersByTime(500)
       })
 
@@ -230,43 +243,46 @@ describe('useIngredientParser', () => {
       expect(actionHandler).not.toHaveBeenCalled()
 
       // Wait remaining 500ms
-      await act(async () => {
+      act(() => {
         vi.advanceTimersByTime(500)
       })
 
-      await waitFor(() => {
-        expect(actionHandler).toHaveBeenCalled()
-      })
+      // Switch to real timers and verify
+      vi.useRealTimers()
+      await waitFor(
+        () => {
+          expect(actionHandler).toHaveBeenCalled()
+        },
+        { timeout: 3000 }
+      )
     })
 
-    it('does not trigger parse for empty text', async () => {
+    it('does not trigger parse for empty text', () => {
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
       // Type then delete
-      await user.type(screen.getByTestId('input'), 'a')
-      await user.clear(screen.getByTestId('input'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: 'a' } })
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '' } })
 
       // Wait for debounce
-      await act(async () => {
+      act(() => {
         vi.advanceTimersByTime(1000)
       })
 
       expect(actionHandler).not.toHaveBeenCalled()
     })
 
-    it('does not trigger parse for whitespace-only text', async () => {
+    it('does not trigger parse for whitespace-only text', () => {
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '   ')
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '   ' } })
 
       // Wait for debounce
-      await act(async () => {
+      act(() => {
         vi.advanceTimersByTime(1000)
       })
 
@@ -279,12 +295,11 @@ describe('useIngredientParser', () => {
       const actionHandler = vi.fn().mockResolvedValue({
         parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(actionHandler).toHaveBeenCalled()
@@ -292,22 +307,26 @@ describe('useIngredientParser', () => {
     })
 
     it('cancels pending debounce when parse() is called', async () => {
+      vi.useFakeTimers()
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
-      // Even after debounce period, should only have been called once
-      await act(async () => {
+      // Even after debounce period, should only have been called once (from manual parse)
+      act(() => {
         vi.advanceTimersByTime(1000)
       })
 
-      await waitFor(() => {
-        expect(actionHandler).toHaveBeenCalledTimes(1)
-      })
+      vi.useRealTimers()
+      await waitFor(
+        () => {
+          expect(actionHandler).toHaveBeenCalledTimes(1)
+        },
+        { timeout: 3000 }
+      )
     })
   })
 
@@ -318,12 +337,11 @@ describe('useIngredientParser', () => {
         resolveAction = resolve
       })
       const actionHandler = vi.fn().mockImplementation(() => actionPromise)
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(screen.getByTestId('loading')).toBeInTheDocument()
@@ -339,12 +357,11 @@ describe('useIngredientParser', () => {
       const actionHandler = vi.fn().mockResolvedValue({
         parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(screen.queryByTestId('loading')).not.toBeInTheDocument()
@@ -356,12 +373,11 @@ describe('useIngredientParser', () => {
       const actionHandler = vi.fn().mockResolvedValue({
         errors: { parse: 'Parse failed' },
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), 'invalid')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: 'invalid' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(screen.queryByTestId('loading')).not.toBeInTheDocument()
@@ -378,12 +394,13 @@ describe('useIngredientParser', () => {
           { quantity: 0.5, unit: 'tsp', ingredientName: 'salt' },
         ],
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour\n1/2 tsp salt')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), {
+        target: { value: '2 cups flour\n1/2 tsp salt' },
+      })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         const results = screen.getByTestId('results')
@@ -398,23 +415,25 @@ describe('useIngredientParser', () => {
         parseCount++
         return {
           parsedIngredients: [
-            { quantity: parseCount, unit: 'cup', ingredientName: parseCount === 1 ? 'flour' : 'sugar' },
+            {
+              quantity: parseCount,
+              unit: 'cup',
+              ingredientName: parseCount === 1 ? 'flour' : 'sugar',
+            },
           ],
         }
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
       // First parse
-      await user.type(screen.getByTestId('input'), '1 cup flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '1 cup flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
       await waitFor(() => expect(screen.getByTestId('results')).toHaveTextContent('flour'))
 
       // Clear and parse again
-      await user.clear(screen.getByTestId('input'))
-      await user.type(screen.getByTestId('input'), '2 cups sugar')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups sugar' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         const results = screen.getByTestId('results')
@@ -429,12 +448,11 @@ describe('useIngredientParser', () => {
       const actionHandler = vi.fn().mockResolvedValue({
         errors: { parse: 'Failed to parse: API rate limited' },
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), 'invalid')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: 'invalid' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(screen.getByTestId('error')).toHaveTextContent('Failed to parse: API rate limited')
@@ -449,20 +467,18 @@ describe('useIngredientParser', () => {
         }
         return { parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }] }
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
       // Trigger error
-      await user.type(screen.getByTestId('input'), 'invalid')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: 'invalid' } })
+      fireEvent.click(screen.getByTestId('parse'))
       await waitFor(() => expect(screen.getByTestId('error')).toBeInTheDocument())
 
       // Parse again successfully
       shouldFail = false
-      await user.clear(screen.getByTestId('input'))
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(screen.queryByTestId('error')).not.toBeInTheDocument()
@@ -478,20 +494,18 @@ describe('useIngredientParser', () => {
         }
         return { parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }] }
       })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
       // Parse successfully first
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
       await waitFor(() => expect(screen.getByTestId('results')).toBeInTheDocument())
 
       // Parse with failure
       shouldFail = true
-      await user.clear(screen.getByTestId('input'))
-      await user.type(screen.getByTestId('input'), 'bad input')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: 'bad input' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(screen.getByTestId('error')).toBeInTheDocument()
@@ -503,12 +517,11 @@ describe('useIngredientParser', () => {
   describe('fetcher data', () => {
     it('sends correct form data to action', async () => {
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), { target: { value: '2 cups flour' } })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         expect(actionHandler).toHaveBeenCalled()
@@ -520,12 +533,13 @@ describe('useIngredientParser', () => {
 
     it('preserves multi-line ingredient text', async () => {
       const actionHandler = vi.fn().mockResolvedValue({ parsedIngredients: [] })
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       const Wrapper = createTestWrapper(actionHandler)
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
 
-      await user.type(screen.getByTestId('input'), '2 cups flour\n1/2 tsp salt\n3 eggs')
-      await user.click(screen.getByTestId('parse'))
+      fireEvent.change(screen.getByTestId('input'), {
+        target: { value: '2 cups flour\n1/2 tsp salt\n3 eggs' },
+      })
+      fireEvent.click(screen.getByTestId('parse'))
 
       await waitFor(() => {
         const formData = actionHandler.mock.calls[0][0] as FormData
