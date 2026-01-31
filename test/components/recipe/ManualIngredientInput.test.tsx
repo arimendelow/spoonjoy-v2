@@ -350,6 +350,54 @@ describe('ManualIngredientInput', () => {
     })
   })
 
+  describe('programmatic form submission (bypasses HTML5 validation)', () => {
+    it('does not call onAdd when quantity is empty (JS validation)', async () => {
+      const onAdd = vi.fn()
+      render(<ManualIngredientInput onAdd={onAdd} />)
+
+      // Fill unit and ingredient but not quantity
+      await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
+      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+
+      // Programmatically submit the form to bypass HTML5 validation
+      const form = screen.getByRole('button', { name: /add/i }).closest('form')!
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+      expect(onAdd).not.toHaveBeenCalled()
+    })
+
+    it('does not call onAdd when unit is only whitespace (JS validation)', async () => {
+      const onAdd = vi.fn()
+      render(<ManualIngredientInput onAdd={onAdd} />)
+
+      await userEvent.type(screen.getByLabelText(/quantity/i), '2')
+      await userEvent.type(screen.getByLabelText(/unit/i), '   ')
+      await userEvent.type(screen.getByLabelText(/ingredient/i), 'flour')
+
+      // Programmatically submit the form to bypass HTML5 validation
+      const form = screen.getByRole('button', { name: /add/i }).closest('form')!
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+      expect(onAdd).not.toHaveBeenCalled()
+    })
+
+    it('does not call onAdd when ingredient is only whitespace (JS validation)', async () => {
+      const onAdd = vi.fn()
+      render(<ManualIngredientInput onAdd={onAdd} />)
+
+      await userEvent.type(screen.getByLabelText(/quantity/i), '2')
+      await userEvent.type(screen.getByLabelText(/unit/i), 'cups')
+      await userEvent.type(screen.getByLabelText(/ingredient/i), '   ')
+
+      // Programmatically submit the form to bypass HTML5 validation
+      const form = screen.getByRole('button', { name: /add/i }).closest('form')!
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+      expect(onAdd).not.toHaveBeenCalled()
+    })
+
+  })
+
   describe('edge cases', () => {
     it('handles very small decimal quantities', async () => {
       const onAdd = vi.fn()

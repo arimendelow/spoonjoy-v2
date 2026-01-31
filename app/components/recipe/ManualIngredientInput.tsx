@@ -65,6 +65,7 @@ export function ManualIngredientInput({
     }
 
     // Validate quantity is a valid number
+    /* istanbul ignore next -- @preserve defensive check: type="number" input prevents non-numeric values */
     if (isNaN(parsedQuantity)) {
       return
     }
