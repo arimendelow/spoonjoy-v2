@@ -965,9 +965,159 @@ interface RecipeFormData {
 - AllErrors
 
 ### Status
-**Tests written and FAIL as expected** - Component file does not exist yet.
-- 61 tests written in test file
-- 21 stories written in Storybook file
-- Both fail to import as component doesn't exist
+**Unit 8b COMPLETE** - All 61 tests passing, build passes.
 
-Ready for Unit 8b implementation.
+---
+
+## Unit 8b: RecipeForm Implementation
+
+### Implementation Summary
+
+**File Created:** `app/components/recipe/RecipeForm.tsx`
+
+**Features:**
+- Title input (required, max 200 chars) with placeholder "e.g., Chocolate Chip Cookies"
+- Description textarea (optional, max 2000 chars) with placeholder
+- Servings input (optional, max 100 chars) with placeholder "e.g., 4, 6-8, or 2 dozen"
+- RecipeImageUpload component integration for image handling
+- Create mode: empty form, "Create Recipe" submit button
+- Edit mode: pre-populated form, "Save Changes" submit button, includes recipe ID
+- Disabled and loading states propagated to all inputs/buttons
+- Error display with role="alert" for general errors and aria-describedby for field errors
+- Form submission trims whitespace from all fields
+- clearImage flag sent when removing existing image in edit mode
+
+**Props Interface:**
+```typescript
+interface RecipeFormProps {
+  mode: 'create' | 'edit'
+  recipe?: { id, title, description, servings, imageUrl }
+  onSubmit: (data: RecipeFormData) => void
+  onCancel?: () => void
+  disabled?: boolean
+  loading?: boolean
+  errors?: { title?, description?, servings?, general?, image? }
+}
+
+interface RecipeFormData {
+  id?: string       // Edit mode only
+  title: string
+  description: string
+  servings: string
+  imageFile: File | null
+  clearImage?: boolean  // Edit mode when removing image
+}
+```
+
+### Test Fix
+Fixed selector for "Change Image" button in test to be more specific (`/change image/i` instead of `/change/i`) to avoid matching "Save Changes" button.
+
+### Verification
+- ✅ All 2934 tests passing
+- ✅ 61 RecipeForm tests passing
+- ✅ Build passes
+- ✅ No new warnings
+
+---
+
+## Unit 8c: RecipeForm + Storybook Stories - Work Check
+
+### Summary
+Verified completeness of RecipeForm implementation and overall test health.
+
+### Issues Found and Fixed
+
+1. **act() warnings in recipes-id.test.tsx** (line 1671)
+   - Test "should save recipe to cookbook via dropdown (optimistic UI)" had act() warnings
+   - Root cause: Escape key press didn't wait for dropdown state to update
+   - Fix: Added waitFor after Escape to confirm dropdown closed
+
+2. **Drag-drop test coverage gaps in RecipeImageUpload.test.tsx**
+   - Original tests used conditional logic (`if (dropZone)`) that always passed
+   - Tests didn't actually exercise drag event handlers
+   - Fix: Replaced with proper fireEvent-based tests that fully exercise handlers
+   - Added 7 new tests covering: dragEnter, dragLeave, dragOver, drop, disabled/loading states
+
+### Final Verification
+- ✅ All 2941 tests passing (added 7 new drag-drop tests)
+- ✅ 59 RecipeImageUpload tests passing
+- ✅ 61 RecipeForm tests passing
+- ✅ No act() warnings or other warnings in test output
+- ✅ Coverage maintained at 99.79% overall (pre-existing gaps in unrelated components)
+- ✅ Build passes
+
+### Commit
+`fix(tests): Resolve act() warnings and improve drag-drop coverage` - Pushed to main.
+
+---
+
+## Unit 9a: RecipeForm Route Integration Tests
+
+### Test File
+`test/routes/recipes-form-integration.test.tsx`
+
+### Purpose
+Write failing tests that verify RecipeForm component is integrated with:
+- `recipes.new.tsx` (create new recipe)
+- `recipes.$id.edit.tsx` (edit existing recipe metadata)
+
+### Test Categories
+
+**recipes.new.tsx - RecipeForm Integration** (8 tests):
+1. Component rendering (4):
+   - Should render RecipeForm in create mode ("Title" label, "Create Recipe" button)
+   - Should render RecipeImageUpload instead of URL input
+   - Should have correct placeholder for title
+   - Should render Cancel button that triggers onCancel
+
+2. Form submission (3):
+   - Should handle form submission with image file
+   - Should display validation errors from server
+   - Should display general error with role=alert
+
+3. Loading state (1):
+   - Should show loading state during submission (aria-busy)
+
+**recipes.$id.edit.tsx - RecipeForm Integration** (12 tests):
+1. Component rendering (4):
+   - Should render RecipeForm in edit mode ("Save Changes" button)
+   - Should render RecipeImageUpload with existing image preview
+   - Should populate form fields with existing recipe data
+   - Should handle null description and servings
+
+2. Image handling in edit mode (2):
+   - Should allow clearing existing image
+   - Should allow uploading new image to replace existing
+
+3. Form submission in edit mode (2):
+   - Should include recipe ID in submission
+   - Should display validation errors from server
+
+4. Step list section (2):
+   - Should still render step list section below RecipeForm
+   - Should render Add Step button in step section
+
+5. Cancel button behavior (1):
+   - Should navigate back to recipe on cancel
+
+**encType for image upload** (2 tests):
+- Should use multipart/form-data encoding for new recipe form
+- Should use multipart/form-data encoding for edit recipe form
+
+### Expected Failures
+All tests fail because:
+1. Routes use inline forms, not RecipeForm component
+2. Routes use "Recipe Title *" label instead of "Title"
+3. Routes use "Image URL" input instead of RecipeImageUpload
+4. Routes use link Cancel instead of button Cancel with onCancel
+5. Routes don't use multipart/form-data encoding
+
+### Test Run Results
+- 21 tests total
+- 18 tests FAIL (expected - RecipeForm not yet integrated)
+- 3 tests PASS (step list section tests pass because that section exists)
+
+### Status
+**Tests written and FAIL as expected** - Ready for Unit 9b implementation.
+
+---
