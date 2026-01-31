@@ -40,13 +40,13 @@ describe("HTML5 validation attributes", () => {
 
     it("title field has required attribute", async () => {
       await renderNewRecipe();
-      const titleInput = screen.getByLabelText(/Recipe Title/);
+      const titleInput = screen.getByLabelText(/Title/);
       expect(titleInput).toBeRequired();
     });
 
     it("title field has maxLength attribute", async () => {
       await renderNewRecipe();
-      const titleInput = screen.getByLabelText(/Recipe Title/);
+      const titleInput = screen.getByLabelText(/Title/);
       expect(titleInput).toHaveAttribute("maxLength", String(TITLE_MAX_LENGTH));
     });
 
@@ -88,13 +88,13 @@ describe("HTML5 validation attributes", () => {
 
     it("title field has required attribute", async () => {
       await renderEditRecipe();
-      const titleInput = screen.getByLabelText(/Recipe Title/);
+      const titleInput = screen.getByLabelText(/Title/);
       expect(titleInput).toBeRequired();
     });
 
     it("title field has maxLength attribute", async () => {
       await renderEditRecipe();
-      const titleInput = screen.getByLabelText(/Recipe Title/);
+      const titleInput = screen.getByLabelText(/Title/);
       expect(titleInput).toHaveAttribute("maxLength", String(TITLE_MAX_LENGTH));
     });
 

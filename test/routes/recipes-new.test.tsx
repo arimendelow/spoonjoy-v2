@@ -378,72 +378,6 @@ describe("Recipes New Route", () => {
         expect(response.status).toBe(302);
       });
 
-      it("should return validation error for invalid URL format", async () => {
-        const request = await createFormRequest(
-          { title: "Valid Title", imageUrl: "not-a-valid-url" },
-          testUserId
-        );
-
-        const response = await action({
-          request,
-          context: { cloudflare: { env: null } },
-          params: {},
-        } as any);
-
-        const { data, status } = extractResponseData(response);
-        expect(status).toBe(400);
-        expect(data.errors.imageUrl).toBe("Please enter a valid URL");
-      });
-
-      it("should return validation error for javascript: URL", async () => {
-        const request = await createFormRequest(
-          { title: "Valid Title", imageUrl: "javascript:alert(1)" },
-          testUserId
-        );
-
-        const response = await action({
-          request,
-          context: { cloudflare: { env: null } },
-          params: {},
-        } as any);
-
-        const { data, status } = extractResponseData(response);
-        expect(status).toBe(400);
-        expect(data.errors.imageUrl).toBe("Please enter a valid URL");
-      });
-
-      it("should accept valid http URL", async () => {
-        const request = await createFormRequest(
-          { title: "Valid Title", imageUrl: "http://example.com/image.jpg" },
-          testUserId
-        );
-
-        const response = await action({
-          request,
-          context: { cloudflare: { env: null } },
-          params: {},
-        } as any);
-
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(302);
-      });
-
-      it("should accept valid https URL", async () => {
-        const request = await createFormRequest(
-          { title: "Valid Title", imageUrl: "https://example.com/image.jpg" },
-          testUserId
-        );
-
-        const response = await action({
-          request,
-          context: { cloudflare: { env: null } },
-          params: {},
-        } as any);
-
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(302);
-      });
-
       it("should return multiple validation errors at once", async () => {
         const longTitle = "a".repeat(201);
         const longDescription = "a".repeat(2001);
@@ -453,7 +387,6 @@ describe("Recipes New Route", () => {
             title: longTitle,
             description: longDescription,
             servings: longServings,
-            imageUrl: "invalid-url",
           },
           testUserId
         );
@@ -469,7 +402,6 @@ describe("Recipes New Route", () => {
         expect(data.errors.title).toBe("Title must be 200 characters or less");
         expect(data.errors.description).toBe("Description must be 2,000 characters or less");
         expect(data.errors.servings).toBe("Servings must be 100 characters or less");
-        expect(data.errors.imageUrl).toBe("Please enter a valid URL");
       });
     });
   });
@@ -488,12 +420,14 @@ describe("Recipes New Route", () => {
 
       expect(await screen.findByRole("heading", { name: "Create New Recipe" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "← Back to recipes" })).toHaveAttribute("href", "/recipes");
-      expect(screen.getByLabelText(/Recipe Title/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Title/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Description/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Servings/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Image URL/)).toBeInTheDocument();
+      // Recipe Image is now a file upload, not a URL input
+      expect(screen.getByRole("group", { name: /Recipe Image/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Create Recipe" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/recipes");
+      // Cancel is now a button that navigates programmatically, not a link
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     });
 
     it("should have correct form structure", async () => {
@@ -507,7 +441,7 @@ describe("Recipes New Route", () => {
 
       render(<Stub initialEntries={["/recipes/new"]} />);
 
-      const titleInput = await screen.findByLabelText(/Recipe Title/);
+      const titleInput = await screen.findByLabelText(/Title/);
       expect(titleInput).toHaveAttribute("type", "text");
       expect(titleInput).toHaveAttribute("name", "title");
       expect(titleInput).toBeRequired();
@@ -519,24 +453,8 @@ describe("Recipes New Route", () => {
       expect(servingsInput).toHaveAttribute("type", "text");
       expect(servingsInput).toHaveAttribute("name", "servings");
 
-      const imageUrlInput = screen.getByLabelText(/Image URL/);
-      expect(imageUrlInput).toHaveAttribute("type", "url");
-      expect(imageUrlInput).toHaveAttribute("name", "imageUrl");
-    });
-
-    it("should display helper text for image URL", async () => {
-      const Stub = createTestRoutesStub([
-        {
-          path: "/recipes/new",
-          Component: NewRecipe,
-          loader: () => null,
-        },
-      ]);
-
-      render(<Stub initialEntries={["/recipes/new"]} />);
-
-      await screen.findByLabelText(/Recipe Title/);
-      expect(screen.getByText("Leave blank to use default placeholder image")).toBeInTheDocument();
+      // Recipe Image is now a file upload, not a URL input
+      expect(screen.getByRole("group", { name: /Recipe Image/ })).toBeInTheDocument();
     });
 
     it("should have correct placeholders", async () => {
@@ -550,10 +468,9 @@ describe("Recipes New Route", () => {
 
       render(<Stub initialEntries={["/recipes/new"]} />);
 
-      expect(await screen.findByPlaceholderText("e.g., Grandma's Chocolate Chip Cookies")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("Brief description of your recipe...")).toBeInTheDocument();
+      expect(await screen.findByPlaceholderText("e.g., Chocolate Chip Cookies")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("A brief description of your recipe...")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("e.g., 4, 6-8, or 2 dozen")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("https://example.com/image.jpg (optional)")).toBeInTheDocument();
     });
 
     it("should display general error message when present", async () => {
@@ -571,7 +488,7 @@ describe("Recipes New Route", () => {
       render(<Stub initialEntries={["/recipes/new"]} />);
 
       // Wait for form to render
-      await screen.findByLabelText(/Recipe Title/);
+      await screen.findByLabelText(/Title/);
     });
   });
 });
