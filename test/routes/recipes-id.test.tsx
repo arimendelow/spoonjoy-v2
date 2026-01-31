@@ -1407,8 +1407,11 @@ describe("Recipes $id Route", () => {
       expect(await screen.findByText("My Favorites")).toBeInTheDocument();
       expect(screen.getByText("Quick Meals")).toBeInTheDocument();
 
-      // Close dropdown to avoid act() warnings
+      // Close dropdown and wait for it to be removed to avoid act() warnings
       await user.keyboard("{Escape}");
+      await waitFor(() => {
+        expect(screen.queryByText("My Favorites")).not.toBeInTheDocument();
+      });
     });
 
     it("should show checkmark on already saved cookbooks", async () => {
@@ -1451,8 +1454,11 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("Quick Meals")).toBeInTheDocument();
       expect(screen.queryByText("Quick Meals ✓")).not.toBeInTheDocument();
 
-      // Close dropdown to avoid act() warnings
+      // Close dropdown and wait for it to be removed to avoid act() warnings
       await user.keyboard("{Escape}");
+      await waitFor(() => {
+        expect(screen.queryByText("My Favorites ✓")).not.toBeInTheDocument();
+      });
     });
 
     it("should show empty state when user has no cookbooks", async () => {

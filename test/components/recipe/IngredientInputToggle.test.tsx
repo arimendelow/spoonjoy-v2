@@ -279,8 +279,9 @@ describe('IngredientInputToggle', () => {
       const onChange = vi.fn()
       render(<IngredientInputToggle onChange={onChange} defaultMode="ai" />)
 
-      const switchEl = screen.getByRole('switch')
-      switchEl.focus()
+      // Use tab to focus instead of direct .focus() to avoid act() warnings
+      await userEvent.tab()
+      expect(screen.getByRole('switch')).toHaveFocus()
 
       await userEvent.keyboard(' ')
 
