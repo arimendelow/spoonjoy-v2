@@ -1495,6 +1495,12 @@ describe("Recipes $id Route", () => {
       // Should show empty state message
       expect(await screen.findByText("No cookbooks yet")).toBeInTheDocument();
       expect(screen.getByText("Create your first cookbook")).toBeInTheDocument();
+
+      // Close dropdown and wait for it to be removed to avoid act() warnings
+      await user.keyboard("{Escape}");
+      await waitFor(() => {
+        expect(screen.queryByText("No cookbooks yet")).not.toBeInTheDocument();
+      });
     });
 
     it("should call Share handler when Share button is clicked", async () => {
