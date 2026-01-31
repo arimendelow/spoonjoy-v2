@@ -1,20 +1,90 @@
+import clsx from 'clsx'
+import { RefreshCw } from 'lucide-react'
 import { useEffect, useId, useRef } from 'react'
 import { Textarea } from '~/components/ui/textarea'
 import { useIngredientParser } from '~/hooks/useIngredientParser'
 import type { ParsedIngredient } from '~/lib/ingredient-parse.server'
 
+// Button styles extracted for native button compatibility
+const buttonBaseStyles = [
+  'relative isolate inline-flex items-center justify-center gap-x-2 rounded-lg border text-sm/6 font-semibold',
+  'px-3 py-1.5',
+  'focus:outline-2 focus:outline-offset-2 focus:outline-blue-500',
+  'disabled:opacity-50 disabled:cursor-not-allowed',
+]
+
+const buttonOutlineStyles = [
+  'border-zinc-950/10 dark:border-white/15',
+  'text-zinc-950 dark:text-white',
+  'hover:bg-zinc-950/5 dark:hover:bg-white/5',
+]
+
 export interface IngredientParseInputProps {
   recipeId: string
   stepId: string
   onParsed?: (ingredients: ParsedIngredient[]) => void
+  onSwitchToManual?: () => void
   disabled?: boolean
   defaultValue?: string
+}
+
+/**
+ * Converts technical error messages to user-friendly, actionable messages.
+ */
+function getActionableErrorMessage(error: string): { message: string; isRetryable: boolean } {
+  // API key missing - not retryable, suggest manual mode
+  if (error.includes('API key is required')) {
+    return {
+      message: 'AI parsing is unavailable. You can add ingredients manually using the form below.',
+      isRetryable: false,
+    }
+  }
+
+  // Network or connection errors - retryable
+  if (
+    error.includes('Failed to parse') ||
+    error.includes('connection') ||
+    error.includes('network') ||
+    error.includes('timeout')
+  ) {
+    return {
+      message: 'Unable to connect to AI service. Please try again or add ingredients manually.',
+      isRetryable: true,
+    }
+  }
+
+  // API response errors - retryable
+  if (
+    error.includes('No response') ||
+    error.includes('Empty response') ||
+    error.includes('Invalid JSON')
+  ) {
+    return {
+      message: 'AI parsing failed to process your ingredients. Please try again or add ingredients manually.',
+      isRetryable: true,
+    }
+  }
+
+  // Schema validation errors - retryable (LLM might give better output)
+  if (error.includes('schema')) {
+    return {
+      message: 'AI returned unexpected results. Please try again or add ingredients manually.',
+      isRetryable: true,
+    }
+  }
+
+  // Default fallback - assume retryable
+  return {
+    message: 'Something went wrong. Please try again or add ingredients manually.',
+    isRetryable: true,
+  }
 }
 
 export function IngredientParseInput({
   recipeId,
   stepId,
   onParsed,
+  onSwitchToManual,
   disabled = false,
   defaultValue = '',
 }: IngredientParseInputProps) {
@@ -61,10 +131,21 @@ export function IngredientParseInput({
   const isDisabled = disabled || parser.isLoading
   const hasError = !!parser.error
 
+  // Get actionable error info
+  const errorInfo = hasError ? getActionableErrorMessage(parser.error!) : null
+
   // Build aria-describedby based on current state
   const describedByIds = [descriptionId]
   if (hasError) {
     describedByIds.push(errorId)
+  }
+
+  const handleTryAgain = () => {
+    parser.parse()
+  }
+
+  const handleSwitchToManual = () => {
+    onSwitchToManual?.()
   }
 
   return (
@@ -116,10 +197,40 @@ export function IngredientParseInput({
           Parsing ingredients...
         </div>
       )}
-      {hasError && (
-        <p id={errorId} role="alert" className="mt-2 text-sm text-red-600">
-          {parser.error}
-        </p>
+      {hasError && errorInfo && (
+        <div
+          id={errorId}
+          role="alert"
+          className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+        >
+          <p className="text-sm text-red-700 dark:text-red-300 mb-2">
+            {errorInfo.message}
+          </p>
+          <div className="flex gap-2">
+            {errorInfo.isRetryable && parser.text.trim() && (
+              <button
+                type="button"
+                onClick={handleTryAgain}
+                disabled={parser.isLoading}
+                className={clsx(buttonBaseStyles, buttonOutlineStyles, 'cursor-default')}
+                data-testid="try-again-button"
+              >
+                <RefreshCw className="size-4" />
+                Try Again
+              </button>
+            )}
+            {onSwitchToManual && (
+              <button
+                type="button"
+                onClick={handleSwitchToManual}
+                className={clsx(buttonBaseStyles, buttonOutlineStyles, 'cursor-default')}
+                data-testid="switch-to-manual-button"
+              >
+                Add Manually
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

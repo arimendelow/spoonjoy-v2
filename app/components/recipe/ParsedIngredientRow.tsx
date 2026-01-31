@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Pencil, Trash2, Check, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Input } from '~/components/ui/input'
 import type { ParsedIngredient } from '~/lib/ingredient-parse.server'
 
@@ -30,6 +30,47 @@ const iconButtonRedStyles = [
   'dark:text-red-400 dark:hover:bg-red-400/10',
 ]
 
+interface ValidationErrors {
+  quantity?: string
+  unit?: string
+  ingredientName?: string
+}
+
+/**
+ * Validates ingredient fields and returns any errors.
+ */
+function validateIngredientFields(
+  quantity: string,
+  unit: string,
+  ingredientName: string
+): ValidationErrors {
+  const errors: ValidationErrors = {}
+
+  // Validate quantity
+  if (!quantity.trim()) {
+    errors.quantity = 'Required'
+  } else {
+    const parsedQuantity = parseFloat(quantity)
+    if (isNaN(parsedQuantity)) {
+      errors.quantity = 'Must be a number'
+    } else if (parsedQuantity <= 0) {
+      errors.quantity = 'Must be positive'
+    }
+  }
+
+  // Validate unit
+  if (!unit.trim()) {
+    errors.unit = 'Required'
+  }
+
+  // Validate ingredient name
+  if (!ingredientName.trim()) {
+    errors.ingredientName = 'Required'
+  }
+
+  return errors
+}
+
 export interface ParsedIngredientRowProps {
   ingredient: ParsedIngredient
   onEdit: (ingredient: ParsedIngredient) => void
@@ -47,27 +88,35 @@ export function ParsedIngredientRow({
   const [editQuantity, setEditQuantity] = useState<string>(String(ingredient.quantity))
   const [editUnit, setEditUnit] = useState(ingredient.unit)
   const [editIngredientName, setEditIngredientName] = useState(ingredient.ingredientName)
+  const [showValidation, setShowValidation] = useState(false)
+
+  // Real-time validation
+  const validationErrors = useMemo(
+    () => validateIngredientFields(editQuantity, editUnit, editIngredientName),
+    [editQuantity, editUnit, editIngredientName]
+  )
+
+  const hasErrors = Object.keys(validationErrors).length > 0
 
   const handleEditClick = () => {
     // Reset edit values to current ingredient values
     setEditQuantity(String(ingredient.quantity))
     setEditUnit(ingredient.unit)
     setEditIngredientName(ingredient.ingredientName)
+    setShowValidation(false)
     setIsEditing(true)
   }
 
   const handleSave = () => {
+    // Show validation errors if any
+    if (hasErrors) {
+      setShowValidation(true)
+      return
+    }
+
     const trimmedUnit = editUnit.trim()
     const trimmedIngredientName = editIngredientName.trim()
     const parsedQuantity = parseFloat(editQuantity)
-
-    // Validate
-    if (!editQuantity || !trimmedUnit || !trimmedIngredientName) {
-      return
-    }
-    if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
-      return
-    }
 
     onEdit({
       quantity: parsedQuantity,
@@ -75,10 +124,12 @@ export function ParsedIngredientRow({
       ingredientName: trimmedIngredientName,
     })
     setIsEditing(false)
+    setShowValidation(false)
   }
 
   const handleCancel = () => {
     setIsEditing(false)
+    setShowValidation(false)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -97,68 +148,98 @@ export function ParsedIngredientRow({
   }
 
   if (isEditing) {
+    const showQuantityError = showValidation && validationErrors.quantity
+    const showUnitError = showValidation && validationErrors.unit
+    const showIngredientNameError = showValidation && validationErrors.ingredientName
+
     return (
-      <li className="flex items-center gap-2 py-2" onKeyDown={handleKeyDown}>
-        <div className="flex-1 grid grid-cols-[1fr_1fr_2fr] gap-2">
-          <div>
-            <label htmlFor="edit-quantity" className="sr-only">
-              Quantity
-            </label>
-            <Input
-              type="number"
-              id="edit-quantity"
-              value={editQuantity}
-              onChange={(e) => setEditQuantity(e.target.value)}
-              step="any"
-              min="0.001"
-              required
-              aria-label="Quantity"
-            />
+      <li className="py-2" onKeyDown={handleKeyDown}>
+        <div className="flex items-start gap-2">
+          <div className="flex-1 grid grid-cols-[1fr_1fr_2fr] gap-2">
+            <div>
+              <label htmlFor="edit-quantity" className="sr-only">
+                Quantity
+              </label>
+              <Input
+                type="number"
+                id="edit-quantity"
+                value={editQuantity}
+                onChange={(e) => setEditQuantity(e.target.value)}
+                step="any"
+                min="0.001"
+                required
+                aria-label="Quantity"
+                aria-invalid={showQuantityError ? 'true' : undefined}
+                aria-describedby={showQuantityError ? 'edit-quantity-error' : undefined}
+                invalid={!!showQuantityError}
+              />
+              {showQuantityError && (
+                <p id="edit-quantity-error" className="text-xs text-red-600 mt-1">
+                  {validationErrors.quantity}
+                </p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="edit-unit" className="sr-only">
+                Unit
+              </label>
+              <Input
+                type="text"
+                id="edit-unit"
+                value={editUnit}
+                onChange={(e) => setEditUnit(e.target.value)}
+                required
+                aria-label="Unit"
+                aria-invalid={showUnitError ? 'true' : undefined}
+                aria-describedby={showUnitError ? 'edit-unit-error' : undefined}
+                invalid={!!showUnitError}
+              />
+              {showUnitError && (
+                <p id="edit-unit-error" className="text-xs text-red-600 mt-1">
+                  {validationErrors.unit}
+                </p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="edit-ingredient" className="sr-only">
+                Ingredient
+              </label>
+              <Input
+                type="text"
+                id="edit-ingredient"
+                value={editIngredientName}
+                onChange={(e) => setEditIngredientName(e.target.value)}
+                required
+                aria-label="Ingredient"
+                aria-invalid={showIngredientNameError ? 'true' : undefined}
+                aria-describedby={showIngredientNameError ? 'edit-ingredient-error' : undefined}
+                invalid={!!showIngredientNameError}
+              />
+              {showIngredientNameError && (
+                <p id="edit-ingredient-error" className="text-xs text-red-600 mt-1">
+                  {validationErrors.ingredientName}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <label htmlFor="edit-unit" className="sr-only">
-              Unit
-            </label>
-            <Input
-              type="text"
-              id="edit-unit"
-              value={editUnit}
-              onChange={(e) => setEditUnit(e.target.value)}
-              required
-              aria-label="Unit"
-            />
+          <div className="flex gap-1 pt-0.5">
+            <button
+              type="button"
+              onClick={handleSave}
+              className={clsx(iconButtonBaseStyles, iconButtonGreenStyles, 'cursor-default')}
+              aria-label="Save"
+            >
+              <Check className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className={clsx(iconButtonBaseStyles, iconButtonPlainStyles, 'cursor-default')}
+              aria-label="Cancel"
+            >
+              <X className="size-4" />
+            </button>
           </div>
-          <div>
-            <label htmlFor="edit-ingredient" className="sr-only">
-              Ingredient
-            </label>
-            <Input
-              type="text"
-              id="edit-ingredient"
-              value={editIngredientName}
-              onChange={(e) => setEditIngredientName(e.target.value)}
-              required
-              aria-label="Ingredient"
-            />
-          </div>
-        </div>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={handleSave}
-            className={clsx(iconButtonBaseStyles, iconButtonGreenStyles, 'cursor-default')}
-            aria-label="Save"
-          >
-            <Check className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className={clsx(iconButtonBaseStyles, iconButtonPlainStyles, 'cursor-default')}
-            aria-label="Cancel"
-          >
-            <X className="size-4" />
-          </button>
         </div>
       </li>
     )

@@ -211,7 +211,8 @@ describe('IngredientParseInput', () => {
       vi.useRealTimers()
 
       await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent('Failed to parse ingredients')
+        // The actionable message transforms "Failed to parse" errors to user-friendly text
+        expect(screen.getByRole('alert')).toHaveTextContent(/unable to connect|try again/i)
       })
     })
 
@@ -282,9 +283,169 @@ describe('IngredientParseInput', () => {
 
       await waitFor(() => {
         // Error message has role="alert" for screen reader announcements
+        // The actionable message transforms generic errors to user-friendly text
         const errorAlert = screen.getByRole('alert')
-        expect(errorAlert).toHaveTextContent('Parse failed')
+        expect(errorAlert).toHaveTextContent(/went wrong|try again|manually/i)
       })
+    })
+  })
+
+  describe('error recovery UX', () => {
+    it('shows Try Again button for retryable errors', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'Failed to parse ingredients' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        expect(screen.getByTestId('try-again-button')).toBeInTheDocument()
+      })
+    })
+
+    it('does not show Try Again button for non-retryable errors (missing API key)', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'OpenAI API key is required' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument()
+      })
+
+      expect(screen.queryByTestId('try-again-button')).not.toBeInTheDocument()
+    })
+
+    it('shows Add Manually button when onSwitchToManual is provided', async () => {
+      const onSwitchToManual = vi.fn()
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'Parse failed' },
+      })
+      const Wrapper = createTestWrapper(actionHandler, { onSwitchToManual })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        expect(screen.getByTestId('switch-to-manual-button')).toBeInTheDocument()
+      })
+    })
+
+    it('calls onSwitchToManual when Add Manually button is clicked', async () => {
+      const onSwitchToManual = vi.fn()
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'Parse failed' },
+      })
+      const Wrapper = createTestWrapper(actionHandler, { onSwitchToManual })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        expect(screen.getByTestId('switch-to-manual-button')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByTestId('switch-to-manual-button'))
+
+      expect(onSwitchToManual).toHaveBeenCalledTimes(1)
+    })
+
+    it('transforms API key error to user-friendly message', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'OpenAI API key is required' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent(/AI parsing is unavailable/i)
+        expect(alert).toHaveTextContent(/manually/i)
+      })
+    })
+
+    it('transforms connection error to user-friendly message', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'Failed to parse ingredients' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent(/unable to connect|try again/i)
+      })
+    })
+
+    it('does not show Try Again when text is empty', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'Failed to parse ingredients' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce with text
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        expect(screen.getByTestId('try-again-button')).toBeInTheDocument()
+      })
+
+      // Clear the text
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } })
+
+      // Error should be cleared when text is cleared (error UI not visible)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
   })
 

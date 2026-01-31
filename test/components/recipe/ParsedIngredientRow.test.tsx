@@ -350,7 +350,9 @@ describe('ParsedIngredientRow', () => {
       )
 
       await userEvent.click(screen.getByRole('button', { name: /edit/i }))
-      await userEvent.keyboard('{Escape}')
+      // Focus an input field so Escape key event bubbles to the li's onKeyDown handler
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      await userEvent.type(quantityInput, '{Escape}')
 
       expect(onEdit).not.toHaveBeenCalled()
       expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
@@ -604,6 +606,174 @@ describe('ParsedIngredientRow', () => {
       )
 
       expect(screen.getByText('onion, finely diced')).toBeInTheDocument()
+    })
+  })
+
+  describe('inline validation feedback', () => {
+    it('shows validation error for empty quantity on save attempt', async () => {
+      const onEdit = vi.fn()
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={onEdit}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      await userEvent.clear(quantityInput)
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(screen.getByText('Required')).toBeInTheDocument()
+      expect(onEdit).not.toHaveBeenCalled()
+    })
+
+    it('shows validation error for invalid quantity', async () => {
+      const onEdit = vi.fn()
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={onEdit}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      await userEvent.clear(quantityInput)
+      await userEvent.type(quantityInput, '0')
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(screen.getByText('Must be positive')).toBeInTheDocument()
+      expect(onEdit).not.toHaveBeenCalled()
+    })
+
+    it('shows validation error for empty unit on save attempt', async () => {
+      const onEdit = vi.fn()
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={onEdit}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const unitInput = screen.getByRole('textbox', { name: /unit/i })
+      await userEvent.clear(unitInput)
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(screen.getByText('Required')).toBeInTheDocument()
+      expect(onEdit).not.toHaveBeenCalled()
+    })
+
+    it('shows validation error for empty ingredient name on save attempt', async () => {
+      const onEdit = vi.fn()
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={onEdit}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const ingredientInput = screen.getByRole('textbox', { name: /ingredient/i })
+      await userEvent.clear(ingredientInput)
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(screen.getByText('Required')).toBeInTheDocument()
+      expect(onEdit).not.toHaveBeenCalled()
+    })
+
+    it('marks input as invalid when validation fails', async () => {
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      await userEvent.clear(quantityInput)
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(quantityInput).toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('clears validation errors on cancel', async () => {
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      await userEvent.clear(quantityInput)
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(screen.getByText('Required')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+      // Re-enter edit mode - validation should be cleared
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      expect(screen.queryByText('Required')).not.toBeInTheDocument()
+    })
+
+    it('shows multiple validation errors when multiple fields are invalid', async () => {
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      const unitInput = screen.getByRole('textbox', { name: /unit/i })
+      const ingredientInput = screen.getByRole('textbox', { name: /ingredient/i })
+
+      await userEvent.clear(quantityInput)
+      await userEvent.clear(unitInput)
+      await userEvent.clear(ingredientInput)
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      // Should show "Required" three times (one for each field)
+      expect(screen.getAllByText('Required')).toHaveLength(3)
+    })
+
+    it('does not show validation errors until save is attempted', async () => {
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      await userEvent.clear(quantityInput)
+
+      // Before clicking save, no error should be visible
+      expect(screen.queryByText('Required')).not.toBeInTheDocument()
     })
   })
 })

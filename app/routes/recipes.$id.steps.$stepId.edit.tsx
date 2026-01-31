@@ -571,6 +571,7 @@ export default function EditStep() {
                     recipeId={recipe.id}
                     stepId={step.id}
                     onParsed={handleParsed}
+                    onSwitchToManual={() => setIngredientInputMode('manual')}
                   />
                   {parsedIngredients.length > 0 && (
                     <ParsedIngredientList
