@@ -3,8 +3,57 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { MobileNav } from '~/components/navigation/mobile-nav'
 
+describe('MobileNav unauthenticated variant', () => {
+  it('renders unauthenticated variant when isAuthenticated=false', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MobileNav isAuthenticated={false} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByRole('navigation')).toBeInTheDocument()
+  })
+
+  it('shows Home and Login nav items for unauthenticated users', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MobileNav isAuthenticated={false} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText('Home')).toBeInTheDocument()
+    expect(screen.getByText('Login')).toBeInTheDocument()
+    // Should NOT show authenticated items
+    expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cookbooks')).not.toBeInTheDocument()
+    expect(screen.queryByText('List')).not.toBeInTheDocument()
+    expect(screen.queryByText('Profile')).not.toBeInTheDocument()
+  })
+
+  it('shows SJ logo center', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MobileNav isAuthenticated={false} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId('dock-center')).toBeInTheDocument()
+  })
+
+  it('has lg:hidden class for mobile-only', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MobileNav isAuthenticated={false} />
+      </MemoryRouter>
+    )
+
+    const nav = screen.getByRole('navigation')
+    expect(nav.className).toContain('lg:hidden')
+  })
+})
+
 describe('MobileNav', () => {
-  describe('rendering', () => {
+  describe('authenticated variant', () => {
     it('renders SpoonDock navigation', () => {
       render(
         <MemoryRouter initialEntries={['/']}>
