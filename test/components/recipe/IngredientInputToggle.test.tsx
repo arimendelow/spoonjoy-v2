@@ -3,22 +3,21 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IngredientInputToggle } from '../../../app/components/recipe/IngredientInputToggle'
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {}
-  return {
-    getItem: vi.fn((key: string) => store[key] || null),
-    setItem: vi.fn((key: string, value: string) => {
-      store[key] = value
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete store[key]
-    }),
-    clear: vi.fn(() => {
-      store = {}
-    }),
-  }
-})()
+// Mock localStorage with exposed store for proper reset
+let localStorageStore: Record<string, string> = {}
+
+const localStorageMock = {
+  getItem: vi.fn((key: string) => localStorageStore[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageStore[key] = value
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localStorageStore[key]
+  }),
+  clear: vi.fn(() => {
+    localStorageStore = {}
+  }),
+}
 
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
@@ -26,8 +25,21 @@ Object.defineProperty(window, 'localStorage', {
 
 describe('IngredientInputToggle', () => {
   beforeEach(() => {
-    localStorageMock.clear()
-    vi.clearAllMocks()
+    // Clear the store
+    localStorageStore = {}
+    // Reset all mocks including implementations
+    vi.resetAllMocks()
+    // Restore default implementations after reset
+    localStorageMock.getItem.mockImplementation((key: string) => localStorageStore[key] ?? null)
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
+      localStorageStore[key] = value
+    })
+    localStorageMock.removeItem.mockImplementation((key: string) => {
+      delete localStorageStore[key]
+    })
+    localStorageMock.clear.mockImplementation(() => {
+      localStorageStore = {}
+    })
   })
 
   afterEach(() => {
@@ -119,7 +131,8 @@ describe('IngredientInputToggle', () => {
       await userEvent.click(switchEl) // AI -> manual
       expect(onChange).toHaveBeenLastCalledWith('manual')
 
-      expect(onChange).toHaveBeenCalledTimes(3)
+      // 1 call on mount + 3 clicks = 4 total
+      expect(onChange).toHaveBeenCalledTimes(4)
     })
   })
 
