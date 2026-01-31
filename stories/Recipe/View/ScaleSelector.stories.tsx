@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import { useState } from 'react'
-import { ScaleSelector } from '../app/components/recipe/ScaleSelector'
+import { ScaleSelector } from '../../../app/components/recipe/ScaleSelector'
 
 /**
  * # ScaleSelector
@@ -21,7 +21,7 @@ import { ScaleSelector } from '../app/components/recipe/ScaleSelector'
  * - **Incremental**: 0.25 steps for recipe-friendly scaling
  */
 const meta: Meta<typeof ScaleSelector> = {
-  title: 'Recipe/ScaleSelector',
+  title: 'Recipe/View/ScaleSelector',
   component: ScaleSelector,
   parameters: {
     layout: 'centered',

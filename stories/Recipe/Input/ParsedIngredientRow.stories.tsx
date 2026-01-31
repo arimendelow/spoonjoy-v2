@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { ParsedIngredientRow } from '../app/components/recipe/ParsedIngredientRow'
+import { ParsedIngredientRow } from '../../../app/components/recipe/ParsedIngredientRow'
 
 /**
  * # ParsedIngredientRow
@@ -23,7 +23,7 @@ import { ParsedIngredientRow } from '../app/components/recipe/ParsedIngredientRo
  * ```
  */
 const meta: Meta<typeof ParsedIngredientRow> = {
-  title: 'Recipe/ParsedIngredientRow',
+  title: 'Recipe/Input/ParsedIngredientRow',
   component: ParsedIngredientRow,
   parameters: {
     layout: 'padded',

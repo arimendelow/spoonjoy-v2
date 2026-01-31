@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, within } from 'storybook/test'
-import { StepOutputUseDisplay, type StepOutputUse } from '../app/components/StepOutputUseDisplay'
+import { StepOutputUseDisplay, type StepOutputUse } from '../../../app/components/StepOutputUseDisplay'
 
 /**
  * # StepOutputUseDisplay
@@ -57,7 +57,7 @@ import { StepOutputUseDisplay, type StepOutputUse } from '../app/components/Step
  * ```
  */
 const meta: Meta<typeof StepOutputUseDisplay> = {
-  title: 'Components/StepOutputUseDisplay',
+  title: 'Recipe/View/StepOutputUseDisplay',
   component: StepOutputUseDisplay,
   parameters: {
     layout: 'padded',

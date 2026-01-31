@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import { useState } from 'react'
-import { IngredientList, type Ingredient } from '../app/components/recipe/IngredientList'
+import { IngredientList, type Ingredient } from '../../../app/components/recipe/IngredientList'
 
 /**
  * # IngredientList
@@ -21,7 +21,7 @@ import { IngredientList, type Ingredient } from '../app/components/recipe/Ingred
  * - **Visual feedback**: Checked items get strikethrough
  */
 const meta: Meta<typeof IngredientList> = {
-  title: 'Recipe/IngredientList',
+  title: 'Recipe/View/IngredientList',
   component: IngredientList,
   parameters: {
     layout: 'padded',

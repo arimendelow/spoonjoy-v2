@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, within } from 'storybook/test'
-import { StepOutputUseCallout, type StepReference } from '../app/components/recipe/StepOutputUseCallout'
+import { StepOutputUseCallout, type StepReference } from '../../../app/components/recipe/StepOutputUseCallout'
 
 /**
  * # StepOutputUseCallout
@@ -20,7 +20,7 @@ import { StepOutputUseCallout, type StepReference } from '../app/components/reci
  * - **Optional click-to-scroll**: For future navigation enhancement
  */
 const meta: Meta<typeof StepOutputUseCallout> = {
-  title: 'Recipe/StepOutputUseCallout',
+  title: 'Recipe/View/StepOutputUseCallout',
   component: StepOutputUseCallout,
   parameters: {
     layout: 'padded',

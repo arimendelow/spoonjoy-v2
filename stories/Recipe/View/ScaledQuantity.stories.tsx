@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, within } from 'storybook/test'
-import { ScaledQuantity } from '../app/components/recipe/ScaledQuantity'
+import { ScaledQuantity } from '../../../app/components/recipe/ScaledQuantity'
 
 /**
  * # ScaledQuantity
@@ -19,7 +19,7 @@ import { ScaledQuantity } from '../app/components/recipe/ScaledQuantity'
  * - **Graceful fallbacks**: Handles missing data without crashing
  */
 const meta: Meta<typeof ScaledQuantity> = {
-  title: 'Recipe/ScaledQuantity',
+  title: 'Recipe/View/ScaledQuantity',
   component: ScaledQuantity,
   parameters: {
     layout: 'centered',

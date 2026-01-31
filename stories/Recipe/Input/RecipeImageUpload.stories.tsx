@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test'
-import { RecipeImageUpload } from '../app/components/recipe/RecipeImageUpload'
+import { RecipeImageUpload } from '../../../app/components/recipe/RecipeImageUpload'
 
 /**
  * # RecipeImageUpload
@@ -23,7 +23,7 @@ import { RecipeImageUpload } from '../app/components/recipe/RecipeImageUpload'
  * - Recommended: Square or 4:3 aspect ratio
  */
 const meta: Meta<typeof RecipeImageUpload> = {
-  title: 'Recipe/RecipeImageUpload',
+  title: 'Recipe/Input/RecipeImageUpload',
   component: RecipeImageUpload,
   parameters: {
     layout: 'padded',

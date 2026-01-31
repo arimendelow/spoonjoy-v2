@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { ManualIngredientInput } from '../app/components/recipe/ManualIngredientInput'
+import { ManualIngredientInput } from '../../../app/components/recipe/ManualIngredientInput'
 
 /**
  * # ManualIngredientInput
@@ -27,7 +27,7 @@ import { ManualIngredientInput } from '../app/components/recipe/ManualIngredient
  * - Button: auto-sized
  */
 const meta: Meta<typeof ManualIngredientInput> = {
-  title: 'Recipe/ManualIngredientInput',
+  title: 'Recipe/Input/ManualIngredientInput',
   component: ManualIngredientInput,
   parameters: {
     layout: 'padded',

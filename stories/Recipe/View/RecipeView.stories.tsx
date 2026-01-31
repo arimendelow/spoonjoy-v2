@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, userEvent, within } from 'storybook/test'
 import { useState } from 'react'
-import { RecipeHeader } from '../app/components/recipe/RecipeHeader'
-import { StepCard } from '../app/components/recipe/StepCard'
-import type { Ingredient } from '../app/components/recipe/IngredientList'
-import type { StepReference } from '../app/components/recipe/StepOutputUseCallout'
-import { SaveToCookbookDropdown, type Cookbook } from '../app/components/recipe/SaveToCookbookDropdown'
+import { RecipeHeader } from '../../../app/components/recipe/RecipeHeader'
+import { StepCard } from '../../../app/components/recipe/StepCard'
+import type { Ingredient } from '../../../app/components/recipe/IngredientList'
+import type { StepReference } from '../../../app/components/recipe/StepOutputUseCallout'
+import { SaveToCookbookDropdown, type Cookbook } from '../../../app/components/recipe/SaveToCookbookDropdown'
 
 /**
  * # RecipeView Walkthrough
@@ -28,7 +28,7 @@ import { SaveToCookbookDropdown, type Cookbook } from '../app/components/recipe/
  * This walkthrough demonstrates all of it working together.
  */
 const meta: Meta = {
-  title: 'Recipe/RecipeView',
+  title: 'Recipe/View/RecipeView',
   parameters: {
     layout: 'fullscreen',
     docs: {

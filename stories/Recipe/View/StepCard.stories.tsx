@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import { useState } from 'react'
-import { StepCard, type StepCardProps } from '../app/components/recipe/StepCard'
-import type { Ingredient } from '../app/components/recipe/IngredientList'
-import type { StepReference } from '../app/components/recipe/StepOutputUseCallout'
+import { StepCard, type StepCardProps } from '../../../app/components/recipe/StepCard'
+import type { Ingredient } from '../../../app/components/recipe/IngredientList'
+import type { StepReference } from '../../../app/components/recipe/StepOutputUseCallout'
 
 /**
  * # StepCard
@@ -22,7 +22,7 @@ import type { StepReference } from '../app/components/recipe/StepOutputUseCallou
  * - **Integrated scaling**: Ingredients scale with the recipe
  */
 const meta: Meta<typeof StepCard> = {
-  title: 'Recipe/StepCard',
+  title: 'Recipe/View/StepCard',
   component: StepCard,
   parameters: {
     layout: 'padded',

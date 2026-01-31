@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within, waitFor } from 'storybook/test'
-import { RecipeForm } from '../app/components/recipe/RecipeForm'
+import { RecipeForm } from '../../../app/components/recipe/RecipeForm'
 
 /**
  * # RecipeForm
@@ -24,7 +24,7 @@ import { RecipeForm } from '../app/components/recipe/RecipeForm'
  * - Loading and disabled states
  */
 const meta: Meta<typeof RecipeForm> = {
-  title: 'Recipe/RecipeForm',
+  title: 'Recipe/Input/RecipeForm',
   component: RecipeForm,
   parameters: {
     layout: 'padded',

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
-import { ParsedIngredientList } from '../app/components/recipe/ParsedIngredientList'
-import type { ParsedIngredient } from '../app/lib/ingredient-parse.server'
+import { ParsedIngredientList } from '../../../app/components/recipe/ParsedIngredientList'
+import type { ParsedIngredient } from '../../../app/lib/ingredient-parse.server'
 
 /**
  * # ParsedIngredientList
@@ -26,7 +26,7 @@ import type { ParsedIngredient } from '../app/lib/ingredient-parse.server'
  * 5. User clicks "Add All" to add to step
  */
 const meta: Meta<typeof ParsedIngredientList> = {
-  title: 'Recipe/ParsedIngredientList',
+  title: 'Recipe/Input/ParsedIngredientList',
   component: ParsedIngredientList,
   parameters: {
     layout: 'padded',

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import { useState } from 'react'
-import { IngredientInputToggle } from '../app/components/recipe/IngredientInputToggle'
+import { IngredientInputToggle } from '../../../app/components/recipe/IngredientInputToggle'
 
 /**
  * # IngredientInputToggle
@@ -28,7 +28,7 @@ import { IngredientInputToggle } from '../app/components/recipe/IngredientInputT
  * - **Disabled state** - For when AI isn't available
  */
 const meta: Meta<typeof IngredientInputToggle> = {
-  title: 'Recipe/IngredientInputToggle',
+  title: 'Recipe/Input/IngredientInputToggle',
   component: IngredientInputToggle,
   parameters: {
     layout: 'centered',

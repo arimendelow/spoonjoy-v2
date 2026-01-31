@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, within } from 'storybook/test'
 import { useState } from 'react'
-import { RecipeHeader, type RecipeHeaderProps } from '../app/components/recipe/RecipeHeader'
+import { RecipeHeader, type RecipeHeaderProps } from '../../../app/components/recipe/RecipeHeader'
 
 /**
  * # RecipeHeader
@@ -21,7 +21,7 @@ import { RecipeHeader, type RecipeHeaderProps } from '../app/components/recipe/R
  * - **Owner actions**: Edit/delete only visible to recipe owners
  */
 const meta: Meta<typeof RecipeHeader> = {
-  title: 'Recipe/RecipeHeader',
+  title: 'Recipe/View/RecipeHeader',
   component: RecipeHeader,
   parameters: {
     layout: 'fullscreen',
