@@ -50,6 +50,41 @@ describe('MobileNav unauthenticated variant', () => {
     const nav = screen.getByRole('navigation')
     expect(nav.className).toContain('lg:hidden')
   })
+
+  it('marks Home as active on home route (/)', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MobileNav isAuthenticated={false} />
+      </MemoryRouter>
+    )
+
+    // Find the Home nav item by its text label (not the center logo)
+    const homeItem = screen.getByText('Home').closest('a')
+    expect(homeItem?.className).toContain('dock-item-active')
+  })
+
+  it('does not mark Home as active on other routes', () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <MobileNav isAuthenticated={false} />
+      </MemoryRouter>
+    )
+
+    // Find the Home nav item by its text label (not the center logo)
+    const homeItem = screen.getByText('Home').closest('a')
+    expect(homeItem?.className).not.toContain('dock-item-active')
+  })
+
+  it('marks Login as active on /login route', () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <MobileNav isAuthenticated={false} />
+      </MemoryRouter>
+    )
+
+    const loginItem = screen.getByRole('link', { name: /login/i })
+    expect(loginItem.className).toContain('dock-item-active')
+  })
 })
 
 describe('MobileNav', () => {
