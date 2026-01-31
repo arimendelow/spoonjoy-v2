@@ -423,8 +423,8 @@ describe("Recipes New Route", () => {
       expect(screen.getByLabelText(/Title/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Description/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Servings/)).toBeInTheDocument();
-      // Recipe Image is now a file upload, not a URL input
-      expect(screen.getByRole("group", { name: /Recipe Image/ })).toBeInTheDocument();
+      // Recipe Image is now a file upload via RecipeImageUpload - check for upload button
+      expect(screen.getByRole("button", { name: /upload.*image/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Create Recipe" })).toBeInTheDocument();
       // Cancel is now a button that navigates programmatically, not a link
       expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
@@ -453,8 +453,8 @@ describe("Recipes New Route", () => {
       expect(servingsInput).toHaveAttribute("type", "text");
       expect(servingsInput).toHaveAttribute("name", "servings");
 
-      // Recipe Image is now a file upload, not a URL input
-      expect(screen.getByRole("group", { name: /Recipe Image/ })).toBeInTheDocument();
+      // Recipe Image is now a file upload via RecipeImageUpload
+      expect(screen.getByRole("button", { name: /upload.*image/i })).toBeInTheDocument();
     });
 
     it("should have correct placeholders", async () => {

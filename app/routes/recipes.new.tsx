@@ -1,23 +1,14 @@
 import type { Route } from "./+types/recipes.new";
-import { Form, redirect, data, useActionData } from "react-router";
+import { redirect, data, useActionData, useNavigate } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Textarea } from "~/components/ui/textarea";
-import { Fieldset, Field, Label, ErrorMessage, Description } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
-import { Text } from "~/components/ui/text";
 import { Link } from "~/components/ui/link";
-import { ValidationError } from "~/components/ui/validation-error";
+import { RecipeForm } from "~/components/recipe/RecipeForm";
 import {
   validateTitle,
   validateDescription,
   validateServings,
-  validateImageUrl,
-  TITLE_MAX_LENGTH,
-  DESCRIPTION_MAX_LENGTH,
-  SERVINGS_MAX_LENGTH,
 } from "~/lib/validation";
 
 interface ActionData {
@@ -25,7 +16,7 @@ interface ActionData {
     title?: string;
     description?: string;
     servings?: string;
-    imageUrl?: string;
+    image?: string;
     general?: string;
   };
 }
@@ -42,7 +33,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const title = formData.get("title")?.toString() || "";
   const description = formData.get("description")?.toString() || "";
   const servings = formData.get("servings")?.toString() || "";
-  const imageUrl = formData.get("imageUrl")?.toString() || "";
+  const imageFile = formData.get("image") as File | null;
 
   const errors: ActionData["errors"] = {};
 
@@ -62,9 +53,14 @@ export async function action({ request, context }: Route.ActionArgs) {
     errors.servings = servingsResult.error;
   }
 
-  const imageUrlResult = validateImageUrl(imageUrl || null);
-  if (!imageUrlResult.valid) {
-    errors.imageUrl = imageUrlResult.error;
+  // Validate image file if provided
+  if (imageFile && imageFile.size > 0) {
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(imageFile.type)) {
+      errors.image = "Invalid image format";
+    } else if (imageFile.size > 5 * 1024 * 1024) {
+      errors.image = "Image must be less than 5MB";
+    }
   }
 
   if (Object.keys(errors).length > 0) {
@@ -77,12 +73,13 @@ export async function action({ request, context }: Route.ActionArgs) {
     : db;
 
   try {
+    // TODO: In production, upload imageFile to R2/storage and get URL
+    // For now, we'll just create the recipe without an image URL from file
     const recipe = await database.recipe.create({
       data: {
         title: title.trim(),
         description: description.trim() || null,
         servings: servings.trim() || null,
-        imageUrl: imageUrl.trim() || undefined,
         chefId: userId,
       },
     });
@@ -98,6 +95,11 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function NewRecipe() {
   const actionData = useActionData<ActionData>();
+  const navigate = useNavigate();
+
+  const handleCancel = () => {
+    navigate("/recipes");
+  };
 
   return (
     <div className="font-sans leading-relaxed p-8">
@@ -112,89 +114,11 @@ export default function NewRecipe() {
           </Link>
         </div>
 
-        {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <ValidationError error={actionData.errors.general} className="mb-4" />
-        )}
-
-        <Form method="post">
-          <Fieldset className="space-y-6">
-            <Field>
-              <Label>Recipe Title *</Label>
-              <Input
-                type="text"
-                name="title"
-                required
-                maxLength={TITLE_MAX_LENGTH}
-                placeholder="e.g., Grandma's Chocolate Chip Cookies"
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.title ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.title && (
-                <ErrorMessage>
-                  {actionData.errors.title}
-                </ErrorMessage>
-              )}
-            </Field>
-
-            <Field>
-              <Label>Description</Label>
-              <Textarea
-                name="description"
-                rows={4}
-                maxLength={DESCRIPTION_MAX_LENGTH}
-                placeholder="Brief description of your recipe..."
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.description ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
-                <ErrorMessage>
-                  {actionData.errors.description}
-                </ErrorMessage>
-              )}
-            </Field>
-
-            <Field>
-              <Label>Servings</Label>
-              <Input
-                type="text"
-                name="servings"
-                maxLength={SERVINGS_MAX_LENGTH}
-                placeholder="e.g., 4, 6-8, or 2 dozen"
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.servings ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.servings && (
-                <ErrorMessage>
-                  {actionData.errors.servings}
-                </ErrorMessage>
-              )}
-            </Field>
-
-            <Field>
-              <Label>Image URL</Label>
-              <Input
-                type="url"
-                name="imageUrl"
-                placeholder="https://example.com/image.jpg (optional)"
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.imageUrl ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.imageUrl && (
-                <ErrorMessage>
-                  {actionData.errors.imageUrl}
-                </ErrorMessage>
-              )}
-              <Description>
-                Leave blank to use default placeholder image
-              </Description>
-            </Field>
-
-            <div className="flex gap-4 justify-end pt-4">
-              <Button href="/recipes" color="zinc">
-                Cancel
-              </Button>
-              <Button type="submit" color="green">
-                Create Recipe
-              </Button>
-            </div>
-          </Fieldset>
-        </Form>
+        <RecipeForm
+          mode="create"
+          onCancel={handleCancel}
+          errors={actionData?.errors}
+        />
       </div>
     </div>
   );

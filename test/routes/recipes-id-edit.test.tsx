@@ -776,8 +776,9 @@ describe("Recipes $id Edit Route", () => {
       expect(screen.getByLabelText(/Title/)).toHaveValue("Test Recipe");
       expect(screen.getByLabelText(/Description/)).toHaveValue("A delicious dish");
       expect(screen.getByLabelText(/Servings/)).toHaveValue("4");
-      // Recipe Image is now displayed as an image upload preview, not a text input
-      expect(screen.getByRole("group", { name: /Recipe Image/ })).toBeInTheDocument();
+      // Recipe Image is now displayed as an image upload preview via RecipeImageUpload
+      // When there's an image, it shows "Change Image" button instead of "Upload Image"
+      expect(screen.getByRole("button", { name: /change.*image/i })).toBeInTheDocument();
     });
 
     it("should render empty steps state", async () => {

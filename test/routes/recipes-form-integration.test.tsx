@@ -154,11 +154,12 @@ describe("RecipeForm Route Integration", () => {
             loader: () => null,
             action: async ({ request }) => {
               const formData = await request.formData();
+              const imageFile = formData.get("image") as File | null;
               submittedData = {
                 title: formData.get("title"),
                 description: formData.get("description"),
                 servings: formData.get("servings"),
-                hasImage: formData.has("image"),
+                hasImage: imageFile !== null && imageFile.size > 0,
               };
               return { success: true };
             },
@@ -174,12 +175,11 @@ describe("RecipeForm Route Integration", () => {
         await user.type(screen.getByLabelText(/Description/), "A delicious dish");
         await user.type(screen.getByLabelText(/Servings/), "4");
 
-        // Upload an image
+        // Upload an image via RecipeImageUpload's file input
         const file = new File(["test image content"], "test.jpg", { type: "image/jpeg" });
-        const uploadInput = screen.getByLabelText(/Recipe Image/i).querySelector('input[type="file"]');
-        if (uploadInput) {
-          await user.upload(uploadInput, file);
-        }
+        // Find the file input from RecipeImageUpload (aria-label="Upload recipe image")
+        const uploadInput = screen.getByLabelText(/Upload recipe image/i);
+        await user.upload(uploadInput, file);
 
         // Submit form
         await user.click(screen.getByRole("button", { name: "Create Recipe" }));
@@ -195,21 +195,31 @@ describe("RecipeForm Route Integration", () => {
       });
 
       it("should display validation errors from server", async () => {
+        const actionData = {
+          errors: {
+            title: "Title is required",
+            image: "Invalid image format",
+          },
+        };
+
         const Stub = createTestRoutesStub([
           {
+            id: "recipes-new",
             path: "/recipes/new",
             Component: NewRecipe,
             loader: () => null,
-            action: () => ({
-              errors: {
-                title: "Title is required",
-                image: "Invalid image format",
-              },
-            }),
           },
         ]);
 
-        render(<Stub initialEntries={["/recipes/new"]} />);
+        render(
+          <Stub
+            initialEntries={["/recipes/new"]}
+            hydrationData={{
+              loaderData: { "recipes-new": null },
+              actionData: { "recipes-new": actionData },
+            }}
+          />
+        );
 
         await screen.findByRole("button", { name: "Create Recipe" });
 
@@ -221,20 +231,30 @@ describe("RecipeForm Route Integration", () => {
       });
 
       it("should display general error with role=alert", async () => {
+        const actionData = {
+          errors: {
+            general: "Failed to create recipe. Please try again.",
+          },
+        };
+
         const Stub = createTestRoutesStub([
           {
+            id: "recipes-new",
             path: "/recipes/new",
             Component: NewRecipe,
             loader: () => null,
-            action: () => ({
-              errors: {
-                general: "Failed to create recipe. Please try again.",
-              },
-            }),
           },
         ]);
 
-        render(<Stub initialEntries={["/recipes/new"]} />);
+        render(
+          <Stub
+            initialEntries={["/recipes/new"]}
+            hydrationData={{
+              loaderData: { "recipes-new": null },
+              actionData: { "recipes-new": actionData },
+            }}
+          />
+        );
 
         await screen.findByRole("button", { name: "Create Recipe" });
 
@@ -479,7 +499,7 @@ describe("RecipeForm Route Integration", () => {
               const formData = await request.formData();
               const imageFile = formData.get("image") as File | null;
               submittedData = {
-                hasImage: !!imageFile,
+                hasImage: imageFile !== null && imageFile.size > 0,
                 imageFileName: imageFile?.name,
               };
               return { success: true };
@@ -491,16 +511,14 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Save Changes" });
 
-        // Click change image button
+        // Click change image button - this triggers the RecipeImageUpload's file input click handler
         const changeButton = screen.getByRole("button", { name: /change image/i });
         await user.click(changeButton);
 
-        // Upload new image
+        // Upload new image via RecipeImageUpload's file input
         const file = new File(["new image content"], "new-image.jpg", { type: "image/jpeg" });
-        const uploadInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-        if (uploadInput) {
-          await user.upload(uploadInput, file);
-        }
+        const uploadInput = screen.getByLabelText(/Upload recipe image/i);
+        await user.upload(uploadInput, file);
 
         // Submit form
         await user.click(screen.getByRole("button", { name: "Save Changes" }));
@@ -573,21 +591,31 @@ describe("RecipeForm Route Integration", () => {
           },
         };
 
+        const actionData = {
+          errors: {
+            title: "Title must be 200 characters or less",
+            description: "Description must be 2,000 characters or less",
+          },
+        };
+
         const Stub = createTestRoutesStub([
           {
+            id: "recipes-edit",
             path: "/recipes/:id/edit",
             Component: EditRecipe,
             loader: () => mockData,
-            action: () => ({
-              errors: {
-                title: "Title must be 200 characters or less",
-                description: "Description must be 2,000 characters or less",
-              },
-            }),
           },
         ]);
 
-        render(<Stub initialEntries={[`/recipes/${recipeId}/edit`]} />);
+        render(
+          <Stub
+            initialEntries={[`/recipes/${recipeId}/edit`]}
+            hydrationData={{
+              loaderData: { "recipes-edit": mockData },
+              actionData: { "recipes-edit": actionData },
+            }}
+          />
+        );
 
         await screen.findByRole("button", { name: "Save Changes" });
 

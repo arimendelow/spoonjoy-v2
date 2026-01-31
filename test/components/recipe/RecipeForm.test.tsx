@@ -337,7 +337,8 @@ describe('RecipeForm', () => {
       render(<RecipeForm mode="create" onSubmit={onSubmit} />)
 
       const file = new File(['test'], 'recipe.jpg', { type: 'image/jpeg' })
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+      // Use RecipeImageUpload's file input (has aria-label)
+      const fileInput = screen.getByLabelText(/Upload recipe image/i)
 
       await userEvent.upload(fileInput, file)
 
@@ -352,7 +353,8 @@ describe('RecipeForm', () => {
       render(<RecipeForm mode="create" onSubmit={onSubmit} />)
 
       const file = new File(['test'], 'recipe.jpg', { type: 'image/jpeg' })
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+      // Use RecipeImageUpload's file input (has aria-label)
+      const fileInput = screen.getByLabelText(/Upload recipe image/i)
 
       await userEvent.upload(fileInput, file)
       await userEvent.type(screen.getByLabelText(/title/i), 'Recipe With Image')
@@ -367,7 +369,8 @@ describe('RecipeForm', () => {
       render(<RecipeForm mode="create" onSubmit={vi.fn()} />)
 
       const file = new File(['test'], 'recipe.jpg', { type: 'image/jpeg' })
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+      // Use RecipeImageUpload's file input (has aria-label)
+      const fileInput = screen.getByLabelText(/Upload recipe image/i)
 
       await userEvent.upload(fileInput, file)
 
