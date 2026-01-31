@@ -486,6 +486,114 @@ describe('RecipeBuilder', () => {
     })
   })
 
+  describe('mobile optimization', () => {
+    it('renders without horizontal overflow at 320px viewport width', () => {
+      const Wrapper = createTestWrapper()
+      const { container } = render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Simulate 320px mobile viewport
+      Object.defineProperty(window, 'innerWidth', { value: 320, writable: true })
+      window.dispatchEvent(new Event('resize'))
+
+      // The container should not cause horizontal scroll
+      // Check that content width doesn't exceed viewport
+      const root = container.firstChild as HTMLElement
+      if (root) {
+        const rootRect = root.getBoundingClientRect()
+        expect(rootRect.width).toBeLessThanOrEqual(320)
+      }
+    })
+
+    it('form inputs are full width on mobile (no overflow)', () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Set mobile viewport
+      Object.defineProperty(window, 'innerWidth', { value: 320, writable: true })
+      window.dispatchEvent(new Event('resize'))
+
+      const titleInput = screen.getByLabelText(/title/i)
+      const descriptionInput = screen.getByLabelText(/description/i)
+      const servingsInput = screen.getByLabelText(/servings/i)
+
+      const titleRect = titleInput.getBoundingClientRect()
+      const descriptionRect = descriptionInput.getBoundingClientRect()
+      const servingsRect = servingsInput.getBoundingClientRect()
+
+      // Inputs should fit within 320px viewport (accounting for padding)
+      expect(titleRect.width).toBeLessThanOrEqual(320)
+      expect(descriptionRect.width).toBeLessThanOrEqual(320)
+      expect(servingsRect.width).toBeLessThanOrEqual(320)
+    })
+
+    it('save and cancel buttons have minimum 44px touch target height', () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      const saveButton = screen.getByRole('button', { name: /save recipe/i })
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+
+      const saveRect = saveButton.getBoundingClientRect()
+      const cancelRect = cancelButton.getBoundingClientRect()
+
+      expect(saveRect.height).toBeGreaterThanOrEqual(44)
+      expect(cancelRect.height).toBeGreaterThanOrEqual(44)
+    })
+
+    it('add step button has minimum 44px touch target height', () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      const addStepButton = screen.getByRole('button', { name: /add step/i })
+      const buttonRect = addStepButton.getBoundingClientRect()
+
+      expect(buttonRect.height).toBeGreaterThanOrEqual(44)
+    })
+
+    it('responsive layout stacks vertically on narrow viewports', () => {
+      const recipe = createTestRecipe({
+        steps: [createTestStep({ id: 'step-1', stepNum: 1 })],
+      })
+      const Wrapper = createTestWrapper({ recipe })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Set mobile viewport
+      Object.defineProperty(window, 'innerWidth', { value: 320, writable: true })
+      window.dispatchEvent(new Event('resize'))
+
+      // Action buttons should stack or wrap, not overflow
+      const saveButton = screen.getByRole('button', { name: /save recipe/i })
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+
+      const saveRect = saveButton.getBoundingClientRect()
+      const cancelRect = cancelButton.getBoundingClientRect()
+
+      // At 320px, buttons should either be stacked vertically or fit side by side
+      // The combined width should not exceed viewport
+      const combinedWidth = saveRect.width + cancelRect.width
+      // Allow some margin for gap between buttons
+      expect(combinedWidth).toBeLessThanOrEqual(320 + 16)
+    })
+
+    it('step cards fit within 320px viewport without horizontal scroll', async () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Add a step
+      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
+
+      // Set mobile viewport
+      Object.defineProperty(window, 'innerWidth', { value: 320, writable: true })
+      window.dispatchEvent(new Event('resize'))
+
+      const stepCard = screen.getByLabelText(/step 1/i)
+      const cardRect = stepCard.getBoundingClientRect()
+
+      // Step card should fit within viewport
+      expect(cardRect.width).toBeLessThanOrEqual(320)
+    })
+  })
+
   describe('accessibility', () => {
     it('has proper heading structure', () => {
       const Wrapper = createTestWrapper()

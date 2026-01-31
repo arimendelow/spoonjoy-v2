@@ -648,6 +648,73 @@ describe('StepList', () => {
     })
   })
 
+  describe('mobile optimization', () => {
+    it('add step button has minimum 44px touch target height', () => {
+      const Wrapper = createTestWrapper({ steps: [] })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const addButton = screen.getByRole('button', { name: /add step/i })
+      const buttonRect = addButton.getBoundingClientRect()
+
+      // WCAG 2.5.5 Level AAA recommends 44x44px minimum touch targets
+      expect(buttonRect.height).toBeGreaterThanOrEqual(44)
+    })
+
+    it('drag handle has minimum 44px touch target', () => {
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' })]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const dragHandle = screen.getByRole('button', { name: /drag to reorder/i })
+      const handleRect = dragHandle.getBoundingClientRect()
+
+      // Drag handle should be touch-friendly for kitchen use
+      expect(handleRect.width).toBeGreaterThanOrEqual(44)
+      expect(handleRect.height).toBeGreaterThanOrEqual(44)
+    })
+
+    it('all reorder buttons (move up/down) have minimum 44px touch target height', () => {
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Second step' }),
+      ]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const moveUpButtons = screen.getAllByRole('button', { name: /move up/i })
+      const moveDownButtons = screen.getAllByRole('button', { name: /move down/i })
+
+      moveUpButtons.forEach((button) => {
+        const rect = button.getBoundingClientRect()
+        expect(rect.height).toBeGreaterThanOrEqual(44)
+      })
+
+      moveDownButtons.forEach((button) => {
+        const rect = button.getBoundingClientRect()
+        expect(rect.height).toBeGreaterThanOrEqual(44)
+      })
+    })
+
+    it('confirmation dialog buttons have minimum 44px touch target height', async () => {
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Open the confirmation dialog
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      // Check dialog buttons
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+      const confirmButton = screen.getByRole('button', { name: /confirm/i })
+
+      const cancelRect = cancelButton.getBoundingClientRect()
+      const confirmRect = confirmButton.getBoundingClientRect()
+
+      expect(cancelRect.height).toBeGreaterThanOrEqual(44)
+      expect(confirmRect.height).toBeGreaterThanOrEqual(44)
+    })
+  })
+
   describe('rapid operations', () => {
     it('handles rapid add operations correctly', async () => {
       const onChange = vi.fn()
