@@ -698,6 +698,114 @@ describe('StepEditorCard', () => {
 
       expect(onSave).toHaveBeenCalled()
     })
+
+    it('Enter key in instructions textarea inserts newline (does not submit)', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const instructionsTextarea = screen.getByRole('textbox', { name: /instructions/i })
+
+      // Focus on instructions textarea and type
+      await userEvent.click(instructionsTextarea)
+      await userEvent.type(instructionsTextarea, 'Line 1')
+
+      // Press Enter - should insert newline, not submit
+      await userEvent.keyboard('{Enter}')
+      await userEvent.type(instructionsTextarea, 'Line 2')
+
+      // onSave should NOT have been called
+      expect(onSave).not.toHaveBeenCalled()
+
+      // Textarea should contain both lines with newline between
+      expect(instructionsTextarea).toHaveValue('Line 1\nLine 2')
+    })
+
+    it('Tab from instructions textarea moves focus to duration input', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const instructionsTextarea = screen.getByRole('textbox', { name: /instructions/i })
+      const durationInput = screen.getByRole('spinbutton', { name: /duration/i })
+
+      // Focus on instructions textarea
+      await userEvent.click(instructionsTextarea)
+      expect(instructionsTextarea).toHaveFocus()
+
+      // Tab to next element - should be duration input
+      await userEvent.tab()
+      expect(durationInput).toHaveFocus()
+    })
+
+    it('Tab from duration input eventually reaches ingredient input area', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const durationInput = screen.getByRole('spinbutton', { name: /duration/i })
+      const ingredientInput = screen.getByPlaceholderText(/enter ingredients/i)
+
+      // Focus on duration input
+      await userEvent.click(durationInput)
+      expect(durationInput).toHaveFocus()
+
+      // Tab should move towards ingredient input section
+      await userEvent.tab()
+      // Check that the ingredient input is eventually reachable
+      // The toggle might be in between
+      const toggleOrInput = document.activeElement
+      expect(toggleOrInput).not.toBe(durationInput)
+
+      // Continue tabbing until we reach the ingredient input
+      let foundIngredientInput = false
+      for (let i = 0; i < 5; i++) {
+        if (document.activeElement === ingredientInput) {
+          foundIngredientInput = true
+          break
+        }
+        await userEvent.tab()
+      }
+      expect(foundIngredientInput).toBe(true)
+    })
+
+    it('instructions textarea is not removed from tab order (no tabindex=-1)', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const instructionsTextarea = screen.getByRole('textbox', { name: /instructions/i })
+      expect(instructionsTextarea).not.toHaveAttribute('tabindex', '-1')
+    })
+
+    it('all buttons in step card are keyboard accessible (no tabindex=-1)', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        onMoveUp: vi.fn(),
+        onMoveDown: vi.fn(),
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const buttons = screen.getAllByRole('button')
+      buttons.forEach((button) => {
+        expect(button).not.toHaveAttribute('tabindex', '-1')
+      })
+    })
+
+    it('ingredient input toggle is keyboard accessible', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const toggle = screen.getByRole('switch')
+
+      // Focus on toggle (wrapped in act to avoid warnings)
+      await act(async () => {
+        toggle.focus()
+      })
+      expect(toggle).toHaveFocus()
+
+      // Press Space to toggle
+      await userEvent.keyboard(' ')
+
+      // Toggle should have changed state
+      expect(toggle).not.toBeChecked()
+    })
   })
 
   describe('mobile optimization', () => {

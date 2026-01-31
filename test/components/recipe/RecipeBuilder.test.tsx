@@ -13,7 +13,7 @@
  * - Progressive disclosure: start simple, expand on demand
  */
 
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { createRoutesStub } from 'react-router'
@@ -612,6 +612,139 @@ describe('RecipeBuilder', () => {
 
       // Steps section should be identifiable
       expect(screen.getByRole('region', { name: /steps/i })).toBeInTheDocument()
+    })
+  })
+
+  describe('keyboard navigation', () => {
+    it('tab order follows logical flow: title → description → servings → add step → save', async () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Start tabbing through the form
+      await userEvent.tab()
+      // First tab should focus on title input
+      expect(screen.getByLabelText(/title/i)).toHaveFocus()
+
+      await userEvent.tab()
+      // Second tab should focus on description input
+      expect(screen.getByLabelText(/description/i)).toHaveFocus()
+
+      await userEvent.tab()
+      // Third tab should focus on servings input
+      expect(screen.getByLabelText(/servings/i)).toHaveFocus()
+
+      await userEvent.tab()
+      // Fourth tab should focus on Add Step button
+      expect(screen.getByRole('button', { name: /add step/i })).toHaveFocus()
+
+      await userEvent.tab()
+      // Fifth tab should focus on Cancel button
+      expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus()
+
+      await userEvent.tab()
+      // Sixth tab should focus on Save Recipe button
+      expect(screen.getByRole('button', { name: /save recipe/i })).toHaveFocus()
+    })
+
+    it('all form inputs are keyboard accessible (no tabindex=-1)', () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // All inputs should not have tabindex=-1
+      const titleInput = screen.getByLabelText(/title/i)
+      const descriptionInput = screen.getByLabelText(/description/i)
+      const servingsInput = screen.getByLabelText(/servings/i)
+
+      expect(titleInput).not.toHaveAttribute('tabindex', '-1')
+      expect(descriptionInput).not.toHaveAttribute('tabindex', '-1')
+      expect(servingsInput).not.toHaveAttribute('tabindex', '-1')
+    })
+
+    it('all buttons are keyboard accessible (no tabindex=-1)', () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      const addStepButton = screen.getByRole('button', { name: /add step/i })
+      const cancelButton = screen.getByRole('button', { name: /cancel/i })
+      const saveButton = screen.getByRole('button', { name: /save recipe/i })
+
+      expect(addStepButton).not.toHaveAttribute('tabindex', '-1')
+      expect(cancelButton).not.toHaveAttribute('tabindex', '-1')
+      expect(saveButton).not.toHaveAttribute('tabindex', '-1')
+    })
+
+    it('can navigate and interact with step cards using keyboard after adding a step', async () => {
+      const Wrapper = createTestWrapper()
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Tab to Add Step button
+      await userEvent.tab()
+      await userEvent.tab()
+      await userEvent.tab()
+      await userEvent.tab()
+      expect(screen.getByRole('button', { name: /add step/i })).toHaveFocus()
+
+      // Press Enter to add a step
+      await userEvent.keyboard('{Enter}')
+
+      // A step card should now exist
+      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument()
+
+      // Continue tabbing - should reach the step card's instructions textarea
+      await userEvent.tab()
+      // Should be in the step card now - verify we can interact with elements
+      const stepCard = screen.getByLabelText(/step 1/i)
+      const instructionsTextarea = within(stepCard).getByLabelText(/instructions/i)
+      // The instructions textarea should eventually receive focus through tabbing
+      expect(instructionsTextarea).not.toHaveAttribute('tabindex', '-1')
+    })
+
+    it('Enter key on Save Recipe button triggers save', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper({ onSave })
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Fill in title (required for save)
+      await userEvent.type(screen.getByLabelText(/title/i), 'My Recipe')
+
+      // Focus the save button and press Enter (wrapped in act to avoid warnings)
+      await act(async () => {
+        screen.getByRole('button', { name: /save recipe/i }).focus()
+      })
+      await userEvent.keyboard('{Enter}')
+
+      expect(onSave).toHaveBeenCalledTimes(1)
+    })
+
+    it('Enter key on Cancel button triggers cancel', async () => {
+      const onCancel = vi.fn()
+      const Wrapper = createTestWrapper({ onCancel })
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Focus the cancel button and press Enter (wrapped in act to avoid warnings)
+      await act(async () => {
+        screen.getByRole('button', { name: /cancel/i }).focus()
+      })
+      await userEvent.keyboard('{Enter}')
+
+      expect(onCancel).toHaveBeenCalledTimes(1)
+    })
+
+    it('Space key on Save Recipe button triggers save', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper({ onSave })
+      render(<Wrapper initialEntries={['/recipes/new']} />)
+
+      // Fill in title (required for save)
+      await userEvent.type(screen.getByLabelText(/title/i), 'My Recipe')
+
+      // Focus the save button and press Space (wrapped in act to avoid warnings)
+      await act(async () => {
+        screen.getByRole('button', { name: /save recipe/i }).focus()
+      })
+      await userEvent.keyboard(' ')
+
+      expect(onSave).toHaveBeenCalledTimes(1)
     })
   })
 })

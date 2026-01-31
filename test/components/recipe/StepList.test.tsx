@@ -8,7 +8,7 @@
  * - Steps array management (controlled component)
  */
 
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { createRoutesStub } from 'react-router'
@@ -754,6 +754,199 @@ describe('StepList', () => {
       await userEvent.click(screen.getByRole('button', { name: /confirm/i }))
 
       expect(onChange).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('keyboard navigation', () => {
+    it('Enter key on Add Step button adds a new step', async () => {
+      const onChange = vi.fn()
+      const Wrapper = createTestWrapper({ steps: [], onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const addButton = screen.getByRole('button', { name: /add step/i })
+
+      // Focus the button and press Enter (wrapped in act to avoid warnings)
+      await act(async () => {
+        addButton.focus()
+      })
+      await userEvent.keyboard('{Enter}')
+
+      // Should have called onChange to add a step
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onChange).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            stepNum: 1,
+            description: '',
+          }),
+        ])
+      )
+    })
+
+    it('Space key on Add Step button adds a new step', async () => {
+      const onChange = vi.fn()
+      const Wrapper = createTestWrapper({ steps: [], onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const addButton = screen.getByRole('button', { name: /add step/i })
+
+      // Focus the button and press Space (wrapped in act to avoid warnings)
+      await act(async () => {
+        addButton.focus()
+      })
+      await userEvent.keyboard(' ')
+
+      // Should have called onChange to add a step
+      expect(onChange).toHaveBeenCalledTimes(1)
+    })
+
+    it('newly added step receives focus on its instructions textarea', async () => {
+      const onChange = vi.fn()
+      // Start with no steps
+      const Wrapper = createTestWrapper({ steps: [], onChange })
+      const { rerender } = render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Click add step
+      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
+
+      // Simulate parent re-rendering with the new step
+      const newStep = onChange.mock.calls[0][0][0]
+      const WrapperWithStep = createTestWrapper({ steps: [newStep], onChange })
+      rerender(<WrapperWithStep initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // The new step's instructions textarea should receive focus
+      const stepCard = screen.getByLabelText(/step 1/i)
+      const instructionsTextarea = within(stepCard).getByLabelText(/instructions/i)
+      expect(instructionsTextarea).toHaveFocus()
+    })
+
+    it('Add Step button is keyboard accessible (no tabindex=-1)', () => {
+      const Wrapper = createTestWrapper({ steps: [] })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const addButton = screen.getByRole('button', { name: /add step/i })
+      expect(addButton).not.toHaveAttribute('tabindex', '-1')
+    })
+
+    it('Escape key closes confirmation dialog', async () => {
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Open the confirmation dialog by clicking remove
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      // Dialog should be open
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+
+      // Press Escape to close
+      await userEvent.keyboard('{Escape}')
+
+      // Dialog should be closed
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+
+    it('dialog traps focus while open', async () => {
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Open the confirmation dialog
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      const dialog = screen.getByRole('alertdialog')
+      const cancelButton = within(dialog).getByRole('button', { name: /cancel/i })
+      const confirmButton = within(dialog).getByRole('button', { name: /confirm/i })
+
+      // Focus should be inside the dialog
+      // Tab through the dialog buttons (wrapped in act to avoid warnings)
+      await act(async () => {
+        cancelButton.focus()
+      })
+      expect(cancelButton).toHaveFocus()
+
+      await userEvent.tab()
+      expect(confirmButton).toHaveFocus()
+
+      // Tab again should cycle back to cancel (focus trap)
+      await userEvent.tab()
+      expect(cancelButton).toHaveFocus()
+    })
+
+    it('all step card buttons are keyboard accessible (no tabindex=-1)', () => {
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Second step' }),
+      ]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Get all buttons in step cards
+      const allButtons = screen.getAllByRole('button')
+      allButtons.forEach((button) => {
+        expect(button).not.toHaveAttribute('tabindex', '-1')
+      })
+    })
+
+    it('drag handles are keyboard accessible', () => {
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+      ]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const dragHandle = screen.getByRole('button', { name: /drag to reorder/i })
+      expect(dragHandle).not.toHaveAttribute('tabindex', '-1')
+    })
+
+    it('dialog Cancel button activates on Enter key', async () => {
+      const onChange = vi.fn()
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Open the confirmation dialog
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      const dialog = screen.getByRole('alertdialog')
+      const cancelButton = within(dialog).getByRole('button', { name: /cancel/i })
+
+      // Focus cancel button and press Enter (wrapped in act to avoid warnings)
+      await act(async () => {
+        cancelButton.focus()
+      })
+      await userEvent.keyboard('{Enter}')
+
+      // Dialog should be closed, step should remain
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument()
+      // onChange should not have been called (step not removed)
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('dialog Confirm button activates on Enter key', async () => {
+      const onChange = vi.fn()
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Open the confirmation dialog
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      const dialog = screen.getByRole('alertdialog')
+      const confirmButton = within(dialog).getByRole('button', { name: /confirm/i })
+
+      // Focus confirm button and press Enter (wrapped in act to avoid warnings)
+      await act(async () => {
+        confirmButton.focus()
+      })
+      await userEvent.keyboard('{Enter}')
+
+      // Dialog should be closed, step should be removed
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      // onChange should have been called to remove the step
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onChange).toHaveBeenCalledWith([])
     })
   })
 })
