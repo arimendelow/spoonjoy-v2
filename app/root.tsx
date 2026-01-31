@@ -244,17 +244,25 @@ export default function App() {
       </head>
       <body className="m-0 p-0">
         <ThemeProvider>
-          <StackedLayout
-            navbar={<AppNavbar userId={userId} />}
-            sidebar={<AppSidebar userId={userId} />}
-          >
-            {/* Main content with bottom padding for mobile dock */}
-            <div className="pb-20 lg:pb-0">
+          {/* Desktop: StackedLayout */}
+          <div className="hidden lg:block">
+            <StackedLayout
+              navbar={<AppNavbar userId={userId} />}
+              sidebar={<AppSidebar userId={userId} />}
+            >
               <Outlet />
-            </div>
-          </StackedLayout>
-          {/* Mobile navigation dock - only for authenticated users */}
-          {userId && <MobileNav />}
+            </StackedLayout>
+          </div>
+
+          {/* Mobile: Content only */}
+          <div className="lg:hidden">
+            <main className="pb-20">
+              <Outlet />
+            </main>
+          </div>
+
+          {/* SpoonDock - mobile only (MobileNav has lg:hidden) */}
+          <MobileNav isAuthenticated={!!userId} />
         </ThemeProvider>
         <ScrollRestoration />
         <Scripts />

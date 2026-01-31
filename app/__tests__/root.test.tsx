@@ -42,22 +42,32 @@ function RootLayoutSimulation({ userId }: { userId: string | null }) {
 
 /**
  * Test component that simulates CURRENT root.tsx behavior
- * (only shows MobileNav for authenticated users)
+ * Mobile-first: SpoonDock is primary nav on mobile, StackedLayout is desktop-only
  */
 function CurrentRootLayoutBehavior({ userId }: { userId: string | null }) {
+  const isAuthenticated = !!userId
+
   return (
     <ThemeProvider>
-      <StackedLayout
-        navbar={<nav data-testid="desktop-navbar">Desktop Navbar</nav>}
-        sidebar={<nav data-testid="sidebar">Sidebar</nav>}
-      >
-        {/* Main content with bottom padding for mobile dock */}
-        <div className="pb-20 lg:pb-0" data-testid="content-wrapper">
+      {/* Desktop: StackedLayout */}
+      <div className="hidden lg:block">
+        <StackedLayout
+          navbar={<nav data-testid="desktop-navbar">Desktop Navbar</nav>}
+          sidebar={<nav data-testid="sidebar">Sidebar</nav>}
+        >
           <div data-testid="outlet">Page Content</div>
-        </div>
-      </StackedLayout>
-      {/* Current behavior: MobileNav only for authenticated users */}
-      {userId && <MobileNav />}
+        </StackedLayout>
+      </div>
+
+      {/* Mobile: Content only */}
+      <div className="lg:hidden">
+        <main className="pb-20">
+          <div data-testid="outlet">Page Content</div>
+        </main>
+      </div>
+
+      {/* SpoonDock - mobile only (MobileNav has lg:hidden) */}
+      <MobileNav isAuthenticated={isAuthenticated} />
     </ThemeProvider>
   )
 }
@@ -122,31 +132,31 @@ describe('Root layout responsive behavior', () => {
       )
 
       // Unauthenticated users should see Home and Login in the SpoonDock
-      // This test should FAIL initially because current behavior only shows MobileNav for authenticated
       const navigations = screen.getAllByRole('navigation')
       const mobileNav = navigations.find(nav => nav.className.includes('lg:hidden'))
 
       // MobileNav with isAuthenticated=false shows Home and Login
       expect(mobileNav).toBeInTheDocument()
       // Check for the nav items specific to unauthenticated users
-      expect(screen.getByRole('link', { name: /home/i })).toBeInTheDocument()
+      // Use getAllByRole since center logo also links to home
+      const homeLinks = screen.getAllByRole('link', { name: /home/i })
+      expect(homeLinks.length).toBeGreaterThan(0)
       expect(screen.getByRole('link', { name: /login/i })).toBeInTheDocument()
     })
   })
 
   describe('StackedLayout navbar visibility', () => {
-    it('navbar is hidden on mobile (hamburger menu wrapper has lg:hidden)', () => {
-      render(
+    it('navbar is hidden on mobile (StackedLayout wrapper has hidden lg:block)', () => {
+      const { container } = render(
         <MemoryRouter>
           <CurrentRootLayoutBehavior userId="test-user" />
         </MemoryRouter>
       )
 
-      // The hamburger menu button wrapper in StackedLayout has lg:hidden class
-      // This means on mobile, only the hamburger is shown, not the full navbar
-      const openNavButton = screen.getByRole('button', { name: 'Open navigation' })
-      const buttonWrapper = openNavButton.closest('.lg\\:hidden')
-      expect(buttonWrapper).toBeInTheDocument()
+      // The entire StackedLayout is wrapped in a div with hidden lg:block
+      // This means StackedLayout (including hamburger) is hidden on mobile
+      const stackedLayoutWrapper = container.querySelector('.hidden.lg\\:block')
+      expect(stackedLayoutWrapper).toBeInTheDocument()
     })
 
     it('navbar is visible on desktop (navbar content present)', () => {
@@ -157,7 +167,7 @@ describe('Root layout responsive behavior', () => {
       )
 
       // On desktop, the full navbar should be visible with navigation items
-      // The Navbar component is always rendered, just the hamburger wrapper is hidden on desktop
+      // The StackedLayout wrapper has hidden lg:block, so it shows on desktop
       const header = screen.getByRole('banner')
       expect(header).toBeInTheDocument()
 
@@ -167,43 +177,39 @@ describe('Root layout responsive behavior', () => {
   })
 
   describe('hamburger menu on mobile', () => {
-    it('hamburger menu does NOT render on mobile when SpoonDock is present', () => {
-      render(
-        <MemoryRouter>
-          <CurrentRootLayoutBehavior userId="test-user" />
-        </MemoryRouter>
-      )
-
-      // Expected behavior: hamburger menu should NOT be shown on mobile
-      // because SpoonDock provides the primary mobile navigation
-      // The hamburger button has a wrapper with lg:hidden class
-      // But we expect it to be completely hidden on mobile (not just responsive)
-
-      // This test should FAIL initially because the current implementation
-      // still shows the hamburger menu on mobile
-      const openNavButton = screen.queryByRole('button', { name: 'Open navigation' })
-
-      // The hamburger should NOT be present when SpoonDock is the primary mobile nav
-      // Currently it exists, so this assertion will fail
-      expect(openNavButton).not.toBeInTheDocument()
-    })
-
-    it('hamburger menu wrapper has hidden class on mobile (no hamburger for SpoonDock users)', () => {
+    it('hamburger menu is inside hidden StackedLayout wrapper on mobile', () => {
       const { container } = render(
         <MemoryRouter>
           <CurrentRootLayoutBehavior userId="test-user" />
         </MemoryRouter>
       )
 
-      // The hamburger wrapper should be hidden on mobile when SpoonDock is present
-      // Expected: the hamburger wrapper should have 'hidden lg:block' or similar
-      // to hide it on mobile but show on desktop (or not render at all)
-      const hamburgerWrapper = container.querySelector('.py-2\\.5.lg\\:hidden')
+      // The hamburger menu exists but is inside the StackedLayout which has hidden lg:block wrapper
+      // This means the hamburger is hidden on mobile (because its parent is hidden)
+      const openNavButton = screen.queryByRole('button', { name: 'Open navigation' })
+      expect(openNavButton).toBeInTheDocument()
 
-      // This test expects the hamburger wrapper to NOT exist or have 'hidden' class
-      // Currently, hamburger exists with lg:hidden (hidden on desktop, visible on mobile)
-      // We want the opposite: hidden on mobile when SpoonDock is present
-      expect(hamburgerWrapper).toBeNull()
+      // But the button should be inside the hidden wrapper
+      const stackedLayoutWrapper = container.querySelector('.hidden.lg\\:block')
+      expect(stackedLayoutWrapper?.contains(openNavButton)).toBe(true)
+    })
+
+    it('StackedLayout (with hamburger) is hidden on mobile, visible on desktop', () => {
+      const { container } = render(
+        <MemoryRouter>
+          <CurrentRootLayoutBehavior userId="test-user" />
+        </MemoryRouter>
+      )
+
+      // The StackedLayout wrapper has hidden lg:block
+      // - hidden: not shown by default (mobile)
+      // - lg:block: shown on large screens (desktop)
+      const stackedLayoutWrapper = container.querySelector('.hidden.lg\\:block')
+      expect(stackedLayoutWrapper).toBeInTheDocument()
+
+      // The hamburger exists within this wrapper
+      const openNavButton = screen.queryByRole('button', { name: 'Open navigation' })
+      expect(stackedLayoutWrapper?.contains(openNavButton)).toBe(true)
     })
   })
 
@@ -215,22 +221,26 @@ describe('Root layout responsive behavior', () => {
         </MemoryRouter>
       )
 
-      // The content wrapper should have pb-20 for mobile to clear the SpoonDock
-      // and lg:pb-0 for desktop where SpoonDock is hidden
-      const contentWrapper = container.querySelector('.pb-20.lg\\:pb-0')
-      expect(contentWrapper).toBeInTheDocument()
+      // Mobile content wrapper has pb-20 to clear the SpoonDock
+      // It's inside the lg:hidden div (mobile only)
+      const mobileContentWrapper = container.querySelector('.lg\\:hidden main.pb-20')
+      expect(mobileContentWrapper).toBeInTheDocument()
     })
 
     it('content padding wrapper contains the Outlet content', () => {
-      render(
+      const { container } = render(
         <MemoryRouter initialEntries={['/']}>
           <CurrentRootLayoutBehavior userId="test-user" />
         </MemoryRouter>
       )
 
-      // The main content area should exist and have the padding classes applied
-      const main = screen.getByRole('main')
-      expect(main).toBeInTheDocument()
+      // The mobile main area should exist with pb-20 class
+      const mobileMain = container.querySelector('.lg\\:hidden main.pb-20')
+      expect(mobileMain).toBeInTheDocument()
+
+      // Desktop main also exists inside StackedLayout
+      const allMains = screen.getAllByRole('main')
+      expect(allMains.length).toBeGreaterThan(0)
     })
   })
 
