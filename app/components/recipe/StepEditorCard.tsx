@@ -14,7 +14,7 @@
 
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp, Save, Trash2 } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Input } from '~/components/ui/input'
 import { Textarea } from '~/components/ui/textarea'
 import { IngredientInputToggle, type IngredientInputMode } from './IngredientInputToggle'
@@ -84,6 +84,8 @@ export interface StepEditorCardProps {
   disabled?: boolean
   /** Render prop for drag handle */
   dragHandle?: React.ReactNode
+  /** Auto-focus the instructions textarea on mount */
+  autoFocusInstructions?: boolean
 }
 
 export function StepEditorCard({
@@ -98,10 +100,19 @@ export function StepEditorCard({
   canMoveDown = true,
   disabled = false,
   dragHandle,
+  autoFocusInstructions = false,
 }: StepEditorCardProps) {
   const id = useId()
   const instructionsId = `${id}-instructions`
   const durationId = `${id}-duration`
+  const instructionsRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-focus instructions textarea when requested
+  useEffect(() => {
+    if (autoFocusInstructions && instructionsRef.current) {
+      instructionsRef.current.focus()
+    }
+  }, [autoFocusInstructions])
 
   // Form state
   const [description, setDescription] = useState(step?.description ?? '')
@@ -193,6 +204,7 @@ export function StepEditorCard({
           Instructions
         </label>
         <Textarea
+          ref={instructionsRef}
           id={instructionsId}
           value={description}
           onChange={(e) => setDescription(e.target.value)}

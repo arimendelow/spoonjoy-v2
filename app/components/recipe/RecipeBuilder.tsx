@@ -55,6 +55,9 @@ export function RecipeBuilder({
   const recipeId = recipe?.id ?? 'new-recipe'
 
   const handleSave = () => {
+    // Prevent save if disabled
+    if (disabled || !title.trim()) return
+
     const data: RecipeBuilderData = {
       id: recipe?.id,
       title,
@@ -151,7 +154,9 @@ export function RecipeBuilder({
           type="button"
           color="green"
           onClick={handleSave}
-          disabled={isSaveDisabled}
+          disabled={disabled}
+          aria-disabled={isSaveDisabled || undefined}
+          className={isSaveDisabled && !disabled ? 'opacity-50' : undefined}
         >
           Save Recipe
         </Button>

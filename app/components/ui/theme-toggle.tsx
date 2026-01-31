@@ -95,9 +95,13 @@ export function ThemeDropdown() {
                 >
                   <Icon className="h-4 w-4" />
                   {label}
-                  {value === 'system' && (
-                    <span className="ml-auto text-xs text-zinc-400">
-                      ({resolvedTheme})
+                  {value === 'system' && resolvedTheme && (
+                    <span className="ml-auto text-zinc-400" aria-hidden="true">
+                      {resolvedTheme === 'dark' ? (
+                        <Moon className="h-3 w-3" />
+                      ) : (
+                        <Sun className="h-3 w-3" />
+                      )}
                     </span>
                   )}
                 </button>

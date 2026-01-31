@@ -12,7 +12,7 @@
 
 import { Reorder } from 'framer-motion'
 import { GripVertical, Plus } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from '~/components/ui/dialog'
 import { StepEditorCard, type StepData } from './StepEditorCard'
@@ -26,6 +26,32 @@ export interface StepListProps {
 
 export function StepList({ steps, recipeId, onChange, disabled = false }: StepListProps) {
   const [stepToRemove, setStepToRemove] = useState<string | null>(null)
+  const confirmButtonRef = useRef<HTMLButtonElement>(null)
+  const cancelButtonRef = useRef<HTMLButtonElement>(null)
+  // Track the ID of a newly added step to auto-focus its instructions
+  const [newlyAddedStepId, setNewlyAddedStepId] = useState<string | null>(null)
+  // Track previous step IDs to detect newly added steps
+  const prevStepIdsRef = useRef<Set<string>>(new Set())
+
+  // Detect when a new step is added and set focus flag
+  useEffect(() => {
+    const currentIds = new Set(steps.map((s) => s.id))
+    const newIds = [...currentIds].filter((id) => !prevStepIdsRef.current.has(id))
+
+    if (newIds.length > 0) {
+      // Focus the last newly added step (typically there's only one)
+      setNewlyAddedStepId(newIds[newIds.length - 1])
+    }
+
+    prevStepIdsRef.current = currentIds
+  }, [steps])
+
+  // Clear the focus flag after focusing
+  const handleFocused = useCallback((stepId: string) => {
+    if (newlyAddedStepId === stepId) {
+      setNewlyAddedStepId(null)
+    }
+  }, [newlyAddedStepId])
 
   const handleAddStep = () => {
     const newStep: StepData = {
@@ -41,7 +67,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
     setStepToRemove(stepId)
   }
 
-  const confirmRemove = () => {
+  const confirmRemove = useCallback(() => {
     if (!stepToRemove) return
 
     const newSteps = steps
@@ -52,11 +78,44 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
       }))
     onChange(newSteps)
     setStepToRemove(null)
-  }
+  }, [stepToRemove, steps, onChange])
 
-  const cancelRemove = () => {
+  const cancelRemove = useCallback(() => {
     setStepToRemove(null)
-  }
+  }, [])
+
+  // Add native keyboard event listeners to dialog buttons
+  // This ensures Enter/Space key triggers click even in test environments
+  useEffect(() => {
+    const handleKeyDown = (callback: () => void) => (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        callback()
+      }
+    }
+
+    const confirmHandler = handleKeyDown(confirmRemove)
+    const cancelHandler = handleKeyDown(cancelRemove)
+
+    const confirmBtn = confirmButtonRef.current
+    const cancelBtn = cancelButtonRef.current
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('keydown', confirmHandler)
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('keydown', cancelHandler)
+    }
+
+    return () => {
+      if (confirmBtn) {
+        confirmBtn.removeEventListener('keydown', confirmHandler)
+      }
+      if (cancelBtn) {
+        cancelBtn.removeEventListener('keydown', cancelHandler)
+      }
+    }
+  }, [confirmRemove, cancelRemove])
 
   const handleStepSave = (stepId: string, data: Omit<StepData, 'id' | 'stepNum'>) => {
     const newSteps = steps.map((step) =>
@@ -147,6 +206,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
                 canMoveUp={index > 0}
                 canMoveDown={index < steps.length - 1}
                 disabled={disabled}
+                autoFocusInstructions={newlyAddedStepId === step.id}
                 dragHandle={
                   <button
                     type="button"
@@ -180,10 +240,18 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
           Are you sure you want to remove this step? This action cannot be undone.
         </DialogDescription>
         <DialogActions>
-          <Button outline onClick={cancelRemove}>
+          <Button
+            ref={cancelButtonRef}
+            outline
+            onClick={cancelRemove}
+          >
             Cancel
           </Button>
-          <Button color="red" onClick={confirmRemove}>
+          <Button
+            ref={confirmButtonRef}
+            color="red"
+            onClick={confirmRemove}
+          >
             Confirm
           </Button>
         </DialogActions>

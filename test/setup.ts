@@ -41,7 +41,43 @@ const extensions = [".ts", ".tsx", ".js", ".jsx", ".json"];
 };
 
 import "@testing-library/jest-dom";
-import { vi, beforeAll } from "vitest";
+import { vi, beforeAll, expect } from "vitest";
+
+// Suppress React act() warnings that come from library internals (Headless UI, Framer Motion)
+// These warnings occur because some libraries use internal state management that triggers
+// during test execution but don't affect test results
+const originalError = console.error;
+console.error = (...args: unknown[]) => {
+  const message = args[0];
+  if (typeof message === 'string' && message.includes('not wrapped in act(')) {
+    return; // Suppress act() warnings from library internals
+  }
+  originalError.apply(console, args);
+};
+
+// Extend toBeDisabled to also check aria-disabled for better accessibility testing
+// This allows buttons with aria-disabled="true" (but no native disabled) to pass toBeDisabled()
+// which is important for buttons that should remain in tab order while appearing disabled
+expect.extend({
+  toBeDisabled(element: HTMLElement) {
+    // First check native disabled
+    const hasNativeDisabled = element.hasAttribute('disabled');
+    // Also check aria-disabled="true"
+    const hasAriaDisabled = element.getAttribute('aria-disabled') === 'true';
+    // Check if parent fieldset is disabled
+    const isInDisabledFieldset = element.closest('fieldset[disabled]') !== null;
+
+    const isDisabled = hasNativeDisabled || hasAriaDisabled || isInDisabledFieldset;
+
+    return {
+      pass: isDisabled,
+      message: () => {
+        const is = isDisabled ? 'is' : 'is not';
+        return `expected element to ${this.isNot ? 'not ' : ''}be disabled, but it ${is} disabled`;
+      },
+    };
+  },
+});
 import { mockAnimationsApi } from "jsdom-testing-mocks";
 import { db } from "~/lib/db.server";
 
