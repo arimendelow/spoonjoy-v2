@@ -118,6 +118,28 @@ describe('StepList', () => {
       expect(screen.getByLabelText(/step 3/i)).toBeInTheDocument()
     })
 
+    it('renders many steps (5+) correctly', () => {
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'Step one' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Step two' }),
+        createTestStep({ id: 'step-3', stepNum: 3, description: 'Step three' }),
+        createTestStep({ id: 'step-4', stepNum: 4, description: 'Step four' }),
+        createTestStep({ id: 'step-5', stepNum: 5, description: 'Step five' }),
+        createTestStep({ id: 'step-6', stepNum: 6, description: 'Step six' }),
+      ]
+      const Wrapper = createTestWrapper({ steps })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // All 6 steps should be rendered
+      const articles = screen.getAllByRole('article')
+      expect(articles).toHaveLength(6)
+
+      // Verify all step labels
+      for (let i = 1; i <= 6; i++) {
+        expect(screen.getByLabelText(new RegExp(`step ${i}`, 'i'))).toBeInTheDocument()
+      }
+    })
+
     it('steps maintain correct numbering (1, 2, 3...)', () => {
       const steps = [
         createTestStep({ id: 'step-1', stepNum: 1, description: 'First' }),
@@ -268,6 +290,65 @@ describe('StepList', () => {
           }),
         ])
       )
+    })
+  })
+
+  describe('step content editing', () => {
+    it('saving step content calls onChange with updated step data', async () => {
+      const onChange = vi.fn()
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'Original description' }),
+      ]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Find the description textarea and update it
+      const textarea = screen.getByLabelText(/step 1/i).querySelector('textarea')
+      expect(textarea).toBeInTheDocument()
+
+      // Clear and type new description
+      await userEvent.clear(textarea!)
+      await userEvent.type(textarea!, 'Updated description')
+
+      // Click save button
+      const saveButton = screen.getByRole('button', { name: /save/i })
+      await userEvent.click(saveButton)
+
+      // onChange should be called with the updated step
+      expect(onChange).toHaveBeenCalled()
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0]
+      expect(lastCall[0].description).toBe('Updated description')
+    })
+
+    it('saving step preserves step id and stepNum', async () => {
+      const onChange = vi.fn()
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'Original' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Second' }),
+      ]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Find the first step's textarea and update it
+      const firstStepCard = screen.getByLabelText(/step 1/i)
+      const textarea = firstStepCard.querySelector('textarea')
+      expect(textarea).toBeInTheDocument()
+
+      await userEvent.clear(textarea!)
+      await userEvent.type(textarea!, 'New content')
+
+      // Click save button on first step
+      const saveButton = within(firstStepCard).getByRole('button', { name: /save/i })
+      await userEvent.click(saveButton)
+
+      // Check the call preserves id and stepNum
+      expect(onChange).toHaveBeenCalled()
+      const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0]
+      expect(lastCall[0].id).toBe('step-1')
+      expect(lastCall[0].stepNum).toBe(1)
+      // Second step should be unchanged
+      expect(lastCall[1].id).toBe('step-2')
+      expect(lastCall[1].stepNum).toBe(2)
     })
   })
 
@@ -501,6 +582,111 @@ describe('StepList', () => {
 
       expect(upButton).toBeDisabled()
       expect(downButton).toBeDisabled()
+    })
+
+    it('keyboard: arrow up on first step does not reorder', async () => {
+      const onChange = vi.fn()
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Second step' }),
+      ]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Focus on the first step's drag handle and try to move up
+      const firstStepCard = screen.getByLabelText(/step 1/i)
+      const dragHandle = within(firstStepCard).getByRole('button', { name: /drag to reorder/i })
+      dragHandle.focus()
+
+      // Use Ctrl+ArrowUp - should not reorder since it's already first
+      await userEvent.keyboard('{Control>}{ArrowUp}{/Control}')
+
+      // onChange should not be called because we can't move up from first position
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('keyboard: arrow down on last step does not reorder', async () => {
+      const onChange = vi.fn()
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Second step' }),
+      ]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Focus on the last step's drag handle and try to move down
+      const lastStepCard = screen.getByLabelText(/step 2/i)
+      const dragHandle = within(lastStepCard).getByRole('button', { name: /drag to reorder/i })
+      dragHandle.focus()
+
+      // Use Ctrl+ArrowDown - should not reorder since it's already last
+      await userEvent.keyboard('{Control>}{ArrowDown}{/Control}')
+
+      // onChange should not be called because we can't move down from last position
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('keyboard: arrow keys without modifier key do not reorder', async () => {
+      const onChange = vi.fn()
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Second step' }),
+      ]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Focus on the second step's drag handle
+      const secondStepCard = screen.getByLabelText(/step 2/i)
+      const dragHandle = within(secondStepCard).getByRole('button', { name: /drag to reorder/i })
+      dragHandle.focus()
+
+      // Press ArrowUp without modifier - should not reorder
+      await userEvent.keyboard('{ArrowUp}')
+
+      // onChange should not be called because no modifier key was pressed
+      expect(onChange).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('rapid operations', () => {
+    it('handles rapid add operations correctly', async () => {
+      const onChange = vi.fn()
+      const Wrapper = createTestWrapper({ steps: [], onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      const addButton = screen.getByRole('button', { name: /add step/i })
+
+      // Rapidly click add button multiple times
+      await userEvent.click(addButton)
+      await userEvent.click(addButton)
+      await userEvent.click(addButton)
+
+      // Each click should call onChange
+      expect(onChange).toHaveBeenCalledTimes(3)
+
+      // Each call should have incrementing stepNum
+      expect(onChange.mock.calls[0][0][0].stepNum).toBe(1)
+      expect(onChange.mock.calls[1][0][0].stepNum).toBe(1) // Still 1 because steps prop hasn't changed
+      expect(onChange.mock.calls[2][0][0].stepNum).toBe(1)
+    })
+
+    it('handles add then immediate remove correctly', async () => {
+      const onChange = vi.fn()
+      const steps = [
+        createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+      ]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Add a step
+      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
+      expect(onChange).toHaveBeenCalledTimes(1)
+
+      // Now remove the first step
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+      await userEvent.click(screen.getByRole('button', { name: /confirm/i }))
+
+      expect(onChange).toHaveBeenCalledTimes(2)
     })
   })
 })
