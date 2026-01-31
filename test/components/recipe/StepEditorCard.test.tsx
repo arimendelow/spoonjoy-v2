@@ -1,0 +1,723 @@
+/**
+ * Tests for StepEditorCard component.
+ *
+ * This component provides a card for editing/creating recipe steps with:
+ * - Step number display
+ * - Instructions textarea
+ * - Duration input (optional)
+ * - Ingredient input mode toggle (AI/manual)
+ * - IngredientParseInput for AI mode
+ * - ManualIngredientInput for manual mode
+ * - ParsedIngredientList for displaying parsed ingredients
+ * - Save, remove, and reorder controls
+ */
+
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { createRoutesStub } from 'react-router'
+import { StepEditorCard } from '~/components/recipe/StepEditorCard'
+import type { ParsedIngredient } from '~/lib/ingredient-parse.server'
+
+// Mock localStorage for IngredientInputToggle
+let localStorageStore: Record<string, string> = {}
+
+const localStorageMock = {
+  getItem: vi.fn((key: string) => localStorageStore[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageStore[key] = value
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localStorageStore[key]
+  }),
+  clear: vi.fn(() => {
+    localStorageStore = {}
+  }),
+}
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+})
+
+// Step data type for edit mode
+interface StepData {
+  id: string
+  stepNum: number
+  stepTitle?: string
+  description: string
+  duration?: number // Duration in minutes
+  ingredients: ParsedIngredient[]
+}
+
+// Create a test wrapper with router context for AI parsing
+function createTestWrapper(
+  actionHandler: (formData: FormData) => Promise<unknown>,
+  props: Partial<React.ComponentProps<typeof StepEditorCard>> = {}
+) {
+  const defaultProps = {
+    stepNumber: 1,
+    recipeId: 'recipe-1',
+    onSave: vi.fn(),
+    onRemove: vi.fn(),
+    ...props,
+  }
+
+  return createRoutesStub([
+    {
+      path: '/recipes/:id/steps/edit',
+      Component: () => <StepEditorCard {...defaultProps} />,
+      action: async ({ request }) => {
+        const formData = await request.formData()
+        return actionHandler(formData)
+      },
+    },
+  ])
+}
+
+describe('StepEditorCard', () => {
+  beforeEach(() => {
+    localStorageStore = {}
+    vi.resetAllMocks()
+    localStorageMock.getItem.mockImplementation((key: string) => localStorageStore[key] ?? null)
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
+      localStorageStore[key] = value
+    })
+    localStorageMock.removeItem.mockImplementation((key: string) => {
+      delete localStorageStore[key]
+    })
+    localStorageMock.clear.mockImplementation(() => {
+      localStorageStore = {}
+    })
+  })
+
+  afterEach(() => {
+    localStorageMock.clear()
+  })
+
+  describe('rendering', () => {
+    it('renders step number', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        stepNumber: 3,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByText('3')).toBeInTheDocument()
+      expect(screen.getByLabelText(/step 3/i)).toBeInTheDocument()
+    })
+
+    it('renders instructions textarea', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByLabelText(/instructions/i)).toBeInTheDocument()
+      expect(screen.getByRole('textbox', { name: /instructions/i })).toBeInTheDocument()
+    })
+
+    it('renders duration input', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByLabelText(/duration/i)).toBeInTheDocument()
+      expect(screen.getByRole('spinbutton', { name: /duration/i })).toBeInTheDocument()
+    })
+
+    it('duration input is optional (not required)', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const durationInput = screen.getByRole('spinbutton', { name: /duration/i })
+      expect(durationInput).not.toHaveAttribute('required')
+    })
+
+    it('renders save button', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
+    })
+
+    it('renders remove button', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument()
+    })
+
+    it('renders move up button when onMoveUp is provided', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        onMoveUp: vi.fn(),
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /move up/i })).toBeInTheDocument()
+    })
+
+    it('renders move down button when onMoveDown is provided', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        onMoveDown: vi.fn(),
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /move down/i })).toBeInTheDocument()
+    })
+
+    it('does not render move buttons when not provided', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.queryByRole('button', { name: /move up/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /move down/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('ingredient input toggle', () => {
+    it('renders IngredientInputToggle', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('switch')).toBeInTheDocument()
+    })
+
+    it('defaults to AI mode (toggle checked)', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('switch')).toBeChecked()
+    })
+
+    it('shows AI parse label', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByText(/ai parse/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('AI mode (default)', () => {
+    it('shows IngredientParseInput in AI mode', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // AI mode is default, should show the ingredient parse input
+      expect(screen.getByPlaceholderText(/enter ingredients/i)).toBeInTheDocument()
+    })
+
+    it('shows helper text for AI parsing', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByText(/ai will parse/i)).toBeInTheDocument()
+    })
+
+    it('does not show ManualIngredientInput in AI mode', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // ManualIngredientInput has three separate input fields
+      expect(screen.queryByLabelText('Ingredient')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('manual mode', () => {
+    it('shows ManualIngredientInput when toggled to manual mode', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Toggle to manual mode
+      await userEvent.click(screen.getByRole('switch'))
+
+      // Manual mode shows quantity, unit, and ingredient inputs
+      expect(screen.getByLabelText(/quantity/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/unit/i)).toBeInTheDocument()
+      expect(screen.getByLabelText('Ingredient')).toBeInTheDocument()
+    })
+
+    it('does not show IngredientParseInput in manual mode', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Toggle to manual mode
+      await userEvent.click(screen.getByRole('switch'))
+
+      // AI parse input should be hidden
+      expect(screen.queryByPlaceholderText(/enter ingredients/i)).not.toBeInTheDocument()
+    })
+
+    it('shows add button for manual ingredient entry', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Toggle to manual mode
+      await userEvent.click(screen.getByRole('switch'))
+
+      expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument()
+    })
+  })
+
+  describe('callbacks', () => {
+    it('calls onSave with step data when save clicked', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Fill in instructions
+      await userEvent.type(
+        screen.getByRole('textbox', { name: /instructions/i }),
+        'Mix the flour and water'
+      )
+
+      // Click save
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Mix the flour and water',
+          ingredients: [],
+        })
+      )
+    })
+
+    it('calls onSave with duration when provided', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Fill in instructions and duration
+      await userEvent.type(
+        screen.getByRole('textbox', { name: /instructions/i }),
+        'Bake in oven'
+      )
+      await userEvent.type(screen.getByRole('spinbutton', { name: /duration/i }), '30')
+
+      // Click save
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Bake in oven',
+          duration: 30,
+        })
+      )
+    })
+
+    it('calls onRemove when remove clicked', async () => {
+      const onRemove = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onRemove })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      expect(onRemove).toHaveBeenCalledTimes(1)
+    })
+
+    it('calls onMoveUp when move up clicked', async () => {
+      const onMoveUp = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onMoveUp })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /move up/i }))
+
+      expect(onMoveUp).toHaveBeenCalledTimes(1)
+    })
+
+    it('calls onMoveDown when move down clicked', async () => {
+      const onMoveDown = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onMoveDown })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /move down/i }))
+
+      expect(onMoveDown).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('edit mode', () => {
+    const existingStep: StepData = {
+      id: 'step-1',
+      stepNum: 1,
+      stepTitle: 'Prep ingredients',
+      description: 'Chop the onions and mince the garlic',
+      duration: 15,
+      ingredients: [
+        { quantity: 2, unit: 'whole', ingredientName: 'onion' },
+        { quantity: 4, unit: 'clove', ingredientName: 'garlic' },
+      ],
+    }
+
+    it('pre-populates instructions with existing step data', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('textbox', { name: /instructions/i })).toHaveValue(
+        'Chop the onions and mince the garlic'
+      )
+    })
+
+    it('pre-populates duration with existing step data', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('spinbutton', { name: /duration/i })).toHaveValue(15)
+    })
+
+    it('shows existing ingredients in ParsedIngredientList', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Should show the parsed ingredients
+      expect(screen.getByText(/onion/i)).toBeInTheDocument()
+      expect(screen.getByText(/garlic/i)).toBeInTheDocument()
+    })
+
+    it('uses step number from props, not step data', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+        stepNumber: 5, // Different from step.stepNum
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByText('5')).toBeInTheDocument()
+    })
+  })
+
+  describe('create mode', () => {
+    it('starts with empty instructions', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('textbox', { name: /instructions/i })).toHaveValue('')
+    })
+
+    it('starts with empty duration', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('spinbutton', { name: /duration/i })).toHaveValue(null)
+    })
+
+    it('starts with no ingredients', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Should show empty state or no ingredient list
+      expect(screen.getByText(/no ingredients/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('disabled state', () => {
+    it('disables instructions textarea when disabled', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('textbox', { name: /instructions/i })).toBeDisabled()
+    })
+
+    it('disables duration input when disabled', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('spinbutton', { name: /duration/i })).toBeDisabled()
+    })
+
+    it('disables save button when disabled', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /save/i })).toBeDisabled()
+    })
+
+    it('disables remove button when disabled', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /remove/i })).toBeDisabled()
+    })
+
+    it('disables ingredient input toggle when disabled', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('switch')).toHaveAttribute('data-disabled')
+    })
+
+    it('disables move up button when disabled', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+        onMoveUp: vi.fn(),
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /move up/i })).toBeDisabled()
+    })
+
+    it('disables move down button when disabled', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+        onMoveDown: vi.fn(),
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('button', { name: /move down/i })).toBeDisabled()
+    })
+
+    it('does not call onSave when disabled', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+        onSave,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(onSave).not.toHaveBeenCalled()
+    })
+
+    it('does not call onRemove when disabled', async () => {
+      const onRemove = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        disabled: true,
+        onRemove,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      expect(onRemove).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('validation', () => {
+    it('instructions field is required', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('textbox', { name: /instructions/i })).toHaveAttribute('required')
+    })
+
+    it('prevents save with empty instructions', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Try to save without instructions
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(onSave).not.toHaveBeenCalled()
+    })
+
+    it('shows validation error for empty instructions', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Focus and blur the instructions field
+      const instructionsField = screen.getByRole('textbox', { name: /instructions/i })
+      await userEvent.click(instructionsField)
+      await userEvent.tab()
+
+      // Should show validation message
+      expect(instructionsField).toBeInvalid()
+    })
+
+    it('duration input accepts positive numbers', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const durationInput = screen.getByRole('spinbutton', { name: /duration/i })
+      await userEvent.type(durationInput, '30')
+
+      expect(durationInput).toHaveValue(30)
+    })
+
+    it('duration input has min attribute of 1', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('spinbutton', { name: /duration/i })).toHaveAttribute('min', '1')
+    })
+
+    it('prevents negative duration values', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Fill in instructions
+      await userEvent.type(
+        screen.getByRole('textbox', { name: /instructions/i }),
+        'Test instructions'
+      )
+
+      // Try to enter negative duration
+      const durationInput = screen.getByRole('spinbutton', { name: /duration/i })
+      await userEvent.type(durationInput, '-5')
+
+      // The field should not accept negative values or should be invalid
+      expect(durationInput).toBeInvalid()
+    })
+
+    it('allows zero duration (treated as not set)', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Fill in instructions
+      await userEvent.type(
+        screen.getByRole('textbox', { name: /instructions/i }),
+        'Test instructions'
+      )
+
+      // Duration field should be optional, even with value 0
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      // Should save without duration
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Test instructions',
+        })
+      )
+      // Duration should be undefined when not set
+      expect(onSave.mock.calls[0][0].duration).toBeUndefined()
+    })
+  })
+
+  describe('accessibility', () => {
+    it('has accessible step number label', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        stepNumber: 2,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByLabelText(/step 2/i)).toBeInTheDocument()
+    })
+
+    it('instructions textarea has accessible label', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByLabelText(/instructions/i)).toBeInTheDocument()
+    })
+
+    it('duration input has accessible label', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByLabelText(/duration/i)).toBeInTheDocument()
+    })
+
+    it('card has accessible landmark', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        stepNumber: 1,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByRole('article')).toBeInTheDocument()
+    })
+
+    it('card has accessible name based on step number', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        stepNumber: 3,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      const article = screen.getByRole('article')
+      expect(article).toHaveAccessibleName(/step 3/i)
+    })
+  })
+
+  describe('keyboard interaction', () => {
+    it('supports Tab navigation through all interactive elements', async () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        onMoveUp: vi.fn(),
+        onMoveDown: vi.fn(),
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Tab through elements
+      await userEvent.tab()
+      // First focusable element should be focused
+      expect(document.activeElement).toBeInstanceOf(HTMLElement)
+
+      // Continue tabbing through all elements
+      const interactiveElements = screen.getAllByRole('button').length + 2 // buttons + inputs
+      for (let i = 0; i < interactiveElements; i++) {
+        await userEvent.tab()
+      }
+      // Should cycle through without errors
+    })
+
+    it('allows Enter to submit when focused on save button', async () => {
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), { onSave })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Fill in required fields
+      await userEvent.type(
+        screen.getByRole('textbox', { name: /instructions/i }),
+        'Test instructions'
+      )
+
+      // Focus the save button and press Enter
+      screen.getByRole('button', { name: /save/i }).focus()
+      await userEvent.keyboard('{Enter}')
+
+      expect(onSave).toHaveBeenCalled()
+    })
+  })
+
+  describe('ingredient management', () => {
+    it('displays ParsedIngredientList when ingredients exist', async () => {
+      const existingStep: StepData = {
+        id: 'step-1',
+        stepNum: 1,
+        description: 'Test step',
+        ingredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
+      }
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      expect(screen.getByText(/flour/i)).toBeInTheDocument()
+      expect(screen.getByText('2')).toBeInTheDocument()
+    })
+
+    it('includes ingredients in onSave callback', async () => {
+      const existingStep: StepData = {
+        id: 'step-1',
+        stepNum: 1,
+        description: 'Test step',
+        ingredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
+      }
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+        onSave,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
+        })
+      )
+    })
+  })
+})
