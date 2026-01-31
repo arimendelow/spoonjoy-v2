@@ -61,6 +61,7 @@ export function RecipeForm({
   const titleErrorId = useId()
   const descriptionErrorId = useId()
   const servingsErrorId = useId()
+  const imageUploadId = useId()
 
   const isDisabled = disabled || loading
 
@@ -116,7 +117,7 @@ export function RecipeForm({
   const displayImageUrl = getDisplayImageUrl()
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} encType="multipart/form-data">
       <Fieldset className="space-y-6">
         {errors?.general && (
           <div
@@ -181,15 +182,19 @@ export function RecipeForm({
         </Field>
 
         <Field>
-          <Label>Recipe Image</Label>
-          <RecipeImageUpload
-            imageUrl={displayImageUrl}
-            onFileSelect={handleImageSelect}
-            onClear={handleImageClear}
-            disabled={isDisabled}
-            loading={loading}
-            error={errors?.image}
-          />
+          <span id={`${imageUploadId}-label`} className="text-base/6 text-zinc-950 select-none data-disabled:opacity-50 sm:text-sm/6 dark:text-white font-medium">
+            Recipe Image
+          </span>
+          <div aria-labelledby={`${imageUploadId}-label`}>
+            <RecipeImageUpload
+              imageUrl={displayImageUrl}
+              onFileSelect={handleImageSelect}
+              onClear={handleImageClear}
+              disabled={isDisabled}
+              loading={loading}
+              error={errors?.image}
+            />
+          </div>
         </Field>
 
         <div className="flex gap-4 justify-end pt-4">

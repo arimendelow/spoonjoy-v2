@@ -188,7 +188,7 @@ export function RecipeImageUpload({
         accept="image/*"
         className="hidden"
         disabled={isDisabled}
-        aria-label="Upload recipe image"
+        aria-label="Upload image file"
         onChange={handleFileChange}
       />
 

@@ -1,23 +1,17 @@
 import type { Route } from "./+types/recipes.$id.edit";
-import { Form, redirect, data, useActionData, useLoaderData } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Textarea } from "~/components/ui/textarea";
-import { Fieldset, Field, Label, ErrorMessage } from "~/components/ui/fieldset";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
+import { RecipeForm, type RecipeFormData } from "~/components/recipe/RecipeForm";
 import {
   validateTitle,
   validateDescription,
   validateServings,
-  validateImageUrl,
-  TITLE_MAX_LENGTH,
-  DESCRIPTION_MAX_LENGTH,
-  SERVINGS_MAX_LENGTH,
 } from "~/lib/validation";
 import { validateStepReorderComplete } from "~/lib/step-reorder-validation.server";
 
@@ -26,7 +20,7 @@ interface ActionData {
     title?: string;
     description?: string;
     servings?: string;
-    imageUrl?: string;
+    image?: string;
     general?: string;
     reorder?: string;
   };
@@ -159,7 +153,8 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const title = formData.get("title")?.toString() || "";
   const description = formData.get("description")?.toString() || "";
   const servings = formData.get("servings")?.toString() || "";
-  const imageUrl = formData.get("imageUrl")?.toString() || "";
+  const image = formData.get("image");
+  const clearImage = formData.get("clearImage")?.toString() === "true";
 
   const errors: ActionData["errors"] = {};
 
@@ -179,24 +174,39 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     errors.servings = servingsResult.error;
   }
 
-  const imageUrlResult = validateImageUrl(imageUrl || null);
-  if (!imageUrlResult.valid) {
-    errors.imageUrl = imageUrlResult.error;
-  }
-
   if (Object.keys(errors).length > 0) {
     return data({ errors }, { status: 400 });
   }
 
+  // Handle image
+  let imageUrl: string | undefined | null = undefined;
+  if (clearImage) {
+    imageUrl = null; // Clear the image
+  } else if (image && image instanceof File && image.size > 0) {
+    // TODO: Upload to Cloudflare R2 and get URL
+    // For now, we'll just keep the existing image
+    imageUrl = undefined; // Would be the uploaded URL
+  }
+
   try {
+    const updateData: {
+      title: string;
+      description: string | null;
+      servings: string | null;
+      imageUrl?: string | null;
+    } = {
+      title: title.trim(),
+      description: description.trim() || null,
+      servings: servings.trim() || null,
+    };
+
+    if (imageUrl !== undefined) {
+      updateData.imageUrl = imageUrl;
+    }
+
     await database.recipe.update({
       where: { id },
-      data: {
-        title: title.trim(),
-        description: description.trim() || null,
-        servings: servings.trim() || null,
-        imageUrl: imageUrl.trim() || undefined,
-      },
+      data: updateData,
     });
 
     return redirect(`/recipes/${id}`);
@@ -211,6 +221,32 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 export default function EditRecipe() {
   const { recipe } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
+  const navigate = useNavigate();
+  const navigation = useNavigation();
+  const submit = useSubmit();
+
+  const isLoading = navigation.state === "submitting";
+
+  const handleSubmit = (formData: RecipeFormData) => {
+    const data = new FormData();
+    if (formData.id) {
+      data.set("id", formData.id);
+    }
+    data.set("title", formData.title);
+    data.set("description", formData.description);
+    data.set("servings", formData.servings);
+    if (formData.imageFile) {
+      data.set("image", formData.imageFile);
+    }
+    if (formData.clearImage) {
+      data.set("clearImage", "true");
+    }
+    submit(data, { method: "post", encType: "multipart/form-data" });
+  };
+
+  const handleCancel = () => {
+    navigate(`/recipes/${recipe.id}`);
+  };
 
   return (
     <div className="font-sans leading-relaxed p-8">
@@ -225,86 +261,20 @@ export default function EditRecipe() {
           </Link>
         </div>
 
-        {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
-          <ValidationError error={actionData.errors.general} className="mb-4" />
-        )}
-
-        <Form method="post">
-          <Fieldset className="space-y-6">
-            <Field>
-              <Label>Recipe Title *</Label>
-              <Input
-                type="text"
-                name="title"
-                required
-                maxLength={TITLE_MAX_LENGTH}
-                defaultValue={recipe.title}
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.title ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.title && (
-                <ErrorMessage>
-                  {actionData.errors.title}
-                </ErrorMessage>
-              )}
-            </Field>
-
-            <Field>
-              <Label>Description</Label>
-              <Textarea
-                name="description"
-                rows={4}
-                maxLength={DESCRIPTION_MAX_LENGTH}
-                defaultValue={recipe.description || ""}
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.description ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
-                <ErrorMessage>
-                  {actionData.errors.description}
-                </ErrorMessage>
-              )}
-            </Field>
-
-            <Field>
-              <Label>Servings</Label>
-              <Input
-                type="text"
-                name="servings"
-                maxLength={SERVINGS_MAX_LENGTH}
-                defaultValue={recipe.servings || ""}
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.servings ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.servings && (
-                <ErrorMessage>
-                  {actionData.errors.servings}
-                </ErrorMessage>
-              )}
-            </Field>
-
-            <Field>
-              <Label>Image URL</Label>
-              <Input
-                type="url"
-                name="imageUrl"
-                defaultValue={recipe.imageUrl}
-                data-invalid={/* istanbul ignore next -- @preserve */ actionData?.errors?.imageUrl ? true : undefined}
-              />
-              {/* istanbul ignore next -- @preserve */ actionData?.errors?.imageUrl && (
-                <ErrorMessage>
-                  {actionData.errors.imageUrl}
-                </ErrorMessage>
-              )}
-            </Field>
-
-            <div className="flex gap-4 justify-end pt-4">
-              <Button href={`/recipes/${recipe.id}`} color="zinc">
-                Cancel
-              </Button>
-              <Button type="submit" color="blue">
-                Save Changes
-              </Button>
-            </div>
-          </Fieldset>
-        </Form>
+        <RecipeForm
+          mode="edit"
+          recipe={{
+            id: recipe.id,
+            title: recipe.title,
+            description: recipe.description,
+            servings: recipe.servings,
+            imageUrl: recipe.imageUrl || "",
+          }}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          loading={isLoading}
+          errors={actionData?.errors}
+        />
 
         <div className="mt-12 pt-8 border-t border-gray-200">
           <div className="flex justify-between items-center mb-4">
