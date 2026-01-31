@@ -654,3 +654,131 @@ Stories include:
 ### Status
 **Tests written and FAIL as expected** - Component file does not exist yet.
 Ready for Unit 6b implementation.
+
+---
+
+## Unit 7a: RecipeImageUpload Tests
+
+### Test File
+`test/components/recipe/RecipeImageUpload.test.tsx`
+
+### Component Design
+Adapting the `ProfilePhotoUpload` pattern from `app/routes/account.settings.tsx` (lines 594-640) for recipe images.
+
+**Props Interface:**
+```typescript
+interface RecipeImageUploadProps {
+  onFileSelect: (file: File) => void
+  onClear?: () => void
+  onValidationError?: (message: string) => void
+  imageUrl?: string              // Existing image URL
+  alt?: string                   // Alt text for image
+  disabled?: boolean
+  loading?: boolean
+  error?: string                 // Error message to display
+}
+```
+
+**Key Differences from ProfilePhotoUpload:**
+- Larger preview area (recipes need more visual space than avatars)
+- Returns File to parent instead of auto-submitting form
+- Includes validation callbacks for file type and size
+- Supports error state display
+
+### Test Categories
+
+1. **Rendering** (6 tests):
+   - Upload button when no image
+   - Hidden file input
+   - Accepts image/* only
+   - Placeholder/drop zone area
+   - Helper text (JPG, PNG, GIF)
+   - File size limit text (5MB)
+
+2. **Existing image** (4 tests):
+   - Preview when imageUrl provided
+   - Alt text for image
+   - "Change Image" button
+   - "Clear/Remove" button
+
+3. **File selection** (5 tests):
+   - Button triggers file input click
+   - Calls onFileSelect with file
+   - Shows preview after selection
+   - Cleans up object URLs
+   - Handles cancel (no file)
+
+4. **Clear image** (4 tests):
+   - Calls onClear callback
+   - Removes preview for newly selected file
+   - Revokes object URL when clearing
+   - Hides clear button when no image
+
+5. **Disabled state** (4 tests):
+   - Disables upload button
+   - Disables file input
+   - Disables clear button
+   - Disables change button
+
+6. **Loading state** (3 tests):
+   - Shows loading indicator
+   - Disables upload button
+   - Shows aria-busy
+
+7. **Error state** (3 tests):
+   - Displays error message
+   - Error styling (red text)
+   - Clears error on new selection
+
+8. **File validation** (6 tests):
+   - Rejects non-image files
+   - Rejects files over 5MB
+   - Accepts JPEG, PNG, GIF, WebP
+
+9. **Preview dimensions** (2 tests):
+   - Appropriate dimensions for recipes
+   - Maintains aspect ratio
+
+10. **Accessibility** (6 tests):
+    - Accessible button names
+    - Accessible file input label
+    - Error announced to screen readers
+    - Alt text for preview
+    - Default alt text fallback
+
+11. **Keyboard interaction** (2 tests):
+    - Enter triggers upload
+    - Button is focusable
+
+12. **Drag and drop (optional)** (2 tests):
+    - Visual feedback on drag over
+    - Accepts dropped files
+
+13. **Component cleanup** (1 test):
+    - Revokes object URL on unmount
+
+14. **Edge cases** (4 tests):
+    - Rapid file selections
+    - Special characters in filename
+    - Very long filenames
+    - Zero-byte files
+
+### Storybook Story
+`stories/RecipeImageUpload.stories.tsx`
+
+Stories include:
+- Default (empty state)
+- WithImage (existing image URL)
+- Disabled / DisabledWithImage
+- Loading
+- WithError / ErrorWithImage
+- ClickUpload (interaction test)
+- ClearImage (interaction test)
+- KeyboardNavigation (interaction test)
+- DisabledInteraction (interaction test)
+- Example: Chocolate cake, Pasta, New recipe context
+- Edge cases: Long alt text, Long error message
+
+### Status
+**Tests written and FAIL as expected** - Component file does not exist yet.
+Ready for Unit 7b implementation.
