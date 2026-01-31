@@ -357,3 +357,300 @@ Created `app/components/recipe/ManualIngredientInput.tsx` - a reusable 3-field i
 - ✅ All 2658 tests passing overall
 - ✅ Build passes
 - ✅ Storybook story file exists and is compatible
+
+---
+
+## Unit 4a: IngredientParseInput + useIngredientParser Tests
+
+### Test Files Created
+
+1. **`test/hooks/useIngredientParser.test.tsx`** - Tests for the useIngredientParser hook
+2. **`test/components/recipe/IngredientParseInput.test.tsx`** - Tests for the IngredientParseInput component
+3. **`stories/IngredientParseInput.stories.tsx`** - Storybook stories
+
+### Hook Design: useIngredientParser
+
+The hook provides:
+- `text` - Current ingredient text
+- `setText` - Update text (triggers debounce)
+- `parse` - Manually trigger parse (cancels debounce)
+- `clear` - Clear text, results, and errors
+- `isLoading` - Loading state during parse
+- `error` - Error message if parse fails
+- `parsedIngredients` - Array of parsed ingredients
+
+**Debounce Behavior:**
+- 1 second debounce after typing stops
+- Debounce resets on each keystroke
+- Empty/whitespace text doesn't trigger parse
+- Manual `parse()` call cancels pending debounce
+
+**Props:**
+- `recipeId` - Recipe ID for route action
+- `stepId` - Step ID for route action
+
+### Component Design: IngredientParseInput
+
+**Props:**
+- `recipeId` - Recipe ID for parse action
+- `stepId` - Step ID for parse action
+- `onParsed` - Callback when parsing succeeds
+- `disabled` - Disable the textarea
+- `defaultValue` - Initial text value
+
+**UI Elements:**
+- Textarea with label and placeholder
+- Helper text explaining AI parsing
+- Loading indicator during parse
+- Error message display with proper ARIA
+
+### Test Categories
+
+**useIngredientParser hook** (26 tests):
+1. Initialization (4) - empty state, no loading/error
+2. Text input (4) - setText, clear
+3. Debounced parsing (5) - debounce timing, reset, empty text handling
+4. Manual parsing (2) - immediate parse, cancel debounce
+5. Loading state (3) - during parse, after success, after failure
+6. Parsing results (2) - stores results, clears on new parse
+7. Error handling (3) - stores error, clears on success, clears results on error
+8. Fetcher data (2) - correct form data, preserves multi-line
+
+**IngredientParseInput component** (27 tests):
+1. Rendering (5) - textarea, placeholder, label, helper text, rows
+2. Loading states (4) - indicator, hides on complete, disables textarea, aria-busy
+3. Error states (4) - displays error, clears on typing, marks invalid, aria-describedby
+4. Debounce behavior (2) - typing indicator, no loading before debounce
+5. Callback (3) - onParsed on success, not on failure, empty on clear
+6. Disabled state (2) - disables textarea, no parse when disabled
+7. Controlled value (2) - defaultValue, triggers parse for initial value
+8. Accessibility (3) - label, description, announces loading
+9. Keyboard interaction (2) - Enter for newlines, no form submit
+
+### Status
+**Tests written and FAIL as expected** - hook and component files don't exist yet.
+Ready for Unit 4b implementation.
+
+---
+
+## Unit 5a: ParsedIngredientRow + ParsedIngredientList Tests
+
+### Test Files Created
+
+1. **`test/components/recipe/ParsedIngredientRow.test.tsx`** - Tests for individual parsed ingredient row
+2. **`test/components/recipe/ParsedIngredientList.test.tsx`** - Tests for the list of parsed ingredients
+3. **`stories/ParsedIngredientRow.stories.tsx`** - Storybook stories for row component
+4. **`stories/ParsedIngredientList.stories.tsx`** - Storybook stories for list component
+
+### Component Design: ParsedIngredientRow
+
+A row that displays a single parsed ingredient with inline edit and remove actions.
+
+**Props:**
+```typescript
+interface ParsedIngredientRowProps {
+  ingredient: ParsedIngredient
+  onEdit: (ingredient: ParsedIngredient) => void
+  onRemove: (ingredient: ParsedIngredient) => void
+}
+```
+
+**Features:**
+- Display mode: Shows quantity, unit, ingredient name
+- Edit button: Switches to inline edit mode
+- Remove button: Removes ingredient from list
+- Inline edit mode: Input fields with save/cancel buttons
+- Keyboard shortcuts: Enter to save, Escape to cancel
+
+### Component Design: ParsedIngredientList
+
+A list container for parsed ingredients with bulk "Add All" action.
+
+**Props:**
+```typescript
+interface ParsedIngredientListProps {
+  ingredients: ParsedIngredient[]
+  onEdit: (index: number, ingredient: ParsedIngredient) => void
+  onRemove: (index: number) => void
+  onAddAll: (ingredients: ParsedIngredient[]) => void
+  disabled?: boolean
+  loading?: boolean
+}
+```
+
+**Features:**
+- Renders list of ParsedIngredientRow components
+- "Add All (N)" button to add all ingredients at once
+- Empty state message when no ingredients
+- Disabled/loading states
+- Heading showing count of parsed ingredients
+
+### Test Categories
+
+**ParsedIngredientRow** (43 tests):
+1. Rendering (8) - display quantity/unit/name, buttons, formatting
+2. Edit action (2) - click handler, passes ingredient
+3. Remove action (2) - click handler, passes ingredient
+4. Inline edit mode (10) - enter/exit edit, populate fields, save/cancel, keyboard
+5. Accessibility (4) - button names, semantic markup, labels
+6. Validation in edit mode (7) - empty/zero/negative values, whitespace trimming
+7. Edge cases (4) - decimals, special chars, long names
+
+**ParsedIngredientList** (38 tests):
+1. Rendering (8) - list items, count, Add All button, empty state
+2. Add All action (4) - callback, passes ingredients, loading state
+3. Edit action on rows (3) - passes index and ingredient
+4. Remove action on rows (2) - passes index
+5. Disabled state (3) - disables all actions
+6. Accessibility (4) - list role, items, button names
+7. Single/many ingredients (4) - edge cases
+8. Edge cases (4) - special chars, long names, order
+9. Header and labeling (2) - heading with count
+
+### Status
+**Unit 5b COMPLETE** - All 72 tests passing, 100% coverage, build passes.
+
+---
+
+## Unit 5b: ParsedIngredientRow + ParsedIngredientList Implementation
+
+### Implementation Summary
+
+**ParsedIngredientRow** (`app/components/recipe/ParsedIngredientRow.tsx`):
+- Display mode: shows quantity, unit, ingredient name with edit/remove buttons
+- Edit mode: inline editing with quantity/unit/ingredient inputs, save/cancel
+- Keyboard support: Enter saves, Escape cancels
+- Validation: positive quantity, non-empty unit and ingredient
+- Whitespace trimming on save
+- Uses Lucide icons (Pencil, Trash2, Check, X)
+
+**ParsedIngredientList** (`app/components/recipe/ParsedIngredientList.tsx`):
+- List container rendering ParsedIngredientRow components
+- "Add All (N)" button with ingredient count
+- Empty state message when no ingredients
+- Heading with count: "Parsed Ingredients (N)"
+- Disabled/loading states propagated to all rows
+
+### Test Fix Required
+The original tests from Unit 5a had contradictory expectations:
+- "edit action" tests expected `onEdit` to be called immediately on edit button click
+- "inline edit mode" tests expected entering edit mode on edit button click
+
+These were mutually exclusive. Fixed by updating tests to match correct behavior:
+- Edit button enters inline edit mode (does NOT call onEdit)
+- Save button calls onEdit with (potentially updated) ingredient
+- Cancel exits edit mode without calling onEdit
+
+### Files Created
+- `app/components/recipe/ParsedIngredientRow.tsx`
+- `app/components/recipe/ParsedIngredientList.tsx`
+
+### Files Modified (test fixes)
+- `test/components/recipe/ParsedIngredientRow.test.tsx`
+- `test/components/recipe/ParsedIngredientList.test.tsx`
+
+### Verification
+- ✅ All 2789 tests passing (72 specific to these components)
+- ✅ 100% coverage
+- ✅ Build passes
+- ✅ Storybook stories compatible
+
+---
+
+## Unit 6a: IngredientInputToggle Tests
+
+### Test File
+`test/components/recipe/IngredientInputToggle.test.tsx`
+
+### Component Design
+
+A toggle switch for switching between AI-parsed and manual ingredient input modes.
+
+**Props Interface:**
+```typescript
+interface IngredientInputToggleProps {
+  onChange: (mode: 'ai' | 'manual') => void
+  defaultMode?: 'ai' | 'manual'  // Uncontrolled mode
+  mode?: 'ai' | 'manual'         // Controlled mode
+  disabled?: boolean
+  storageKey?: string            // Custom localStorage key
+}
+```
+
+**Behavior:**
+- Uses existing `Switch` component from `app/components/ui/switch.tsx`
+- Persists preference to localStorage
+- Calls `onChange` with initial mode on mount
+- Supports both controlled (`mode` prop) and uncontrolled (`defaultMode` prop) usage
+
+### Test Categories
+
+1. **Rendering** (6 tests):
+   - Renders switch control
+   - Label text ("AI Parse")
+   - Description text
+   - Defaults to AI mode (checked)
+   - Respects defaultMode="manual"
+   - Respects defaultMode="ai"
+
+2. **Mode switching** (4 tests):
+   - Calls onChange with "manual" when toggled off
+   - Calls onChange with "ai" when toggled on
+   - Updates visual state on toggle
+   - Multiple toggles work correctly
+
+3. **localStorage persistence** (8 tests):
+   - Saves preference on toggle to manual
+   - Saves preference on toggle to AI
+   - Reads initial mode from localStorage
+   - Prefers localStorage over defaultMode
+   - Uses defaultMode when localStorage empty
+   - Calls onChange with initial mode from localStorage
+   - Supports custom storage key
+
+4. **Disabled state** (3 tests):
+   - Disables switch when disabled prop is true
+   - Does not call onChange when disabled
+   - Does not save to localStorage when disabled
+
+5. **Controlled mode** (4 tests):
+   - Respects controlled mode prop
+   - Ignores localStorage when controlled
+   - Updates when controlled mode prop changes
+   - Does not save to localStorage in controlled mode
+
+6. **Keyboard interaction** (2 tests):
+   - Toggles on Space key
+   - Focusable via Tab
+
+7. **Accessibility** (3 tests):
+   - Has accessible label
+   - Has accessible description
+   - Announces state change via aria-checked
+
+8. **Edge cases** (3 tests):
+   - Handles invalid localStorage value gracefully
+   - Handles localStorage read errors gracefully
+   - Handles localStorage write errors gracefully
+
+### Storybook Story
+`stories/IngredientInputToggle.stories.tsx`
+
+Stories include:
+- Default (AI mode)
+- AIMode
+- ManualMode
+- Disabled
+- DisabledManual
+- Controlled (with state display)
+- InFormContext (realistic usage example)
+- ToggleToManual (interaction test)
+- ToggleToAI (interaction test)
+- KeyboardToggle (interaction test)
+- DisabledInteraction (interaction test)
+- RapidToggling (interaction test)
+- FocusState (interaction test)
+
+### Status
+**Tests written and FAIL as expected** - Component file does not exist yet.
+Ready for Unit 6b implementation.
