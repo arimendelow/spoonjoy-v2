@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { RecipeImageUpload } from '../../../app/components/recipe/RecipeImageUpload'
@@ -660,24 +660,42 @@ describe('RecipeImageUpload', () => {
     })
   })
 
-  describe('drag and drop (optional/stretch)', () => {
-    it('shows drop zone visual feedback on drag over', async () => {
+  describe('drag and drop', () => {
+    it('shows drop zone visual feedback on drag enter', async () => {
       const { container } = render(<RecipeImageUpload onFileSelect={vi.fn()} />)
 
-      const dropZone = container.querySelector('[data-drop-zone]')
-      if (dropZone) {
-        // Fire dragenter event wrapped in act
-        const { act } = await import('@testing-library/react')
-        await act(async () => {
-          const dragEvent = new Event('dragenter', { bubbles: true })
-          dropZone.dispatchEvent(dragEvent)
-        })
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+      expect(dropZone).toBeInTheDocument()
 
-        expect(dropZone).toHaveClass(/drag|drop|highlight|active/i)
-      } else {
-        // Drag-drop is optional, test passes if not implemented
-        expect(true).toBe(true)
-      }
+      // Fire dragenter event using fireEvent
+      fireEvent.dragEnter(dropZone)
+
+      expect(dropZone).toHaveClass('drag-active')
+    })
+
+    it('removes visual feedback on drag leave', async () => {
+      const { container } = render(<RecipeImageUpload onFileSelect={vi.fn()} />)
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+
+      // First enter, then leave
+      fireEvent.dragEnter(dropZone)
+      expect(dropZone).toHaveClass('drag-active')
+
+      fireEvent.dragLeave(dropZone)
+      expect(dropZone).not.toHaveClass('drag-active')
+    })
+
+    it('handles drag over event', async () => {
+      const { container } = render(<RecipeImageUpload onFileSelect={vi.fn()} />)
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+
+      // dragOver should not throw and should prevent default behavior
+      fireEvent.dragOver(dropZone)
+
+      // Component should still be usable
+      expect(dropZone).toBeInTheDocument()
     })
 
     it('accepts dropped image files', async () => {
@@ -686,32 +704,117 @@ describe('RecipeImageUpload', () => {
         <RecipeImageUpload onFileSelect={onFileSelect} />
       )
 
-      const dropZone = container.querySelector('[data-drop-zone]')
-      if (dropZone) {
-        const file = createMockFile()
-        const dataTransfer = {
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+      const file = createMockFile()
+
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
           files: [file],
-          items: [{ kind: 'file', type: 'image/jpeg', getAsFile: () => file }],
-          types: ['Files'],
-        }
+        },
+      })
 
-        // Fire drop event wrapped in act
-        const { act } = await import('@testing-library/react')
-        await act(async () => {
-          const dropEvent = new Event('drop', { bubbles: true }) as Event & {
-            dataTransfer: typeof dataTransfer
-          }
-          Object.defineProperty(dropEvent, 'dataTransfer', { value: dataTransfer })
-          dropZone.dispatchEvent(dropEvent)
-        })
+      await waitFor(() => {
+        expect(onFileSelect).toHaveBeenCalledWith(file)
+      })
+    })
 
-        await waitFor(() => {
-          expect(onFileSelect).toHaveBeenCalledWith(file)
-        })
-      } else {
-        // Drag-drop is optional
-        expect(true).toBe(true)
-      }
+    it('does not accept dropped files when disabled', async () => {
+      const onFileSelect = vi.fn()
+      const { container } = render(
+        <RecipeImageUpload onFileSelect={onFileSelect} disabled />
+      )
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+      const file = createMockFile()
+
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
+          files: [file],
+        },
+      })
+
+      expect(onFileSelect).not.toHaveBeenCalled()
+    })
+
+    it('does not accept dropped files when loading', async () => {
+      const onFileSelect = vi.fn()
+      const { container } = render(
+        <RecipeImageUpload onFileSelect={onFileSelect} loading />
+      )
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+      const file = createMockFile()
+
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
+          files: [file],
+        },
+      })
+
+      expect(onFileSelect).not.toHaveBeenCalled()
+    })
+
+    it('does not show drag feedback when disabled', async () => {
+      const { container } = render(<RecipeImageUpload onFileSelect={vi.fn()} disabled />)
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+
+      fireEvent.dragEnter(dropZone)
+
+      // Should not have the active class when disabled
+      expect(dropZone).not.toHaveClass('drag-active')
+    })
+
+    it('handles drop with no files gracefully', async () => {
+      const onFileSelect = vi.fn()
+      const { container } = render(
+        <RecipeImageUpload onFileSelect={onFileSelect} />
+      )
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
+          files: [],
+        },
+      })
+
+      expect(onFileSelect).not.toHaveBeenCalled()
+    })
+
+    it('revokes old preview URL when dropping new file', async () => {
+      const user = userEvent.setup()
+      const onFileSelect = vi.fn()
+      const { container } = render(
+        <RecipeImageUpload onFileSelect={onFileSelect} />
+      )
+
+      // First, select a file via file input to create a preview URL
+      const fileInput = container.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement
+      const file1 = createMockFile('img1.jpg')
+      await user.upload(fileInput, file1)
+
+      await waitFor(() => {
+        expect(URL.createObjectURL).toHaveBeenCalled()
+      })
+
+      // Now drop a new file
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+      const file2 = createMockFile('img2.jpg')
+
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
+          files: [file2],
+        },
+      })
+
+      await waitFor(() => {
+        // Should have revoked the old URL
+        expect(URL.revokeObjectURL).toHaveBeenCalled()
+        expect(onFileSelect).toHaveBeenCalledWith(file2)
+      })
     })
   })
 

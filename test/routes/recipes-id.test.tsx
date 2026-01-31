@@ -1668,8 +1668,11 @@ describe("Recipes $id Route", () => {
       await user.click(saveButton);
       expect(await screen.findByText("My Favorites ✓")).toBeInTheDocument();
 
-      // Close dropdown to avoid act() warnings
+      // Close dropdown and wait for it to fully close to avoid act() warnings
       await user.keyboard("{Escape}");
+      await waitFor(() => {
+        expect(screen.queryByText("Quick Meals")).not.toBeInTheDocument();
+      });
     });
   });
 
