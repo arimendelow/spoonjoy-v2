@@ -12,7 +12,7 @@ import { RecipeHeader } from "~/components/recipe/RecipeHeader";
 import { StepCard } from "~/components/recipe/StepCard";
 import type { Ingredient } from "~/components/recipe/IngredientList";
 import type { StepReference } from "~/components/recipe/StepOutputUseCallout";
-import { shareContent } from "~/components/navigation/quick-actions";
+import { shareContent, useRecipeDetailActions } from "~/components/navigation";
 import { SaveToCookbookDropdown } from "~/components/recipe/SaveToCookbookDropdown";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
@@ -288,6 +288,12 @@ export default function RecipeDetail() {
       });
     }
   };
+
+  // Register dock actions for this recipe detail page
+  useRecipeDetailActions({
+    recipeId: recipe.id,
+    onShare: handleShare,
+  });
 
   const handleSaveToCookbook = (cookbookId: string) => {
     // Optimistic UI update

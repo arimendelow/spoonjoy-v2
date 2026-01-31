@@ -1,5 +1,6 @@
 import type { Route } from "./+types/recipes.$id.edit";
 import { Form, redirect, data, useActionData, useLoaderData, useNavigate } from "react-router";
+import { useRecipeEditActions } from "~/components/navigation";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -224,6 +225,11 @@ export default function EditRecipe() {
   const handleCancel = () => {
     navigate(`/recipes/${recipe.id}`);
   };
+
+  // Register dock actions for this recipe edit page
+  useRecipeEditActions({
+    recipeId: recipe.id,
+  });
 
   return (
     <div className="font-sans leading-relaxed p-8">
