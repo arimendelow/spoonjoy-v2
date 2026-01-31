@@ -324,3 +324,36 @@ Stories include:
 ### Status
 **Tests written and FAIL as expected** - Component file does not exist yet.
 Ready for Unit 3b implementation.
+
+---
+
+## Unit 3b: ManualIngredientInput Implementation
+
+### Implementation Summary
+Created `app/components/recipe/ManualIngredientInput.tsx` - a reusable 3-field ingredient input component.
+
+**Key Decisions:**
+
+1. **Native button instead of HeadlessUI Button**: The HeadlessUI Button component caused form submission issues in the jsdom test environment. The button's click event wasn't properly triggering form submission. Used native `<button>` with extracted Tailwind styling classes instead.
+
+2. **`step="any"` for quantity input**: Originally used `step="0.01"` but this caused HTML5 validation failures. With `min="0.001"` and `step="0.01"`, values like `2` are invalid because step calculation starts from min value. Changed to `step="any"` to allow any decimal value.
+
+3. **HeadlessUI Input works fine**: The Input component from the UI library works correctly with form submission. Only the Button component had issues.
+
+### Component Features
+- Three controlled inputs: quantity (number), unit (text), ingredient name (text)
+- Grid layout: `grid-cols-[1fr_1fr_2fr_auto]` matching existing step edit form
+- Validation: required fields, min/max quantity bounds, max lengths
+- Clears form after successful submission
+- Trims whitespace from text inputs
+- Proper accessibility: labels, aria-busy on loading
+
+### Files Created/Modified
+- `app/components/recipe/ManualIngredientInput.tsx` - New component
+- `test/components/recipe/ManualIngredientInput.test.tsx` - Updated step="any" expectation
+
+### Verification
+- ✅ All 38 ManualIngredientInput tests passing
+- ✅ All 2658 tests passing overall
+- ✅ Build passes
+- ✅ Storybook story file exists and is compatible

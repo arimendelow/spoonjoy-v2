@@ -97,7 +97,7 @@ describe('ManualIngredientInput', () => {
       render(<ManualIngredientInput onAdd={vi.fn()} />)
 
       const quantityInput = screen.getByLabelText(/quantity/i)
-      expect(quantityInput).toHaveAttribute('step', '0.01')
+      expect(quantityInput).toHaveAttribute('step', 'any')
     })
 
     it('has max length for unit name', () => {
