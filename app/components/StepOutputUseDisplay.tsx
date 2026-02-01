@@ -19,8 +19,8 @@ export function StepOutputUseDisplay({ usingSteps }: StepOutputUseDisplayProps) 
   }
 
   return (
-    <div className="bg-gray-100 p-4 rounded mt-4">
-      <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-gray-500">
+    <div className="bg-zinc-100 p-4 rounded mt-4">
+      <Subheading level={4} className="m-0 mb-3 text-sm uppercase text-zinc-500">
         Using outputs from
       </Subheading>
       <ul className="m-0 pl-6">

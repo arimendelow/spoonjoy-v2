@@ -257,7 +257,7 @@ export default function EditRecipe() {
           errors={actionData?.errors}
         />
 
-        <div className="mt-12 pt-8 border-t border-gray-200">
+        <div className="mt-12 pt-8 border-t border-zinc-200">
           <div className="flex justify-between items-center mb-4">
             <Heading level={2} className="m-0">Recipe Steps</Heading>
             <Button href={`/recipes/${recipe.id}/steps/new`} color="green">
@@ -270,7 +270,7 @@ export default function EditRecipe() {
           )}
 
           {recipe.steps.length === 0 ? (
-            <div className="bg-gray-100 p-8 rounded-lg text-center">
+            <div className="bg-zinc-100 p-8 rounded-lg text-center">
               <Text>No steps added yet</Text>
             </div>
           ) : (
@@ -278,7 +278,7 @@ export default function EditRecipe() {
               {recipe.steps.map((step, index) => (
                 <div
                   key={step.id}
-                  className="bg-white border border-gray-200 rounded-lg p-4"
+                  className="bg-white border border-zinc-200 rounded-lg p-4"
                 >
                   <div className="flex gap-4 items-start">
                     <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold shrink-0">

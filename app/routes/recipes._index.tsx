@@ -61,8 +61,8 @@ export default function RecipesList() {
         </div>
 
         {recipes.length === 0 ? (
-          <div className="bg-gray-100 dark:bg-zinc-800 p-12 rounded-lg text-center">
-            <Subheading level={2} className="text-gray-500 dark:text-zinc-400">No recipes yet</Subheading>
+          <div className="bg-zinc-100 dark:bg-zinc-800 p-12 rounded-lg text-center">
+            <Subheading level={2} className="text-zinc-500 dark:text-zinc-400">No recipes yet</Subheading>
             <Text className="mb-6">
               Create your first recipe to get started
             </Text>
@@ -79,7 +79,7 @@ export default function RecipesList() {
                 className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden no-underline text-inherit transition-shadow duration-200 hover:shadow-lg block"
               >
                 <div
-                  className="w-full h-[200px] bg-gray-100 bg-cover bg-center"
+                  className="w-full h-[200px] bg-zinc-100 bg-cover bg-center"
                   data-image-url={recipe.imageUrl}
                   aria-label={`Image for ${recipe.title}`}
                 />

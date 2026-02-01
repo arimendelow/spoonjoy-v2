@@ -8,7 +8,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 const TailwindTest = () => {
   return (
     <div className="p-8 space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Tailwind CSS Test</h1>
+      <h1 className="text-3xl font-bold text-zinc-900">Tailwind CSS Test</h1>
 
       {/* Basic utilities */}
       <div className="space-y-4">
@@ -46,7 +46,7 @@ const TailwindTest = () => {
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="p-4 bg-gray-100 rounded-lg text-center font-medium"
+              className="p-4 bg-zinc-100 rounded-lg text-center font-medium"
             >
               Item {i}
             </div>
@@ -57,9 +57,9 @@ const TailwindTest = () => {
       {/* Typography */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Typography</h2>
-        <p className="text-sm text-gray-500">Small muted text</p>
-        <p className="text-base text-gray-700">Base body text</p>
-        <p className="text-lg font-medium text-gray-900">Large medium text</p>
+        <p className="text-sm text-zinc-500">Small muted text</p>
+        <p className="text-base text-zinc-700">Base body text</p>
+        <p className="text-lg font-medium text-zinc-900">Large medium text</p>
       </div>
     </div>
   )

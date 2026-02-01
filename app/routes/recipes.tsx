@@ -56,7 +56,7 @@ export default function Recipes() {
       </div>
 
       {recipes.length === 0 ? (
-        <div className="p-12 text-center bg-gray-100 rounded-lg">
+        <div className="p-12 text-center bg-zinc-100 rounded-lg">
           <Heading level={2}>No recipes yet</Heading>
           <Text className="mb-6">
             Start building your recipe collection!
@@ -70,7 +70,7 @@ export default function Recipes() {
           {recipes.map((recipe) => (
             <div
               key={recipe.id}
-              className="border border-gray-300 rounded-lg overflow-hidden bg-white"
+              className="border border-zinc-300 rounded-lg overflow-hidden bg-white"
             >
               <img
                 src={recipe.imageUrl}

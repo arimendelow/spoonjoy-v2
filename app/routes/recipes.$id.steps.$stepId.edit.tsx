@@ -460,7 +460,7 @@ export default function EditStep() {
           {step.stepNum === 1 ? (
             <Field>
               <Label>Uses Output From</Label>
-              <Text className="text-gray-500 italic">No previous steps available</Text>
+              <Text className="text-zinc-500 italic">No previous steps available</Text>
             </Field>
           ) : availableSteps.length > 0 && (
             <Field>
@@ -546,7 +546,7 @@ export default function EditStep() {
           />
         </div>
 
-        <div className="mt-12 pt-8 border-t border-gray-200">
+        <div className="mt-12 pt-8 border-t border-zinc-200">
           <div className="flex justify-between items-center mb-4">
             <h2 className="m-0">Ingredients</h2>
             <Button
@@ -558,7 +558,7 @@ export default function EditStep() {
           </div>
 
           {showIngredientForm && (
-            <div className="bg-gray-100 p-6 rounded-lg mb-4 flex flex-col gap-4">
+            <div className="bg-zinc-100 p-6 rounded-lg mb-4 flex flex-col gap-4">
               {/* Toggle between AI and Manual modes */}
               <IngredientInputToggle onChange={handleModeChange} />
 
@@ -587,15 +587,15 @@ export default function EditStep() {
           )}
 
           {step.ingredients.length === 0 ? (
-            <div className="bg-gray-100 p-8 rounded-lg text-center">
-              <p className="text-gray-500">No ingredients added yet</p>
+            <div className="bg-zinc-100 p-8 rounded-lg text-center">
+              <p className="text-zinc-500">No ingredients added yet</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
               {step.ingredients.map((ingredient) => (
                 <div
                   key={ingredient.id}
-                  className="bg-white border border-gray-200 rounded p-3 px-4 flex justify-between items-center"
+                  className="bg-white border border-zinc-200 rounded p-3 px-4 flex justify-between items-center"
                 >
                   <span>
                     <strong>{ingredient.quantity}</strong> {ingredient.unit.name} {ingredient.ingredientRef.name}

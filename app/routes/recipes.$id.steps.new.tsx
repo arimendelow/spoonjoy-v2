@@ -193,7 +193,7 @@ export default function NewStep() {
           <ValidationError error={actionData.errors.general} className="mb-4" />
         )}
 
-        <div className="bg-gray-100 p-4 rounded-lg mb-6">
+        <div className="bg-zinc-100 p-4 rounded-lg mb-6">
           <Text className="m-0">
             <Strong>Step Number:</Strong> {nextStepNum}
           </Text>
@@ -220,7 +220,7 @@ export default function NewStep() {
             {nextStepNum === 1 ? (
               <Field>
                 <Label>Uses Output From</Label>
-                <Text className="text-gray-500 italic">No previous steps available</Text>
+                <Text className="text-zinc-500 italic">No previous steps available</Text>
               </Field>
             ) : availableSteps.length > 0 && (
               <Field>
