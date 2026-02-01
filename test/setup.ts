@@ -84,52 +84,6 @@ import { db } from "~/lib/db.server";
 // Mock animations API for HeadlessUI components
 mockAnimationsApi();
 
-// Mock getBoundingClientRect to respect CSS classes and inline styles for touch target tests
-// Happy-dom doesn't compute layout, so we need to parse dimensions from various sources
-const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
-Element.prototype.getBoundingClientRect = function () {
-  const element = this as HTMLElement;
-  const style = element.style;
-  const className = element.className || '';
-
-  // Parse pixels from style or Tailwind class
-  const parsePixels = (value: string): number => {
-    if (!value) return 0;
-    const match = value.match(/^(\d+(?:\.\d+)?)(px)?$/);
-    return match ? parseFloat(match[1]) : 0;
-  };
-
-  // Extract value from Tailwind class pattern like min-h-[44px] or h-[100px]
-  const extractFromTailwind = (pattern: RegExp): number => {
-    const match = className.match(pattern);
-    if (match) {
-      return parsePixels(match[1]);
-    }
-    return 0;
-  };
-
-  // Check inline styles first, then Tailwind classes
-  let minHeight = parsePixels(style.minHeight) || extractFromTailwind(/min-h-\[(\d+(?:\.\d+)?px)\]/);
-  let minWidth = parsePixels(style.minWidth) || extractFromTailwind(/min-w-\[(\d+(?:\.\d+)?px)\]/);
-  let height = parsePixels(style.height) || extractFromTailwind(/(?:^|\s)h-\[(\d+(?:\.\d+)?px)\]/);
-  let width = parsePixels(style.width) || extractFromTailwind(/(?:^|\s)w-\[(\d+(?:\.\d+)?px)\]/);
-
-  // Return dimensions respecting min values
-  return {
-    width: Math.max(width, minWidth),
-    height: Math.max(height, minHeight),
-    top: 0,
-    left: 0,
-    right: Math.max(width, minWidth),
-    bottom: Math.max(height, minHeight),
-    x: 0,
-    y: 0,
-    toJSON() {
-      return this;
-    },
-  } as DOMRect;
-};
-
 // Mock ResizeObserver for HeadlessUI virtual components
 class MockResizeObserver {
   observe() {}

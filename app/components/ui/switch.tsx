@@ -150,8 +150,8 @@ export function Switch({
       {...props}
       className={clsx(
         className,
-        // Base styles - min-h-[44px] min-w-[44px] for WCAG 2.5.5 Level AAA touch targets
-        'group relative isolate inline-flex h-6 w-10 min-h-[44px] min-w-[44px] cursor-default rounded-full p-[3px] sm:h-5 sm:w-8',
+        // Base styles
+        'group relative isolate inline-flex h-6 w-10 cursor-default rounded-full p-[3px] sm:h-5 sm:w-8',
         // Transitions
         'transition duration-0 ease-in-out data-changing:duration-200',
         // Outline and background color in forced-colors mode so switch is still visible

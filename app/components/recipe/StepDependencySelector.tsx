@@ -106,7 +106,7 @@ export function StepDependencySelector({
                 type="button"
                 onClick={() => handleRemove(stepNum)}
                 disabled={disabled}
-                className="ml-1 rounded p-1 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="ml-1 rounded p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Remove"
               >
                 <X className="h-3 w-3" />
@@ -124,7 +124,7 @@ export function StepDependencySelector({
             aria-haspopup="listbox"
             disabled={disabled}
             onClick={() => setIsOpen(!isOpen)}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 min-h-[44px] text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white"
           >
             Add step...
           </button>
@@ -140,7 +140,7 @@ export function StepDependencySelector({
                 role="option"
                 aria-selected={internalSelections.includes(step.stepNum)}
                 onClick={() => handleSelect(step.stepNum)}
-                className="cursor-pointer select-none px-3 py-2 min-h-[44px] flex items-center text-zinc-900 hover:bg-blue-500 hover:text-white dark:text-white"
+                className="cursor-pointer select-none px-3 py-2 text-zinc-900 hover:bg-blue-500 hover:text-white dark:text-white"
               >
                 Step {step.stepNum}
               </div>
@@ -164,7 +164,7 @@ export function StepDependencySelector({
                 type="button"
                 onClick={() => handleAcceptSuggestion(suggestion.stepNum)}
                 disabled={disabled}
-                className="rounded bg-amber-200 px-3 py-2 min-h-[44px] text-xs font-medium text-amber-900 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-amber-800 dark:text-amber-100 dark:hover:bg-amber-700"
+                className="rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-amber-800 dark:text-amber-100 dark:hover:bg-amber-700"
               >
                 Add it
               </button>
@@ -172,7 +172,7 @@ export function StepDependencySelector({
                 type="button"
                 onClick={() => handleDismissSuggestion(suggestion.stepNum)}
                 disabled={disabled}
-                className="rounded bg-zinc-200 px-3 py-2 min-h-[44px] text-xs font-medium text-zinc-700 hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                className="rounded bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
               >
                 Dismiss
               </button>

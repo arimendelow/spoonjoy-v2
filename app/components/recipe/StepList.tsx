@@ -212,7 +212,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
                     type="button"
                     aria-label="Drag to reorder"
                     onKeyDown={(e) => handleKeyDown(e, index)}
-                    className="cursor-grab active:cursor-grabbing p-1 min-h-[44px] min-w-[44px] flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                    className="cursor-grab active:cursor-grabbing p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
                   >
                     <GripVertical className="h-5 w-5" />
                   </button>
