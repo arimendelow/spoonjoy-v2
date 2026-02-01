@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { SpoonDock } from '../app/components/navigation/spoon-dock'
-import { Home, Book, ShoppingCart, User, BookOpen } from 'lucide-react'
+import { DockItem } from '../app/components/navigation/dock-item'
+import { DockCenter } from '../app/components/navigation/dock-center'
+import { BookOpen, Book, ShoppingCart, User } from 'lucide-react'
 
 /**
  * # SpoonDock
@@ -85,56 +87,20 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 // =============================================================================
-// PLACEHOLDER DOCK ITEM
-// =============================================================================
-
-/**
- * Placeholder dock item for stories while DockItem component is not yet built.
- * This will be replaced by the actual DockItem component in Unit 2.
- */
-function PlaceholderDockItem({ 
-  icon: Icon, 
-  label, 
-  active = false 
-}: { 
-  icon: React.ElementType
-  label: string
-  active?: boolean 
-}) {
-  return (
-    <button
-      className={`
-        flex flex-col items-center justify-center gap-1 px-3 py-2
-        ${active ? 'text-white' : 'text-white/60'}
-      `}
-    >
-      <Icon className="h-5 w-5" />
-      <span className="text-[10px] tracking-wide">{label}</span>
-    </button>
-  )
-}
-
-// =============================================================================
 // BASIC STORIES
 // =============================================================================
 
 /**
- * The default dock with placeholder navigation items.
- * 
- * **Note**: Currently the dock shell is a stub. The actual implementation
- * will be completed in Unit 1b. This story will render correctly once
- * the SpoonDock component is implemented.
+ * The default dock with navigation items.
  */
 export const Default: Story = {
   render: () => (
     <SpoonDock>
-      <PlaceholderDockItem icon={BookOpen} label="Recipes" />
-      <PlaceholderDockItem icon={Book} label="Cookbooks" />
-      <div className="flex items-center justify-center w-12 h-12 bg-white/10 rounded-full">
-        <span className="text-white font-bold text-sm">SJ</span>
-      </div>
-      <PlaceholderDockItem icon={ShoppingCart} label="List" />
-      <PlaceholderDockItem icon={User} label="Profile" />
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockCenter href="/" />
+      <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
+      <DockItem icon={User} label="Profile" href="/account" />
     </SpoonDock>
   ),
 }
@@ -145,13 +111,11 @@ export const Default: Story = {
 export const WithActiveItem: Story = {
   render: () => (
     <SpoonDock>
-      <PlaceholderDockItem icon={BookOpen} label="Recipes" active />
-      <PlaceholderDockItem icon={Book} label="Cookbooks" />
-      <div className="flex items-center justify-center w-12 h-12 bg-white/10 rounded-full">
-        <span className="text-white font-bold text-sm">SJ</span>
-      </div>
-      <PlaceholderDockItem icon={ShoppingCart} label="List" />
-      <PlaceholderDockItem icon={User} label="Profile" />
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" active />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockCenter href="/" />
+      <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
+      <DockItem icon={User} label="Profile" href="/account" />
     </SpoonDock>
   ),
 }
@@ -258,13 +222,11 @@ Desktop users see the regular navbar instead.
 export const WithSafeAreaInset: Story = {
   render: () => (
     <SpoonDock>
-      <PlaceholderDockItem icon={BookOpen} label="Recipes" />
-      <PlaceholderDockItem icon={Book} label="Cookbooks" />
-      <div className="flex items-center justify-center w-12 h-12 bg-white/10 rounded-full">
-        <span className="text-white font-bold text-sm">SJ</span>
-      </div>
-      <PlaceholderDockItem icon={ShoppingCart} label="List" />
-      <PlaceholderDockItem icon={User} label="Profile" />
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockCenter href="/" />
+      <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
+      <DockItem icon={User} label="Profile" href="/account" />
     </SpoonDock>
   ),
   decorators: [
@@ -305,13 +267,11 @@ the dock uses \`env(safe-area-inset-bottom)\` to avoid overlapping the indicator
 export const OverLightBackground: Story = {
   render: () => (
     <SpoonDock>
-      <PlaceholderDockItem icon={BookOpen} label="Recipes" />
-      <PlaceholderDockItem icon={Book} label="Cookbooks" />
-      <div className="flex items-center justify-center w-12 h-12 bg-black/10 rounded-full">
-        <span className="text-black font-bold text-sm">SJ</span>
-      </div>
-      <PlaceholderDockItem icon={ShoppingCart} label="List" />
-      <PlaceholderDockItem icon={User} label="Profile" />
+      <DockItem icon={BookOpen} label="Recipes" href="/recipes" />
+      <DockItem icon={Book} label="Cookbooks" href="/cookbooks" />
+      <DockCenter href="/" />
+      <DockItem icon={ShoppingCart} label="List" href="/shopping-list" />
+      <DockItem icon={User} label="Profile" href="/account" />
     </SpoonDock>
   ),
   decorators: [
