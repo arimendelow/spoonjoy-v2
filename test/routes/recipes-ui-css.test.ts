@@ -13,8 +13,20 @@ import { resolve } from "path";
  * After migration (Unit 2.9b), all tests should pass.
  */
 
+// Note: recipes.tsx is a simple layout route (just <Outlet />) that doesn't need UI imports
+// so we exclude it from the UI import check but still include it for inline style checks
 const RECIPE_ROUTE_FILES = [
   "app/routes/recipes.tsx",
+  "app/routes/recipes._index.tsx",
+  "app/routes/recipes.new.tsx",
+  "app/routes/recipes.$id.tsx",
+  "app/routes/recipes.$id.edit.tsx",
+  "app/routes/recipes.$id.steps.new.tsx",
+  "app/routes/recipes.$id.steps.$stepId.edit.tsx",
+];
+
+// Files that should have UI component imports (excludes layout-only routes)
+const RECIPE_ROUTE_FILES_WITH_UI = [
   "app/routes/recipes._index.tsx",
   "app/routes/recipes.new.tsx",
   "app/routes/recipes.$id.tsx",
@@ -132,7 +144,7 @@ describe("Recipe Routes UI/CSS Compliance", () => {
   });
 
   describe("Uses UI Components", () => {
-    it.each(RECIPE_ROUTE_FILES)(
+    it.each(RECIPE_ROUTE_FILES_WITH_UI)(
       "%s should import from app/components/ui/",
       (filePath) => {
         const content = readSourceFile(filePath);
@@ -222,7 +234,8 @@ describe("Recipe Routes UI/CSS Compliance", () => {
           fileIssues.push(`${inlineStyleCount} inline style(s)`);
         }
 
-        if (!hasUIComponentImports(content)) {
+        // Only check UI imports for files that should have them (exclude layout-only routes)
+        if (RECIPE_ROUTE_FILES_WITH_UI.includes(filePath) && !hasUIComponentImports(content)) {
           fileIssues.push("no UI component imports");
         }
 
