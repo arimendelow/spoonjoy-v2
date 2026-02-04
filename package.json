@@ -36,7 +36,7 @@
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
     "@posthog/react": "^1.7.0",
-    "@prisma/adapter-d1": "^7.3.0",
+    "@prisma/adapter-d1": "^6.19.2",
     "@prisma/client": "6.19.2",
     "@react-router/cloudflare": "^7.13.0",
     "@react-router/dev": "^7.13.0",
