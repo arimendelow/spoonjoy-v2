@@ -2,7 +2,7 @@
  * RecipeBuilder component.
  *
  * Orchestrates the complete recipe creation/editing experience:
- * - RecipeForm (metadata: title, description, servings, image)
+ * - Metadata section (title, description, servings, image)
  * - StepList (steps with ingredients, reordering, dependencies)
  *
  * Features:
@@ -11,16 +11,24 @@
  * - No page navigation during creation
  * - Single save action for entire recipe
  * - Progressive disclosure: start simple, expand on demand
+ * - Error display with aria-describedby for accessibility
+ * - Loading state with spinner
+ * - Character limits on inputs
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { Button } from '~/components/ui/button'
-import { Fieldset, Field, Label } from '~/components/ui/fieldset'
+import { Fieldset, Field, Label, ErrorMessage } from '~/components/ui/fieldset'
 import { Input } from '~/components/ui/input'
 import { Textarea } from '~/components/ui/textarea'
 import { StepList } from './StepList'
 import { RecipeImageUpload } from './RecipeImageUpload'
+import { Loader2 } from 'lucide-react'
 import type { StepData } from './StepEditorCard'
+
+const TITLE_MAX_LENGTH = 60
+const DESCRIPTION_MAX_LENGTH = 140
+const SERVINGS_MAX_LENGTH = 40
 
 export interface RecipeBuilderData {
   id?: string
@@ -38,6 +46,14 @@ export interface RecipeBuilderProps {
   onSave: (data: RecipeBuilderData) => void
   onCancel?: () => void
   disabled?: boolean
+  loading?: boolean
+  errors?: {
+    title?: string
+    description?: string
+    servings?: string
+    image?: string
+    general?: string
+  }
 }
 
 export function RecipeBuilder({
@@ -45,7 +61,17 @@ export function RecipeBuilder({
   onSave,
   onCancel,
   disabled = false,
+  loading = false,
+  errors,
 }: RecipeBuilderProps) {
+  // Generate unique IDs for aria-describedby
+  const titleErrorId = useId()
+  const descriptionErrorId = useId()
+  const servingsErrorId = useId()
+
+  // Combine disabled and loading for isDisabled
+  const isDisabled = disabled || loading
+
   // Form state for metadata
   const [title, setTitle] = useState(recipe?.title ?? '')
   const [description, setDescription] = useState(recipe?.description ?? '')
@@ -72,8 +98,8 @@ export function RecipeBuilder({
   const recipeId = recipe?.id ?? 'new-recipe'
 
   const handleSave = () => {
-    // Prevent save if disabled
-    if (disabled || !title.trim()) return
+    // Prevent save if disabled or loading
+    if (isDisabled || !title.trim()) return
 
     const data: RecipeBuilderData = {
       id: recipe?.id,
@@ -125,7 +151,7 @@ export function RecipeBuilder({
 
   const displayImageUrl = getDisplayImageUrl()
 
-  const isSaveDisabled = disabled || !title.trim()
+  const isSaveDisabled = isDisabled || !title.trim()
 
   return (
     <div className="space-y-8">
@@ -134,11 +160,21 @@ export function RecipeBuilder({
         {recipe ? 'Edit Recipe' : 'Create Recipe'}
       </h1>
 
+      {/* General error alert */}
+      {errors?.general && (
+        <div
+          role="alert"
+          className="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400"
+        >
+          {errors.general}
+        </div>
+      )}
+
       {/* Recipe details section */}
       <fieldset
         aria-label="Recipe details"
         className="space-y-6"
-        disabled={disabled}
+        disabled={isDisabled}
       >
         <Fieldset>
           <Field>
@@ -148,8 +184,12 @@ export function RecipeBuilder({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Recipe title"
-              disabled={disabled}
+              maxLength={TITLE_MAX_LENGTH}
+              disabled={isDisabled}
+              data-invalid={errors?.title ? true : undefined}
+              aria-describedby={errors?.title ? titleErrorId : undefined}
             />
+            {errors?.title && <ErrorMessage id={titleErrorId}>{errors.title}</ErrorMessage>}
           </Field>
 
           <Field>
@@ -159,8 +199,12 @@ export function RecipeBuilder({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Recipe description"
               rows={3}
-              disabled={disabled}
+              maxLength={DESCRIPTION_MAX_LENGTH}
+              disabled={isDisabled}
+              data-invalid={errors?.description ? true : undefined}
+              aria-describedby={errors?.description ? descriptionErrorId : undefined}
             />
+            {errors?.description && <ErrorMessage id={descriptionErrorId}>{errors.description}</ErrorMessage>}
           </Field>
 
           <Field>
@@ -170,8 +214,12 @@ export function RecipeBuilder({
               value={servings}
               onChange={(e) => setServings(e.target.value)}
               placeholder="e.g., 4 servings"
-              disabled={disabled}
+              maxLength={SERVINGS_MAX_LENGTH}
+              disabled={isDisabled}
+              data-invalid={errors?.servings ? true : undefined}
+              aria-describedby={errors?.servings ? servingsErrorId : undefined}
             />
+            {errors?.servings && <ErrorMessage id={servingsErrorId}>{errors.servings}</ErrorMessage>}
           </Field>
 
           <Field>
@@ -180,7 +228,9 @@ export function RecipeBuilder({
               imageUrl={displayImageUrl}
               onFileSelect={handleImageSelect}
               onClear={handleImageClear}
-              disabled={disabled}
+              disabled={isDisabled}
+              loading={loading}
+              error={errors?.image}
             />
           </Field>
         </Fieldset>
@@ -194,7 +244,7 @@ export function RecipeBuilder({
           steps={steps}
           recipeId={recipeId}
           onChange={handleStepsChange}
-          disabled={disabled}
+          disabled={isDisabled}
         />
       </section>
 
@@ -204,7 +254,7 @@ export function RecipeBuilder({
           type="button"
           color="zinc"
           onClick={handleCancel}
-          disabled={disabled}
+          disabled={isDisabled}
         >
           Cancel
         </Button>
@@ -212,10 +262,12 @@ export function RecipeBuilder({
           type="button"
           color="green"
           onClick={handleSave}
-          disabled={disabled}
+          disabled={isDisabled}
           aria-disabled={isSaveDisabled || undefined}
-          className={isSaveDisabled && !disabled ? 'opacity-50' : undefined}
+          aria-busy={loading ? 'true' : undefined}
+          className={isSaveDisabled && !isDisabled ? 'opacity-50' : undefined}
         >
+          {loading && <Loader2 className="size-4 animate-spin" data-slot="icon" />}
           Save Recipe
         </Button>
       </div>

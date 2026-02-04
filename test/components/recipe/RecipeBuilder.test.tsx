@@ -2,7 +2,7 @@
  * Tests for RecipeBuilder component.
  *
  * RecipeBuilder is the orchestration layer that composes:
- * - RecipeForm (metadata: title, description, servings, image)
+ * - Metadata section (title, description, servings, image)
  * - StepList (steps with ingredients, reordering, dependencies)
  *
  * Features:
@@ -11,6 +11,9 @@
  * - No page navigation during creation
  * - Single save action for entire recipe
  * - Progressive disclosure: start simple, expand on demand
+ * - Error display with aria-describedby for accessibility
+ * - Loading state with spinner
+ * - Character limits on inputs
  */
 
 import { render, screen, within, act } from '@testing-library/react'
@@ -118,7 +121,7 @@ describe('RecipeBuilder', () => {
   })
 
   describe('rendering', () => {
-    it('renders RecipeForm section (title, description, servings)', () => {
+    it('renders metadata section (title, description, servings)', () => {
       const Wrapper = createTestWrapper()
       render(<Wrapper initialEntries={['/recipes/new']} />)
 

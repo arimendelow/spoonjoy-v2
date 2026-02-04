@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.$id.edit";
-import { Form, redirect, data, useActionData, useLoaderData, useNavigate } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData, useNavigate, useNavigation } from "react-router";
 import { useRecipeEditActions } from "~/components/navigation";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
@@ -234,8 +234,10 @@ export default function EditRecipe() {
   const { recipe, formattedSteps } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const navigate = useNavigate();
+  const navigation = useNavigation();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoading = navigation.state === 'submitting';
 
   const handleCancel = () => {
     navigate(`/recipes/${recipe.id}`);
@@ -297,15 +299,6 @@ export default function EditRecipe() {
           <input ref={fileInputRef} type="file" name="image" accept="image/*" />
         </Form>
 
-        {actionData?.errors?.general && (
-          <div
-            role="alert"
-            className="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400 mb-6"
-          >
-            {actionData.errors.general}
-          </div>
-        )}
-
         {actionData?.errors?.reorder && (
           <ValidationError error={actionData.errors.reorder} className="mb-4" />
         )}
@@ -321,6 +314,8 @@ export default function EditRecipe() {
           }}
           onSave={handleSave}
           onCancel={handleCancel}
+          errors={actionData?.errors}
+          loading={isLoading}
         />
       </div>
     </div>

@@ -85,7 +85,7 @@ function usesRawInputElements(content: string): boolean {
     content.includes("Input }") ||
     content.includes("Input}") ||
     content.includes("Input,") ||
-    content.includes("RecipeForm"); // RecipeForm contains Input components
+    content.includes("RecipeBuilder"); // RecipeBuilder contains Input components
 
   return hasVisibleInputElements && !importsInputComponent;
 }
@@ -289,19 +289,19 @@ describe("Individual Route Detailed Checks", () => {
 
     it("should use Fieldset for form structure", () => {
       const content = readSourceFile(filePath);
-      // RecipeForm component contains Fieldset internally
+      // RecipeBuilder component contains Fieldset internally
       expect(
-        content.includes("Fieldset") || content.includes("fieldset") || content.includes("RecipeForm"),
-        "Should use Fieldset component for form structure (or RecipeForm which contains it)"
+        content.includes("Fieldset") || content.includes("fieldset") || content.includes("RecipeBuilder"),
+        "Should use Fieldset component for form structure (or RecipeBuilder which contains it)"
       ).toBe(true);
     });
 
     it("should use Alert for error messages", () => {
       const content = readSourceFile(filePath);
-      // RecipeForm component contains error handling internally
+      // RecipeBuilder component contains error handling internally
       expect(
-        content.includes("Alert") || content.includes("alert") || content.includes("ValidationError") || content.includes("RecipeForm"),
-        "Should use Alert or ValidationError component for error messages (or RecipeForm which handles them)"
+        content.includes("Alert") || content.includes("alert") || content.includes("ValidationError") || content.includes("RecipeBuilder"),
+        "Should use Alert or ValidationError component for error messages (or RecipeBuilder which handles them)"
       ).toBe(true);
     });
   });

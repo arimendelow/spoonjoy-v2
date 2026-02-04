@@ -14,20 +14,20 @@ import { cleanupDatabase } from "../helpers/cleanup";
 import { faker } from "@faker-js/faker";
 
 /**
- * Unit 9a: RecipeForm Route Integration Tests
+ * Unit 9a: RecipeBuilder Route Integration Tests
  *
- * These tests verify that RecipeForm component is properly integrated with:
+ * These tests verify that RecipeBuilder component is properly integrated with:
  * - recipes.new.tsx (create new recipe)
  * - recipes.$id.edit.tsx (edit existing recipe metadata)
  *
- * The RecipeForm component should replace inline form elements in both routes.
+ * The RecipeBuilder component should replace inline form elements in both routes.
  * It provides:
  * - Image upload via RecipeImageUpload (not just URL input)
  * - Unified form handling for create and edit modes
  * - Proper error display and loading states
  */
 
-describe("RecipeForm Route Integration", () => {
+describe("RecipeBuilder Route Integration", () => {
   let testUserId: string;
   let recipeId: string;
 
@@ -55,9 +55,9 @@ describe("RecipeForm Route Integration", () => {
     await cleanupDatabase();
   });
 
-  describe("recipes.new.tsx - RecipeForm Integration", () => {
+  describe("recipes.new.tsx - RecipeBuilder Integration", () => {
     describe("component rendering", () => {
-      it("should render RecipeForm component in create mode", async () => {
+      it("should render RecipeBuilder component in create mode", async () => {
         const Stub = createTestRoutesStub([
           {
             path: "/recipes/new",
@@ -68,16 +68,16 @@ describe("RecipeForm Route Integration", () => {
 
         render(<Stub initialEntries={["/recipes/new"]} />);
 
-        // RecipeForm should render with create mode
+        // RecipeBuilder should render with create mode
         // The submit button should say "Create Recipe"
         expect(await screen.findByRole("button", { name: "Create Recipe" })).toBeInTheDocument();
 
-        // RecipeForm uses "Title" label, not "Recipe Title *"
+        // RecipeBuilder uses "Title" label, not "Recipe Title *"
         expect(screen.getByLabelText(/^Title$/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/Description/)).toBeInTheDocument();
         expect(screen.getByLabelText(/Servings/)).toBeInTheDocument();
 
-        // RecipeForm has "Recipe Image" label for image upload, not "Image URL"
+        // RecipeBuilder has "Recipe Image" label for image upload, not "Image URL"
         expect(screen.getByLabelText(/Recipe Image/i)).toBeInTheDocument();
       });
 
@@ -115,7 +115,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Create Recipe" });
 
-        // RecipeForm uses "e.g., Chocolate Chip Cookies" placeholder
+        // RecipeBuilder uses "e.g., Chocolate Chip Cookies" placeholder
         expect(screen.getByPlaceholderText("e.g., Chocolate Chip Cookies")).toBeInTheDocument();
       });
 
@@ -136,7 +136,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Create Recipe" });
 
-        // RecipeForm renders Cancel as a button that calls onCancel
+        // RecipeBuilder renders Cancel as a button that calls onCancel
         const cancelButton = screen.getByRole("button", { name: "Cancel" });
         expect(cancelButton).toBeInTheDocument();
       });
@@ -223,7 +223,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Create Recipe" });
 
-        // RecipeForm should display these errors
+        // RecipeBuilder should display these errors
         await waitFor(() => {
           expect(screen.getByText("Title is required")).toBeInTheDocument();
           expect(screen.getByText("Invalid image format")).toBeInTheDocument();
@@ -258,7 +258,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Create Recipe" });
 
-        // RecipeForm uses role="alert" for general errors
+        // RecipeBuilder uses role="alert" for general errors
         await waitFor(() => {
           expect(screen.getByRole("alert")).toHaveTextContent("Failed to create recipe. Please try again.");
         });
@@ -290,7 +290,7 @@ describe("RecipeForm Route Integration", () => {
         const submitButton = screen.getByRole("button", { name: "Create Recipe" });
         await user.click(submitButton);
 
-        // RecipeForm sets aria-busy on submit button during loading
+        // RecipeBuilder sets aria-busy on submit button during loading
         await waitFor(() => {
           expect(submitButton).toHaveAttribute("aria-busy", "true");
         });
@@ -298,9 +298,9 @@ describe("RecipeForm Route Integration", () => {
     });
   });
 
-  describe("recipes.$id.edit.tsx - RecipeForm Integration", () => {
+  describe("recipes.$id.edit.tsx - RecipeBuilder Integration", () => {
     describe("component rendering", () => {
-      it("should render RecipeForm component in edit mode", async () => {
+      it("should render RecipeBuilder component in edit mode", async () => {
         const mockData = {
           recipe: {
             id: recipeId,
@@ -322,11 +322,11 @@ describe("RecipeForm Route Integration", () => {
 
         render(<Stub initialEntries={[`/recipes/${recipeId}/edit`]} />);
 
-        // RecipeForm should render with edit mode
+        // RecipeBuilder should render with edit mode
         // The submit button should say "Save Changes"
         expect(await screen.findByRole("button", { name: "Save Changes" })).toBeInTheDocument();
 
-        // RecipeForm uses "Title" label
+        // RecipeBuilder uses "Title" label
         expect(screen.getByLabelText(/^Title$/i)).toBeInTheDocument();
       });
 
@@ -389,7 +389,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Save Changes" });
 
-        // RecipeForm should be populated with recipe data
+        // RecipeBuilder should be populated with recipe data
         expect(screen.getByLabelText(/^Title$/i)).toHaveValue("Existing Recipe Title");
         expect(screen.getByLabelText(/Description/)).toHaveValue("Existing description text");
         expect(screen.getByLabelText(/Servings/)).toHaveValue("6-8");
@@ -419,7 +419,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Save Changes" });
 
-        // RecipeForm should show empty strings for null values
+        // RecipeBuilder should show empty strings for null values
         expect(screen.getByLabelText(/Description/)).toHaveValue("");
         expect(screen.getByLabelText(/Servings/)).toHaveValue("");
       });
@@ -471,7 +471,7 @@ describe("RecipeForm Route Integration", () => {
           expect(submittedData).not.toBeNull();
         });
 
-        // RecipeForm should include clearImage flag when image is cleared
+        // RecipeBuilder should include clearImage flag when image is cleared
         expect(submittedData.clearImage).toBe("true");
       });
 
@@ -575,7 +575,7 @@ describe("RecipeForm Route Integration", () => {
           expect(submittedData).not.toBeNull();
         });
 
-        // RecipeForm should include recipe ID in edit mode submission
+        // RecipeBuilder should include recipe ID in edit mode submission
         expect(submittedData.id).toBe(recipeId);
       });
 
@@ -619,7 +619,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Save Changes" });
 
-        // RecipeForm should display these errors
+        // RecipeBuilder should display these errors
         await waitFor(() => {
           expect(screen.getByText("Title must be 200 characters or less")).toBeInTheDocument();
           expect(screen.getByText("Description must be 2,000 characters or less")).toBeInTheDocument();
@@ -628,7 +628,7 @@ describe("RecipeForm Route Integration", () => {
     });
 
     describe("step list section", () => {
-      it("should still render step list section below RecipeForm", async () => {
+      it("should still render step list section below RecipeBuilder", async () => {
         const mockData = {
           recipe: {
             id: recipeId,
@@ -726,7 +726,7 @@ describe("RecipeForm Route Integration", () => {
 
         await screen.findByRole("button", { name: "Save Changes" });
 
-        // RecipeForm Cancel button should navigate back
+        // RecipeBuilder Cancel button should navigate back
         const cancelButton = screen.getByRole("button", { name: "Cancel" });
         await user.click(cancelButton);
 

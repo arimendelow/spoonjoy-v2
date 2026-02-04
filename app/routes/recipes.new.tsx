@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.new";
-import { redirect, data, useActionData, useNavigate, Form } from "react-router";
+import { redirect, data, useActionData, useNavigate, useNavigation, Form } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Heading } from "~/components/ui/heading";
@@ -124,8 +124,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function NewRecipe() {
   const actionData = useActionData<ActionData>();
   const navigate = useNavigate();
+  const navigation = useNavigation();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoading = navigation.state === 'submitting';
 
   const handleCancel = () => {
     navigate("/recipes");
@@ -182,18 +184,11 @@ export default function NewRecipe() {
           <input ref={fileInputRef} type="file" name="image" accept="image/*" />
         </Form>
 
-        {actionData?.errors?.general && (
-          <div
-            role="alert"
-            className="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400 mb-6"
-          >
-            {actionData.errors.general}
-          </div>
-        )}
-
         <RecipeBuilder
           onSave={handleSave}
           onCancel={handleCancel}
+          errors={actionData?.errors}
+          loading={isLoading}
         />
       </div>
     </div>
