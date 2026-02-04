@@ -45,3 +45,4 @@ storybook-static
 playwright-report/
 test-results/
 .playwright/
+e2e/.auth/

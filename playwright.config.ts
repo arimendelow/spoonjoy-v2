@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// ESM-compatible path handling
+const authFile = './e2e/.auth/user.json';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -12,9 +15,26 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
+    // Setup project - runs first to authenticate
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    // Tests that need authentication (excludes auth tests and example)
     {
       name: 'chromium',
+      use: { 
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['setup'],
+      testIgnore: [/.*\.setup\.ts/, /auth\.spec\.ts/, /example\.spec\.ts/],
+    },
+    // Tests that don't need authentication (auth flow tests + example)
+    {
+      name: 'chromium-no-auth',
       use: { ...devices['Desktop Chrome'] },
+      testMatch: [/auth\.spec\.ts/, /example\.spec\.ts/],
     },
   ],
   webServer: {
