@@ -155,8 +155,8 @@ export function RecipeBuilder({
 
   return (
     <div className="space-y-8">
-      {/* Main heading */}
-      <h1 className="text-2xl font-bold">
+      {/* Main heading - hidden since parent route provides heading */}
+      <h1 className="sr-only">
         {recipe ? 'Edit Recipe' : 'Create Recipe'}
       </h1>
 
@@ -183,7 +183,7 @@ export function RecipeBuilder({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Recipe title"
+              placeholder="e.g., Chocolate Chip Cookies"
               maxLength={TITLE_MAX_LENGTH}
               disabled={isDisabled}
               data-invalid={errors?.title ? true : undefined}
@@ -237,8 +237,8 @@ export function RecipeBuilder({
       </fieldset>
 
       {/* Steps section */}
-      <section aria-label="Steps" className="space-y-4">
-        <h2 className="text-xl font-semibold">Steps</h2>
+      <section aria-label="Recipe Steps" className="space-y-4">
+        <h2 className="text-xl font-semibold">Recipe Steps</h2>
 
         <StepList
           steps={steps}
@@ -268,7 +268,7 @@ export function RecipeBuilder({
           className={isSaveDisabled && !isDisabled ? 'opacity-50' : undefined}
         >
           {loading && <Loader2 className="size-4 animate-spin" data-slot="icon" />}
-          Save Recipe
+          {recipe ? 'Save Recipe' : 'Create Recipe'}
         </Button>
       </div>
     </div>

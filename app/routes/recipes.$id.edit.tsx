@@ -297,6 +297,7 @@ export default function EditRecipe() {
           <input type="hidden" name="steps" />
           <input type="hidden" name="clearImage" />
           <input ref={fileInputRef} type="file" name="image" accept="image/*" />
+          <button type="submit">Save Recipe</button>
         </Form>
 
         {actionData?.errors?.reorder && (

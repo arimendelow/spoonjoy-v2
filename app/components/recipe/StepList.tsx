@@ -14,6 +14,7 @@ import { Reorder } from 'framer-motion'
 import { GripVertical, Plus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '~/components/ui/button'
+import { Link } from '~/components/ui/link'
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from '~/components/ui/dialog'
 import { StepEditorCard, type StepData } from './StepEditorCard'
 
@@ -223,15 +224,25 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
         </Reorder.Group>
       )}
 
-      <Button
-        type="button"
-        onClick={handleAddStep}
-        disabled={disabled}
-        outline
-      >
-        <Plus data-slot="icon" />
-        Add Step
-      </Button>
+      {/* Use Link for existing recipes (edit mode), Button for new recipes (create mode) */}
+      {recipeId && !recipeId.startsWith('new-') ? (
+        <Link
+          href={`/recipes/${recipeId}/steps/new`}
+          className="inline-flex items-center gap-2"
+        >
+          + Add Step
+        </Link>
+      ) : (
+        <Button
+          type="button"
+          onClick={handleAddStep}
+          disabled={disabled}
+          outline
+        >
+          <Plus data-slot="icon" />
+          Add Step
+        </Button>
+      )}
 
       {/* Confirmation dialog for step removal */}
       <Dialog open={stepToRemove !== null} onClose={cancelRemove} role="alertdialog">

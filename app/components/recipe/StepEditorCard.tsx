@@ -187,14 +187,25 @@ export function StepEditorCard({
       aria-label={`Step ${stepNumber}`}
       className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4"
     >
-      {/* Header with step number */}
+      {/* Header with step number and title */}
       <div className="flex items-center gap-4 mb-4">
+        {dragHandle}
         <div
           className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 font-bold"
         >
           {stepNumber}
         </div>
-        <h3 className="text-lg font-semibold">Step {stepNumber}</h3>
+        <div className="flex-1">
+          {step?.stepTitle && (
+            <h3 className="text-lg font-semibold">{step.stepTitle}</h3>
+          )}
+          {step?.description && !step.stepTitle && (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-1">{step.description}</p>
+          )}
+          {!step?.stepTitle && !step?.description && (
+            <span className="text-sm text-zinc-500">Step {stepNumber}</span>
+          )}
+        </div>
       </div>
 
       {/* Instructions textarea */}
