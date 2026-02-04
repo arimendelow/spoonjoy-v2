@@ -1,6 +1,8 @@
 # Deploying Spoonjoy v2 to Cloudflare
 
-Complete guide for deploying Spoonjoy v2 to Cloudflare Pages with D1 database and R2 storage.
+Complete guide for deploying Spoonjoy v2 to Cloudflare Workers with D1 database.
+
+> **Note**: This deploys as a Cloudflare Worker with static assets (not Pages). The Worker handles SSR and the assets directory serves static files.
 
 ## Prerequisites
 
@@ -34,10 +36,13 @@ wrangler d1 create spoonjoy
 
 **Copy the `database_id`** — you'll need it for wrangler.json.
 
-### R2 Bucket (for recipe images)
+### R2 Bucket (optional, for recipe images)
+
+> **Note**: R2 bucket is optional. Image upload functionality is not yet implemented. Skip this step unless you're adding image support.
 
 ```bash
-# Create the R2 bucket
+# First, enable R2 in Cloudflare Dashboard
+# Then create the bucket:
 wrangler r2 bucket create spoonjoy-photos
 ```
 
@@ -154,14 +159,11 @@ wrangler d1 execute spoonjoy --remote --file=./migrations/0002_seed.sql
 # Build the application
 npm run build
 
-# Deploy to Cloudflare Pages
-npm run deploy
+# Deploy to Cloudflare Workers
+npx wrangler deploy
 ```
 
-Or in one command:
-```bash
-npm run deploy
-```
+The deploy output will show your Worker URL: `https://spoonjoy-v2.<account>.workers.dev`
 
 ## Step 7: Verify Deployment
 
