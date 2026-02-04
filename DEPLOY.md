@@ -1,0 +1,232 @@
+# Deploying Spoonjoy v2 to Cloudflare
+
+Complete guide for deploying Spoonjoy v2 to Cloudflare Pages with D1 database and R2 storage.
+
+## Prerequisites
+
+- [Cloudflare account](https://dash.cloudflare.com/sign-up)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) installed (`npm install -g wrangler`)
+- Node.js 20+
+- Git
+
+## Step 1: Authenticate with Cloudflare
+
+```bash
+wrangler login
+```
+
+This opens a browser to authenticate. After login, Wrangler stores credentials locally.
+
+## Step 2: Create Cloudflare Resources
+
+### D1 Database
+
+```bash
+# Create the production database
+wrangler d1 create spoonjoy
+
+# Output will show:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "spoonjoy"
+# database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+**Copy the `database_id`** — you'll need it for wrangler.json.
+
+### R2 Bucket (for recipe images)
+
+```bash
+# Create the R2 bucket
+wrangler r2 bucket create spoonjoy-photos
+```
+
+## Step 3: Update wrangler.json
+
+Update `wrangler.json` with your production values:
+
+```json
+{
+  "name": "spoonjoy-v2",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "spoonjoy",
+      "database_id": "YOUR_DATABASE_ID_HERE"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "spoonjoy-photos"
+    }
+  ]
+}
+```
+
+## Step 4: Set Secrets
+
+Secrets are sensitive values that shouldn't be in code or config files.
+
+### Required Secrets
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `SESSION_SECRET` | Cookie signing key | Generate: `openssl rand -hex 32` |
+
+```bash
+wrangler secret put SESSION_SECRET
+# Paste your generated secret when prompted
+```
+
+### OAuth Secrets (if using social login)
+
+#### Google OAuth
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Same as above |
+
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+**Google OAuth Setup:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project (or select existing)
+3. Enable "Google+ API" or "Google Identity"
+4. Go to Credentials → Create Credentials → OAuth 2.0 Client ID
+5. Application type: Web application
+6. Add authorized redirect URI: `https://your-domain.com/auth/google/callback`
+7. Copy Client ID and Client Secret
+
+#### Apple OAuth
+
+| Secret | Description | How to Get |
+|--------|-------------|------------|
+| `APPLE_CLIENT_ID` | Apple Services ID | [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers/list/serviceId) |
+| `APPLE_TEAM_ID` | Apple Developer Team ID | Top right of Apple Developer Portal |
+| `APPLE_KEY_ID` | Apple Sign-in Key ID | Create in Keys section |
+| `APPLE_PRIVATE_KEY` | Apple private key (.p8 file contents) | Download when creating key |
+
+```bash
+wrangler secret put APPLE_CLIENT_ID
+wrangler secret put APPLE_TEAM_ID
+wrangler secret put APPLE_KEY_ID
+wrangler secret put APPLE_PRIVATE_KEY
+# For private key, paste the entire contents including BEGIN/END lines
+```
+
+**Apple OAuth Setup:**
+1. Go to [Apple Developer Portal](https://developer.apple.com/)
+2. Identifiers → Create App ID with "Sign in with Apple" capability
+3. Identifiers → Create Services ID, configure domains and redirect URLs
+4. Keys → Create key with "Sign in with Apple", download .p8 file
+5. Note your Team ID (top right of portal)
+
+### Optional Secrets
+
+| Secret | Description | Required For |
+|--------|-------------|--------------|
+| `OPENAI_API_KEY` | OpenAI API key | AI-powered step suggestions |
+
+```bash
+wrangler secret put OPENAI_API_KEY
+```
+
+## Step 5: Run Database Migrations
+
+```bash
+# Apply all migrations to production D1
+wrangler d1 migrations apply spoonjoy --remote
+```
+
+If you need to seed initial data:
+```bash
+wrangler d1 execute spoonjoy --remote --file=./migrations/0002_seed.sql
+```
+
+## Step 6: Build and Deploy
+
+```bash
+# Build the application
+npm run build
+
+# Deploy to Cloudflare Pages
+npm run deploy
+```
+
+Or in one command:
+```bash
+npm run deploy
+```
+
+## Step 7: Verify Deployment
+
+1. **Check the deployment URL** in Wrangler output
+2. **Test the app**: Visit `https://spoonjoy-v2.pages.dev` (or your custom domain)
+3. **Check logs**: `wrangler pages deployment tail`
+4. **Test authentication**: Try logging in with email/password and OAuth
+
+## Environment Variables Summary
+
+### In wrangler.json (non-sensitive)
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `NODE_ENV` | `production` | Environment mode |
+
+### Secrets (set via `wrangler secret put`)
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `SESSION_SECRET` | ✅ Yes | Cookie signing (generate with `openssl rand -hex 32`) |
+| `GOOGLE_CLIENT_ID` | If using Google login | Google OAuth |
+| `GOOGLE_CLIENT_SECRET` | If using Google login | Google OAuth |
+| `APPLE_CLIENT_ID` | If using Apple login | Apple OAuth |
+| `APPLE_TEAM_ID` | If using Apple login | Apple OAuth |
+| `APPLE_KEY_ID` | If using Apple login | Apple OAuth |
+| `APPLE_PRIVATE_KEY` | If using Apple login | Apple OAuth |
+| `OPENAI_API_KEY` | Optional | AI features |
+
+## Troubleshooting
+
+### "Missing required environment variable"
+- Ensure all secrets are set: `wrangler secret list`
+- Re-set any missing secrets: `wrangler secret put SECRET_NAME`
+
+### Database errors
+- Verify migrations ran: `wrangler d1 migrations list spoonjoy --remote`
+- Check database exists: `wrangler d1 list`
+
+### OAuth redirect errors
+- Verify redirect URIs match your deployed domain in Google/Apple console
+- Ensure secrets are set correctly (no extra whitespace)
+
+### Build failures
+- Run locally first: `npm run build`
+- Check Node.js version matches (20+)
+
+## Custom Domain (Optional)
+
+1. Go to Cloudflare Dashboard → Pages → your project → Custom domains
+2. Add your domain
+3. Update DNS if needed
+4. Update OAuth redirect URIs to use your custom domain
+
+## Updating the Deployment
+
+After making changes:
+
+```bash
+git add .
+git commit -m "your changes"
+git push
+
+# Deploy
+npm run deploy
+```
+
+Or set up automatic deployments via GitHub integration in Cloudflare Pages dashboard.
