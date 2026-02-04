@@ -73,23 +73,14 @@ jobs:
       - name: 🔧 Generate Prisma client
         run: pnpm prisma:generate
       
-      - name: 🗃️ Setup test database
-        run: pnpm prisma db push
-        env:
-          DATABASE_URL: file:./test.db
-      
-      - name: 🌱 Seed test database
-        run: pnpm db:seed
-        env:
-          DATABASE_URL: file:./test.db
-      
       - name: 🎭 Install Playwright Browsers
         run: pnpm exec playwright install --with-deps chromium
       
+      - name: 🗄️ Apply D1 migrations
+        run: pnpm exec wrangler d1 migrations apply DB --local
+      
       - name: 🎭 Run Playwright tests
         run: pnpm test:e2e
-        env:
-          DATABASE_URL: file:./test.db
       
       - name: 📤 Upload Playwright Report
         uses: actions/upload-artifact@v4
