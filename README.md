@@ -71,9 +71,41 @@ For production, use `wrangler secret put` for sensitive values.
 | `npm test` | Run test suite |
 | `npm run test:ui` | Tests with visual UI |
 | `npm run test:coverage` | Coverage report |
+| `npm run test:e2e` | Run Playwright e2e tests |
+| `npm run test:storybook` | Run Storybook interaction tests |
 | `npm run prisma:generate` | Regenerate Prisma client |
 | `npm run build` | Production build |
 | `npm run typecheck` | TypeScript validation |
+
+## E2E Testing
+
+End-to-end tests use [Playwright](https://playwright.dev/) and live in the `e2e/` folder.
+
+```bash
+# Install Playwright browsers (first time)
+npx playwright install
+
+# Run all e2e tests
+pnpm test:e2e
+
+# Run specific test file
+pnpm test:e2e e2e/flows/recipes.spec.ts
+
+# Run with UI mode (interactive)
+pnpm test:e2e --ui
+
+# Run headed (see browser)
+pnpm test:e2e --headed
+```
+
+**Test structure:**
+- `e2e/auth.setup.ts` — Authentication fixture (logs in as demo user)
+- `e2e/flows/auth.spec.ts` — Login, logout, protected routes
+- `e2e/flows/recipes.spec.ts` — Recipe list, detail, navigation
+- `e2e/flows/cookbooks.spec.ts` — Cookbook CRUD
+- `e2e/flows/shopping-list.spec.ts` — Shopping list operations
+
+**Note:** Tests run against `http://localhost:5173`. Start the dev server first with `pnpm dev`.
 
 ## Database Management
 
