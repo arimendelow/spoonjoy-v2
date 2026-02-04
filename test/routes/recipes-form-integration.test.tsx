@@ -310,6 +310,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "https://example.com/test.jpg",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -340,6 +341,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "https://example.com/test.jpg",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -375,6 +377,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "https://example.com/existing.jpg",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -405,6 +408,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -439,6 +443,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "https://example.com/existing.jpg",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -488,6 +493,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "https://example.com/existing.jpg",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -546,6 +552,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -589,6 +596,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const actionData = {
@@ -646,6 +654,15 @@ describe("RecipeBuilder Route Integration", () => {
               },
             ],
           },
+          formattedSteps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "First Step",
+              description: "Do the first thing",
+              ingredients: [],
+            },
+          ],
         };
 
         const Stub = createTestRoutesStub([
@@ -676,6 +693,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -708,6 +726,7 @@ describe("RecipeBuilder Route Integration", () => {
             imageUrl: "",
             steps: [],
           },
+          formattedSteps: [],
         };
 
         const Stub = createTestRoutesStub([
@@ -766,6 +785,7 @@ describe("RecipeBuilder Route Integration", () => {
           imageUrl: "",
           steps: [],
         },
+        formattedSteps: [],
       };
 
       const Stub = createTestRoutesStub([

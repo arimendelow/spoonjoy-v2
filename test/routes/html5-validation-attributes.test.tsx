@@ -98,7 +98,7 @@ describe("HTML5 validation attributes", () => {
         {
           path: "/recipes/:id/edit",
           Component: EditRecipe,
-          loader: () => ({ recipe: mockRecipe }),
+          loader: () => ({ recipe: mockRecipe, formattedSteps: [] }),
         },
       ]);
 

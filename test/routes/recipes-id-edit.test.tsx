@@ -759,6 +759,7 @@ describe("Recipes $id Edit Route", () => {
           imageUrl: "https://example.com/recipe.jpg",
           steps: [],
         },
+        formattedSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -791,6 +792,7 @@ describe("Recipes $id Edit Route", () => {
           imageUrl: "",
           steps: [],
         },
+        formattedSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -808,6 +810,25 @@ describe("Recipes $id Edit Route", () => {
     });
 
     it("should render recipe steps with title and description", async () => {
+      const stepsData = [
+        {
+          id: "step-1",
+          stepNum: 1,
+          stepTitle: "Prep the Ingredients",
+          description: "Chop all vegetables",
+          ingredients: [
+            { quantity: 1, unit: "cup", ingredientName: "flour" },
+            { quantity: 2, unit: "tsp", ingredientName: "salt" },
+          ],
+        },
+        {
+          id: "step-2",
+          stepNum: 2,
+          stepTitle: undefined,
+          description: "Cook everything together",
+          ingredients: [],
+        },
+      ];
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -835,6 +856,7 @@ describe("Recipes $id Edit Route", () => {
             },
           ],
         },
+        formattedSteps: stepsData,
       };
 
       const Stub = createTestRoutesStub([
@@ -874,6 +896,15 @@ describe("Recipes $id Edit Route", () => {
             },
           ],
         },
+        formattedSteps: [
+          {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: undefined,
+            description: "Mix the flour",
+            ingredients: [{ quantity: 1, unit: "cup", ingredientName: "flour" }],
+          },
+        ],
       };
 
       const Stub = createTestRoutesStub([
@@ -907,6 +938,15 @@ describe("Recipes $id Edit Route", () => {
             },
           ],
         },
+        formattedSteps: [
+          {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: undefined,
+            description: "Just instructions",
+            ingredients: [],
+          },
+        ],
       };
 
       const Stub = createTestRoutesStub([
@@ -924,6 +964,11 @@ describe("Recipes $id Edit Route", () => {
     });
 
     it("should render reorder buttons for multiple steps", async () => {
+      const stepsData = [
+        { id: "step-1", stepNum: 1, stepTitle: undefined, description: "First step", ingredients: [] },
+        { id: "step-2", stepNum: 2, stepTitle: undefined, description: "Second step", ingredients: [] },
+        { id: "step-3", stepNum: 3, stepTitle: undefined, description: "Third step", ingredients: [] },
+      ];
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -932,29 +977,12 @@ describe("Recipes $id Edit Route", () => {
           servings: null,
           imageUrl: "",
           steps: [
-            {
-              id: "step-1",
-              stepNum: 1,
-              stepTitle: null,
-              description: "First step",
-              ingredients: [],
-            },
-            {
-              id: "step-2",
-              stepNum: 2,
-              stepTitle: null,
-              description: "Second step",
-              ingredients: [],
-            },
-            {
-              id: "step-3",
-              stepNum: 3,
-              stepTitle: null,
-              description: "Third step",
-              ingredients: [],
-            },
+            { id: "step-1", stepNum: 1, stepTitle: null, description: "First step", ingredients: [] },
+            { id: "step-2", stepNum: 2, stepTitle: null, description: "Second step", ingredients: [] },
+            { id: "step-3", stepNum: 3, stepTitle: null, description: "Third step", ingredients: [] },
           ],
         },
+        formattedSteps: stepsData,
       };
 
       const Stub = createTestRoutesStub([
@@ -987,6 +1015,7 @@ describe("Recipes $id Edit Route", () => {
           imageUrl: "",
           steps: [],
         },
+        formattedSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -1014,6 +1043,7 @@ describe("Recipes $id Edit Route", () => {
           imageUrl: "",
           steps: [],
         },
+        formattedSteps: [],
       };
 
       const Stub = createTestRoutesStub([
@@ -1048,6 +1078,15 @@ describe("Recipes $id Edit Route", () => {
             },
           ],
         },
+        formattedSteps: [
+          {
+            id: "step-abc",
+            stepNum: 1,
+            stepTitle: undefined,
+            description: "First step",
+            ingredients: [],
+          },
+        ],
       };
 
       const Stub = createTestRoutesStub([
@@ -1075,6 +1114,7 @@ describe("Recipes $id Edit Route", () => {
           imageUrl: "",
           steps: [],
         },
+        formattedSteps: [],
       };
 
       const Stub = createTestRoutesStub([

@@ -441,17 +441,18 @@ describe("Recipes New Route", () => {
 
       render(<Stub initialEntries={["/recipes/new"]} />);
 
+      // RecipeBuilder uses controlled inputs (no name attributes on the visible inputs)
+      // The actual submission uses a hidden form with name attributes
       const titleInput = await screen.findByLabelText(/Title/);
       expect(titleInput).toHaveAttribute("type", "text");
-      expect(titleInput).toHaveAttribute("name", "title");
-      expect(titleInput).toBeRequired();
+      expect(titleInput).toHaveAttribute("maxLength", "60");
 
       const descriptionTextarea = screen.getByLabelText(/Description/);
-      expect(descriptionTextarea).toHaveAttribute("name", "description");
+      expect(descriptionTextarea).toHaveAttribute("maxLength", "140");
 
       const servingsInput = screen.getByLabelText(/Servings/);
       expect(servingsInput).toHaveAttribute("type", "text");
-      expect(servingsInput).toHaveAttribute("name", "servings");
+      expect(servingsInput).toHaveAttribute("maxLength", "40");
 
       // Recipe Image is now a file upload via RecipeImageUpload
       expect(screen.getByRole("button", { name: /upload.*image/i })).toBeInTheDocument();
@@ -468,9 +469,10 @@ describe("Recipes New Route", () => {
 
       render(<Stub initialEntries={["/recipes/new"]} />);
 
+      // RecipeBuilder uses these placeholders
       expect(await screen.findByPlaceholderText("e.g., Chocolate Chip Cookies")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("A brief description of your recipe...")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("e.g., 4, 6-8, or 2 dozen")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Recipe description")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("e.g., 4 servings")).toBeInTheDocument();
     });
 
     it("should display general error message when present", async () => {
