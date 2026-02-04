@@ -999,7 +999,7 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      expect(await screen.findByRole("button", { name: "Save Changes" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Save Recipe" })).toBeInTheDocument();
       // Cancel is now a button that navigates programmatically, not a link
       expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     });

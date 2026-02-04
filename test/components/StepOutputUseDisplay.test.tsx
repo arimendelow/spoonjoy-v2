@@ -113,7 +113,7 @@ describe("StepOutputUseDisplay", () => {
       const { container } = render(<StepOutputUseDisplay usingSteps={usingSteps} />);
 
       const outerDiv = container.firstChild as HTMLElement;
-      expect(outerDiv).toHaveClass("bg-gray-100");
+      expect(outerDiv).toHaveClass("bg-zinc-100");
       expect(outerDiv).toHaveClass("p-4");
       expect(outerDiv).toHaveClass("rounded");
       expect(outerDiv).toHaveClass("mt-4");

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { db } from "~/lib/db.server";
+import { getLocalDb } from "~/lib/db.server";
+import type { PrismaClient } from "@prisma/client";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { createTestUser, createTestRecipe, createStepDescription, createStepTitle } from "../utils";
 import { validateStepDeletion } from "~/lib/step-deletion-validation.server";
@@ -7,8 +8,10 @@ import { validateStepDeletion } from "~/lib/step-deletion-validation.server";
 describe("validateStepDeletion", () => {
   let testUserId: string;
   let testRecipeId: string;
+  let db: PrismaClient;
 
   beforeEach(async () => {
+    db = await getLocalDb();
     await cleanupDatabase();
 
     // Create test user
@@ -39,7 +42,7 @@ describe("validateStepDeletion", () => {
       },
     });
 
-    const result = await validateStepDeletion(testRecipeId, 1);
+    const result = await validateStepDeletion(db, testRecipeId, 1);
 
     expect(result).toEqual({ valid: true });
   });
@@ -79,7 +82,7 @@ describe("validateStepDeletion", () => {
     });
 
     // Step 3 has no dependents, so it can be deleted
-    const result = await validateStepDeletion(testRecipeId, 3);
+    const result = await validateStepDeletion(db, testRecipeId, 3);
 
     expect(result).toEqual({ valid: true });
   });
@@ -112,7 +115,7 @@ describe("validateStepDeletion", () => {
       },
     });
 
-    const result = await validateStepDeletion(testRecipeId, 1);
+    const result = await validateStepDeletion(db, testRecipeId, 1);
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
@@ -160,7 +163,7 @@ describe("validateStepDeletion", () => {
       ],
     });
 
-    const result = await validateStepDeletion(testRecipeId, 1);
+    const result = await validateStepDeletion(db, testRecipeId, 1);
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
@@ -201,7 +204,7 @@ describe("validateStepDeletion", () => {
       ],
     });
 
-    const result = await validateStepDeletion(testRecipeId, 1);
+    const result = await validateStepDeletion(db, testRecipeId, 1);
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
@@ -221,13 +224,13 @@ describe("validateStepDeletion", () => {
     });
 
     // Query for a step that doesn't exist - should return valid since no dependents
-    const result = await validateStepDeletion(testRecipeId, 99);
+    const result = await validateStepDeletion(db, testRecipeId, 99);
 
     expect(result).toEqual({ valid: true });
   });
 
   it("should return valid for non-existent recipe", async () => {
-    const result = await validateStepDeletion("non-existent-recipe-id", 1);
+    const result = await validateStepDeletion(db, "non-existent-recipe-id", 1);
 
     expect(result).toEqual({ valid: true });
   });
@@ -282,7 +285,7 @@ describe("validateStepDeletion", () => {
     });
 
     // Test recipe's step 1 should be deletable (no dependents in this recipe)
-    const result = await validateStepDeletion(testRecipeId, 1);
+    const result = await validateStepDeletion(db, testRecipeId, 1);
 
     expect(result).toEqual({ valid: true });
   });
@@ -321,7 +324,7 @@ describe("validateStepDeletion", () => {
       },
     });
 
-    const result = await validateStepDeletion(testRecipeId, 2);
+    const result = await validateStepDeletion(db, testRecipeId, 2);
 
     expect(result.valid).toBe(false);
     if (!result.valid) {
@@ -375,7 +378,7 @@ describe("validateStepDeletion", () => {
       ],
     });
 
-    const result = await validateStepDeletion(testRecipeId, 1);
+    const result = await validateStepDeletion(db, testRecipeId, 1);
 
     expect(result.valid).toBe(false);
     if (!result.valid) {

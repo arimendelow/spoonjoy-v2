@@ -29,7 +29,7 @@ describe("loadRecipeStepOutputUses", () => {
   });
 
   it("should return empty array when recipe has no steps", async () => {
-    const result = await loadRecipeStepOutputUses(testRecipeId);
+    const result = await loadRecipeStepOutputUses(db, testRecipeId);
 
     expect(result).toEqual([]);
   });
@@ -53,7 +53,7 @@ describe("loadRecipeStepOutputUses", () => {
       ],
     });
 
-    const result = await loadRecipeStepOutputUses(testRecipeId);
+    const result = await loadRecipeStepOutputUses(db, testRecipeId);
 
     expect(result).toEqual([]);
   });
@@ -88,7 +88,7 @@ describe("loadRecipeStepOutputUses", () => {
       },
     });
 
-    const result = await loadRecipeStepOutputUses(testRecipeId);
+    const result = await loadRecipeStepOutputUses(db, testRecipeId);
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(stepOutputUse.id);
@@ -129,7 +129,7 @@ describe("loadRecipeStepOutputUses", () => {
       },
     });
 
-    const result = await loadRecipeStepOutputUses(testRecipeId);
+    const result = await loadRecipeStepOutputUses(db, testRecipeId);
 
     expect(result).toHaveLength(1);
     expect(result[0].outputOfStep).toEqual({
@@ -178,7 +178,7 @@ describe("loadRecipeStepOutputUses", () => {
       ],
     });
 
-    const result = await loadRecipeStepOutputUses(testRecipeId);
+    const result = await loadRecipeStepOutputUses(db, testRecipeId);
 
     expect(result).toHaveLength(3);
     // Ordered by inputStepNum ascending, then outputStepNum ascending
@@ -246,14 +246,14 @@ describe("loadRecipeStepOutputUses", () => {
       },
     });
 
-    const result = await loadRecipeStepOutputUses(testRecipeId);
+    const result = await loadRecipeStepOutputUses(db, testRecipeId);
 
     expect(result).toHaveLength(1);
     expect(result[0].recipeId).toBe(testRecipeId);
   });
 
   it("should return empty array for non-existent recipe", async () => {
-    const result = await loadRecipeStepOutputUses("non-existent-recipe-id");
+    const result = await loadRecipeStepOutputUses(db, "non-existent-recipe-id");
 
     expect(result).toEqual([]);
   });
@@ -294,7 +294,7 @@ describe("loadStepDependencies", () => {
       },
     });
 
-    const result = await loadStepDependencies(testRecipeId, 1);
+    const result = await loadStepDependencies(db, testRecipeId, 1);
 
     expect(result).toEqual([]);
   });
@@ -334,7 +334,7 @@ describe("loadStepDependencies", () => {
       ],
     });
 
-    const result = await loadStepDependencies(testRecipeId, 3);
+    const result = await loadStepDependencies(db, testRecipeId, 3);
 
     expect(result).toHaveLength(2);
     // Should be ordered by outputStepNum ascending
@@ -372,7 +372,7 @@ describe("loadStepDependencies", () => {
       },
     });
 
-    const result = await loadStepDependencies(testRecipeId, 2);
+    const result = await loadStepDependencies(db, testRecipeId, 2);
 
     expect(result).toHaveLength(1);
     expect(result[0].outputStepNum).toBe(1);
@@ -414,7 +414,7 @@ describe("loadStepDependencies", () => {
     });
 
     // Query for step 2's dependencies (should only get step 1)
-    const result = await loadStepDependencies(testRecipeId, 2);
+    const result = await loadStepDependencies(db, testRecipeId, 2);
 
     expect(result).toHaveLength(1);
     expect(result[0].outputStepNum).toBe(1);
@@ -432,13 +432,13 @@ describe("loadStepDependencies", () => {
     });
 
     // Query for a step that doesn't exist
-    const result = await loadStepDependencies(testRecipeId, 99);
+    const result = await loadStepDependencies(db, testRecipeId, 99);
 
     expect(result).toEqual([]);
   });
 
   it("should return empty array for non-existent recipe", async () => {
-    const result = await loadStepDependencies("non-existent-recipe-id", 1);
+    const result = await loadStepDependencies(db, "non-existent-recipe-id", 1);
 
     expect(result).toEqual([]);
   });
@@ -501,7 +501,7 @@ describe("loadStepDependencies", () => {
     });
 
     // Query for test recipe's step 2
-    const result = await loadStepDependencies(testRecipeId, 2);
+    const result = await loadStepDependencies(db, testRecipeId, 2);
 
     expect(result).toHaveLength(1);
     expect(result[0].stepTitle).toBe(step1Title);
@@ -550,7 +550,7 @@ describe("loadStepDependencies", () => {
       ],
     });
 
-    const result = await loadStepDependencies(testRecipeId, 4);
+    const result = await loadStepDependencies(db, testRecipeId, 4);
 
     expect(result).toHaveLength(3);
     // Should be ordered by outputStepNum ascending regardless of creation order
@@ -598,7 +598,7 @@ describe("checkStepUsage", () => {
       },
     });
 
-    const result = await checkStepUsage(testRecipeId, 1);
+    const result = await checkStepUsage(db, testRecipeId, 1);
 
     expect(result).toEqual([]);
   });
@@ -638,7 +638,7 @@ describe("checkStepUsage", () => {
       ],
     });
 
-    const result = await checkStepUsage(testRecipeId, 1);
+    const result = await checkStepUsage(db, testRecipeId, 1);
 
     expect(result).toHaveLength(2);
     // Should be ordered by inputStepNum ascending
@@ -676,7 +676,7 @@ describe("checkStepUsage", () => {
       },
     });
 
-    const result = await checkStepUsage(testRecipeId, 1);
+    const result = await checkStepUsage(db, testRecipeId, 1);
 
     expect(result).toHaveLength(1);
     expect(result[0].inputStepNum).toBe(2);
@@ -718,7 +718,7 @@ describe("checkStepUsage", () => {
     });
 
     // Query for step 2's dependents (should only get step 3)
-    const result = await checkStepUsage(testRecipeId, 2);
+    const result = await checkStepUsage(db, testRecipeId, 2);
 
     expect(result).toHaveLength(1);
     expect(result[0].inputStepNum).toBe(3);
@@ -736,13 +736,13 @@ describe("checkStepUsage", () => {
     });
 
     // Query for a step that doesn't exist
-    const result = await checkStepUsage(testRecipeId, 99);
+    const result = await checkStepUsage(db, testRecipeId, 99);
 
     expect(result).toEqual([]);
   });
 
   it("should return empty array for non-existent recipe", async () => {
-    const result = await checkStepUsage("non-existent-recipe-id", 1);
+    const result = await checkStepUsage(db, "non-existent-recipe-id", 1);
 
     expect(result).toEqual([]);
   });
@@ -805,7 +805,7 @@ describe("checkStepUsage", () => {
     });
 
     // Query for test recipe's step 1 dependents
-    const result = await checkStepUsage(testRecipeId, 1);
+    const result = await checkStepUsage(db, testRecipeId, 1);
 
     expect(result).toHaveLength(1);
     expect(result[0].stepTitle).toBe(step2Title);
@@ -854,7 +854,7 @@ describe("checkStepUsage", () => {
       ],
     });
 
-    const result = await checkStepUsage(testRecipeId, 1);
+    const result = await checkStepUsage(db, testRecipeId, 1);
 
     expect(result).toHaveLength(3);
     // Should be ordered by inputStepNum ascending regardless of creation order

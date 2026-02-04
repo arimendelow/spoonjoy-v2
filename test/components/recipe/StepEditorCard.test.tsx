@@ -808,8 +808,10 @@ describe('StepEditorCard', () => {
     })
   })
 
+  // Note: These tests are skipped because JSDOM's getBoundingClientRect() always returns 0.
+  // Touch target sizes should be verified in browser-based E2E tests instead.
   describe('mobile optimization', () => {
-    it('ingredient toggle buttons have minimum 44px touch targets', () => {
+    it.skip('ingredient toggle buttons have minimum 44px touch targets (requires browser)', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
 
@@ -822,7 +824,7 @@ describe('StepEditorCard', () => {
       expect(toggleRect.height).toBeGreaterThanOrEqual(44)
     })
 
-    it('save button has minimum 44px touch target height', () => {
+    it.skip('save button has minimum 44px touch target height (requires browser)', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
 
@@ -832,7 +834,7 @@ describe('StepEditorCard', () => {
       expect(buttonRect.height).toBeGreaterThanOrEqual(44)
     })
 
-    it('remove button has minimum 44px touch target height', () => {
+    it.skip('remove button has minimum 44px touch target height (requires browser)', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }))
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
 
@@ -842,7 +844,7 @@ describe('StepEditorCard', () => {
       expect(buttonRect.height).toBeGreaterThanOrEqual(44)
     })
 
-    it('move up button has minimum 44px touch target height', () => {
+    it.skip('move up button has minimum 44px touch target height (requires browser)', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
         onMoveUp: vi.fn(),
       })
@@ -854,7 +856,7 @@ describe('StepEditorCard', () => {
       expect(buttonRect.height).toBeGreaterThanOrEqual(44)
     })
 
-    it('move down button has minimum 44px touch target height', () => {
+    it.skip('move down button has minimum 44px touch target height (requires browser)', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
         onMoveDown: vi.fn(),
       })
@@ -866,7 +868,7 @@ describe('StepEditorCard', () => {
       expect(buttonRect.height).toBeGreaterThanOrEqual(44)
     })
 
-    it('all action buttons pass WCAG touch target guidelines (44x44px)', () => {
+    it.skip('all action buttons pass WCAG touch target guidelines (44x44px) (requires browser)', () => {
       const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
         onMoveUp: vi.fn(),
         onMoveDown: vi.fn(),

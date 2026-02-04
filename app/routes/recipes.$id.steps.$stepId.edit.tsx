@@ -191,7 +191,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   // Handle delete intent
   if (intent === "delete") {
     // Validate step can be deleted (no dependencies)
-    const validationResult = await validateStepDeletion(id, step.stepNum);
+    const validationResult = await validateStepDeletion(database, id, step.stepNum);
     if (!validationResult.valid) {
       return data(
         { errors: { stepDeletion: validationResult.error } },

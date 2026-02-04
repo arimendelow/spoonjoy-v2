@@ -1,19 +1,22 @@
 import { checkStepUsage } from "~/lib/step-output-use-queries.server";
 import type { ValidationResult } from "~/lib/validation";
+import type { PrismaClient } from "@prisma/client";
 
 /**
  * Validates whether a step can be safely deleted.
  * A step cannot be deleted if other steps depend on its output.
  *
+ * @param db - The Prisma client instance
  * @param recipeId - The ID of the recipe containing the step
  * @param stepNum - The step number to validate for deletion
  * @returns ValidationResult - { valid: true } if deletable, { valid: false, error: string } if not
  */
 export async function validateStepDeletion(
+  db: PrismaClient,
   recipeId: string,
   stepNum: number
 ): Promise<ValidationResult> {
-  const dependentSteps = await checkStepUsage(recipeId, stepNum);
+  const dependentSteps = await checkStepUsage(db, recipeId, stepNum);
 
   if (dependentSteps.length === 0) {
     return { valid: true };

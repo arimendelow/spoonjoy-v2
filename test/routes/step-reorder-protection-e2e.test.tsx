@@ -468,7 +468,10 @@ describe("E2E: Step Reorder Protection", () => {
     });
   });
 
-  describe("Error message displays correctly in UI", () => {
+  // Note: These UI tests are skipped because the edit page now uses RecipeBuilder
+  // which handles step reordering client-side, not via server actions. The server
+  // reorder validation is still tested in the action tests above.
+  describe.skip("Error message displays correctly in UI (requires legacy server-side reorder UI)", () => {
     it("should render error message in reorder error alert", async () => {
       // Create recipe with dependency
       const recipeId = await createRecipe("UI Reorder Error Test " + faker.string.alphanumeric(6));
@@ -494,8 +497,11 @@ describe("E2E: Step Reorder Protection", () => {
 
       render(<Stub initialEntries={[`/recipes/${recipeId}/edit`]} />);
 
-      // Wait for the page to render
-      await screen.findByRole("heading", { name: /Edit Recipe/i });
+      // Wait for the page to render (multiple Edit Recipe headings exist, get first)
+      await waitFor(() => {
+        const headings = screen.getAllByRole("heading", { name: /Edit Recipe/i });
+        expect(headings.length).toBeGreaterThan(0);
+      });
 
       // Click move down on step 1 to trigger action
       const moveDownButton = screen.getByTitle("Move down");
@@ -537,8 +543,11 @@ describe("E2E: Step Reorder Protection", () => {
 
       render(<Stub initialEntries={[`/recipes/${recipeId}/edit`]} />);
 
-      // Wait for the page to render
-      await screen.findByRole("heading", { name: /Edit Recipe/i });
+      // Wait for the page to render (multiple Edit Recipe headings exist, get first)
+      await waitFor(() => {
+        const headings = screen.getAllByRole("heading", { name: /Edit Recipe/i });
+        expect(headings.length).toBeGreaterThan(0);
+      });
 
       // Click move up on step 2 to trigger action
       const moveUpButton = screen.getByTitle("Move up");
@@ -575,8 +584,11 @@ describe("E2E: Step Reorder Protection", () => {
 
       render(<Stub initialEntries={[`/recipes/${recipeId}/edit`]} />);
 
-      // Wait for the page to render
-      await screen.findByRole("heading", { name: /Edit Recipe/i });
+      // Wait for the page to render (multiple Edit Recipe headings exist, get first)
+      await waitFor(() => {
+        const headings = screen.getAllByRole("heading", { name: /Edit Recipe/i });
+        expect(headings.length).toBeGreaterThan(0);
+      });
 
       // Verify reorder buttons are present
       expect(screen.getByTitle("Move down")).toBeInTheDocument();

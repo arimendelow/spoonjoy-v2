@@ -116,6 +116,7 @@ beforeAll(async () => {
   // Delete all data in the correct order to respect foreign key constraints
   await db.shoppingListItem.deleteMany({});
   await db.shoppingList.deleteMany({});
+  await db.stepOutputUse.deleteMany({});
   await db.ingredient.deleteMany({});
   await db.recipeStep.deleteMany({});
   await db.recipeInCookbook.deleteMany({});
