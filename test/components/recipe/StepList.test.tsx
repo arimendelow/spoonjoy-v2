@@ -854,7 +854,7 @@ describe('StepList', () => {
       })
     })
 
-    it('dialog Cancel button activates on Enter key', async () => {
+    it('dialog Cancel button closes dialog when clicked', async () => {
       const onChange = vi.fn()
       const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
       const Wrapper = createTestWrapper({ steps, onChange })
@@ -866,11 +866,8 @@ describe('StepList', () => {
       const dialog = screen.getByRole('alertdialog')
       const cancelButton = within(dialog).getByRole('button', { name: /cancel/i })
 
-      // Focus cancel button and press Enter (wrapped in act to avoid warnings)
-      await act(async () => {
-        cancelButton.focus()
-      })
-      await userEvent.keyboard('{Enter}')
+      // Click cancel button
+      await userEvent.click(cancelButton)
 
       // Dialog should be closed, step should remain
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()

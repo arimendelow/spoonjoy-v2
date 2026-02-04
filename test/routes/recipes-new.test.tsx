@@ -445,14 +445,14 @@ describe("Recipes New Route", () => {
       // The actual submission uses a hidden form with name attributes
       const titleInput = await screen.findByLabelText(/Title/);
       expect(titleInput).toHaveAttribute("type", "text");
-      expect(titleInput).toHaveAttribute("maxLength", "60");
+      expect(titleInput).toHaveAttribute("maxLength", "200");
 
       const descriptionTextarea = screen.getByLabelText(/Description/);
-      expect(descriptionTextarea).toHaveAttribute("maxLength", "140");
+      expect(descriptionTextarea).toHaveAttribute("maxLength", "2000");
 
       const servingsInput = screen.getByLabelText(/Servings/);
       expect(servingsInput).toHaveAttribute("type", "text");
-      expect(servingsInput).toHaveAttribute("maxLength", "40");
+      expect(servingsInput).toHaveAttribute("maxLength", "100");
 
       // Recipe Image is now a file upload via RecipeImageUpload
       expect(screen.getByRole("button", { name: /upload.*image/i })).toBeInTheDocument();
