@@ -158,9 +158,20 @@ describe('StepList', () => {
   })
 
   describe('add step functionality', () => {
-    it('renders "+ Add Step" button visible and clickable', () => {
-      const Wrapper = createTestWrapper({ steps: [] })
+    it('renders "+ Add Step" link for existing recipes (edit mode)', () => {
+      const Wrapper = createTestWrapper({ steps: [], recipeId: 'recipe-1' })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // In edit mode, it's a link that navigates to the new step page
+      const addLink = screen.getByRole('link', { name: /add step/i })
+      expect(addLink).toBeInTheDocument()
+      expect(addLink).toHaveAttribute('href', '/recipes/recipe-1/steps/new')
+    })
+
+    it('renders "+ Add Step" button visible and clickable for new recipes (create mode)', () => {
+      // Use a recipeId starting with 'new-' to trigger button rendering
+      const Wrapper = createTestWrapper({ steps: [], recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       const addButton = screen.getByRole('button', { name: /add step/i })
       expect(addButton).toBeInTheDocument()
@@ -172,8 +183,9 @@ describe('StepList', () => {
       const existingSteps = [
         createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
       ]
-      const Wrapper = createTestWrapper({ steps: existingSteps, onChange })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior
+      const Wrapper = createTestWrapper({ steps: existingSteps, onChange, recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       await userEvent.click(screen.getByRole('button', { name: /add step/i }))
 
@@ -252,8 +264,9 @@ describe('StepList', () => {
         createTestStep({ id: 'step-1', stepNum: 1 }),
         createTestStep({ id: 'step-2', stepNum: 2 }),
       ]
-      const Wrapper = createTestWrapper({ steps, disabled: true })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior (which can be disabled)
+      const Wrapper = createTestWrapper({ steps, disabled: true, recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       // Add button should be disabled
       expect(screen.getByRole('button', { name: /add step/i })).toBeDisabled()
@@ -274,8 +287,9 @@ describe('StepList', () => {
   describe('onChange callback', () => {
     it('onChange receives properly structured step data', async () => {
       const onChange = vi.fn()
-      const Wrapper = createTestWrapper({ steps: [], onChange })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior
+      const Wrapper = createTestWrapper({ steps: [], onChange, recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       // Add a new step
       await userEvent.click(screen.getByRole('button', { name: /add step/i }))
@@ -500,8 +514,9 @@ describe('StepList', () => {
       const Wrapper = createTestWrapper({ steps })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
 
-      // Look for drag handle with aria-label
-      const dragHandle = screen.getByRole('button', { name: /drag to reorder/i })
+      // Look for drag handle with aria-label within the step card
+      const stepCard = screen.getByLabelText(/step 1/i)
+      const dragHandle = within(stepCard).getByRole('button', { name: /drag to reorder/i })
       expect(dragHandle).toBeInTheDocument()
     })
 
@@ -514,10 +529,10 @@ describe('StepList', () => {
       const Wrapper = createTestWrapper({ steps, onChange })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
 
-      // Focus on the second step's drag handle and use keyboard to reorder
-      const secondStepCard = screen.getByLabelText(/step 2/i)
-      const dragHandle = within(secondStepCard).getByRole('button', { name: /drag to reorder/i })
-      dragHandle.focus()
+      // Get all drag handles (one per step) and focus on the second one
+      const dragHandles = screen.getAllByRole('button', { name: /drag to reorder/i })
+      expect(dragHandles).toHaveLength(2)
+      dragHandles[1].focus() // Second step's drag handle
 
       // Use Ctrl+ArrowUp to move step up
       await userEvent.keyboard('{Control>}{ArrowUp}{/Control}')
@@ -537,10 +552,10 @@ describe('StepList', () => {
       const Wrapper = createTestWrapper({ steps, onChange })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
 
-      // Focus on the first step's drag handle and use keyboard to reorder
-      const firstStepCard = screen.getByLabelText(/step 1/i)
-      const dragHandle = within(firstStepCard).getByRole('button', { name: /drag to reorder/i })
-      dragHandle.focus()
+      // Get all drag handles and focus on the first one
+      const dragHandles = screen.getAllByRole('button', { name: /drag to reorder/i })
+      expect(dragHandles).toHaveLength(2)
+      dragHandles[0].focus() // First step's drag handle
 
       // Use Ctrl+ArrowDown to move step down
       await userEvent.keyboard('{Control>}{ArrowDown}{/Control}')
@@ -593,10 +608,9 @@ describe('StepList', () => {
       const Wrapper = createTestWrapper({ steps, onChange })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
 
-      // Focus on the first step's drag handle and try to move up
-      const firstStepCard = screen.getByLabelText(/step 1/i)
-      const dragHandle = within(firstStepCard).getByRole('button', { name: /drag to reorder/i })
-      dragHandle.focus()
+      // Get all drag handles and focus on the first one
+      const dragHandles = screen.getAllByRole('button', { name: /drag to reorder/i })
+      dragHandles[0].focus()
 
       // Use Ctrl+ArrowUp - should not reorder since it's already first
       await userEvent.keyboard('{Control>}{ArrowUp}{/Control}')
@@ -614,10 +628,9 @@ describe('StepList', () => {
       const Wrapper = createTestWrapper({ steps, onChange })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
 
-      // Focus on the last step's drag handle and try to move down
-      const lastStepCard = screen.getByLabelText(/step 2/i)
-      const dragHandle = within(lastStepCard).getByRole('button', { name: /drag to reorder/i })
-      dragHandle.focus()
+      // Get all drag handles and focus on the last one
+      const dragHandles = screen.getAllByRole('button', { name: /drag to reorder/i })
+      dragHandles[1].focus()
 
       // Use Ctrl+ArrowDown - should not reorder since it's already last
       await userEvent.keyboard('{Control>}{ArrowDown}{/Control}')
@@ -635,10 +648,9 @@ describe('StepList', () => {
       const Wrapper = createTestWrapper({ steps, onChange })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
 
-      // Focus on the second step's drag handle
-      const secondStepCard = screen.getByLabelText(/step 2/i)
-      const dragHandle = within(secondStepCard).getByRole('button', { name: /drag to reorder/i })
-      dragHandle.focus()
+      // Get all drag handles and focus on the second one
+      const dragHandles = screen.getAllByRole('button', { name: /drag to reorder/i })
+      dragHandles[1].focus()
 
       // Press ArrowUp without modifier - should not reorder
       await userEvent.keyboard('{ArrowUp}')
@@ -651,8 +663,9 @@ describe('StepList', () => {
   describe('rapid operations', () => {
     it('handles rapid add operations correctly', async () => {
       const onChange = vi.fn()
-      const Wrapper = createTestWrapper({ steps: [], onChange })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior
+      const Wrapper = createTestWrapper({ steps: [], onChange, recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       const addButton = screen.getByRole('button', { name: /add step/i })
 
@@ -675,8 +688,9 @@ describe('StepList', () => {
       const steps = [
         createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
       ]
-      const Wrapper = createTestWrapper({ steps, onChange })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior
+      const Wrapper = createTestWrapper({ steps, onChange, recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       // Add a step
       await userEvent.click(screen.getByRole('button', { name: /add step/i }))
@@ -693,8 +707,9 @@ describe('StepList', () => {
   describe('keyboard navigation', () => {
     it('Enter key on Add Step button adds a new step', async () => {
       const onChange = vi.fn()
-      const Wrapper = createTestWrapper({ steps: [], onChange })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior
+      const Wrapper = createTestWrapper({ steps: [], onChange, recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       const addButton = screen.getByRole('button', { name: /add step/i })
 
@@ -718,8 +733,9 @@ describe('StepList', () => {
 
     it('Space key on Add Step button adds a new step', async () => {
       const onChange = vi.fn()
-      const Wrapper = createTestWrapper({ steps: [], onChange })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior
+      const Wrapper = createTestWrapper({ steps: [], onChange, recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       const addButton = screen.getByRole('button', { name: /add step/i })
 
@@ -735,17 +751,17 @@ describe('StepList', () => {
 
     it('newly added step receives focus on its instructions textarea', async () => {
       const onChange = vi.fn()
-      // Start with no steps
-      const Wrapper = createTestWrapper({ steps: [], onChange })
-      const { rerender } = render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Start with no steps, use 'new-' prefix
+      const Wrapper = createTestWrapper({ steps: [], onChange, recipeId: 'new-recipe-1' })
+      const { rerender } = render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       // Click add step
       await userEvent.click(screen.getByRole('button', { name: /add step/i }))
 
       // Simulate parent re-rendering with the new step
       const newStep = onChange.mock.calls[0][0][0]
-      const WrapperWithStep = createTestWrapper({ steps: [newStep], onChange })
-      rerender(<WrapperWithStep initialEntries={['/recipes/recipe-1/edit']} />)
+      const WrapperWithStep = createTestWrapper({ steps: [newStep], onChange, recipeId: 'new-recipe-1' })
+      rerender(<WrapperWithStep initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       // The new step's instructions textarea should receive focus
       const stepCard = screen.getByLabelText(/step 1/i)
@@ -754,8 +770,9 @@ describe('StepList', () => {
     })
 
     it('Add Step button is keyboard accessible (no tabindex=-1)', () => {
-      const Wrapper = createTestWrapper({ steps: [] })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      // Use 'new-' prefix to get button behavior
+      const Wrapper = createTestWrapper({ steps: [], recipeId: 'new-recipe-1' })
+      render(<Wrapper initialEntries={['/recipes/new-recipe-1/edit']} />)
 
       const addButton = screen.getByRole('button', { name: /add step/i })
       expect(addButton).not.toHaveAttribute('tabindex', '-1')
@@ -824,12 +841,17 @@ describe('StepList', () => {
     it('drag handles are keyboard accessible', () => {
       const steps = [
         createTestStep({ id: 'step-1', stepNum: 1, description: 'First step' }),
+        createTestStep({ id: 'step-2', stepNum: 2, description: 'Second step' }),
       ]
       const Wrapper = createTestWrapper({ steps })
       render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
 
-      const dragHandle = screen.getByRole('button', { name: /drag to reorder/i })
-      expect(dragHandle).not.toHaveAttribute('tabindex', '-1')
+      // Get all drag handles and verify they're accessible
+      const dragHandles = screen.getAllByRole('button', { name: /drag to reorder/i })
+      expect(dragHandles).toHaveLength(2)
+      dragHandles.forEach((handle) => {
+        expect(handle).not.toHaveAttribute('tabindex', '-1')
+      })
     })
 
     it('dialog Cancel button activates on Enter key', async () => {

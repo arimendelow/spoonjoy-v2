@@ -327,8 +327,6 @@ export function StepEditorCard({
             Move Down
           </button>
         )}
-
-        {dragHandle}
       </div>
     </article>
   )
