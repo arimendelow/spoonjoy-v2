@@ -16,8 +16,8 @@ test.describe('Recipe Flow', () => {
     await page.goto('/recipes');
     
     // Find a recipe card - should be a clickable link
-    // This test expects cards to be <a> elements or have click handlers
-    const firstRecipeCard = page.locator('a[href^="/recipes/"]').first();
+    // Exclude /recipes/new (create button) - only match recipe detail links
+    const firstRecipeCard = page.locator('a[href^="/recipes/recipe_"]').first();
     
     // CRITICAL: This will FAIL if recipe cards are not clickable
     await expect(firstRecipeCard).toBeVisible({ timeout: 5000 });
