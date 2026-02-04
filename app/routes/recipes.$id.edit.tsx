@@ -3,18 +3,17 @@ import { Form, redirect, data, useActionData, useLoaderData, useNavigate } from 
 import { useRecipeEditActions } from "~/components/navigation";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
-import { Button } from "~/components/ui/button";
-import { Heading, Subheading } from "~/components/ui/heading";
-import { Text } from "~/components/ui/text";
+import { Heading } from "~/components/ui/heading";
 import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
-import { RecipeForm } from "~/components/recipe/RecipeForm";
+import { RecipeBuilder, type RecipeBuilderData } from "~/components/recipe/RecipeBuilder";
 import {
   validateTitle,
   validateDescription,
   validateServings,
 } from "~/lib/validation";
 import { validateStepReorderComplete } from "~/lib/step-reorder-validation.server";
+import { useRef } from "react";
 
 interface ActionData {
   errors?: {
@@ -64,7 +63,21 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     throw new Response("Unauthorized", { status: 403 });
   }
 
-  return { recipe };
+  // Transform steps data for RecipeBuilder
+  const formattedSteps = recipe.steps.map((step) => ({
+    id: step.id,
+    stepNum: step.stepNum,
+    stepTitle: step.stepTitle || undefined,
+    description: step.description,
+    duration: step.duration || undefined,
+    ingredients: step.ingredients.map((ing) => ({
+      quantity: ing.quantity,
+      unit: ing.unit?.name || "",
+      ingredientName: ing.ingredientRef?.name || "",
+    })),
+  }));
+
+  return { recipe, formattedSteps };
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -218,12 +231,42 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function EditRecipe() {
-  const { recipe } = useLoaderData<typeof loader>();
+  const { recipe, formattedSteps } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const navigate = useNavigate();
+  const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCancel = () => {
     navigate(`/recipes/${recipe.id}`);
+  };
+
+  const handleSave = (recipeData: RecipeBuilderData) => {
+    if (!formRef.current) return;
+
+    // Populate form with recipe data
+    const form = formRef.current;
+    const titleInput = form.querySelector('input[name="title"]') as HTMLInputElement;
+    const descriptionInput = form.querySelector('textarea[name="description"]') as HTMLTextAreaElement;
+    const servingsInput = form.querySelector('input[name="servings"]') as HTMLInputElement;
+    const stepsInput = form.querySelector('input[name="steps"]') as HTMLInputElement;
+    const clearImageInput = form.querySelector('input[name="clearImage"]') as HTMLInputElement;
+
+    if (titleInput) titleInput.value = recipeData.title;
+    if (descriptionInput) descriptionInput.value = recipeData.description || "";
+    if (servingsInput) servingsInput.value = recipeData.servings || "";
+    if (stepsInput) stepsInput.value = JSON.stringify(recipeData.steps);
+    if (clearImageInput) clearImageInput.value = recipeData.clearImage ? "true" : "";
+
+    // Handle image file
+    if (recipeData.imageFile && fileInputRef.current) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(recipeData.imageFile);
+      fileInputRef.current.files = dataTransfer.files;
+    }
+
+    // Submit the form
+    form.requestSubmit();
   };
 
   // Register dock actions for this recipe edit page
@@ -244,88 +287,41 @@ export default function EditRecipe() {
           </Link>
         </div>
 
-        <RecipeForm
-          mode="edit"
+        {/* Hidden form for submitting data to the action */}
+        <Form ref={formRef} method="post" encType="multipart/form-data" className="hidden">
+          <input type="hidden" name="title" />
+          <textarea name="description" className="hidden" />
+          <input type="hidden" name="servings" />
+          <input type="hidden" name="steps" />
+          <input type="hidden" name="clearImage" />
+          <input ref={fileInputRef} type="file" name="image" accept="image/*" />
+        </Form>
+
+        {actionData?.errors?.general && (
+          <div
+            role="alert"
+            className="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400 mb-6"
+          >
+            {actionData.errors.general}
+          </div>
+        )}
+
+        {actionData?.errors?.reorder && (
+          <ValidationError error={actionData.errors.reorder} className="mb-4" />
+        )}
+
+        <RecipeBuilder
           recipe={{
             id: recipe.id,
             title: recipe.title,
             description: recipe.description,
             servings: recipe.servings,
             imageUrl: recipe.imageUrl,
+            steps: formattedSteps,
           }}
+          onSave={handleSave}
           onCancel={handleCancel}
-          errors={actionData?.errors}
         />
-
-        <div className="mt-12 pt-8 border-t border-zinc-200">
-          <div className="flex justify-between items-center mb-4">
-            <Heading level={2} className="m-0">Recipe Steps</Heading>
-            <Button href={`/recipes/${recipe.id}/steps/new`} color="green">
-              + Add Step
-            </Button>
-          </div>
-
-          {actionData?.errors?.reorder && (
-            <ValidationError error={actionData.errors.reorder} className="mb-4" />
-          )}
-
-          {recipe.steps.length === 0 ? (
-            <div className="bg-zinc-100 p-8 rounded-lg text-center">
-              <Text>No steps added yet</Text>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {recipe.steps.map((step, index) => (
-                <div
-                  key={step.id}
-                  className="bg-white border border-zinc-200 rounded-lg p-4"
-                >
-                  <div className="flex gap-4 items-start">
-                    <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold shrink-0">
-                      {step.stepNum}
-                    </div>
-                    <div className="flex-1">
-                      {step.stepTitle && (
-                        <Subheading level={4} className="m-0 mb-2">{step.stepTitle}</Subheading>
-                      )}
-                      <Text className="m-0 mb-2">{step.description}</Text>
-                      {step.ingredients.length > 0 && (
-                        <Text className="text-sm">
-                          {step.ingredients.length} ingredient{step.ingredients.length !== 1 ? "s" : ""}
-                        </Text>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      {index > 0 && (
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="reorderStep" />
-                          <input type="hidden" name="stepId" value={step.id} />
-                          <input type="hidden" name="direction" value="up" />
-                          <Button type="submit" color="zinc" className="text-xs px-2 py-1" title="Move up">
-                            ↑
-                          </Button>
-                        </Form>
-                      )}
-                      {index < recipe.steps.length - 1 && (
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="reorderStep" />
-                          <input type="hidden" name="stepId" value={step.id} />
-                          <input type="hidden" name="direction" value="down" />
-                          <Button type="submit" color="zinc" className="text-xs px-2 py-1" title="Move down">
-                            ↓
-                          </Button>
-                        </Form>
-                      )}
-                    </div>
-                    <Button href={`/recipes/${recipe.id}/steps/${step.id}/edit`} color="blue" className="text-sm">
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
