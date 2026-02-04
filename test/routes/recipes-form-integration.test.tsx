@@ -801,9 +801,9 @@ describe("RecipeBuilder Route Integration", () => {
 
       await screen.findByRole("button", { name: "Save Recipe" });
 
-      // Find the hidden form with multipart encoding (used for recipe metadata submission)
+      // Find the main recipe form (not step reorder forms)
       const forms = document.querySelectorAll("form");
-      const mainForm = Array.from(forms).find(f => f.getAttribute("encType") === "multipart/form-data");
+      const mainForm = Array.from(forms).find(f => f.querySelector('button[type="submit"]')?.textContent?.includes("Save Recipe"));
       expect(mainForm).toHaveAttribute("encType", "multipart/form-data");
     });
   });
