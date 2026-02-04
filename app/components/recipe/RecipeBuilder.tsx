@@ -25,10 +25,11 @@ import { StepList } from './StepList'
 import { RecipeImageUpload } from './RecipeImageUpload'
 import { Loader2 } from 'lucide-react'
 import type { StepData } from './StepEditorCard'
-
-const TITLE_MAX_LENGTH = 60
-const DESCRIPTION_MAX_LENGTH = 140
-const SERVINGS_MAX_LENGTH = 40
+import {
+  TITLE_MAX_LENGTH,
+  DESCRIPTION_MAX_LENGTH,
+  SERVINGS_MAX_LENGTH,
+} from '~/lib/validation'
 
 export interface RecipeBuilderData {
   id?: string
@@ -155,11 +156,6 @@ export function RecipeBuilder({
 
   return (
     <div className="space-y-8">
-      {/* Main heading - hidden since parent route provides heading */}
-      <h1 className="sr-only">
-        {recipe ? 'Edit Recipe' : 'Create Recipe'}
-      </h1>
-
       {/* General error alert */}
       {errors?.general && (
         <div
@@ -185,6 +181,7 @@ export function RecipeBuilder({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Chocolate Chip Cookies"
               maxLength={TITLE_MAX_LENGTH}
+              required
               disabled={isDisabled}
               data-invalid={errors?.title ? true : undefined}
               aria-describedby={errors?.title ? titleErrorId : undefined}

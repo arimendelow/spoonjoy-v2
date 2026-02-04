@@ -291,13 +291,13 @@ export default function EditRecipe() {
 
         {/* Hidden form for submitting data to the action */}
         <Form ref={formRef} method="post" encType="multipart/form-data" className="hidden">
+          <input type="hidden" name="id" value={recipe.id} />
           <input type="hidden" name="title" />
           <textarea name="description" className="hidden" />
           <input type="hidden" name="servings" />
           <input type="hidden" name="steps" />
           <input type="hidden" name="clearImage" />
           <input ref={fileInputRef} type="file" name="image" accept="image/*" />
-          <button type="submit">Save Recipe</button>
         </Form>
 
         {actionData?.errors?.reorder && (
