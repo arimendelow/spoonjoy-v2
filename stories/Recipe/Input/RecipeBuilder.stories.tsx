@@ -446,6 +446,64 @@ Shows that recipes don't need all fields filled - only title is required.
   },
 }
 
+/**
+ * ## Edit Mode: With Existing Image
+ *
+ * Editing a recipe that has an existing image.
+ * Shows the image upload component with the current image displayed.
+ */
+export const EditMode_WithExistingImage: Story = {
+  name: 'Edit Mode - With Existing Image',
+  args: {
+    recipe: {
+      id: 'recipe-with-image',
+      title: 'Homemade Bread',
+      description: 'Crusty artisan bread with a soft interior.',
+      servings: '1 loaf',
+      imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&h=400&fit=crop',
+      steps: [
+        {
+          id: 'step-1',
+          stepNum: 1,
+          description: 'Mix flour, yeast, salt, and water. Knead for 10 minutes.',
+          duration: 15,
+          ingredients: [
+            { quantity: 3, unit: 'cups', ingredientName: 'bread flour' },
+            { quantity: 1, unit: 'tsp', ingredientName: 'instant yeast' },
+            { quantity: 1.5, unit: 'tsp', ingredientName: 'salt' },
+            { quantity: 1.25, unit: 'cups', ingredientName: 'warm water' },
+          ],
+        },
+        {
+          id: 'step-2',
+          stepNum: 2,
+          description: 'Let rise for 1 hour, shape, and bake at 450°F for 30 minutes.',
+          duration: 90,
+          ingredients: [],
+        },
+      ],
+    },
+    onSave: fn(),
+    onCancel: fn(),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: `
+**Editing a recipe with an existing image.**
+
+The RecipeImageUpload component shows:
+- The current recipe image
+- "Change Image" button to replace it
+- "Remove" button to clear it
+
+Users can upload a new image or remove the existing one.
+        `,
+      },
+    },
+  },
+}
+
 // =============================================================================
 // STATES
 // =============================================================================

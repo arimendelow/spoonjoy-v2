@@ -13,12 +13,13 @@
  * - Progressive disclosure: start simple, expand on demand
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '~/components/ui/button'
 import { Fieldset, Field, Label } from '~/components/ui/fieldset'
 import { Input } from '~/components/ui/input'
 import { Textarea } from '~/components/ui/textarea'
 import { StepList } from './StepList'
+import { RecipeImageUpload } from './RecipeImageUpload'
 import type { StepData } from './StepEditorCard'
 
 export interface RecipeBuilderData {
@@ -27,6 +28,8 @@ export interface RecipeBuilderData {
   description: string | null
   servings: string | null
   imageUrl: string
+  imageFile?: File | null
+  clearImage?: boolean
   steps: StepData[]
 }
 
@@ -48,8 +51,22 @@ export function RecipeBuilder({
   const [description, setDescription] = useState(recipe?.description ?? '')
   const [servings, setServings] = useState(recipe?.servings ?? '')
 
+  // Image state
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [clearImage, setClearImage] = useState(false)
+
   // Steps state
   const [steps, setSteps] = useState<StepData[]>(recipe?.steps ?? [])
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
 
   // Derive recipe ID (for edit mode or generate temp ID for create mode)
   const recipeId = recipe?.id ?? 'new-recipe'
@@ -64,6 +81,8 @@ export function RecipeBuilder({
       description: description || null,
       servings: servings || null,
       imageUrl: recipe?.imageUrl ?? '',
+      imageFile,
+      clearImage: clearImage || undefined,
       steps,
     }
     onSave(data)
@@ -76,6 +95,35 @@ export function RecipeBuilder({
   const handleStepsChange = (newSteps: StepData[]) => {
     setSteps(newSteps)
   }
+
+  const handleImageSelect = (file: File) => {
+    setImageFile(file)
+    setClearImage(false)
+    // Create preview URL for display
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+  }
+
+  const handleImageClear = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+    }
+    setImageFile(null)
+    setClearImage(true)
+  }
+
+  // Determine which image URL to display
+  const getDisplayImageUrl = () => {
+    if (previewUrl) return previewUrl
+    if (clearImage) return ''
+    return recipe?.imageUrl || ''
+  }
+
+  const displayImageUrl = getDisplayImageUrl()
 
   const isSaveDisabled = disabled || !title.trim()
 
@@ -122,6 +170,16 @@ export function RecipeBuilder({
               value={servings}
               onChange={(e) => setServings(e.target.value)}
               placeholder="e.g., 4 servings"
+              disabled={disabled}
+            />
+          </Field>
+
+          <Field>
+            <Label>Recipe Image</Label>
+            <RecipeImageUpload
+              imageUrl={displayImageUrl}
+              onFileSelect={handleImageSelect}
+              onClear={handleImageClear}
               disabled={disabled}
             />
           </Field>
