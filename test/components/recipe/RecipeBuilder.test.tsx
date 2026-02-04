@@ -16,51 +16,53 @@
  * - Character limits on inputs
  */
 
-import { render, screen, within, act } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { createRoutesStub } from 'react-router'
-import { RecipeBuilder } from '~/components/recipe/RecipeBuilder'
-import type { StepData } from '~/components/recipe/StepEditorCard'
+import { render, screen, within, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { createRoutesStub } from "react-router";
+import { RecipeBuilder } from "~/components/recipe/RecipeBuilder";
+import type { StepData } from "~/components/recipe/StepEditorCard";
 
 // Mock localStorage for IngredientInputToggle used by StepEditorCard
-let localStorageStore: Record<string, string> = {}
+let localStorageStore: Record<string, string> = {};
 
 const localStorageMock = {
   getItem: vi.fn((key: string) => localStorageStore[key] ?? null),
   setItem: vi.fn((key: string, value: string) => {
-    localStorageStore[key] = value
+    localStorageStore[key] = value;
   }),
   removeItem: vi.fn((key: string) => {
-    delete localStorageStore[key]
+    delete localStorageStore[key];
   }),
   clear: vi.fn(() => {
-    localStorageStore = {}
+    localStorageStore = {};
   }),
-}
+};
 
-Object.defineProperty(window, 'localStorage', {
+Object.defineProperty(window, "localStorage", {
   value: localStorageMock,
-})
+});
 
 // Helper to create test recipe data
-function createTestRecipe(overrides: Partial<{
-  id: string
-  title: string
-  description: string | null
-  servings: string | null
-  imageUrl: string
-  steps: StepData[]
-}> = {}) {
+function createTestRecipe(
+  overrides: Partial<{
+    id: string;
+    title: string;
+    description: string | null;
+    servings: string | null;
+    imageUrl: string;
+    steps: StepData[];
+  }> = {},
+) {
   return {
-    id: 'recipe-1',
-    title: 'Test Recipe',
-    description: 'A test recipe description',
-    servings: '4 servings',
-    imageUrl: '',
+    id: "recipe-1",
+    title: "Test Recipe",
+    description: "A test recipe description",
+    servings: "4 servings",
+    imageUrl: "",
     steps: [],
     ...overrides,
-  }
+  };
 }
 
 // Helper to create test step data
@@ -68,578 +70,635 @@ function createTestStep(overrides: Partial<StepData> = {}): StepData {
   return {
     id: `step-${Math.random().toString(36).substring(7)}`,
     stepNum: 1,
-    description: 'Test step description',
+    description: "Test step description",
     ingredients: [],
     ...overrides,
-  }
+  };
 }
 
 // Create test wrapper with router context
-function createTestWrapper(props: Partial<React.ComponentProps<typeof RecipeBuilder>> = {}) {
+function createTestWrapper(
+  props: Partial<React.ComponentProps<typeof RecipeBuilder>> = {},
+) {
   const defaultProps = {
     onSave: vi.fn(),
     ...props,
-  }
+  };
 
   return createRoutesStub([
     {
-      path: '/recipes/new',
+      path: "/recipes/new",
       Component: () => <RecipeBuilder {...defaultProps} />,
       action: async () => ({ parsedIngredients: [] }),
     },
     {
-      path: '/recipes/:id/edit',
+      path: "/recipes/:id/edit",
       Component: () => <RecipeBuilder {...defaultProps} />,
       action: async () => ({ parsedIngredients: [] }),
     },
     // Route for AI ingredient parsing
     {
-      path: '/recipes/:id/steps/:stepId/edit',
+      path: "/recipes/:id/steps/:stepId/edit",
       action: async () => ({ parsedIngredients: [] }),
     },
-  ])
+  ]);
 }
 
-describe('RecipeBuilder', () => {
+describe("RecipeBuilder", () => {
   beforeEach(() => {
-    localStorageStore = {}
-    vi.resetAllMocks()
-    localStorageMock.getItem.mockImplementation((key: string) => localStorageStore[key] ?? null)
-    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
-      localStorageStore[key] = value
-    })
+    localStorageStore = {};
+    vi.resetAllMocks();
+    localStorageMock.getItem.mockImplementation(
+      (key: string) => localStorageStore[key] ?? null,
+    );
+    localStorageMock.setItem.mockImplementation(
+      (key: string, value: string) => {
+        localStorageStore[key] = value;
+      },
+    );
     localStorageMock.removeItem.mockImplementation((key: string) => {
-      delete localStorageStore[key]
-    })
+      delete localStorageStore[key];
+    });
     localStorageMock.clear.mockImplementation(() => {
-      localStorageStore = {}
-    })
-  })
+      localStorageStore = {};
+    });
+  });
 
   afterEach(() => {
-    localStorageMock.clear()
-  })
+    localStorageMock.clear();
+  });
 
-  describe('rendering', () => {
-    it('renders metadata section (title, description, servings)', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("rendering", () => {
+    it("renders metadata section (title, description, servings)", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Should have title input
-      expect(screen.getByLabelText(/title/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
 
       // Should have description input
-      expect(screen.getByLabelText(/description/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
 
       // Should have servings input
-      expect(screen.getByLabelText(/servings/i)).toBeInTheDocument()
-    })
+      expect(screen.getByLabelText(/servings/i)).toBeInTheDocument();
+    });
 
-    it('renders StepList section', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("renders StepList section", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Should have Add Step button from StepList
-      expect(screen.getByRole('button', { name: /add step/i })).toBeInTheDocument()
-    })
-  })
+      expect(
+        screen.getByRole("button", { name: /add step/i }),
+      ).toBeInTheDocument();
+    });
+  });
 
-  describe('create mode', () => {
-    it('starts with empty form and no steps', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("create mode", () => {
+    it("starts with empty form and no steps", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Title should be empty
-      expect(screen.getByLabelText(/title/i)).toHaveValue('')
+      expect(screen.getByLabelText(/title/i)).toHaveValue("");
 
       // Description should be empty
-      expect(screen.getByLabelText(/description/i)).toHaveValue('')
+      expect(screen.getByLabelText(/description/i)).toHaveValue("");
 
       // Servings should be empty
-      expect(screen.getByLabelText(/servings/i)).toHaveValue('')
+      expect(screen.getByLabelText(/servings/i)).toHaveValue("");
 
       // Should show empty state for steps
-      expect(screen.getByText(/no steps/i)).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText(/no steps/i)).toBeInTheDocument();
+    });
+  });
 
-  describe('edit mode', () => {
-    it('pre-populates with existing recipe data', () => {
+  describe("edit mode", () => {
+    it("pre-populates with existing recipe data", () => {
       const recipe = createTestRecipe({
-        title: 'Chocolate Cake',
-        description: 'A delicious chocolate cake',
-        servings: '8 slices',
-      })
-      const Wrapper = createTestWrapper({ recipe })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+        title: "Chocolate Cake",
+        description: "A delicious chocolate cake",
+        servings: "8 slices",
+      });
+      const Wrapper = createTestWrapper({ recipe });
+      render(<Wrapper initialEntries={["/recipes/recipe-1/edit"]} />);
 
       // Should have pre-filled title
-      expect(screen.getByLabelText(/title/i)).toHaveValue('Chocolate Cake')
+      expect(screen.getByLabelText(/title/i)).toHaveValue("Chocolate Cake");
 
       // Should have pre-filled description
-      expect(screen.getByLabelText(/description/i)).toHaveValue('A delicious chocolate cake')
+      expect(screen.getByLabelText(/description/i)).toHaveValue(
+        "A delicious chocolate cake",
+      );
 
       // Should have pre-filled servings
-      expect(screen.getByLabelText(/servings/i)).toHaveValue('8 slices')
-    })
+      expect(screen.getByLabelText(/servings/i)).toHaveValue("8 slices");
+    });
 
-    it('pre-populates with existing steps', () => {
+    it("pre-populates with existing steps", () => {
       const recipe = createTestRecipe({
         steps: [
-          createTestStep({ id: 'step-1', stepNum: 1, description: 'Mix flour and sugar' }),
-          createTestStep({ id: 'step-2', stepNum: 2, description: 'Add eggs and milk' }),
+          createTestStep({
+            id: "step-1",
+            stepNum: 1,
+            description: "Mix flour and sugar",
+          }),
+          createTestStep({
+            id: "step-2",
+            stepNum: 2,
+            description: "Add eggs and milk",
+          }),
         ],
-      })
-      const Wrapper = createTestWrapper({ recipe })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      });
+      const Wrapper = createTestWrapper({ recipe });
+      render(<Wrapper initialEntries={["/recipes/recipe-1/edit"]} />);
 
       // Should render both steps
-      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/step 2/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/step 2/i)).toBeInTheDocument();
 
       // Should not show empty state
-      expect(screen.queryByText(/no steps/i)).not.toBeInTheDocument()
-    })
-  })
+      expect(screen.queryByText(/no steps/i)).not.toBeInTheDocument();
+    });
+  });
 
-  describe('step management', () => {
-    it('can add steps via StepList', async () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("step management", () => {
+    it("can add steps via StepList", async () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Initially no steps
-      expect(screen.getByText(/no steps/i)).toBeInTheDocument()
+      expect(screen.getByText(/no steps/i)).toBeInTheDocument();
 
       // Click add step
-      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
+      await userEvent.click(screen.getByRole("button", { name: /add step/i }));
 
       // Should now have a step card
-      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument();
 
       // Empty state should be gone
-      expect(screen.queryByText(/no steps/i)).not.toBeInTheDocument()
-    })
-  })
+      expect(screen.queryByText(/no steps/i)).not.toBeInTheDocument();
+    });
+  });
 
-  describe('save functionality', () => {
-    it('save button calls onSave with complete recipe data (metadata + steps)', async () => {
-      const onSave = vi.fn()
-      const Wrapper = createTestWrapper({ onSave })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("save functionality", () => {
+    it("save button calls onSave with complete recipe data (metadata + steps)", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Fill in recipe metadata
-      await userEvent.type(screen.getByLabelText(/title/i), 'My New Recipe')
-      await userEvent.type(screen.getByLabelText(/description/i), 'A wonderful recipe')
-      await userEvent.type(screen.getByLabelText(/servings/i), '4')
+      await userEvent.type(screen.getByLabelText(/title/i), "My New Recipe");
+      await userEvent.type(
+        screen.getByLabelText(/description/i),
+        "A wonderful recipe",
+      );
+      await userEvent.type(screen.getByLabelText(/servings/i), "4");
 
       // Add a step and fill it
-      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
-      const stepCard = screen.getByLabelText(/step 1/i)
-      const instructionsTextarea = within(stepCard).getByLabelText(/instructions/i)
-      await userEvent.type(instructionsTextarea, 'Mix all ingredients')
+      await userEvent.click(screen.getByRole("button", { name: /add step/i }));
+      const stepCard = screen.getByLabelText(/step 1/i);
+      const instructionsTextarea =
+        within(stepCard).getByLabelText(/instructions/i);
+      await userEvent.type(instructionsTextarea, "Mix all ingredients");
 
       // Save the step first
-      await userEvent.click(within(stepCard).getByRole('button', { name: /save/i }))
+      await userEvent.click(
+        within(stepCard).getByRole("button", { name: /save/i }),
+      );
 
       // Click main save button
-      await userEvent.click(screen.getByRole('button', { name: /save recipe/i }))
+      await userEvent.click(
+        screen.getByRole("button", { name: /create recipe/i }),
+      );
 
       // onSave should be called with complete data
-      expect(onSave).toHaveBeenCalledTimes(1)
+      expect(onSave).toHaveBeenCalledTimes(1);
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'My New Recipe',
-          description: 'A wonderful recipe',
-          servings: '4',
+          title: "My New Recipe",
+          description: "A wonderful recipe",
+          servings: "4",
           steps: expect.arrayContaining([
             expect.objectContaining({
-              description: 'Mix all ingredients',
+              description: "Mix all ingredients",
             }),
           ]),
-        })
-      )
-    })
+        }),
+      );
+    });
 
-    it('save button disabled when title is empty (validation)', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("save button disabled when title is empty (validation)", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Save button should be disabled when title is empty
-      const saveButton = screen.getByRole('button', { name: /save recipe/i })
-      expect(saveButton).toBeDisabled()
-    })
+      const saveButton = screen.getByRole("button", { name: /create recipe/i });
+      expect(saveButton).toBeDisabled();
+    });
 
-    it('save button enabled when title is provided', async () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("save button enabled when title is provided", async () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Type a title
-      await userEvent.type(screen.getByLabelText(/title/i), 'My Recipe')
+      await userEvent.type(screen.getByLabelText(/title/i), "My Recipe");
 
       // Save button should now be enabled
-      const saveButton = screen.getByRole('button', { name: /save recipe/i })
-      expect(saveButton).toBeEnabled()
-    })
+      const saveButton = screen.getByRole("button", { name: /create recipe/i });
+      expect(saveButton).toBeEnabled();
+    });
 
-    it('converts empty description to null on save', async () => {
-      const onSave = vi.fn()
-      const Wrapper = createTestWrapper({ onSave })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("converts empty description to null on save", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Fill in only title, leave description empty
-      await userEvent.type(screen.getByLabelText(/title/i), 'Title Only Recipe')
+      await userEvent.type(
+        screen.getByLabelText(/title/i),
+        "Title Only Recipe",
+      );
 
       // Click save
-      await userEvent.click(screen.getByRole('button', { name: /save recipe/i }))
+      await userEvent.click(
+        screen.getByRole("button", { name: /create recipe/i }),
+      );
 
       // onSave should be called with null description
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Title Only Recipe',
+          title: "Title Only Recipe",
           description: null,
-        })
-      )
-    })
+        }),
+      );
+    });
 
-    it('converts empty servings to null on save', async () => {
-      const onSave = vi.fn()
-      const Wrapper = createTestWrapper({ onSave })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("converts empty servings to null on save", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Fill in title and description, leave servings empty
-      await userEvent.type(screen.getByLabelText(/title/i), 'Recipe Without Servings')
-      await userEvent.type(screen.getByLabelText(/description/i), 'A description')
+      await userEvent.type(
+        screen.getByLabelText(/title/i),
+        "Recipe Without Servings",
+      );
+      await userEvent.type(
+        screen.getByLabelText(/description/i),
+        "A description",
+      );
 
       // Click save
-      await userEvent.click(screen.getByRole('button', { name: /save recipe/i }))
+      await userEvent.click(
+        screen.getByRole("button", { name: /create recipe/i }),
+      );
 
       // onSave should be called with null servings
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Recipe Without Servings',
-          description: 'A description',
+          title: "Recipe Without Servings",
+          description: "A description",
           servings: null,
-        })
-      )
-    })
-  })
+        }),
+      );
+    });
+  });
 
-  describe('cancel functionality', () => {
-    it('cancel button calls onCancel', async () => {
-      const onCancel = vi.fn()
-      const Wrapper = createTestWrapper({ onCancel })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("cancel functionality", () => {
+    it("cancel button calls onCancel", async () => {
+      const onCancel = vi.fn();
+      const Wrapper = createTestWrapper({ onCancel });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Click cancel button
-      await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+      await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
-      expect(onCancel).toHaveBeenCalledTimes(1)
-    })
-  })
+      expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+  });
 
-  describe('disabled state', () => {
-    it('disabled prop disables all sections', () => {
-      const Wrapper = createTestWrapper({ disabled: true })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("disabled state", () => {
+    it("disabled prop disables all sections", () => {
+      const Wrapper = createTestWrapper({ disabled: true });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Form inputs should be disabled
-      expect(screen.getByLabelText(/title/i)).toBeDisabled()
-      expect(screen.getByLabelText(/description/i)).toBeDisabled()
-      expect(screen.getByLabelText(/servings/i)).toBeDisabled()
+      expect(screen.getByLabelText(/title/i)).toBeDisabled();
+      expect(screen.getByLabelText(/description/i)).toBeDisabled();
+      expect(screen.getByLabelText(/servings/i)).toBeDisabled();
 
       // Add step button should be disabled
-      expect(screen.getByRole('button', { name: /add step/i })).toBeDisabled()
+      expect(screen.getByRole("button", { name: /add step/i })).toBeDisabled();
 
       // Save button should be disabled
-      expect(screen.getByRole('button', { name: /save recipe/i })).toBeDisabled()
+      expect(
+        screen.getByRole("button", { name: /create recipe/i }),
+      ).toBeDisabled();
 
       // Cancel button should be disabled
-      expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
-    })
+      expect(screen.getByRole("button", { name: /cancel/i })).toBeDisabled();
+    });
 
-    it('disabled prop disables all step cards', () => {
+    it("disabled prop disables all step cards", () => {
       const recipe = createTestRecipe({
-        steps: [createTestStep({ id: 'step-1', stepNum: 1 })],
-      })
-      const Wrapper = createTestWrapper({ recipe, disabled: true })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+        steps: [createTestStep({ id: "step-1", stepNum: 1 })],
+      });
+      const Wrapper = createTestWrapper({ recipe, disabled: true });
+      render(<Wrapper initialEntries={["/recipes/recipe-1/edit"]} />);
 
       // Step card controls should be disabled
-      const stepCard = screen.getByLabelText(/step 1/i)
-      expect(within(stepCard).getByRole('button', { name: /save/i })).toBeDisabled()
-      expect(within(stepCard).getByRole('button', { name: /remove/i })).toBeDisabled()
-    })
-  })
+      const stepCard = screen.getByLabelText(/step 1/i);
+      expect(
+        within(stepCard).getByRole("button", { name: /save/i }),
+      ).toBeDisabled();
+      expect(
+        within(stepCard).getByRole("button", { name: /remove/i }),
+      ).toBeDisabled();
+    });
+  });
 
-  describe('recipe data completeness', () => {
-    it('recipe data includes all steps with their ingredients', async () => {
-      const onSave = vi.fn()
+  describe("recipe data completeness", () => {
+    it("recipe data includes all steps with their ingredients", async () => {
+      const onSave = vi.fn();
       const recipe = createTestRecipe({
-        title: 'Recipe with Ingredients',
+        title: "Recipe with Ingredients",
         steps: [
           createTestStep({
-            id: 'step-1',
+            id: "step-1",
             stepNum: 1,
-            description: 'Mix dry ingredients',
+            description: "Mix dry ingredients",
             ingredients: [
-              { quantity: 2, unit: 'cups', ingredientName: 'flour' },
-              { quantity: 1, unit: 'tsp', ingredientName: 'salt' },
+              { quantity: 2, unit: "cups", ingredientName: "flour" },
+              { quantity: 1, unit: "tsp", ingredientName: "salt" },
             ],
           }),
           createTestStep({
-            id: 'step-2',
+            id: "step-2",
             stepNum: 2,
-            description: 'Add wet ingredients',
-            ingredients: [
-              { quantity: 1, unit: 'cup', ingredientName: 'milk' },
-            ],
+            description: "Add wet ingredients",
+            ingredients: [{ quantity: 1, unit: "cup", ingredientName: "milk" }],
           }),
         ],
-      })
-      const Wrapper = createTestWrapper({ recipe, onSave })
-      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+      });
+      const Wrapper = createTestWrapper({ recipe, onSave });
+      render(<Wrapper initialEntries={["/recipes/recipe-1/edit"]} />);
 
       // Click save
-      await userEvent.click(screen.getByRole('button', { name: /save recipe/i }))
+      await userEvent.click(
+        screen.getByRole("button", { name: /create recipe/i }),
+      );
 
       // onSave should include all steps with ingredients
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({
           steps: expect.arrayContaining([
             expect.objectContaining({
-              description: 'Mix dry ingredients',
+              description: "Mix dry ingredients",
               ingredients: expect.arrayContaining([
-                expect.objectContaining({ ingredientName: 'flour' }),
-                expect.objectContaining({ ingredientName: 'salt' }),
+                expect.objectContaining({ ingredientName: "flour" }),
+                expect.objectContaining({ ingredientName: "salt" }),
               ]),
             }),
             expect.objectContaining({
-              description: 'Add wet ingredients',
+              description: "Add wet ingredients",
               ingredients: expect.arrayContaining([
-                expect.objectContaining({ ingredientName: 'milk' }),
+                expect.objectContaining({ ingredientName: "milk" }),
               ]),
             }),
           ]),
-        })
-      )
-    })
-  })
+        }),
+      );
+    });
+  });
 
-  describe('progressive disclosure', () => {
+  describe("progressive disclosure", () => {
     it('shows "Add first step" prompt when no steps', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Should show prompt to add first step
-      expect(screen.getByText(/add your first step/i)).toBeInTheDocument()
-    })
+      expect(screen.getByText(/add your first step/i)).toBeInTheDocument();
+    });
 
     it('hides "Add first step" prompt after adding a step', async () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Initially shows prompt
-      expect(screen.getByText(/add your first step/i)).toBeInTheDocument()
+      expect(screen.getByText(/add your first step/i)).toBeInTheDocument();
 
       // Add a step
-      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
+      await userEvent.click(screen.getByRole("button", { name: /add step/i }));
 
       // Prompt should be hidden
-      expect(screen.queryByText(/add your first step/i)).not.toBeInTheDocument()
-    })
-  })
+      expect(
+        screen.queryByText(/add your first step/i),
+      ).not.toBeInTheDocument();
+    });
+  });
 
-  describe('form state management', () => {
-    it('tracks form changes locally without calling onSave', async () => {
-      const onSave = vi.fn()
-      const Wrapper = createTestWrapper({ onSave })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("form state management", () => {
+    it("tracks form changes locally without calling onSave", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Type in title
-      await userEvent.type(screen.getByLabelText(/title/i), 'New Recipe')
+      await userEvent.type(screen.getByLabelText(/title/i), "New Recipe");
 
       // Add a step
-      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
+      await userEvent.click(screen.getByRole("button", { name: /add step/i }));
 
       // onSave should not have been called yet
-      expect(onSave).not.toHaveBeenCalled()
-    })
+      expect(onSave).not.toHaveBeenCalled();
+    });
 
-    it('preserves step data when adding new steps', async () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("preserves step data when adding new steps", async () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Add first step and fill it
-      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
-      const firstStepCard = screen.getByLabelText(/step 1/i)
-      const firstTextarea = within(firstStepCard).getByLabelText(/instructions/i)
-      await userEvent.type(firstTextarea, 'First step instructions')
+      await userEvent.click(screen.getByRole("button", { name: /add step/i }));
+      const firstStepCard = screen.getByLabelText(/step 1/i);
+      const firstTextarea =
+        within(firstStepCard).getByLabelText(/instructions/i);
+      await userEvent.type(firstTextarea, "First step instructions");
 
       // Save first step
-      await userEvent.click(within(firstStepCard).getByRole('button', { name: /save/i }))
+      await userEvent.click(
+        within(firstStepCard).getByRole("button", { name: /save/i }),
+      );
 
       // Add second step
-      await userEvent.click(screen.getByRole('button', { name: /add step/i }))
+      await userEvent.click(screen.getByRole("button", { name: /add step/i }));
 
       // First step should still have its content
-      expect(firstTextarea).toHaveValue('First step instructions')
+      expect(firstTextarea).toHaveValue("First step instructions");
 
       // Second step should exist
-      expect(screen.getByLabelText(/step 2/i)).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByLabelText(/step 2/i)).toBeInTheDocument();
+    });
+  });
 
-    it('has proper heading structure', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("accessibility", () => {
+    it("has proper heading structure", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Should have a main heading for the builder
-      expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
-    })
+      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    });
 
-    it('form sections are properly labeled', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("form sections are properly labeled", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Recipe details section should be identifiable
-      expect(screen.getByRole('group', { name: /recipe details/i })).toBeInTheDocument()
+      expect(
+        screen.getByRole("group", { name: /recipe details/i }),
+      ).toBeInTheDocument();
 
       // Steps section should be identifiable
-      expect(screen.getByRole('region', { name: /steps/i })).toBeInTheDocument()
-    })
-  })
+      expect(
+        screen.getByRole("region", { name: /steps/i }),
+      ).toBeInTheDocument();
+    });
+  });
 
-  describe('keyboard navigation', () => {
-    it('tab order follows logical flow: title → description → servings → add step → save', async () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+  describe("keyboard navigation", () => {
+    it("tab order follows logical flow: title → description → servings → add step → save", async () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Start tabbing through the form
-      await userEvent.tab()
+      await userEvent.tab();
       // First tab should focus on title input
-      expect(screen.getByLabelText(/title/i)).toHaveFocus()
+      expect(screen.getByLabelText(/title/i)).toHaveFocus();
 
-      await userEvent.tab()
+      await userEvent.tab();
       // Second tab should focus on description input
-      expect(screen.getByLabelText(/description/i)).toHaveFocus()
+      expect(screen.getByLabelText(/description/i)).toHaveFocus();
 
-      await userEvent.tab()
+      await userEvent.tab();
       // Third tab should focus on servings input
-      expect(screen.getByLabelText(/servings/i)).toHaveFocus()
+      expect(screen.getByLabelText(/servings/i)).toHaveFocus();
 
-      await userEvent.tab()
+      await userEvent.tab();
       // Fourth tab should focus on Add Step button
-      expect(screen.getByRole('button', { name: /add step/i })).toHaveFocus()
+      expect(screen.getByRole("button", { name: /add step/i })).toHaveFocus();
 
-      await userEvent.tab()
+      await userEvent.tab();
       // Fifth tab should focus on Cancel button
-      expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus()
+      expect(screen.getByRole("button", { name: /cancel/i })).toHaveFocus();
 
-      await userEvent.tab()
-      // Sixth tab should focus on Save Recipe button
-      expect(screen.getByRole('button', { name: /save recipe/i })).toHaveFocus()
-    })
+      await userEvent.tab();
+      // Sixth tab should focus on create recipe button
+      expect(
+        screen.getByRole("button", { name: /create recipe/i }),
+      ).toHaveFocus();
+    });
 
-    it('all form inputs are keyboard accessible (no tabindex=-1)', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("all form inputs are keyboard accessible (no tabindex=-1)", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // All inputs should not have tabindex=-1
-      const titleInput = screen.getByLabelText(/title/i)
-      const descriptionInput = screen.getByLabelText(/description/i)
-      const servingsInput = screen.getByLabelText(/servings/i)
+      const titleInput = screen.getByLabelText(/title/i);
+      const descriptionInput = screen.getByLabelText(/description/i);
+      const servingsInput = screen.getByLabelText(/servings/i);
 
-      expect(titleInput).not.toHaveAttribute('tabindex', '-1')
-      expect(descriptionInput).not.toHaveAttribute('tabindex', '-1')
-      expect(servingsInput).not.toHaveAttribute('tabindex', '-1')
-    })
+      expect(titleInput).not.toHaveAttribute("tabindex", "-1");
+      expect(descriptionInput).not.toHaveAttribute("tabindex", "-1");
+      expect(servingsInput).not.toHaveAttribute("tabindex", "-1");
+    });
 
-    it('all buttons are keyboard accessible (no tabindex=-1)', () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("all buttons are keyboard accessible (no tabindex=-1)", () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
-      const addStepButton = screen.getByRole('button', { name: /add step/i })
-      const cancelButton = screen.getByRole('button', { name: /cancel/i })
-      const saveButton = screen.getByRole('button', { name: /save recipe/i })
+      const addStepButton = screen.getByRole("button", { name: /add step/i });
+      const cancelButton = screen.getByRole("button", { name: /cancel/i });
+      const saveButton = screen.getByRole("button", { name: /create recipe/i });
 
-      expect(addStepButton).not.toHaveAttribute('tabindex', '-1')
-      expect(cancelButton).not.toHaveAttribute('tabindex', '-1')
-      expect(saveButton).not.toHaveAttribute('tabindex', '-1')
-    })
+      expect(addStepButton).not.toHaveAttribute("tabindex", "-1");
+      expect(cancelButton).not.toHaveAttribute("tabindex", "-1");
+      expect(saveButton).not.toHaveAttribute("tabindex", "-1");
+    });
 
-    it('can navigate and interact with step cards using keyboard after adding a step', async () => {
-      const Wrapper = createTestWrapper()
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("can navigate and interact with step cards using keyboard after adding a step", async () => {
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Tab to Add Step button
-      await userEvent.tab()
-      await userEvent.tab()
-      await userEvent.tab()
-      await userEvent.tab()
-      expect(screen.getByRole('button', { name: /add step/i })).toHaveFocus()
+      await userEvent.tab();
+      await userEvent.tab();
+      await userEvent.tab();
+      await userEvent.tab();
+      expect(screen.getByRole("button", { name: /add step/i })).toHaveFocus();
 
       // Press Enter to add a step
-      await userEvent.keyboard('{Enter}')
+      await userEvent.keyboard("{Enter}");
 
       // A step card should now exist
-      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument();
 
       // Continue tabbing - should reach the step card's instructions textarea
-      await userEvent.tab()
+      await userEvent.tab();
       // Should be in the step card now - verify we can interact with elements
-      const stepCard = screen.getByLabelText(/step 1/i)
-      const instructionsTextarea = within(stepCard).getByLabelText(/instructions/i)
+      const stepCard = screen.getByLabelText(/step 1/i);
+      const instructionsTextarea =
+        within(stepCard).getByLabelText(/instructions/i);
       // The instructions textarea should eventually receive focus through tabbing
-      expect(instructionsTextarea).not.toHaveAttribute('tabindex', '-1')
-    })
+      expect(instructionsTextarea).not.toHaveAttribute("tabindex", "-1");
+    });
 
-    it('Enter key on Save Recipe button triggers save', async () => {
-      const onSave = vi.fn()
-      const Wrapper = createTestWrapper({ onSave })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("Enter key on create recipe button triggers save", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Fill in title (required for save)
-      await userEvent.type(screen.getByLabelText(/title/i), 'My Recipe')
+      await userEvent.type(screen.getByLabelText(/title/i), "My Recipe");
 
       // Focus the save button and press Enter (wrapped in act to avoid warnings)
       await act(async () => {
-        screen.getByRole('button', { name: /save recipe/i }).focus()
-      })
-      await userEvent.keyboard('{Enter}')
+        screen.getByRole("button", { name: /create recipe/i }).focus();
+      });
+      await userEvent.keyboard("{Enter}");
 
-      expect(onSave).toHaveBeenCalledTimes(1)
-    })
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
 
-    it('Enter key on Cancel button triggers cancel', async () => {
-      const onCancel = vi.fn()
-      const Wrapper = createTestWrapper({ onCancel })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("Enter key on Cancel button triggers cancel", async () => {
+      const onCancel = vi.fn();
+      const Wrapper = createTestWrapper({ onCancel });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Focus the cancel button and press Enter (wrapped in act to avoid warnings)
       await act(async () => {
-        screen.getByRole('button', { name: /cancel/i }).focus()
-      })
-      await userEvent.keyboard('{Enter}')
+        screen.getByRole("button", { name: /cancel/i }).focus();
+      });
+      await userEvent.keyboard("{Enter}");
 
-      expect(onCancel).toHaveBeenCalledTimes(1)
-    })
+      expect(onCancel).toHaveBeenCalledTimes(1);
+    });
 
-    it('Space key on Save Recipe button triggers save', async () => {
-      const onSave = vi.fn()
-      const Wrapper = createTestWrapper({ onSave })
-      render(<Wrapper initialEntries={['/recipes/new']} />)
+    it("Space key on create recipe button triggers save", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
 
       // Fill in title (required for save)
-      await userEvent.type(screen.getByLabelText(/title/i), 'My Recipe')
+      await userEvent.type(screen.getByLabelText(/title/i), "My Recipe");
 
       // Focus the save button and press Space (wrapped in act to avoid warnings)
       await act(async () => {
-        screen.getByRole('button', { name: /save recipe/i }).focus()
-      })
-      await userEvent.keyboard(' ')
+        screen.getByRole("button", { name: /create recipe/i }).focus();
+      });
+      await userEvent.keyboard(" ");
 
-      expect(onSave).toHaveBeenCalledTimes(1)
-    })
-  })
-})
-
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+  });
+});
