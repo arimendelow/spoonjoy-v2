@@ -61,7 +61,7 @@ describe("step-output-use-mutations", () => {
       expect(beforeCount).toBe(2);
 
       // Delete all step output uses for step 3
-      await deleteExistingStepOutputUses(recipeId, 3);
+      await deleteExistingStepOutputUses(db, recipeId, 3);
 
       // Verify all records were deleted
       const afterCount = await db.stepOutputUse.count({
@@ -91,7 +91,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Delete and verify count returned
-      const result = await deleteExistingStepOutputUses(recipeId, 3);
+      const result = await deleteExistingStepOutputUses(db, recipeId, 3);
 
       expect(result.count).toBe(2);
     });
@@ -103,7 +103,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Delete should work without errors and return count of 0
-      const result = await deleteExistingStepOutputUses(recipeId, 1);
+      const result = await deleteExistingStepOutputUses(db, recipeId, 1);
 
       expect(result.count).toBe(0);
     });
@@ -139,7 +139,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Delete only step 3's uses
-      await deleteExistingStepOutputUses(recipeId, 3);
+      await deleteExistingStepOutputUses(db, recipeId, 3);
 
       // Verify step 2 still has its record
       const step2Uses = await db.stepOutputUse.count({
@@ -195,7 +195,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Delete step 2's uses in first recipe only
-      await deleteExistingStepOutputUses(recipeId, 2);
+      await deleteExistingStepOutputUses(db, recipeId, 2);
 
       // Verify first recipe's record is gone
       const firstRecipeUses = await db.stepOutputUse.count({
@@ -224,7 +224,7 @@ describe("step-output-use-mutations", () => {
         data: { recipeId, outputStepNum: 1, inputStepNum: 2 },
       });
 
-      const result = await deleteExistingStepOutputUses(recipeId, 2);
+      const result = await deleteExistingStepOutputUses(db, recipeId, 2);
 
       expect(result.count).toBe(1);
 
@@ -254,7 +254,7 @@ describe("step-output-use-mutations", () => {
         data: { recipeId, outputStepNum: 4, inputStepNum: 5 },
       });
 
-      const result = await deleteExistingStepOutputUses(recipeId, 5);
+      const result = await deleteExistingStepOutputUses(db, recipeId, 5);
 
       expect(result.count).toBe(4);
 
@@ -279,7 +279,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Step 3 uses outputs from step 1 and step 2
-      const result = await createStepOutputUses(recipeId, 3, [1, 2]);
+      const result = await createStepOutputUses(db, recipeId, 3, [1, 2]);
 
       expect(result.count).toBe(2);
 
@@ -301,7 +301,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Create with empty array (no dependencies)
-      const result = await createStepOutputUses(recipeId, 1, []);
+      const result = await createStepOutputUses(db, recipeId, 1, []);
 
       expect(result.count).toBe(0);
 
@@ -322,7 +322,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Step 2 uses only step 1's output
-      const result = await createStepOutputUses(recipeId, 2, [1]);
+      const result = await createStepOutputUses(db, recipeId, 2, [1]);
 
       expect(result.count).toBe(1);
 
@@ -344,7 +344,7 @@ describe("step-output-use-mutations", () => {
       }
 
       // Step 4 uses outputs from steps 1 and 3
-      await createStepOutputUses(recipeId, 4, [1, 3]);
+      await createStepOutputUses(db, recipeId, 4, [1, 3]);
 
       const records = await db.stepOutputUse.findMany({
         where: { recipeId, inputStepNum: 4 },
@@ -366,7 +366,7 @@ describe("step-output-use-mutations", () => {
       }
 
       // Step 5 uses outputs from steps 1, 2, 3, and 4
-      const result = await createStepOutputUses(recipeId, 5, [1, 2, 3, 4]);
+      const result = await createStepOutputUses(db, recipeId, 5, [1, 2, 3, 4]);
 
       expect(result.count).toBe(4);
 
@@ -393,7 +393,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Create new records for step 4
-      await createStepOutputUses(recipeId, 4, [1, 3]);
+      await createStepOutputUses(db, recipeId, 4, [1, 3]);
 
       // Verify step 2's record is still there
       const step2Uses = await db.stepOutputUse.count({
@@ -438,7 +438,7 @@ describe("step-output-use-mutations", () => {
       });
 
       // Create record for first recipe
-      await createStepOutputUses(recipeId, 2, [1]);
+      await createStepOutputUses(db, recipeId, 2, [1]);
 
       // Verify other recipe's record is still there
       const otherRecipeUses = await db.stepOutputUse.count({
@@ -462,7 +462,7 @@ describe("step-output-use-mutations", () => {
       }
 
       // Step 6 uses outputs from steps 1, 3, and 5 (non-consecutive)
-      const result = await createStepOutputUses(recipeId, 6, [1, 3, 5]);
+      const result = await createStepOutputUses(db, recipeId, 6, [1, 3, 5]);
 
       expect(result.count).toBe(3);
 

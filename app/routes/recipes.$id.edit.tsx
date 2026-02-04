@@ -107,7 +107,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         const targetStepNum = direction === "up" ? step.stepNum - 1 : step.stepNum + 1;
 
         // Validate that reordering won't break dependencies
-        const validationResult = await validateStepReorderComplete(id, step.stepNum, targetStepNum);
+        const validationResult = await validateStepReorderComplete(database, id, step.stepNum, targetStepNum);
         if (!validationResult.valid) {
           return data({ errors: { reorder: validationResult.error } }, { status: 400 });
         }

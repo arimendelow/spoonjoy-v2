@@ -1,3 +1,4 @@
+import type { PrismaClient } from "@prisma/client";
 import {
   checkStepUsage,
   loadStepDependencies,
@@ -19,6 +20,7 @@ import type { ValidationResult } from "~/lib/validation";
  * @returns ValidationResult - { valid: true } if reorder is allowed, { valid: false, error: string } if not
  */
 export async function validateStepReorder(
+  db: PrismaClient,
   recipeId: string,
   currentStepNum: number,
   newPosition: number
@@ -29,7 +31,7 @@ export async function validateStepReorder(
   }
 
   // Get all steps that use this step's output (incoming dependencies)
-  const dependentSteps = await checkStepUsage(recipeId, currentStepNum);
+  const dependentSteps = await checkStepUsage(db, recipeId, currentStepNum);
 
   if (dependentSteps.length === 0) {
     return { valid: true };
@@ -100,6 +102,7 @@ function formatBlockingStepsError(
  * @returns ValidationResult - { valid: true } if reorder is allowed, { valid: false, error: string } if not
  */
 export async function validateStepReorderOutgoing(
+  db: PrismaClient,
   recipeId: string,
   currentStepNum: number,
   newPosition: number
@@ -110,7 +113,7 @@ export async function validateStepReorderOutgoing(
   }
 
   // Get all steps that this step uses (outgoing dependencies)
-  const dependencies = await loadStepDependencies(recipeId, currentStepNum);
+  const dependencies = await loadStepDependencies(db, recipeId, currentStepNum);
 
   if (dependencies.length === 0) {
     return { valid: true };
@@ -206,14 +209,15 @@ export function combineValidationResults(
  * @returns ValidationResult - { valid: true } if reorder is allowed, { valid: false, error: string } if not
  */
 export async function validateStepReorderComplete(
+  db: PrismaClient,
   recipeId: string,
   currentStepNum: number,
   newPosition: number
 ): Promise<ValidationResult> {
   // Run both validations
   const [incomingResult, outgoingResult] = await Promise.all([
-    validateStepReorder(recipeId, currentStepNum, newPosition),
-    validateStepReorderOutgoing(recipeId, currentStepNum, newPosition),
+    validateStepReorder(db, recipeId, currentStepNum, newPosition),
+    validateStepReorderOutgoing(db, recipeId, currentStepNum, newPosition),
   ]);
 
   return combineValidationResults(incomingResult, outgoingResult);

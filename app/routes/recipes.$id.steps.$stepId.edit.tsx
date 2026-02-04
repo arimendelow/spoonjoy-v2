@@ -343,9 +343,9 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     });
 
     // Update step output uses: delete existing and create new
-    await deleteExistingStepOutputUses(id, step.stepNum);
+    await deleteExistingStepOutputUses(database, id, step.stepNum);
     if (usesSteps.length > 0) {
-      await createStepOutputUses(id, step.stepNum, usesSteps);
+      await createStepOutputUses(database, id, step.stepNum, usesSteps);
     }
 
     return redirect(`/recipes/${id}/edit`);

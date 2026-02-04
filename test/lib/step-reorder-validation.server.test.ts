@@ -65,7 +65,7 @@ describe("validateStepReorder", () => {
       });
 
       // Moving step 1 to position 3 should be valid since nothing uses step 1
-      const result = await validateStepReorder(testRecipeId, 1, 3);
+      const result = await validateStepReorder(db, testRecipeId, 1, 3);
 
       expect(result).toEqual({ valid: true });
     });
@@ -111,7 +111,7 @@ describe("validateStepReorder", () => {
       });
 
       // Moving step 1 to position 3 is OK - step 4 (the dependent) is still after position 3
-      const result = await validateStepReorder(testRecipeId, 1, 3);
+      const result = await validateStepReorder(db, testRecipeId, 1, 3);
 
       expect(result).toEqual({ valid: true });
     });
@@ -151,7 +151,7 @@ describe("validateStepReorder", () => {
       });
 
       // Moving step 2 backward to position 1 is OK - step 3 still comes after
-      const result = await validateStepReorder(testRecipeId, 2, 1);
+      const result = await validateStepReorder(db, testRecipeId, 2, 1);
 
       expect(result).toEqual({ valid: true });
     });
@@ -185,7 +185,7 @@ describe("validateStepReorder", () => {
       });
 
       // "Moving" step 1 to position 1 (no change) is always valid
-      const result = await validateStepReorder(testRecipeId, 1, 1);
+      const result = await validateStepReorder(db, testRecipeId, 1, 1);
 
       expect(result).toEqual({ valid: true });
     });
@@ -228,7 +228,7 @@ describe("validateStepReorder", () => {
 
       // Moving step 1 to position 3 would violate the dependency
       // Step 2 uses step 1, so step 1 cannot be after step 2
-      const result = await validateStepReorder(testRecipeId, 1, 3);
+      const result = await validateStepReorder(db, testRecipeId, 1, 3);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -278,7 +278,7 @@ describe("validateStepReorder", () => {
       });
 
       // Moving step 1 to position 4 would pass both step 2 and step 3
-      const result = await validateStepReorder(testRecipeId, 1, 4);
+      const result = await validateStepReorder(db, testRecipeId, 1, 4);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -335,7 +335,7 @@ describe("validateStepReorder", () => {
       });
 
       // Moving step 1 to position 5 would pass steps 2, 3, and 4
-      const result = await validateStepReorder(testRecipeId, 1, 5);
+      const result = await validateStepReorder(db, testRecipeId, 1, 5);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -397,7 +397,7 @@ describe("validateStepReorder", () => {
       // Actually: when moving from 1 to 3, steps 2 and 3 shift down
       // The blocking steps are those whose current position is <= newPosition but > currentPosition
       // i.e., dependents at positions 2 and 3 would be passed over
-      const result = await validateStepReorder(testRecipeId, 1, 3);
+      const result = await validateStepReorder(db, testRecipeId, 1, 3);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -422,13 +422,13 @@ describe("validateStepReorder", () => {
       });
 
       // Validating reorder of non-existent step - should be valid (no dependencies exist)
-      const result = await validateStepReorder(testRecipeId, 99, 1);
+      const result = await validateStepReorder(db, testRecipeId, 99, 1);
 
       expect(result).toEqual({ valid: true });
     });
 
     it("should return valid for non-existent recipe", async () => {
-      const result = await validateStepReorder("non-existent-recipe-id", 1, 2);
+      const result = await validateStepReorder(db, "non-existent-recipe-id", 1, 2);
 
       expect(result).toEqual({ valid: true });
     });
@@ -489,7 +489,7 @@ describe("validateStepReorder", () => {
       });
 
       // Test recipe's step 1 should be movable (no dependents in this recipe)
-      const result = await validateStepReorder(testRecipeId, 1, 3);
+      const result = await validateStepReorder(db, testRecipeId, 1, 3);
 
       expect(result).toEqual({ valid: true });
     });
@@ -541,7 +541,7 @@ describe("validateStepReorder", () => {
       });
 
       // Moving step 1 to position 5
-      const result = await validateStepReorder(testRecipeId, 1, 5);
+      const result = await validateStepReorder(db, testRecipeId, 1, 5);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -593,7 +593,7 @@ describe("validateStepReorder", () => {
       });
 
       // Moving step 2 to position 4 would pass step 3
-      const result = await validateStepReorder(testRecipeId, 2, 4);
+      const result = await validateStepReorder(db, testRecipeId, 2, 4);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -656,7 +656,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Moving step 3 to position 1 should be valid since step 3 uses no previous steps
-      const result = await validateStepReorderOutgoing(testRecipeId, 3, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 3, 1);
 
       expect(result).toEqual({ valid: true });
     });
@@ -702,7 +702,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Moving step 4 to position 2 is OK - step 1 (the dependency) is still before position 2
-      const result = await validateStepReorderOutgoing(testRecipeId, 4, 2);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 4, 2);
 
       expect(result).toEqual({ valid: true });
     });
@@ -742,7 +742,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Moving step 2 forward to position 3 is OK - step 1 still comes before
-      const result = await validateStepReorderOutgoing(testRecipeId, 2, 3);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 2, 3);
 
       expect(result).toEqual({ valid: true });
     });
@@ -776,7 +776,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // "Moving" step 2 to position 2 (no change) is always valid
-      const result = await validateStepReorderOutgoing(testRecipeId, 2, 2);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 2, 2);
 
       expect(result).toEqual({ valid: true });
     });
@@ -819,7 +819,7 @@ describe("validateStepReorderOutgoing", () => {
 
       // Moving step 3 to position 1 would violate the dependency
       // Step 3 uses step 2, so step 3 cannot be before step 2
-      const result = await validateStepReorderOutgoing(testRecipeId, 3, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 3, 1);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -869,7 +869,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Moving step 4 to position 1 would violate both dependencies
-      const result = await validateStepReorderOutgoing(testRecipeId, 4, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 4, 1);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -926,7 +926,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Moving step 5 to position 1 would violate all three dependencies
-      const result = await validateStepReorderOutgoing(testRecipeId, 5, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 5, 1);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -985,7 +985,7 @@ describe("validateStepReorderOutgoing", () => {
 
       // Moving step 5 to position 3 only violates steps 3 and 4
       // Step 1 and 2 would still be before position 3
-      const result = await validateStepReorderOutgoing(testRecipeId, 5, 3);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 5, 3);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -1010,13 +1010,14 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Validating reorder of non-existent step - should be valid (no dependencies exist)
-      const result = await validateStepReorderOutgoing(testRecipeId, 99, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 99, 1);
 
       expect(result).toEqual({ valid: true });
     });
 
     it("should return valid for non-existent recipe", async () => {
       const result = await validateStepReorderOutgoing(
+        db,
         "non-existent-recipe-id",
         3,
         1
@@ -1087,7 +1088,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Test recipe's step 3 should be movable to position 1 (no dependencies in this recipe)
-      const result = await validateStepReorderOutgoing(testRecipeId, 3, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 3, 1);
 
       expect(result).toEqual({ valid: true });
     });
@@ -1139,7 +1140,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Moving step 5 to position 1
-      const result = await validateStepReorderOutgoing(testRecipeId, 5, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 5, 1);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -1191,7 +1192,7 @@ describe("validateStepReorderOutgoing", () => {
       });
 
       // Moving step 3 to position 1 would violate the dependency (step 2 would be after)
-      const result = await validateStepReorderOutgoing(testRecipeId, 3, 1);
+      const result = await validateStepReorderOutgoing(db, testRecipeId, 3, 1);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -1254,7 +1255,7 @@ describe("validateStepReorderComplete", () => {
       });
 
       // Moving step 2 to position 1 should be valid (no dependencies either direction)
-      const result = await validateStepReorderComplete(testRecipeId, 2, 1);
+      const result = await validateStepReorderComplete(db, testRecipeId, 2, 1);
 
       expect(result).toEqual({ valid: true });
     });
@@ -1288,7 +1289,7 @@ describe("validateStepReorderComplete", () => {
       });
 
       // "Moving" step 2 to position 2 (no change) is always valid
-      const result = await validateStepReorderComplete(testRecipeId, 2, 2);
+      const result = await validateStepReorderComplete(db, testRecipeId, 2, 2);
 
       expect(result).toEqual({ valid: true });
     });
@@ -1334,7 +1335,7 @@ describe("validateStepReorderComplete", () => {
       });
 
       // Moving step 1 to position 3 is OK - step 4 is still after position 3
-      const result = await validateStepReorderComplete(testRecipeId, 1, 3);
+      const result = await validateStepReorderComplete(db, testRecipeId, 1, 3);
 
       expect(result).toEqual({ valid: true });
     });
@@ -1380,7 +1381,7 @@ describe("validateStepReorderComplete", () => {
       });
 
       // Moving step 4 to position 2 is OK - step 1 is still before position 2
-      const result = await validateStepReorderComplete(testRecipeId, 4, 2);
+      const result = await validateStepReorderComplete(db, testRecipeId, 4, 2);
 
       expect(result).toEqual({ valid: true });
     });
@@ -1422,7 +1423,7 @@ describe("validateStepReorderComplete", () => {
       });
 
       // Moving step 1 to position 3 would violate incoming dependency
-      const result = await validateStepReorderComplete(testRecipeId, 1, 3);
+      const result = await validateStepReorderComplete(db, testRecipeId, 1, 3);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -1469,7 +1470,7 @@ describe("validateStepReorderComplete", () => {
       });
 
       // Moving step 3 to position 1 would violate outgoing dependency
-      const result = await validateStepReorderComplete(testRecipeId, 3, 1);
+      const result = await validateStepReorderComplete(db, testRecipeId, 3, 1);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -1605,7 +1606,7 @@ describe("validateStepReorderComplete", () => {
       // I'll write the test assuming the combined function modifies behavior
       // to check both directions regardless of move direction.
       // This would mean a step with both dependencies is essentially "locked".
-      const result = await validateStepReorderComplete(testRecipeId, 3, 5);
+      const result = await validateStepReorderComplete(db, testRecipeId, 3, 5);
 
       // Moving forward from 3 to 5:
       // - Incoming check: step 4 uses step 3, so moving to 5 passes step 4 → BLOCKED
@@ -1681,6 +1682,7 @@ describe("validateStepReorderComplete", () => {
       // To get BOTH to fail, we need validateStepReorderComplete to not use
       // the direction-based early exit. Let me test moving step 3 to 1 first.
       const resultBackward = await validateStepReorderComplete(
+        db,
         testRecipeId,
         3,
         1
@@ -1696,6 +1698,7 @@ describe("validateStepReorderComplete", () => {
 
       // Now test forward move
       const resultForward = await validateStepReorderComplete(
+        db,
         testRecipeId,
         3,
         5
@@ -1829,7 +1832,7 @@ describe("validateStepReorderComplete", () => {
       // For now, I'll test that the function correctly returns single errors
       // and document that combined errors can't happen with valid data.
 
-      const result = await validateStepReorderComplete(testRecipeId, 2, 4);
+      const result = await validateStepReorderComplete(db, testRecipeId, 2, 4);
 
       expect(result.valid).toBe(false);
       if (!result.valid) {
@@ -1853,13 +1856,14 @@ describe("validateStepReorderComplete", () => {
       });
 
       // Validating reorder of non-existent step - should be valid (no dependencies exist)
-      const result = await validateStepReorderComplete(testRecipeId, 99, 1);
+      const result = await validateStepReorderComplete(db, testRecipeId, 99, 1);
 
       expect(result).toEqual({ valid: true });
     });
 
     it("should return valid for non-existent recipe", async () => {
       const result = await validateStepReorderComplete(
+        db,
         "non-existent-recipe-id",
         1,
         2
@@ -1914,6 +1918,7 @@ describe("validateStepReorderComplete", () => {
 
       // Moving step 2 backward to 1
       const backwardResult = await validateStepReorderComplete(
+        db,
         testRecipeId,
         2,
         1
@@ -1927,6 +1932,7 @@ describe("validateStepReorderComplete", () => {
 
       // Moving step 2 forward to 3
       const forwardResult = await validateStepReorderComplete(
+        db,
         testRecipeId,
         2,
         3

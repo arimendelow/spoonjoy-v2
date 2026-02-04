@@ -159,7 +159,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
     // Create StepOutputUse records if any steps were selected
     if (usesSteps.length > 0) {
-      await createStepOutputUses(id, nextStepNum, usesSteps);
+      await createStepOutputUses(database, id, nextStepNum, usesSteps);
     }
 
     return redirect(`/recipes/${id}/steps/${step.id}/edit`);
