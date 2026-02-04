@@ -24,7 +24,7 @@ test.describe('Auth Flow', () => {
     
     // Should redirect to recipes
     await expect(page).toHaveURL('/recipes');
-    await expect(page.getByText(/welcome back/i).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: /my recipes/i }).first()).toBeVisible();
   });
 
   test('login with invalid credentials shows error', async ({ page }) => {

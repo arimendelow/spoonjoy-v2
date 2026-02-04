@@ -17,8 +17,8 @@ setup('authenticate', async ({ page }) => {
   // Wait for redirect to recipes page
   await page.waitForURL('/recipes');
   
-  // Verify we're logged in (use first() for responsive layouts)
-  await expect(page.getByText(/welcome back/i).first()).toBeVisible();
+  // Verify we're logged in by checking we're on the recipes page
+  await expect(page.getByRole('heading', { name: /my recipes/i }).first()).toBeVisible();
   
   // Save storage state
   await page.context().storageState({ path: authFile });
