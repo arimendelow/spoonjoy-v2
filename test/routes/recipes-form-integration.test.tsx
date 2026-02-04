@@ -8,6 +8,7 @@ import { loader as newRecipeLoader, action as newRecipeAction } from "~/routes/r
 import NewRecipe from "~/routes/recipes.new";
 import { loader as editRecipeLoader, action as editRecipeAction } from "~/routes/recipes.$id.edit";
 import EditRecipe from "~/routes/recipes.$id.edit";
+import RecipesLayout from "~/routes/recipes";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
