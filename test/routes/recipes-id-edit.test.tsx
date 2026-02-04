@@ -772,7 +772,9 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      expect(await screen.findByRole("heading", { name: "Edit Recipe" })).toBeInTheDocument();
+      // Multiple "Edit Recipe" headings exist (visible + sr-only)
+      const headings = await screen.findAllByRole("heading", { name: "Edit Recipe" });
+      expect(headings.length).toBeGreaterThan(0);
       expect(screen.getByRole("link", { name: "← Back to recipe" })).toHaveAttribute("href", "/recipes/recipe-1");
       expect(screen.getByLabelText(/Title/)).toHaveValue("Test Recipe");
       expect(screen.getByLabelText(/Description/)).toHaveValue("A delicious dish");
@@ -805,7 +807,7 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      expect(await screen.findByText("No steps added yet")).toBeInTheDocument();
+      expect(await screen.findByText("No steps yet. Add your first step below.")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "+ Add Step" })).toHaveAttribute("href", "/recipes/recipe-1/steps/new");
     });
 
@@ -870,12 +872,17 @@ describe("Recipes $id Edit Route", () => {
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
       expect(await screen.findByRole("heading", { name: "Recipe Steps" })).toBeInTheDocument();
+      // Step title is shown in the card header
       expect(screen.getByText("Prep the Ingredients")).toBeInTheDocument();
-      expect(screen.getByText("Chop all vegetables")).toBeInTheDocument();
-      expect(screen.getByText("2 ingredients")).toBeInTheDocument();
-      expect(screen.getByText("Cook everything together")).toBeInTheDocument();
-      // Two edit links for two steps
-      expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
+      // Step description appears in the instructions textarea (step has both title and description)
+      const chopTextElements = screen.getAllByDisplayValue("Chop all vegetables");
+      expect(chopTextElements.length).toBeGreaterThan(0);
+      // Second step description appears in header preview (no title)
+      const cookElements = await screen.findAllByText("Cook everything together");
+      expect(cookElements.length).toBeGreaterThan(0);
+      // Each step has a Save button (inline editing) - matches exactly "Save", not "Save Recipe"
+      const saveButtons = screen.getAllByRole("button", { name: /^save$/i });
+      expect(saveButtons.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should render singular ingredient count for single ingredient", async () => {
@@ -917,7 +924,12 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      expect(await screen.findByText("1 ingredient")).toBeInTheDocument();
+      // Wait for step to render by looking for the step content
+      const mixFlourElements = await screen.findAllByText("Mix the flour");
+      expect(mixFlourElements.length).toBeGreaterThan(0);
+      // Ingredients are shown in ParsedIngredientList, not as a count
+      // The ingredient name should be visible in the list
+      expect(screen.getByText("flour")).toBeInTheDocument();
     });
 
     it("should not show ingredient count when step has no ingredients", async () => {
@@ -959,8 +971,11 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      await screen.findByText("Just instructions");
-      expect(screen.queryByText(/ingredient/)).not.toBeInTheDocument();
+      // Wait for step to render - text appears in both header and textarea
+      const instructionElements = await screen.findAllByText("Just instructions");
+      expect(instructionElements.length).toBeGreaterThan(0);
+      // When step has no ingredients, it shows "No ingredients added yet" (not a count)
+      expect(screen.getByText("No ingredients added yet")).toBeInTheDocument();
     });
 
     it("should render reorder buttons for multiple steps", async () => {
@@ -995,14 +1010,21 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      await screen.findByText("First step");
-      // First step should only have down button
-      // Middle step should have both up and down
-      // Last step should only have up button
-      const upButtons = screen.getAllByTitle("Move up");
-      const downButtons = screen.getAllByTitle("Move down");
-      expect(upButtons).toHaveLength(2); // Second and third steps
-      expect(downButtons).toHaveLength(2); // First and second steps
+      // Wait for steps to render - text appears in both header and textarea
+      const firstStepElements = await screen.findAllByText("First step");
+      expect(firstStepElements.length).toBeGreaterThan(0);
+      // All steps have Move Up and Move Down buttons, but some are disabled
+      // First step: Move Up disabled, Move Down enabled
+      // Middle step: both enabled
+      // Last step: Move Up enabled, Move Down disabled
+      const upButtons = screen.getAllByRole("button", { name: /move up/i });
+      const downButtons = screen.getAllByRole("button", { name: /move down/i });
+      expect(upButtons).toHaveLength(3); // All steps have the button
+      expect(downButtons).toHaveLength(3); // All steps have the button
+      // First step's Move Up should be disabled
+      expect(upButtons[0]).toBeDisabled();
+      // Last step's Move Down should be disabled
+      expect(downButtons[2]).toBeDisabled();
     });
 
     it("should render form buttons correctly", async () => {
@@ -1028,7 +1050,10 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      expect(await screen.findByRole("button", { name: "Save Recipe" })).toBeInTheDocument();
+      // Wait for form to render by finding the Title input first
+      await screen.findByLabelText(/Title/);
+      // Save Recipe button (matches "Save Recipe" in edit mode)
+      expect(screen.getByRole("button", { name: /save recipe/i })).toBeInTheDocument();
       // Cancel is now a button that navigates programmatically, not a link
       expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     });
@@ -1099,9 +1124,13 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      await screen.findByText("First step");
-      const editLink = screen.getByRole("link", { name: "Edit" });
-      expect(editLink).toHaveAttribute("href", "/recipes/recipe-1/steps/step-abc/edit");
+      // Wait for steps to render - text appears in both header preview and instructions textarea
+      const firstStepElements = await screen.findAllByText("First step");
+      expect(firstStepElements.length).toBeGreaterThan(0);
+      // New UI uses inline editing with StepEditorCard, not Edit links
+      // Each step has Save and Remove buttons for inline editing
+      expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
     });
 
     it("should display general error message when present", async () => {

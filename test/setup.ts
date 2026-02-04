@@ -42,6 +42,23 @@ const extensions = [".ts", ".tsx", ".js", ".jsx", ".json"];
 
 import "@testing-library/jest-dom";
 import { vi, beforeAll, expect } from "vitest";
+import React from "react";
+
+// Mock framer-motion Reorder components to render children directly in tests
+// This is needed because Reorder.Group and Reorder.Item have complex animation
+// logic that doesn't work well with happy-dom
+vi.mock('framer-motion', async () => {
+  const actual = await vi.importActual('framer-motion');
+  return {
+    ...actual as object,
+    Reorder: {
+      Group: ({ children, className }: { children: React.ReactNode; className?: string }) =>
+        React.createElement('div', { className }, children),
+      Item: ({ children }: { children: React.ReactNode }) =>
+        React.createElement('div', null, children),
+    },
+  };
+});
 
 // Suppress React act() warnings that come from library internals (Headless UI, Framer Motion)
 // These warnings occur because some libraries use internal state management that triggers
