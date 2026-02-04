@@ -33,7 +33,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
-    ? getDb(context.cloudflare.env as { DB: D1Database })
+    ? await getDb(context.cloudflare.env as { DB: D1Database })
     : db;
 
   const recipe = await database.recipe.findUnique({
@@ -88,7 +88,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
-    ? getDb(context.cloudflare.env as { DB: D1Database })
+    ? await getDb(context.cloudflare.env as { DB: D1Database })
     : db;
 
   // Verify ownership

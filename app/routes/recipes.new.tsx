@@ -71,7 +71,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
-    ? getDb(context.cloudflare.env as { DB: D1Database })
+    ? await getDb(context.cloudflare.env as { DB: D1Database })
     : db;
 
   try {
