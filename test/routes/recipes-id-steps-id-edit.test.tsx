@@ -2063,7 +2063,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       expect(screen.getByLabelText(/Step Title/)).toHaveValue("Prep the Ingredients");
       expect(screen.getByLabelText(/Description/)).toHaveValue("Chop all vegetables");
       expect(screen.getByRole("button", { name: "Delete Step" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Save Recipe" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save Changes" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
     });
 
@@ -2756,7 +2756,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         await screen.findByRole("heading", { name: /Edit Step 2/i });
 
         // Submit the form to trigger action
-        const saveButton = screen.getByRole("button", { name: "Save Recipe" });
+        const saveButton = screen.getByRole("button", { name: "Save Changes" });
         await act(async () => {
           fireEvent.click(saveButton);
         });
@@ -2802,7 +2802,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         await screen.findByRole("heading", { name: /Edit Step 2/i });
 
         // Submit the form to trigger action
-        const saveButton = screen.getByRole("button", { name: "Save Recipe" });
+        const saveButton = screen.getByRole("button", { name: "Save Changes" });
         await act(async () => {
           fireEvent.click(saveButton);
         });
@@ -2848,7 +2848,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         await screen.findByRole("heading", { name: /Edit Step 2/i });
 
         // Submit the form to trigger action
-        const saveButton = screen.getByRole("button", { name: "Save Recipe" });
+        const saveButton = screen.getByRole("button", { name: "Save Changes" });
         await act(async () => {
           fireEvent.click(saveButton);
         });
