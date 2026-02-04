@@ -1,7 +1,7 @@
 # E2E Test Scorecard
 
-**Generated**: 2026-02-03 18:32 PST
-**Total**: 21 tests | **Passed**: 19 | **Failed**: 2
+**Generated**: 2026-02-03 18:50 PST
+**Total**: 21 tests | **Passed**: 21 | **Failed**: 0
 
 ---
 
@@ -10,7 +10,7 @@
 | Flow | Pass | Fail | Status |
 |------|------|------|--------|
 | Auth | 6 | 0 | ✅ |
-| Recipes | 1 | 2 | ❌ BUGS |
+| Recipes | 3 | 0 | ✅ |
 | Cookbooks | 5 | 0 | ✅ |
 | Shopping List | 5 | 0 | ✅ |
 | Smoke Test | 1 | 0 | ✅ |
@@ -18,19 +18,15 @@
 
 ---
 
-## Real Bugs (Priority Fixes)
+## Bugs Fixed
 
-### 🔴 P0: Recipe Cards Not Clickable
-**Test**: `clicking recipe card navigates to recipe detail`
-**Error**: No `a[href^="/recipes/"]` found
-**Root Cause**: `recipes.tsx` renders cards as `<div>` instead of `<Link>`
-**Fix**: Wrap recipe cards with `<Link href={/recipes/${recipe.id}}>` in `app/routes/recipes.tsx`
+### ✅ P0: Recipe Cards Not Clickable — FIXED
+**Root Cause**: `recipes.tsx` was rendering its own content instead of using `<Outlet />` for child routes
+**Fix**: Converted `recipes.tsx` to a layout route with `<Outlet />`, so `recipes.$id.tsx` now renders
 
-### 🔴 P1: Recipe Detail Missing Steps/Ingredients Display
-**Test**: `recipe detail shows steps and ingredients`
-**Error**: Step content not visible on detail page
-**Root Cause**: `recipes.$id.tsx` may not be rendering steps properly, or steps not in seed data
-**Fix**: Verify recipe detail page renders `recipe.steps` with descriptions
+### ✅ P1: Recipe Detail Missing Steps — FIXED
+**Root Cause**: Same as above — the detail route wasn't rendering because parent route had no Outlet
+**Fix**: Same fix — Outlet in parent route now allows detail page to render with all step content
 
 ---
 
@@ -66,10 +62,9 @@
 **Setup**
 - ✅ authenticate
 
-### ❌ Failing (2)
+### ✅ All Passing (21)
 
-- ❌ clicking recipe card navigates to recipe detail
-- ❌ recipe detail shows steps and ingredients
+All tests now pass after fixing the recipes.tsx Outlet issue.
 
 ---
 
