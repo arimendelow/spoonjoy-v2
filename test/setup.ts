@@ -79,7 +79,7 @@ expect.extend({
   },
 });
 import { mockAnimationsApi } from "jsdom-testing-mocks";
-import { db } from "~/lib/db.server";
+import { getLocalDb } from "~/lib/db.server";
 
 // Mock animations API for HeadlessUI components
 mockAnimationsApi();
@@ -112,6 +112,7 @@ global.cloudflare = {
 
 // Clean database before all tests
 beforeAll(async () => {
+  const db = await getLocalDb();
   // Delete all data in the correct order to respect foreign key constraints
   await db.shoppingListItem.deleteMany({});
   await db.shoppingList.deleteMany({});

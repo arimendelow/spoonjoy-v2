@@ -12,6 +12,7 @@ export default defineConfig({
     sequence: {
       concurrent: false,
     },
+    exclude: ["**/node_modules/**", "**/e2e/**"],
     coverage: {
       provider: "istanbul",
       reporter: ["text", "json", "html"],
