@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { redirect } from "react-router";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.new";
@@ -278,6 +280,163 @@ describe("Recipes New Route", () => {
       }
     });
 
+    it("should return validation error for invalid image type", async () => {
+      const formData = new UndiciFormData();
+      formData.append("title", "Valid Title");
+      formData.append(
+        "image",
+        new Blob(["fake image content"], { type: "text/plain" }),
+        "test.txt"
+      );
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest("http://localhost:3000/recipes/new", {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.image).toBe("Invalid image format");
+    });
+
+    it("should return validation error for oversized image", async () => {
+      const formData = new UndiciFormData();
+      formData.append("title", "Valid Title");
+      const bigBuffer = Buffer.alloc(5 * 1024 * 1024 + 1); // Just over 5MB
+      formData.append(
+        "image",
+        new Blob([bigBuffer], { type: "image/jpeg" }),
+        "big.jpg"
+      );
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest("http://localhost:3000/recipes/new", {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.image).toBe("Image must be less than 5MB");
+    });
+
+    it("should create recipe with valid steps JSON and redirect", async () => {
+      const originalCreate = db.recipe.create;
+      db.recipe.create = vi.fn().mockResolvedValue({ id: "mock-recipe-id" });
+
+      try {
+        const stepsData = [
+          { description: "Mix dry ingredients", stepTitle: "Prep", duration: 10, ingredients: [] },
+          { description: "Bake at 350°F for 25 minutes", ingredients: [] },
+        ];
+        const formData = new UndiciFormData();
+        formData.append("title", "Recipe With Steps");
+        formData.append("steps", JSON.stringify(stepsData));
+
+        const session = await sessionStorage.getSession();
+        session.set("userId", testUserId);
+        const setCookieHeader = await sessionStorage.commitSession(session);
+        const cookieValue = setCookieHeader.split(";")[0];
+        const headers = new Headers();
+        headers.set("Cookie", cookieValue);
+
+        const request = new UndiciRequest("http://localhost:3000/recipes/new", {
+          method: "POST",
+          body: formData,
+          headers,
+        });
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: {},
+        } as any);
+
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+        expect(response.headers.get("Location")).toBe("/recipes/mock-recipe-id");
+
+        // Verify the create was called with correct steps data
+        expect(db.recipe.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            title: "Recipe With Steps",
+            steps: {
+              create: [
+                { stepNum: 1, description: "Mix dry ingredients", stepTitle: "Prep", duration: 10 },
+                { stepNum: 2, description: "Bake at 350°F for 25 minutes", stepTitle: null, duration: null },
+              ],
+            },
+          }),
+        });
+      } finally {
+        db.recipe.create = originalCreate;
+      }
+    });
+
+    it("should handle invalid steps JSON gracefully", async () => {
+      const formData = new UndiciFormData();
+      formData.append("title", "Recipe With Bad Steps");
+      formData.append("steps", "not valid json{{{");
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest("http://localhost:3000/recipes/new", {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      // Should still create recipe successfully, just with no steps
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(302);
+
+      const recipe = await db.recipe.findFirst({
+        where: { chefId: testUserId },
+        include: { steps: true },
+      });
+      expect(recipe).not.toBeNull();
+      expect(recipe!.title).toBe("Recipe With Bad Steps");
+      expect(recipe!.steps).toHaveLength(0);
+    });
+
     describe("field validation", () => {
       it("should return validation error when title exceeds max length", async () => {
         const longTitle = "a".repeat(201);
@@ -473,6 +632,126 @@ describe("Recipes New Route", () => {
       expect(await screen.findByPlaceholderText("e.g., Chocolate Chip Cookies")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Recipe description")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("e.g., 4 servings")).toBeInTheDocument();
+    });
+
+    it("should navigate to /recipes when Cancel is clicked", async () => {
+      const user = userEvent.setup();
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/new",
+          Component: NewRecipe,
+          loader: () => null,
+        },
+        {
+          path: "/recipes",
+          Component: () => <div>Recipes List</div>,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/new"]} />);
+
+      const cancelButton = await screen.findByRole("button", { name: "Cancel" });
+      await user.click(cancelButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("Recipes List")).toBeInTheDocument();
+      });
+    });
+
+    it("should populate hidden form and submit when RecipeBuilder saves", async () => {
+      const user = userEvent.setup();
+      let actionFormData: Record<string, string> = {};
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/new",
+          Component: NewRecipe,
+          loader: () => null,
+          action: async ({ request }: { request: Request }) => {
+            const formData = await request.formData();
+            actionFormData = Object.fromEntries(formData.entries());
+            return redirect("/recipes/test-id");
+          },
+        },
+        {
+          path: "/recipes/:id",
+          Component: () => <div>Recipe Detail</div>,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/new"]} />);
+
+      // Fill in title (required to enable save)
+      const titleInput = await screen.findByLabelText(/Title/);
+      await user.clear(titleInput);
+      await user.type(titleInput, "Integration Test Recipe");
+
+      // Fill in description
+      const descriptionInput = screen.getByLabelText(/Description/);
+      await user.clear(descriptionInput);
+      await user.type(descriptionInput, "A test description");
+
+      // Fill in servings
+      const servingsInput = screen.getByLabelText(/Servings/);
+      await user.clear(servingsInput);
+      await user.type(servingsInput, "4");
+
+      // Click Create Recipe button (triggers RecipeBuilder.handleSave → onSave → handleSave)
+      const submitButton = screen.getByRole("button", { name: "Create Recipe" });
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(actionFormData.title).toBe("Integration Test Recipe");
+      });
+      expect(actionFormData.description).toBe("A test description");
+      expect(actionFormData.servings).toBe("4");
+    });
+
+    it("should handle image upload in handleSave", async () => {
+      const user = userEvent.setup();
+
+      const testImage = new File(["test image"], "test.jpg", { type: "image/jpeg" });
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/new",
+          Component: NewRecipe,
+          loader: () => null,
+          action: async ({ request }: { request: Request }) => {
+            const formData = await request.formData();
+            const imageFile = formData.get("image") as File;
+            expect(imageFile).not.toBeNull();
+            expect(imageFile.name).toBe("test.jpg");
+            expect(imageFile.type).toBe("image/jpeg");
+            return redirect("/recipes/test-id");
+          },
+        },
+        {
+          path: "/recipes/:id",
+          Component: () => <div>Recipe Detail</div>,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/new"]} />);
+
+      // Wait for form to render
+      await screen.findByLabelText(/Title/);
+
+      // Fill title
+      const titleInput = screen.getByLabelText(/Title/);
+      await user.clear(titleInput);
+      await user.type(titleInput, "Recipe with Image");
+
+      // Upload image
+      const fileInput = await screen.findByLabelText("Upload recipe image");
+      await user.upload(fileInput, testImage);
+
+      // Wait a bit for state update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Click Create Recipe
+      const submitButton = screen.getByRole("button", { name: "Create Recipe" });
+      await user.click(submitButton);
     });
 
     it("should display general error message when present", async () => {
