@@ -3118,8 +3118,55 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       });
     });
 
+    it("should render stepDeletion ValidationError when actionData has stepDeletion error", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: "Test Step",
+            description: "Test description",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [],
+        };
+
+        const actionResult = {
+          errors: { stepDeletion: "Cannot delete Step 1 because it is used by Step 2" },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            id: "step-edit",
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: () => actionResult,
+          },
+        ]);
+
+        render(
+          <Stub
+            initialEntries={["/recipes/recipe-1/steps/step-1/edit"]}
+            hydrationData={{
+              loaderData: { "step-edit": mockData },
+              actionData: { "step-edit": actionResult },
+            }}
+          />
+        );
+
+        // ValidationError renders with role="alert"
+        const alert = await screen.findByRole("alert");
+        expect(alert).toHaveTextContent("Cannot delete Step 1 because it is used by Step 2");
+      });
+
     describe("remove ingredient dialog", () => {
-      it("should open remove ingredient dialog and allow confirmation", async () => {
+      it("should submit deleteIngredient form when confirming ingredient removal", async () => {
+        const actionSpy = vi.fn(() => ({ success: true }));
         const mockData = {
           recipe: {
             id: "recipe-1",
@@ -3148,24 +3195,29 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
             path: "/recipes/:id/steps/:stepId/edit",
             Component: EditStep,
             loader: () => mockData,
-            action: () => ({ success: true }),
+            action: actionSpy,
           },
         ]);
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-        // Click remove button
+        // Click remove button to set ingredientToRemove state
         const removeButton = await screen.findByRole("button", { name: "Remove" });
         fireEvent.click(removeButton);
 
         // Dialog should be open
         expect(await screen.findByText("Remove this ingredient? 🥕")).toBeInTheDocument();
 
-        // Click confirm button
+        // Click "Remove it" to trigger onConfirm (exercises the if (ingredientToRemove) branch)
         const confirmButton = screen.getByRole("button", { name: "Remove it" });
         fireEvent.click(confirmButton);
 
-        // Dialog should close after submission (may need to wait for animation)
+        // Verify form submission happened via the action spy
+        await waitFor(() => {
+          expect(actionSpy).toHaveBeenCalled();
+        });
+
+        // Dialog should close after submission
         await waitFor(() => {
           expect(screen.queryByText("Remove this ingredient? 🥕")).not.toBeInTheDocument();
         });

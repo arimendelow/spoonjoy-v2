@@ -373,10 +373,8 @@ export default function EditStep() {
     step.usingSteps?.map((u) => u.outputStepNum) || []
   );
 
-  /* istanbul ignore next -- @preserve This branch is tested but istanbul misses it due to React Router stub limitations */
   const stepDeletionError = actionData?.errors?.stepDeletion;
 
-  /* istanbul ignore next -- @preserve ValidationError rendering tested but branch not detected due to stubbed action limitations */
   const stepDeletionErrorElement = stepDeletionError
     ? <ValidationError error={stepDeletionError} className="mb-4" />
     : null;
@@ -618,7 +616,6 @@ export default function EditStep() {
           open={!!ingredientToRemove}
           onClose={() => setIngredientToRemove(null)}
           onConfirm={() => {
-            /* istanbul ignore next -- @preserve defensive check: dialog is only open when ingredientToRemove is set */
             if (ingredientToRemove) {
               const formData = new FormData();
               formData.set("intent", "deleteIngredient");
