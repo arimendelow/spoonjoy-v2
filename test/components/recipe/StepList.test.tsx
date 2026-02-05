@@ -8,7 +8,7 @@
  * - Steps array management (controlled component)
  */
 
-import { render, screen, within, act } from '@testing-library/react'
+import { render, screen, within, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { createRoutesStub } from 'react-router'
@@ -792,8 +792,10 @@ describe('StepList', () => {
       // Press Escape to close
       await userEvent.keyboard('{Escape}')
 
-      // Dialog should be closed
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      // Dialog should be closed (wait for exit animation to complete)
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      })
     })
 
     it('dialog traps focus while open', async () => {
@@ -869,8 +871,10 @@ describe('StepList', () => {
       // Click cancel button
       await userEvent.click(cancelButton)
 
-      // Dialog should be closed, step should remain
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      // Dialog should be closed, step should remain (wait for exit animation to complete)
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      })
       expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument()
       // onChange should not have been called (step not removed)
       expect(onChange).not.toHaveBeenCalled()
