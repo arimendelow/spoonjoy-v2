@@ -18,7 +18,13 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
       all: true,
       include: ["app/lib/**/*.ts", "app/routes/**/*.tsx", "app/components/**/*.tsx", "app/hooks/**/*.ts"],
-      exclude: ["node_modules/**", "test/**", "**/*.config.ts", "**/*.d.ts", "**/types/**"]
+      exclude: ["node_modules/**", "test/**", "**/*.config.ts", "**/*.d.ts", "**/types/**"],
+      thresholds: {
+        statements: 100,
+        branches: 100,
+        functions: 100,
+        lines: 100,
+      },
     },
   },
   resolve: {
