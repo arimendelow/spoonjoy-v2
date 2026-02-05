@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   formatQuantity,
   scaleQuantity,
@@ -234,6 +234,46 @@ describe('quantity utilities', () => {
         // Test with high precision decimal
         const result = formatQuantity(0.142857142857) // Close to 1/7, should round
         expect(result).toMatch(/^(⅛|⅙)$/) // Should round to nearest common fraction
+      })
+
+      it('returns fraction string as-is when not in Unicode map', async () => {
+        // Mock Fraction.js to produce a fraction not in UNICODE_FRACTIONS
+        vi.resetModules()
+        vi.doMock('fraction.js', () => ({
+          default: class MockFraction {
+            constructor() {}
+            toFraction() {
+              return '2/7'
+            }
+          },
+        }))
+
+        const { formatQuantity: formatQuantityMocked } = await import('./quantity')
+        const result = formatQuantityMocked(0.5)
+        expect(result).toBe('2/7')
+
+        vi.doUnmock('fraction.js')
+        vi.resetModules()
+      })
+
+      it('returns mixed fraction with unmapped part as-is', async () => {
+        // Mock Fraction.js to produce a mixed fraction with unmapped fractional part
+        vi.resetModules()
+        vi.doMock('fraction.js', () => ({
+          default: class MockFraction {
+            constructor() {}
+            toFraction() {
+              return '3 2/7'
+            }
+          },
+        }))
+
+        const { formatQuantity: formatQuantityMocked } = await import('./quantity')
+        const result = formatQuantityMocked(3.2857)
+        expect(result).toBe('3 2/7')
+
+        vi.doUnmock('fraction.js')
+        vi.resetModules()
       })
     })
   })
