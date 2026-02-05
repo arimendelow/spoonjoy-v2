@@ -134,10 +134,9 @@ export default function NewRecipe() {
   };
 
   const handleSave = (recipeData: RecipeBuilderData) => {
-    if (!formRef.current) return;
-
-    // Populate form with recipe data
-    const form = formRef.current;
+    // formRef.current is guaranteed to exist when this is called because
+    // both the Form and RecipeBuilder are always rendered together
+    const form = formRef.current!;
     const titleInput = form.querySelector('input[name="title"]') as HTMLInputElement;
     const descriptionInput = form.querySelector('textarea[name="description"]') as HTMLTextAreaElement;
     const servingsInput = form.querySelector('input[name="servings"]') as HTMLInputElement;
