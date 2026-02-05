@@ -651,6 +651,35 @@ describe('ParsedIngredientRow', () => {
       expect(onEdit).not.toHaveBeenCalled()
     })
 
+    it('shows validation error for non-numeric quantity (defensive check)', async () => {
+      const onEdit = vi.fn()
+      render(
+        <ParsedIngredientRow
+          ingredient={createIngredient()}
+          onEdit={onEdit}
+          onRemove={vi.fn()}
+        />
+      )
+
+      await userEvent.click(screen.getByRole('button', { name: /edit/i }))
+
+      const quantityInput = screen.getByRole('spinbutton', { name: /quantity/i })
+      // Bypass browser validation by directly setting the value via DOM manipulation
+      await userEvent.clear(quantityInput)
+      // Type a letter, which may be filtered by the browser, but set value directly
+      Object.defineProperty(quantityInput, 'value', {
+        writable: true,
+        value: 'abc',
+      })
+      // Trigger input event to update internal state
+      quantityInput.dispatchEvent(new Event('input', { bubbles: true }))
+
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(screen.getByText('Must be a number')).toBeInTheDocument()
+      expect(onEdit).not.toHaveBeenCalled()
+    })
+
     it('shows validation error for empty unit on save attempt', async () => {
       const onEdit = vi.fn()
       render(
