@@ -136,6 +136,15 @@ describe('quantity utilities', () => {
         expect(formatQuantity(-0.5)).toBe('-½')
       })
 
+      it('handles negative mixed numbers', () => {
+        expect(formatQuantity(-1.5)).toBe('-1 ½')
+        expect(formatQuantity(-2.75)).toBe('-2 ¾')
+      })
+
+      it('handles negative zero', () => {
+        expect(formatQuantity(-0)).toBe('0')
+      })
+
       it('handles very large numbers', () => {
         expect(formatQuantity(100)).toBe('100')
       })
@@ -149,6 +158,53 @@ describe('quantity utilities', () => {
 
       it('handles decimals close to thirds', () => {
         expect(formatQuantity(0.34)).toBe('⅓')
+      })
+
+      it('handles exact eighth boundaries', () => {
+        // Test exact eighth values to ensure no rounding errors
+        expect(formatQuantity(0.125)).toBe('⅛')
+        expect(formatQuantity(0.250)).toBe('¼')
+        expect(formatQuantity(0.375)).toBe('⅜')
+        expect(formatQuantity(0.500)).toBe('½')
+        expect(formatQuantity(0.625)).toBe('⅝')
+        expect(formatQuantity(0.750)).toBe('¾')
+        expect(formatQuantity(0.875)).toBe('⅞')
+      })
+
+      it('handles exact third boundaries', () => {
+        // Test exact third values
+        expect(formatQuantity(0.3333333333333333)).toBe('⅓')
+        expect(formatQuantity(0.6666666666666666)).toBe('⅔')
+      })
+
+      it('handles exact sixth boundaries', () => {
+        // Test exact sixth values
+        expect(formatQuantity(0.16666666666666666)).toBe('⅙')
+        expect(formatQuantity(0.8333333333333334)).toBe('⅚')
+      })
+
+      it('handles values at the edge of rounding thresholds', () => {
+        // Test values exactly at threshold boundaries
+        // 0.145 is exactly 0.02 away from 1/8 (0.125)
+        const result1 = formatQuantity(0.145)
+        expect(result1).toMatch(/^(⅛|⅙)$/)
+        
+        // Test value between eighth and third
+        const result2 = formatQuantity(0.28)
+        expect(result2).toMatch(/^(¼|⅓)$/)
+      })
+
+      it('handles computed fractions from division', () => {
+        // Test fractions created from division that might have precision issues
+        expect(formatQuantity(1/7)).toMatch(/^(⅛|⅙)$/)
+        expect(formatQuantity(1/9)).toMatch(/^(⅛|⅙)$/)
+        expect(formatQuantity(1/10)).toMatch(/^(⅛|⅙)$/)
+      })
+
+      it('handles very small positive number near zero', () => {
+        expect(formatQuantity(Number.MIN_VALUE)).toBe('0')
+        expect(formatQuantity(Number.EPSILON)).toBe('0')
+        expect(formatQuantity(0.0001)).toBe('0')
       })
     })
 
@@ -165,6 +221,19 @@ describe('quantity utilities', () => {
         const result = formatQuantity(2 / 7)
         // Should round to ⅓ (closest common fraction)
         expect(result).toBe('⅓')
+      })
+
+      it('handles very large mixed numbers correctly', () => {
+        // Test edge case with large numbers to ensure Fraction.js behaves correctly
+        // and fallback branch is exercised if needed
+        const result = formatQuantity(999.875)
+        expect(result).toBe('999 ⅞')
+      })
+
+      it('handles unusual decimal precision', () => {
+        // Test with high precision decimal
+        const result = formatQuantity(0.142857142857) // Close to 1/7, should round
+        expect(result).toMatch(/^(⅛|⅙)$/) // Should round to nearest common fraction
       })
     })
   })

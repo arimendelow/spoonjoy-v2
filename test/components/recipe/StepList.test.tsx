@@ -898,8 +898,10 @@ describe('StepList', () => {
       })
       await userEvent.keyboard('{Enter}')
 
-      // Dialog should be closed, step should be removed
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      // Dialog should be closed, step should be removed (wait for exit animation to complete)
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      })
       // onChange should have been called to remove the step
       expect(onChange).toHaveBeenCalledTimes(1)
       expect(onChange).toHaveBeenCalledWith([])
