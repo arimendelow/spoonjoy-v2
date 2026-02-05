@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.$id.edit";
@@ -170,6 +171,37 @@ describe("Recipes $id Edit Route", () => {
         expect(error.status).toBe(404);
         return true;
       });
+    });
+
+    it("should handle step with null stepTitle in loader", async () => {
+      // Create a step with null stepTitle
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Mix everything",
+          stepTitle: null,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/edit`, { headers });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.recipe.steps).toHaveLength(1);
+      expect(result.formattedSteps[0].stepTitle).toBeUndefined();
     });
 
     it("should include recipe steps with ingredients", async () => {
@@ -499,6 +531,54 @@ describe("Recipes $id Edit Route", () => {
       expect(updatedStep?.stepNum).toBe(1);
     });
 
+    it("should return reorder validation error when dependency would be broken", async () => {
+      // Create two steps with a dependency: step2 uses output of step1
+      const step1 = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Step 1 - produces output",
+        },
+      });
+
+      const step2 = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          description: "Step 2 - uses step 1 output",
+        },
+      });
+
+      // Create a StepOutputUse: step2 uses output from step1
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 1,
+          inputStepNum: 2,
+        },
+      });
+
+      // Try to move step1 down (past step2 which depends on it)
+      const request = await createFormRequest(
+        {
+          intent: "reorderStep",
+          stepId: step1.id,
+          direction: "down",
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.reorder).toBeDefined();
+    });
+
     it("should not reorder if step belongs to different recipe", async () => {
       // Create another recipe with a step
       const otherRecipe = await db.recipe.create({
@@ -618,6 +698,131 @@ describe("Recipes $id Edit Route", () => {
         // Restore original function
         db.recipe.update = originalUpdate;
       }
+    });
+
+    it("should clear image when clearImage is true", async () => {
+      // First set an imageUrl on the recipe
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: { imageUrl: "https://example.com/old-image.jpg" },
+      });
+
+      const request = await createFormRequest(
+        {
+          title: "Updated Title",
+          clearImage: "true",
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toBe(`/recipes/${recipeId}`);
+
+      // Verify imageUrl was set to empty string
+      const recipe = await db.recipe.findUnique({ where: { id: recipeId } });
+      expect(recipe?.imageUrl).toBe("");
+    });
+
+    it("should return validation error for invalid image type", async () => {
+      const formData = new UndiciFormData();
+      formData.append("title", "Valid Title");
+      const invalidFile = new File(["fake-content"], "test.txt", { type: "text/plain" });
+      formData.append("image", invalidFile);
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/edit`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.image).toBe("Invalid image format");
+    });
+
+    it("should accept valid image file without errors", async () => {
+      const formData = new UndiciFormData();
+      formData.append("title", "Valid Title");
+      const validFile = new File(["image-data"], "photo.jpg", { type: "image/jpeg" });
+      formData.append("image", validFile);
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/edit`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      // Valid image should result in successful redirect, not validation error
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(302);
+    });
+
+    it("should return validation error for image exceeding 5MB", async () => {
+      const formData = new UndiciFormData();
+      formData.append("title", "Valid Title");
+      // Create a file larger than 5MB
+      const largeContent = new Uint8Array(5 * 1024 * 1024 + 1);
+      const largeFile = new File([largeContent], "large.jpg", { type: "image/jpeg" });
+      formData.append("image", largeFile);
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/edit`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.image).toBe("Image must be less than 5MB");
     });
 
     describe("field validation", () => {
@@ -1131,6 +1336,235 @@ describe("Recipes $id Edit Route", () => {
       // Each step has Save and Remove buttons for inline editing
       expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
+    });
+
+    it("should populate hidden form and submit when Save Recipe is clicked", async () => {
+      const user = userEvent.setup();
+      let submittedData: any = null;
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id/edit",
+          Component: EditRecipe,
+          loader: () => ({
+            recipe: {
+              id: "recipe-1",
+              title: "Original Title",
+              description: "Original description",
+              servings: "4",
+              imageUrl: "",
+              steps: [],
+            },
+            formattedSteps: [],
+          }),
+          action: async ({ request }: { request: Request }) => {
+            const formData = await request.formData();
+            submittedData = {
+              title: formData.get("title"),
+              description: formData.get("description"),
+              servings: formData.get("servings"),
+              steps: formData.get("steps"),
+              clearImage: formData.get("clearImage"),
+            };
+            return { success: true };
+          },
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
+
+      await screen.findByRole("button", { name: "Save Recipe" });
+
+      // Clear and type new values
+      const titleInput = screen.getByLabelText(/^Title$/i);
+      const descriptionInput = screen.getByLabelText(/Description/);
+      const servingsInput = screen.getByLabelText(/Servings/);
+
+      await user.clear(titleInput);
+      await user.type(titleInput, "Updated Title");
+      await user.clear(descriptionInput);
+      await user.type(descriptionInput, "Updated description");
+      await user.clear(servingsInput);
+      await user.type(servingsInput, "8");
+
+      // Click Save Recipe to trigger handleSave
+      await user.click(screen.getByRole("button", { name: "Save Recipe" }));
+
+      await waitFor(() => {
+        expect(submittedData).not.toBeNull();
+      });
+
+      expect(submittedData.title).toBe("Updated Title");
+      expect(submittedData.description).toBe("Updated description");
+      expect(submittedData.servings).toBe("8");
+      expect(submittedData.steps).toBeDefined();
+    });
+
+    it("should handle image file in handleSave via DataTransfer", async () => {
+      const user = userEvent.setup();
+      let submittedData: any = null;
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id/edit",
+          Component: EditRecipe,
+          loader: () => ({
+            recipe: {
+              id: "recipe-1",
+              title: "Test Recipe",
+              description: null,
+              servings: null,
+              imageUrl: "",
+              steps: [],
+            },
+            formattedSteps: [],
+          }),
+          action: async ({ request }: { request: Request }) => {
+            const formData = await request.formData();
+            submittedData = {
+              title: formData.get("title"),
+              image: formData.get("image"),
+            };
+            return { success: true };
+          },
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
+
+      await screen.findByRole("button", { name: "Save Recipe" });
+
+      // Upload an image file via RecipeImageUpload's file input
+      const fileInput = screen.getByLabelText("Upload recipe image");
+      const testFile = new File(["image-data"], "test.jpg", { type: "image/jpeg" });
+      await user.upload(fileInput, testFile);
+
+      // Click Save Recipe to trigger handleSave which should use DataTransfer
+      await user.click(screen.getByRole("button", { name: "Save Recipe" }));
+
+      await waitFor(() => {
+        expect(submittedData).not.toBeNull();
+      });
+
+      expect(submittedData.title).toBe("Test Recipe");
+    });
+
+    it("should navigate to recipe page when Cancel is clicked", async () => {
+      const user = userEvent.setup();
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id/edit",
+          Component: EditRecipe,
+          loader: () => ({
+            recipe: {
+              id: "recipe-1",
+              title: "Test Recipe",
+              description: null,
+              servings: null,
+              imageUrl: "",
+              steps: [],
+            },
+            formattedSteps: [],
+          }),
+        },
+        {
+          path: "/recipes/:id",
+          Component: () => <div data-testid="recipe-detail">Recipe Detail Page</div>,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
+
+      await screen.findByRole("button", { name: "Cancel" });
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("recipe-detail")).toBeInTheDocument();
+      });
+    });
+
+    it("should set clearImage to true when image is removed and Save is clicked", async () => {
+      const user = userEvent.setup();
+      let submittedData: any = null;
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id/edit",
+          Component: EditRecipe,
+          loader: () => ({
+            recipe: {
+              id: "recipe-1",
+              title: "Test Recipe",
+              description: null,
+              servings: null,
+              imageUrl: "https://example.com/existing.jpg",
+              steps: [],
+            },
+            formattedSteps: [],
+          }),
+          action: async ({ request }: { request: Request }) => {
+            const formData = await request.formData();
+            submittedData = {
+              title: formData.get("title"),
+              clearImage: formData.get("clearImage"),
+            };
+            return { success: true };
+          },
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
+
+      // Wait for the "Remove" button that appears when image exists
+      await screen.findByRole("button", { name: /remove/i });
+      await user.click(screen.getByRole("button", { name: /remove/i }));
+
+      // Click Save Recipe
+      await user.click(screen.getByRole("button", { name: "Save Recipe" }));
+
+      await waitFor(() => {
+        expect(submittedData).not.toBeNull();
+      });
+
+      expect(submittedData.clearImage).toBe("true");
+    });
+
+    it("should display reorder validation error when present", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Test Recipe",
+          description: null,
+          servings: null,
+          imageUrl: "",
+          steps: [],
+        },
+        formattedSteps: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id/edit",
+          Component: EditRecipe,
+          loader: () => mockData,
+          action: () => ({
+            errors: { reorder: "Cannot move Step 1 to position 2 because Step 2 uses its output" },
+          }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
+
+      // Wait for form to render and submit to trigger action data
+      await screen.findByRole("button", { name: "Save Recipe" });
+      await user.click(screen.getByRole("button", { name: "Save Recipe" }));
+
+      // Wait for the reorder error to appear
+      await waitFor(() => {
+        expect(screen.getByText("Cannot move Step 1 to position 2 because Step 2 uses its output")).toBeInTheDocument();
+      });
     });
 
     it("should display general error message when present", async () => {
