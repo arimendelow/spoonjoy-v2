@@ -296,6 +296,61 @@ describe('StepOutputUseCallout', () => {
       )
       expect(screen.queryByTestId('step-output-callout')).toBeNull()
     })
+
+    it('renders checkbox with null stepTitle', () => {
+      const onToggle = vi.fn()
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 2, stepTitle: null }]}
+          onToggle={onToggle}
+          checkedIds={new Set()}
+        />
+      )
+
+      const checkbox = screen.getByRole('checkbox')
+      expect(checkbox).toBeInTheDocument()
+      // The checkbox should render with just the step number in the label
+      expect(screen.getByText('Step 2')).toBeInTheDocument()
+    })
+
+    it('renders checkbox with empty string stepTitle', () => {
+      const onToggle = vi.fn()
+      render(
+        <StepOutputUseCallout
+          references={[{ id: '1', stepNumber: 3, stepTitle: '' }]}
+          onToggle={onToggle}
+          checkedIds={new Set()}
+        />
+      )
+
+      const checkbox = screen.getByRole('checkbox')
+      expect(checkbox).toBeInTheDocument()
+      // Empty string stepTitle should be treated as falsy
+      expect(screen.getByText('Step 3')).toBeInTheDocument()
+    })
+
+    it('renders multiple checkboxes with mixed stepTitles', () => {
+      const onToggle = vi.fn()
+      render(
+        <StepOutputUseCallout
+          references={[
+            { id: '1', stepNumber: 1, stepTitle: 'Prep ingredients' },
+            { id: '2', stepNumber: 2, stepTitle: null },
+            { id: '3', stepNumber: 3, stepTitle: '' },
+          ]}
+          onToggle={onToggle}
+          checkedIds={new Set()}
+        />
+      )
+
+      const checkboxes = screen.getAllByRole('checkbox')
+      expect(checkboxes).toHaveLength(3)
+      // First has title
+      expect(screen.getByText(/Prep ingredients/)).toBeInTheDocument()
+      // Others don't
+      expect(screen.getByText('Step 2')).toBeInTheDocument()
+      expect(screen.getByText('Step 3')).toBeInTheDocument()
+    })
   })
 
   describe('accessibility', () => {
