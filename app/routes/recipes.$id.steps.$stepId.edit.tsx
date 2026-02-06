@@ -629,15 +629,13 @@ export default function EditStep() {
           open={!!ingredientToRemove}
           onClose={() => setIngredientToRemove(null)}
           onConfirm={() => {
-            // Note: ingredientToRemove is guaranteed truthy when dialog is open (open={!!ingredientToRemove})
-            // TypeScript requires the null check because the type is string | null
-            if (ingredientToRemove) {
-              const formData = new FormData();
-              formData.set("intent", "deleteIngredient");
-              formData.set("ingredientId", ingredientToRemove);
-              submit(formData, { method: "post" });
-              setIngredientToRemove(null);
-            }
+            /* istanbul ignore next -- @preserve TypeScript requires null check; dialog only opens when ingredientToRemove is truthy */
+            if (!ingredientToRemove) return;
+            const formData = new FormData();
+            formData.set("intent", "deleteIngredient");
+            formData.set("ingredientId", ingredientToRemove);
+            submit(formData, { method: "post" });
+            setIngredientToRemove(null);
           }}
           title="Remove this ingredient? 🥕"
           description="This ingredient will be removed from the step."

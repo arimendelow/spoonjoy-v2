@@ -46,7 +46,10 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
   }, [steps])
 
   // Clear the focus flag after focusing
+  // Note: onFocused is only called by StepEditorCard when autoFocusInstructions is true,
+  // which only happens when stepId === newlyAddedStepId. The else branch is defensive.
   const handleFocused = useCallback((stepId: string) => {
+    /* istanbul ignore else -- @preserve onFocused only called when autoFocusInstructions=true (stepId always matches) */
     if (newlyAddedStepId === stepId) {
       setNewlyAddedStepId(null)
     }

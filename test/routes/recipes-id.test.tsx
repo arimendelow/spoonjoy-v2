@@ -1612,6 +1612,140 @@ describe("Recipes $id Route", () => {
       expect(stepOutputCheckbox).not.toBeChecked();
     });
 
+    it("should toggle ingredient checkbox when clicked", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Recipe with Ingredients",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Mix ingredients",
+              description: "Combine all ingredients",
+              ingredients: [
+                {
+                  id: "ing-1",
+                  quantity: 2,
+                  unit: { name: "cups" },
+                  ingredientRef: { name: "flour" },
+                },
+                {
+                  id: "ing-2",
+                  quantity: 1,
+                  unit: { name: "tsp" },
+                  ingredientRef: { name: "salt" },
+                },
+              ],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: false,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Wait for recipe to render
+      await screen.findByRole("heading", { name: "Recipe with Ingredients" });
+
+      // Find ingredient checkboxes
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBeGreaterThanOrEqual(2);
+
+      // Find the flour ingredient checkbox (first one in the list)
+      const flourCheckbox = checkboxes[0];
+      expect(flourCheckbox).not.toBeChecked();
+
+      // Click to check
+      await user.click(flourCheckbox);
+      expect(flourCheckbox).toBeChecked();
+
+      // Click again to uncheck (tests the delete branch in handleIngredientToggle)
+      await user.click(flourCheckbox);
+      expect(flourCheckbox).not.toBeChecked();
+    });
+
+    it("should change scale factor when scale buttons are clicked", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Scalable Recipe",
+          description: null,
+          servings: "4",
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Prep",
+              description: "Prepare ingredients",
+              ingredients: [
+                {
+                  id: "ing-1",
+                  quantity: 2,
+                  unit: { name: "cups" },
+                  ingredientRef: { name: "flour" },
+                },
+              ],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: false,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+
+      // Wait for recipe to render
+      await screen.findByRole("heading", { name: "Scalable Recipe" });
+
+      // Initial scale should be 1x
+      const scaleDisplay = screen.getByTestId("scale-display");
+      expect(scaleDisplay).toHaveTextContent("1×");
+
+      // Click the plus button to increase scale (step is 0.25)
+      const plusButton = screen.getByTestId("scale-plus");
+      await user.click(plusButton);
+
+      // Scale should now be 1.25x
+      expect(scaleDisplay).toHaveTextContent("1.25×");
+
+      // Click the minus button to decrease scale
+      const minusButton = screen.getByTestId("scale-minus");
+      await user.click(minusButton);
+
+      // Scale should be back to 1x
+      expect(scaleDisplay).toHaveTextContent("1×");
+    });
+
     it("should save recipe to cookbook via dropdown (optimistic UI)", async () => {
       const user = userEvent.setup();
       const mockData = {
