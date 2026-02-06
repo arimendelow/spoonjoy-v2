@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { BrowserRouter } from 'react-router'
@@ -193,7 +193,10 @@ describe('RecipeHeader', () => {
       const cancelButton = screen.getByRole('button', { name: /keep it/i })
       await userEvent.click(cancelButton)
 
-      expect(screen.queryByText('Banish this recipe?')).toBeNull()
+      // Wait for dialog exit animation to complete
+      await waitFor(() => {
+        expect(screen.queryByText('Banish this recipe?')).not.toBeInTheDocument()
+      })
       expect(onDelete).not.toHaveBeenCalled()
     })
   })
