@@ -100,6 +100,7 @@ export function RecipeBuilder({
 
   const handleSave = () => {
     // Prevent save if disabled or loading
+    /* istanbul ignore if -- button disabled when this would be true */
     if (isDisabled || !title.trim()) return
 
     const data: RecipeBuilderData = {

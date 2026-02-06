@@ -1082,4 +1082,44 @@ describe('StepEditorCard', () => {
       )
     })
   })
+
+  describe('move handlers not provided', () => {
+    it('does not render move up button when onMoveUp is not provided', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        onMoveUp: undefined,
+        onMoveDown: vi.fn(),
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Move up button should not be rendered when onMoveUp is not provided
+      expect(screen.queryByRole('button', { name: /move up/i })).not.toBeInTheDocument()
+      // Move down button should still be rendered
+      expect(screen.getByRole('button', { name: /move down/i })).toBeInTheDocument()
+    })
+
+    it('does not render move down button when onMoveDown is not provided', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        onMoveUp: vi.fn(),
+        onMoveDown: undefined,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Move down button should not be rendered when onMoveDown is not provided
+      expect(screen.queryByRole('button', { name: /move down/i })).not.toBeInTheDocument()
+      // Move up button should still be rendered
+      expect(screen.getByRole('button', { name: /move up/i })).toBeInTheDocument()
+    })
+
+    it('does not render either move button when both handlers are not provided', () => {
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        onMoveUp: undefined,
+        onMoveDown: undefined,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      // Neither move button should be rendered
+      expect(screen.queryByRole('button', { name: /move up/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /move down/i })).not.toBeInTheDocument()
+    })
+  })
 })

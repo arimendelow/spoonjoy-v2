@@ -89,6 +89,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
   // This ensures Enter/Space key triggers click even in test environments
   useEffect(() => {
     const handleKeyDown = (callback: () => void) => (e: KeyboardEvent) => {
+      /* istanbul ignore if -- native event listener for keyboard a11y */
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
         callback()

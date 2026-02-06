@@ -756,5 +756,34 @@ describe("RecipeBuilder", () => {
 
       expect(onSave).toHaveBeenCalledTimes(1);
     });
+
+    it("does not call onSave when loading is true even with valid title", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave, loading: true });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
+
+      // When loading, the button is disabled even though it shows "Create Recipe"
+      // The save button has aria-busy="true" when loading
+      const saveButton = screen.getByRole("button", { name: /create recipe/i });
+      expect(saveButton).toBeDisabled();
+      expect(saveButton).toHaveAttribute("aria-busy", "true");
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it("displays servings field validation error when errors prop contains servings error", () => {
+      const Wrapper = createTestWrapper({
+        errors: { servings: "Servings cannot exceed 100 characters" },
+      });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
+
+      // Verify the servings error message is displayed
+      expect(
+        screen.getByText("Servings cannot exceed 100 characters"),
+      ).toBeInTheDocument();
+
+      // Verify the servings input has error styling
+      const servingsInput = screen.getByLabelText(/servings/i);
+      expect(servingsInput).toHaveAttribute("data-invalid", "true");
+    });
   });
 });

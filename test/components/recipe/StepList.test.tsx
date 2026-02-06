@@ -906,5 +906,60 @@ describe('StepList', () => {
       expect(onChange).toHaveBeenCalledTimes(1)
       expect(onChange).toHaveBeenCalledWith([])
     })
+
+    it('dialog Confirm button activates on Space key', async () => {
+      const onChange = vi.fn()
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Open the confirmation dialog
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      const dialog = screen.getByRole('alertdialog')
+      const confirmButton = within(dialog).getByRole('button', { name: /confirm/i })
+
+      // Focus confirm button and press Space (wrapped in act to avoid warnings)
+      await act(async () => {
+        confirmButton.focus()
+      })
+      await userEvent.keyboard(' ')
+
+      // Dialog should be closed, step should be removed (wait for exit animation to complete)
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      })
+      // onChange should have been called to remove the step
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onChange).toHaveBeenCalledWith([])
+    })
+
+    it('dialog Cancel button activates on Space key', async () => {
+      const onChange = vi.fn()
+      const steps = [createTestStep({ id: 'step-1', stepNum: 1 })]
+      const Wrapper = createTestWrapper({ steps, onChange })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/edit']} />)
+
+      // Open the confirmation dialog
+      await userEvent.click(screen.getByRole('button', { name: /remove/i }))
+
+      const dialog = screen.getByRole('alertdialog')
+      const cancelButton = within(dialog).getByRole('button', { name: /cancel/i })
+
+      // Focus cancel button and press Space (wrapped in act to avoid warnings)
+      await act(async () => {
+        cancelButton.focus()
+      })
+      await userEvent.keyboard(' ')
+
+      // Dialog should be closed but step should NOT be removed
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      })
+      // onChange should NOT have been called (step not removed)
+      expect(onChange).not.toHaveBeenCalled()
+      // Step should still be in the document
+      expect(screen.getByLabelText(/step 1/i)).toBeInTheDocument()
+    })
   })
 })

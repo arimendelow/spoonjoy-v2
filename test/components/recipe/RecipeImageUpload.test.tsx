@@ -953,4 +953,64 @@ describe('RecipeImageUpload', () => {
       expect(true).toBe(true)
     })
   })
+
+  describe('drag and drop validation', () => {
+    it('rejects dropped files with invalid type', async () => {
+      const onFileSelect = vi.fn()
+      const onError = vi.fn()
+      const { container } = render(
+        <RecipeImageUpload
+          onFileSelect={onFileSelect}
+          onValidationError={onError}
+        />
+      )
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+
+      // Create an invalid file type (PDF)
+      const invalidFile = createMockFile('document.pdf', 'application/pdf', 1024 * 1024)
+
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
+          files: [invalidFile],
+        },
+      })
+
+      // Should have called the validation error callback
+      expect(onError).toHaveBeenCalledWith(
+        expect.stringMatching(/invalid.*type|image.*file/i)
+      )
+      // Should not have called onFileSelect
+      expect(onFileSelect).not.toHaveBeenCalled()
+    })
+
+    it('rejects dropped files that exceed size limit', async () => {
+      const onFileSelect = vi.fn()
+      const onError = vi.fn()
+      const { container } = render(
+        <RecipeImageUpload
+          onFileSelect={onFileSelect}
+          onValidationError={onError}
+        />
+      )
+
+      const dropZone = container.querySelector('[data-drop-zone]') as HTMLElement
+
+      // Create a file that exceeds the 5MB limit
+      const largeFile = createMockFile('large.jpg', 'image/jpeg', 6 * 1024 * 1024)
+
+      fireEvent.drop(dropZone, {
+        dataTransfer: {
+          files: [largeFile],
+        },
+      })
+
+      // Should have called the validation error callback for size
+      expect(onError).toHaveBeenCalledWith(
+        expect.stringMatching(/size|5.*mb|too.*large/i)
+      )
+      // Should not have called onFileSelect
+      expect(onFileSelect).not.toHaveBeenCalled()
+    })
+  })
 })
