@@ -8,7 +8,7 @@
  * - Steps array management (controlled component)
  */
 
-import { render, screen, within, act, waitFor } from '@testing-library/react'
+import { render, screen, within, act, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { createRoutesStub } from 'react-router'

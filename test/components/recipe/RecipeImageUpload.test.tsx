@@ -538,6 +538,32 @@ describe('RecipeImageUpload', () => {
 
       expect(onFileSelect).toHaveBeenCalledWith(webpFile)
     })
+
+    it('rejects image types not in accepted list (e.g., BMP, TIFF)', async () => {
+      // Use applyAccept: false to bypass the accept attribute filtering
+      const user = userEvent.setup({ applyAccept: false })
+      const onFileSelect = vi.fn()
+      const onError = vi.fn()
+      const { container } = render(
+        <RecipeImageUpload
+          onFileSelect={onFileSelect}
+          onValidationError={onError}
+        />
+      )
+
+      // BMP is an image type but not in ACCEPTED_IMAGE_TYPES
+      const bmpFile = createMockFile('image.bmp', 'image/bmp', 1024 * 1024)
+      const fileInput = container.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement
+
+      await user.upload(fileInput, bmpFile)
+
+      expect(onError).toHaveBeenCalledWith(
+        expect.stringMatching(/invalid.*type|image.*file/i)
+      )
+      expect(onFileSelect).not.toHaveBeenCalled()
+    })
   })
 
   describe('preview dimensions', () => {

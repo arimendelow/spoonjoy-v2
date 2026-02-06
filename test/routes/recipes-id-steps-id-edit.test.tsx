@@ -3271,5 +3271,373 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         });
       });
     });
+
+    describe("parsed ingredient interactions", () => {
+      it("should update parsed ingredient when edited", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "A step",
+            ingredients: [],
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: async ({ request }: { request: Request }) => {
+              const formData = await request.formData();
+              const intent = formData.get("intent")?.toString();
+
+              if (intent === "parseIngredients") {
+                return {
+                  parsedIngredients: [
+                    { quantity: 2, unit: "cups", ingredientName: "flour" },
+                    { quantity: 1, unit: "tsp", ingredientName: "salt" },
+                  ],
+                };
+              }
+              return { success: true };
+            },
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click add ingredient button
+        const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
+        fireEvent.click(addButton);
+
+        // Type in the AI input to trigger parsing
+        const textarea = screen.getByPlaceholderText(/Enter ingredients/);
+        fireEvent.change(textarea, { target: { value: "2 cups flour, 1 tsp salt" } });
+
+        // Wait for parsed ingredients to appear
+        await waitFor(() => {
+          expect(screen.getByText(/Parsed Ingredients/)).toBeInTheDocument();
+        }, { timeout: 3000 });
+
+        // Find and click the Edit button for flour
+        const editButtons = await screen.findAllByRole("button", { name: /Edit / });
+        expect(editButtons.length).toBeGreaterThan(0);
+        fireEvent.click(editButtons[0]);
+
+        // Now we should see edit inputs - change the quantity
+        const quantityInput = screen.getByRole("spinbutton", { name: /Quantity/i });
+        fireEvent.change(quantityInput, { target: { value: "3" } });
+
+        // Save the edit
+        const saveButton = screen.getByRole("button", { name: "Save" });
+        fireEvent.click(saveButton);
+
+        // The ingredient should be updated - verify by checking the display shows new value
+        await waitFor(() => {
+          expect(screen.getByText("3")).toBeInTheDocument();
+        });
+      });
+
+      it("should switch to manual mode when clicking Add Manually button on parse error", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "A step",
+            ingredients: [],
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: async ({ request }: { request: Request }) => {
+              const formData = await request.formData();
+              const intent = formData.get("intent")?.toString();
+
+              if (intent === "parseIngredients") {
+                // Return a parse error
+                return {
+                  errors: { parse: "Failed to parse ingredients" },
+                };
+              }
+              return { success: true };
+            },
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click add ingredient button
+        const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
+        fireEvent.click(addButton);
+
+        // Verify we're in AI mode initially
+        const toggle = screen.getByRole("switch");
+        expect(toggle).toBeChecked();
+
+        // Type in the AI input to trigger parsing (which will fail)
+        const textarea = screen.getByPlaceholderText(/Enter ingredients/);
+        fireEvent.change(textarea, { target: { value: "some ingredients" } });
+
+        // Wait for error to appear
+        await waitFor(() => {
+          expect(screen.getByRole("alert")).toBeInTheDocument();
+        }, { timeout: 3000 });
+
+        // Click the "Add Manually" button in the error alert
+        const addManuallyButton = screen.getByTestId("switch-to-manual-button");
+        fireEvent.click(addManuallyButton);
+
+        // Should switch to manual mode - check for manual input fields
+        // The ManualIngredientInput shows quantity, unit, and ingredient inputs
+        await waitFor(() => {
+          expect(screen.getByRole("spinbutton", { name: /Quantity/i })).toBeInTheDocument();
+          expect(screen.getByLabelText(/Unit/i)).toBeInTheDocument();
+          expect(screen.getByLabelText("Ingredient")).toBeInTheDocument();
+        });
+
+        // The AI parse textarea should no longer be visible
+        expect(screen.queryByPlaceholderText(/Enter ingredients/)).not.toBeInTheDocument();
+      });
+
+      it("should remove parsed ingredient when remove button is clicked", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "A step",
+            ingredients: [],
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: async ({ request }: { request: Request }) => {
+              const formData = await request.formData();
+              const intent = formData.get("intent")?.toString();
+
+              if (intent === "parseIngredients") {
+                return {
+                  parsedIngredients: [
+                    { quantity: 2, unit: "cups", ingredientName: "flour" },
+                    { quantity: 1, unit: "tsp", ingredientName: "salt" },
+                  ],
+                };
+              }
+              return { success: true };
+            },
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click add ingredient button
+        const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
+        fireEvent.click(addButton);
+
+        // Type in the AI input to trigger parsing
+        const textarea = screen.getByPlaceholderText(/Enter ingredients/);
+        fireEvent.change(textarea, { target: { value: "2 cups flour, 1 tsp salt" } });
+
+        // Wait for parsed ingredients to appear
+        await waitFor(() => {
+          expect(screen.getByText(/Parsed Ingredients/)).toBeInTheDocument();
+        }, { timeout: 3000 });
+
+        // Find all remove buttons and click the first one
+        const removeButtons = await screen.findAllByRole("button", { name: /Remove / });
+        expect(removeButtons.length).toBe(2);
+        fireEvent.click(removeButtons[0]);
+
+        // Should now have only one remove button
+        await waitFor(() => {
+          const remainingButtons = screen.queryAllByRole("button", { name: /Remove / });
+          expect(remainingButtons.length).toBe(1);
+        });
+      });
+
+      it("should add all parsed ingredients when Add All is clicked", async () => {
+        const actionSpy = vi.fn();
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "A step",
+            ingredients: [],
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: async ({ request }: { request: Request }) => {
+              const formData = await request.formData();
+              const intent = formData.get("intent")?.toString();
+
+              if (intent === "parseIngredients") {
+                return {
+                  parsedIngredients: [
+                    { quantity: 2, unit: "cups", ingredientName: "flour" },
+                    { quantity: 1, unit: "tsp", ingredientName: "salt" },
+                  ],
+                };
+              }
+              if (intent === "addIngredient") {
+                actionSpy(Object.fromEntries(formData.entries()));
+                return { success: true };
+              }
+              return { success: true };
+            },
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click add ingredient button
+        const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
+        fireEvent.click(addButton);
+
+        // Type in the AI input to trigger parsing (the debounce is 1000ms)
+        const textarea = screen.getByPlaceholderText(/Enter ingredients/);
+        fireEvent.change(textarea, { target: { value: "2 cups flour, 1 tsp salt" } });
+
+        // Wait for parsed ingredients and Add All button to appear (debounce + fetch)
+        await waitFor(() => {
+          expect(screen.getByRole("button", { name: /Add All/ })).toBeInTheDocument();
+        }, { timeout: 5000 });
+
+        // Click Add All button
+        const addAllButton = screen.getByRole("button", { name: /Add All/ });
+        fireEvent.click(addAllButton);
+
+        // Verify the action was called for each ingredient
+        await waitFor(() => {
+          expect(actionSpy).toHaveBeenCalledTimes(2);
+        });
+
+        // Verify first ingredient was added
+        expect(actionSpy).toHaveBeenCalledWith(expect.objectContaining({
+          intent: "addIngredient",
+          quantity: "2",
+          unitName: "cups",
+          ingredientName: "flour",
+        }));
+
+        // Verify second ingredient was added
+        expect(actionSpy).toHaveBeenCalledWith(expect.objectContaining({
+          intent: "addIngredient",
+          quantity: "1",
+          unitName: "tsp",
+          ingredientName: "salt",
+        }));
+
+        // Parsed ingredients should be cleared after adding all
+        await waitFor(() => {
+          expect(screen.queryByText(/Parsed Ingredients/)).not.toBeInTheDocument();
+        });
+      }, 10000);
+
+      it("should submit manual ingredient when Add button is clicked in manual mode", async () => {
+        const actionSpy = vi.fn();
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-1",
+            stepNum: 1,
+            stepTitle: null,
+            description: "A step",
+            ingredients: [],
+          },
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+            action: async ({ request }: { request: Request }) => {
+              const formData = await request.formData();
+              const intent = formData.get("intent")?.toString();
+
+              if (intent === "addIngredient") {
+                actionSpy(Object.fromEntries(formData.entries()));
+                return { success: true };
+              }
+              return { success: true };
+            },
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+
+        // Click add ingredient button
+        const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
+        fireEvent.click(addButton);
+
+        // Switch to manual mode by clicking the toggle
+        const toggle = screen.getByRole("switch");
+        fireEvent.click(toggle);
+
+        // Wait for manual input fields to appear
+        await waitFor(() => {
+          expect(screen.getByRole("spinbutton", { name: /Quantity/i })).toBeInTheDocument();
+        });
+
+        // Fill in the manual input form
+        const quantityInput = screen.getByRole("spinbutton", { name: /Quantity/i });
+        const unitInput = screen.getByLabelText(/Unit/i);
+        const ingredientInput = screen.getByLabelText("Ingredient");
+
+        fireEvent.change(quantityInput, { target: { value: "3" } });
+        fireEvent.change(unitInput, { target: { value: "tbsp" } });
+        fireEvent.change(ingredientInput, { target: { value: "olive oil" } });
+
+        // Click the Add Ingredient button
+        const addIngredientButton = screen.getByRole("button", { name: /Add Ingredient/i });
+        fireEvent.click(addIngredientButton);
+
+        // Verify the action was called with correct data
+        await waitFor(() => {
+          expect(actionSpy).toHaveBeenCalledWith(expect.objectContaining({
+            intent: "addIngredient",
+            quantity: "3",
+            unitName: "tbsp",
+            ingredientName: "olive oil",
+          }));
+        });
+      }, 10000);
+    });
   });
 });

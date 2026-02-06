@@ -208,6 +208,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
                 canMoveDown={index < steps.length - 1}
                 disabled={disabled}
                 autoFocusInstructions={newlyAddedStepId === step.id}
+                onFocused={() => handleFocused(step.id)}
                 dragHandle={
                   <button
                     type="button"

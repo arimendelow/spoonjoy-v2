@@ -422,7 +422,150 @@ describe('IngredientParseInput', () => {
       })
     })
 
-    it('does not show Try Again when text is empty', async () => {
+    it('transforms network error to user-friendly message', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'network error occurred' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent(/unable to connect/i)
+      })
+    })
+
+    it('transforms connection error to user-friendly message (explicit connection keyword)', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'connection refused' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent(/unable to connect/i)
+      })
+    })
+
+    it('transforms timeout error to user-friendly message', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'Request timeout' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent(/unable to connect/i)
+      })
+    })
+
+    it('transforms "No response" error to user-friendly message', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'No response from AI service' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent(/AI parsing failed to process/i)
+      })
+    })
+
+    it('transforms schema validation error to user-friendly message', async () => {
+      const actionHandler = vi.fn().mockResolvedValue({
+        errors: { parse: 'Response did not match expected schema' },
+      })
+      const Wrapper = createTestWrapper(actionHandler)
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent(/AI returned unexpected results/i)
+      })
+    })
+
+    it('retries parsing when Try Again button is clicked', async () => {
+      let callCount = 0
+      const actionHandler = vi.fn().mockImplementation(async () => {
+        callCount++
+        if (callCount === 1) {
+          return { errors: { parse: 'Failed to parse ingredients' } }
+        }
+        return { parsedIngredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }] }
+      })
+      const onParsed = vi.fn()
+      const Wrapper = createTestWrapper(actionHandler, { onParsed })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/step-1/edit']} />)
+
+      // Trigger error via debounce
+      vi.useFakeTimers()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '2 cups flour' } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      vi.useRealTimers()
+
+      await waitFor(() => {
+        expect(screen.getByTestId('try-again-button')).toBeInTheDocument()
+      })
+
+      // Click Try Again
+      fireEvent.click(screen.getByTestId('try-again-button'))
+
+      await waitFor(() => {
+        expect(actionHandler).toHaveBeenCalledTimes(2)
+      })
+
+      // Second call should succeed and call onParsed
+      await waitFor(() => {
+        expect(onParsed).toHaveBeenCalledWith([{ quantity: 2, unit: 'cup', ingredientName: 'flour' }])
+      })
+    })
+
+    it('does not show Try Again when text is cleared after error', async () => {
       const actionHandler = vi.fn().mockResolvedValue({
         errors: { parse: 'Failed to parse ingredients' },
       })

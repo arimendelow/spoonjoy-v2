@@ -888,10 +888,7 @@ describe('StepEditorCard', () => {
 
   describe('ingredient management', () => {
     // TODO: This test is flaky in CI - the debounced AI parsing action doesn't complete
-    // before the save button is clicked, resulting in empty ingredients. The test passes
-    // locally but fails in CI due to timing differences in happy-dom. The underlying
-    // functionality works correctly - verified by related integration tests.
-    it.skip('updates ingredients when AI parses text', async () => {
+    it('updates ingredients when AI parses text', async () => {
       const onSave = vi.fn()
       const parsedResult = [{ quantity: 2, unit: 'cups', ingredientName: 'flour' }]
 
@@ -901,10 +898,8 @@ describe('StepEditorCard', () => {
       })
       render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
 
-      // Fill in instructions first using fireEvent (works with fake timers)
-      fireEvent.change(screen.getByRole('textbox', { name: /instructions/i }), {
-        target: { value: 'Mix dry ingredients' },
-      })
+      // Fill in instructions first
+      await userEvent.type(screen.getByRole('textbox', { name: /instructions/i }), 'Mix ingredients')
 
       // Type in the AI parse textarea to trigger parsing
       vi.useFakeTimers()
@@ -917,10 +912,13 @@ describe('StepEditorCard', () => {
       })
       vi.useRealTimers()
 
-      // Wait for the parsed ingredient to appear in the list
-      await waitFor(() => {
-        expect(screen.getByText(/flour/i)).toBeInTheDocument()
-      })
+      // Wait for the parsed ingredient to appear in the list with longer timeout
+      await waitFor(
+        () => {
+          expect(screen.getByText(/flour/i)).toBeInTheDocument()
+        },
+        { timeout: 3000 }
+      )
 
       // Save and verify ingredients are included
       await userEvent.click(screen.getByRole('button', { name: /^save$/i }))

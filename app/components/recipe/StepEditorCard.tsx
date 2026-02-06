@@ -85,6 +85,8 @@ export interface StepEditorCardProps {
   dragHandle?: React.ReactNode
   /** Auto-focus the instructions textarea on mount */
   autoFocusInstructions?: boolean
+  /** Callback when instructions textarea is focused */
+  onFocused?: () => void
 }
 
 export function StepEditorCard({
@@ -100,6 +102,7 @@ export function StepEditorCard({
   disabled = false,
   dragHandle,
   autoFocusInstructions = false,
+  onFocused,
 }: StepEditorCardProps) {
   const id = useId()
   const instructionsId = `${id}-instructions`
@@ -110,8 +113,9 @@ export function StepEditorCard({
   useEffect(() => {
     if (autoFocusInstructions && instructionsRef.current) {
       instructionsRef.current.focus()
+      onFocused?.()
     }
-  }, [autoFocusInstructions])
+  }, [autoFocusInstructions, onFocused])
 
   // Form state
   const [description, setDescription] = useState(step?.description ?? '')

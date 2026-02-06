@@ -561,6 +561,69 @@ describe("RecipeBuilder", () => {
     });
   });
 
+  describe("image upload", () => {
+    it("revokes previous preview URL when selecting a new image", async () => {
+      const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
+
+      // Find the file input (it should be present in the image upload component)
+      const fileInput = screen.getByLabelText(/recipe image/i);
+
+      // Create first image file
+      const firstFile = new File(["content1"], "image1.jpg", {
+        type: "image/jpeg",
+      });
+      await userEvent.upload(fileInput, firstFile);
+
+      // Wait a moment for state to update
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Create second image file and upload it
+      const secondFile = new File(["content2"], "image2.jpg", {
+        type: "image/jpeg",
+      });
+      await userEvent.upload(fileInput, secondFile);
+
+      // Wait a moment for state to update
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // revokeObjectURL should have been called when the second image was selected
+      expect(revokeObjectURL).toHaveBeenCalled();
+
+      revokeObjectURL.mockRestore();
+    });
+
+    it("revokes preview URL when clearing an image", async () => {
+      const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
+      const Wrapper = createTestWrapper();
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
+
+      // Find the file input and upload an image
+      const fileInput = screen.getByLabelText(/recipe image/i);
+      const file = new File(["content"], "image.jpg", { type: "image/jpeg" });
+      await userEvent.upload(fileInput, file);
+
+      // Wait for state to update
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Clear the image (look for clear/remove button)
+      const clearButton = screen.getByRole("button", { name: /clear|remove/i });
+      await userEvent.click(clearButton);
+
+      // revokeObjectURL should have been called when clearing
+      expect(revokeObjectURL).toHaveBeenCalled();
+
+      revokeObjectURL.mockRestore();
+    });
+  });
+
   describe("keyboard navigation", () => {
     it("form fields and buttons are reachable via tab in logical order", async () => {
       const Wrapper = createTestWrapper();
