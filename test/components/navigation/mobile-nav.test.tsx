@@ -408,5 +408,62 @@ describe('MobileNav', () => {
       expect(screen.getByText('List')).toBeInTheDocument()
       expect(screen.getByText('Profile')).toBeInTheDocument()
     })
+
+    it('renders left item with function onAction as button', async () => {
+      const user = userEvent.setup()
+      const handleShare = vi.fn()
+      const actions: DockAction[] = [
+        { id: 'share', icon: Share2, label: 'Share', onAction: handleShare, position: 'left' },
+        { id: 'edit', icon: Edit, label: 'Edit', onAction: () => {}, position: 'right' },
+      ]
+
+      render(
+        <MemoryRouter initialEntries={['/recipes/123']}>
+          <DockContext.Provider value={{ actions, setActions: () => {}, isContextual: true }}>
+            <MobileNav />
+          </DockContext.Provider>
+        </MemoryRouter>
+      )
+
+      const shareLink = screen.getByText('Share').closest('a')
+      expect(shareLink).toBeInTheDocument()
+
+      await user.click(shareLink!)
+      expect(handleShare).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders right item with string onAction as navigation link', () => {
+      const actions: DockAction[] = [
+        { id: 'back', icon: ArrowLeft, label: 'Back', onAction: '/recipes', position: 'left' },
+        { id: 'details', icon: Edit, label: 'Details', onAction: '/recipes/123/details', position: 'right' },
+      ]
+
+      render(
+        <MemoryRouter initialEntries={['/recipes/123']}>
+          <DockContext.Provider value={{ actions, setActions: () => {}, isContextual: true }}>
+            <MobileNav />
+          </DockContext.Provider>
+        </MemoryRouter>
+      )
+
+      const detailsLink = screen.getByText('Details').closest('a')
+      expect(detailsLink).toBeInTheDocument()
+      expect(detailsLink).toHaveAttribute('href', '/recipes/123/details')
+    })
+
+    it('handles null actions when isContextual is true', () => {
+      render(
+        <MemoryRouter initialEntries={['/recipes/123']}>
+          <DockContext.Provider value={{ actions: null, setActions: () => {}, isContextual: true }}>
+            <MobileNav />
+          </DockContext.Provider>
+        </MemoryRouter>
+      )
+
+      // Should render only center logo, no left/right items
+      expect(screen.getByTestId('dock-center')).toBeInTheDocument()
+      expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
+      expect(screen.queryByText('Back')).not.toBeInTheDocument()
+    })
   })
 })
