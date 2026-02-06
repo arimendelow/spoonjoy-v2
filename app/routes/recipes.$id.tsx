@@ -315,8 +315,8 @@ export default function RecipeDetail() {
     }
   };
 
+  /* istanbul ignore next -- @preserve browser-only navigation (not testable in vitest/jsdom) */
   const handleCreateNewCookbook = () => {
-    /* istanbul ignore next -- @preserve browser navigation */
     if (typeof window !== "undefined") {
       window.location.href = "/cookbooks/new";
     }
