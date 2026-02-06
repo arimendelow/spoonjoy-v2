@@ -63,7 +63,11 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
   const { id, stepId } = params;
 
-  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve
+   * Cloudflare D1 production-only path: The context?.cloudflare?.env?.DB check
+   * is only truthy in Cloudflare Workers production runtime. Local tests use
+   * the SQLite db directly. Cannot be tested without Cloudflare Workers runtime.
+   */
   const database = context?.cloudflare?.env?.DB
     ? await getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -132,7 +136,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent")?.toString();
 
-  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
+  /* istanbul ignore next -- @preserve
+   * Cloudflare D1 production-only path: The context?.cloudflare?.env?.DB check
+   * is only truthy in Cloudflare Workers production runtime. Local tests use
+   * the SQLite db directly. Cannot be tested without Cloudflare Workers runtime.
+   */
   const database = context?.cloudflare?.env?.DB
     ? await getDb(context.cloudflare.env as { DB: D1Database })
     : db;
@@ -207,7 +215,12 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   // Handle add ingredient intent
   if (intent === "addIngredient") {
-    /* istanbul ignore next -- @preserve formData null fallbacks */
+    /* istanbul ignore next -- @preserve
+     * formData null fallbacks: These fallbacks handle edge cases where form fields
+     * are missing from the request (e.g., malformed requests). The UI form always
+     * sends all fields, so these branches cannot be exercised via normal user flow.
+     * Defensive coding pattern - validation errors will still catch invalid values.
+     */
     const quantity = parseFloat(formData.get("quantity")?.toString() || "0");
     const unitName = formData.get("unitName")?.toString() || "";
     const ingredientName = formData.get("ingredientName")?.toString() || "";
@@ -436,7 +449,7 @@ export default function EditStep() {
           </Link>
         </div>
 
-        {/* istanbul ignore next -- @preserve */ actionData?.errors?.general && (
+        {actionData?.errors?.general && (
           <ValidationError error={actionData.errors.general} className="mb-4" />
         )}
 
@@ -451,7 +464,7 @@ export default function EditStep() {
               name="stepTitle"
               maxLength={STEP_TITLE_MAX_LENGTH}
               defaultValue={step.stepTitle || ""}
-              invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.stepTitle}
+              invalid={!!actionData?.errors?.stepTitle}
             />
           </div>
 
@@ -498,9 +511,9 @@ export default function EditStep() {
               required
               maxLength={STEP_DESCRIPTION_MAX_LENGTH}
               defaultValue={step.description}
-              invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.description}
+              invalid={!!actionData?.errors?.description}
             />
-            {/* istanbul ignore next -- @preserve */ actionData?.errors?.description && (
+            {actionData?.errors?.description && (
               <div className="text-red-600 text-sm mt-1">
                 {actionData.errors.description}
               </div>

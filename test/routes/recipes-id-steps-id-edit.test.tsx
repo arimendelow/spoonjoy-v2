@@ -2370,24 +2370,133 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
           stepTitle: null,
           description: "A step",
           ingredients: [],
+          usingSteps: [],
         },
+        availableSteps: [],
+      };
+
+      const actionResult = {
+        errors: { general: "Failed to update step. Please try again." },
       };
 
       const Stub = createTestRoutesStub([
         {
+          id: "step-edit",
           path: "/recipes/:id/steps/:stepId/edit",
           Component: EditStep,
           loader: () => mockData,
-          action: () => ({
-            errors: { general: "Failed to update step. Please try again." },
-          }),
+          action: () => actionResult,
         },
       ]);
 
-      render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
+      render(
+        <Stub
+          initialEntries={["/recipes/recipe-1/steps/step-1/edit"]}
+          hydrationData={{
+            loaderData: { "step-edit": mockData },
+            actionData: { "step-edit": actionResult },
+          }}
+        />
+      );
 
-      // Wait for form to render
-      await screen.findByLabelText(/Description/);
+      // Verify the general error is displayed via ValidationError (has role="alert")
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Failed to update step. Please try again.");
+    });
+
+    it("should display stepTitle validation error and mark input as invalid", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Test Recipe",
+        },
+        step: {
+          id: "step-1",
+          stepNum: 1,
+          stepTitle: "a".repeat(201), // Too long
+          description: "A step",
+          ingredients: [],
+          usingSteps: [],
+        },
+        availableSteps: [],
+      };
+
+      const actionResult = {
+        errors: { stepTitle: "Step title must be 200 characters or less" },
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          id: "step-edit",
+          path: "/recipes/:id/steps/:stepId/edit",
+          Component: EditStep,
+          loader: () => mockData,
+          action: () => actionResult,
+        },
+      ]);
+
+      render(
+        <Stub
+          initialEntries={["/recipes/recipe-1/steps/step-1/edit"]}
+          hydrationData={{
+            loaderData: { "step-edit": mockData },
+            actionData: { "step-edit": actionResult },
+          }}
+        />
+      );
+
+      // Verify the stepTitle input has invalid attribute set (HeadlessUI boolean attr)
+      const stepTitleInput = await screen.findByLabelText(/Step Title/i);
+      expect(stepTitleInput).toHaveAttribute("data-invalid");
+    });
+
+    it("should display description validation error and mark textarea as invalid", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Test Recipe",
+        },
+        step: {
+          id: "step-1",
+          stepNum: 1,
+          stepTitle: null,
+          description: "", // Empty - will trigger validation error
+          ingredients: [],
+          usingSteps: [],
+        },
+        availableSteps: [],
+      };
+
+      const actionResult = {
+        errors: { description: "Step description is required" },
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          id: "step-edit",
+          path: "/recipes/:id/steps/:stepId/edit",
+          Component: EditStep,
+          loader: () => mockData,
+          action: () => actionResult,
+        },
+      ]);
+
+      render(
+        <Stub
+          initialEntries={["/recipes/recipe-1/steps/step-1/edit"]}
+          hydrationData={{
+            loaderData: { "step-edit": mockData },
+            actionData: { "step-edit": actionResult },
+          }}
+        />
+      );
+
+      // Verify the description textarea has invalid attribute set (HeadlessUI boolean attr)
+      const descriptionTextarea = await screen.findByLabelText(/Description/i);
+      expect(descriptionTextarea).toHaveAttribute("data-invalid");
+
+      // Verify the error message is displayed
+      expect(screen.getByText("Step description is required")).toBeInTheDocument();
     });
 
     describe("uses output from section", () => {
