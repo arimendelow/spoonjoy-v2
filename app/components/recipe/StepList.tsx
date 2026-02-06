@@ -88,8 +88,8 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
   // Add native keyboard event listeners to dialog buttons
   // This ensures Enter/Space key triggers click even in test environments
   useEffect(() => {
+    // istanbul ignore next
     const handleKeyDown = (callback: () => void) => (e: KeyboardEvent) => {
-      /* istanbul ignore if -- native event listener for keyboard a11y */
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
         callback()

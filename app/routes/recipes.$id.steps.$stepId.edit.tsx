@@ -616,7 +616,7 @@ export default function EditStep() {
           open={!!ingredientToRemove}
           onClose={() => setIngredientToRemove(null)}
           onConfirm={() => {
-            /* istanbul ignore if -- dialog only opens when ingredientToRemove is truthy */
+            // istanbul ignore if
             if (ingredientToRemove) {
               const formData = new FormData();
               formData.set("intent", "deleteIngredient");

@@ -177,13 +177,13 @@ export function StepEditorCard({
   }
 
   const handleMoveUp = () => {
-    /* istanbul ignore if -- button only renders when onMoveUp is provided */
+    // istanbul ignore if
     if (disabled || !onMoveUp) return
     onMoveUp()
   }
 
   const handleMoveDown = () => {
-    /* istanbul ignore if -- button only renders when onMoveDown is provided */
+    // istanbul ignore if
     if (disabled || !onMoveDown) return
     onMoveDown()
   }
