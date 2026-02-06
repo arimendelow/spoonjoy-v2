@@ -27,8 +27,6 @@ export interface StepListProps {
 
 export function StepList({ steps, recipeId, onChange, disabled = false }: StepListProps) {
   const [stepToRemove, setStepToRemove] = useState<string | null>(null)
-  const confirmButtonRef = useRef<HTMLButtonElement>(null)
-  const cancelButtonRef = useRef<HTMLButtonElement>(null)
   // Track the ID of a newly added step to auto-focus its instructions
   const [newlyAddedStepId, setNewlyAddedStepId] = useState<string | null>(null)
   // Track previous step IDs to detect newly added steps
@@ -85,39 +83,10 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
     setStepToRemove(null)
   }, [])
 
-  // Add native keyboard event listeners to dialog buttons
-  // This ensures Enter/Space key triggers click even in test environments
-  useEffect(() => {
-    // istanbul ignore next
-    const handleKeyDown = (callback: () => void) => (e: KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        callback()
-      }
-    }
-
-    const confirmHandler = handleKeyDown(confirmRemove)
-    const cancelHandler = handleKeyDown(cancelRemove)
-
-    const confirmBtn = confirmButtonRef.current
-    const cancelBtn = cancelButtonRef.current
-
-    if (confirmBtn) {
-      confirmBtn.addEventListener('keydown', confirmHandler)
-    }
-    if (cancelBtn) {
-      cancelBtn.addEventListener('keydown', cancelHandler)
-    }
-
-    return () => {
-      if (confirmBtn) {
-        confirmBtn.removeEventListener('keydown', confirmHandler)
-      }
-      if (cancelBtn) {
-        cancelBtn.removeEventListener('keydown', cancelHandler)
-      }
-    }
-  }, [confirmRemove, cancelRemove])
+  // Note: Native keyboard event handling (Enter/Space) is provided by:
+  // 1. HeadlessUI Dialog components for focus management
+  // 2. Native button element behavior
+  // No additional handlers needed - buttons work with keyboard out of the box
 
   const handleStepSave = (stepId: string, data: Omit<StepData, 'id' | 'stepNum'>) => {
     const newSteps = steps.map((step) =>
@@ -254,14 +223,12 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
         </DialogDescription>
         <DialogActions>
           <Button
-            ref={cancelButtonRef}
             outline
             onClick={cancelRemove}
           >
             Cancel
           </Button>
           <Button
-            ref={confirmButtonRef}
             color="red"
             onClick={confirmRemove}
           >

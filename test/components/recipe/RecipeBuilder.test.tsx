@@ -309,6 +309,40 @@ describe("RecipeBuilder", () => {
       expect(saveButton).toBeEnabled();
     });
 
+    it("does not call onSave when clicking save with empty title", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
+
+      // Get the save button - it's aria-disabled but not disabled
+      const saveButton = screen.getByRole("button", { name: /create recipe/i });
+
+      // Force a click even though the button is aria-disabled
+      // In real browsers, aria-disabled doesn't prevent clicks
+      await userEvent.click(saveButton, { pointerEventsCheck: 0 });
+
+      // onSave should NOT have been called because handleSave returns early
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it("does not call onSave when clicking save with whitespace-only title", async () => {
+      const onSave = vi.fn();
+      const Wrapper = createTestWrapper({ onSave });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
+
+      // Type only whitespace
+      await userEvent.type(screen.getByLabelText(/title/i), "   ");
+
+      // Get the save button
+      const saveButton = screen.getByRole("button", { name: /create recipe/i });
+
+      // Force a click
+      await userEvent.click(saveButton, { pointerEventsCheck: 0 });
+
+      // onSave should NOT have been called
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
     it("converts empty description to null on save", async () => {
       const onSave = vi.fn();
       const Wrapper = createTestWrapper({ onSave });

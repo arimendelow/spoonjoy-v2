@@ -99,8 +99,9 @@ export function RecipeBuilder({
   const recipeId = recipe?.id ?? 'new-recipe'
 
   const handleSave = () => {
-    // Prevent save if disabled or loading
-    // istanbul ignore if
+    // Prevent save if disabled, loading, or no title
+    // Note: Button is only disabled when isDisabled=true, not when title is empty
+    // When title is empty, button is visually dimmed but still clickable
     if (isDisabled || !title.trim()) return
 
     const data: RecipeBuilderData = {
