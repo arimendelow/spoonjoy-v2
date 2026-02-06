@@ -9,6 +9,7 @@ import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { faker } from "@faker-js/faker";
+import { ParsedIngredientList } from "~/components/recipe/ParsedIngredientList";
 
 // Helper to extract data from React Router's data() response
 function extractResponseData(response: any): { data: any; status: number } {
@@ -3478,99 +3479,35 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         });
       });
 
-      // TODO: Fix this test - the async flow (debounce -> fetcher -> state updates) doesn't work
-      // properly in the test environment. The test tries to trigger ingredient parsing by typing
-      // into the textarea, but the complex async chain (useIngredientParser hook with 1000ms
-      // debounce + useFetcher + component state updates) doesn't complete in the stubbed environment.
-      // To fix: either mock the entire useIngredientParser hook, or test the ParsedIngredientList
-      // component in isolation, or use a different testing approach (e.g., integration test with real timer).
-      it.skip("should add all parsed ingredients when Add All is clicked", async () => {
-        const actionSpy = vi.fn();
-        const mockData = {
-          recipe: {
-            id: "recipe-1",
-            title: "Test Recipe",
-          },
-          step: {
-            id: "step-1",
-            stepNum: 1,
-            stepTitle: null,
-            description: "A step",
-            ingredients: [],
-          },
-        };
+      it("should call onAddAll prop when Add All button is clicked", () => {
+        // Test the ParsedIngredientList component directly to verify Add All functionality
+        // This tests that the button triggers the callback without needing the full async flow
+        const mockIngredients = [
+          { quantity: 2, unit: "cups", ingredientName: "flour" },
+          { quantity: 1, unit: "tsp", ingredientName: "salt" },
+        ];
 
-        const Stub = createTestRoutesStub([
-          {
-            path: "/recipes/:id/steps/:stepId/edit",
-            Component: EditStep,
-            loader: () => mockData,
-            action: async ({ request }: { request: Request }) => {
-              const formData = await request.formData();
-              const intent = formData.get("intent")?.toString();
+        const handleAddAll = vi.fn();
+        const handleEdit = vi.fn();
+        const handleRemove = vi.fn();
 
-              if (intent === "parseIngredients") {
-                return {
-                  parsedIngredients: [
-                    { quantity: 2, unit: "cups", ingredientName: "flour" },
-                    { quantity: 1, unit: "tsp", ingredientName: "salt" },
-                  ],
-                };
-              }
-              if (intent === "addIngredient") {
-                actionSpy(Object.fromEntries(formData.entries()));
-                return { success: true };
-              }
-              return { success: true };
-            },
-          },
-        ]);
+        render(
+          <ParsedIngredientList
+            ingredients={mockIngredients}
+            onEdit={handleEdit}
+            onRemove={handleRemove}
+            onAddAll={handleAddAll}
+          />
+        );
 
-        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
-
-        // Click add ingredient button
-        const addButton = await screen.findByRole("button", { name: "+ Add Ingredient" });
-        fireEvent.click(addButton);
-
-        // Type in the AI input to trigger parsing (the debounce is 1000ms)
-        const textarea = screen.getByPlaceholderText(/Enter ingredients/);
-        fireEvent.change(textarea, { target: { value: "2 cups flour, 1 tsp salt" } });
-
-        // Wait for parsed ingredients and Add All button to appear (debounce + fetch)
-        await waitFor(() => {
-          expect(screen.getByRole("button", { name: /Add All/ })).toBeInTheDocument();
-        }, { timeout: 5000 });
-
-        // Click Add All button
-        const addAllButton = screen.getByRole("button", { name: /Add All/ });
+        // Find and click the Add All button
+        const addAllButton = screen.getByRole("button", { name: /Add all 2 ingredients/i });
         fireEvent.click(addAllButton);
 
-        // Verify the action was called for each ingredient
-        await waitFor(() => {
-          expect(actionSpy).toHaveBeenCalledTimes(2);
-        });
-
-        // Verify first ingredient was added
-        expect(actionSpy).toHaveBeenCalledWith(expect.objectContaining({
-          intent: "addIngredient",
-          quantity: "2",
-          unitName: "cups",
-          ingredientName: "flour",
-        }));
-
-        // Verify second ingredient was added
-        expect(actionSpy).toHaveBeenCalledWith(expect.objectContaining({
-          intent: "addIngredient",
-          quantity: "1",
-          unitName: "tsp",
-          ingredientName: "salt",
-        }));
-
-        // Parsed ingredients should be cleared after adding all
-        await waitFor(() => {
-          expect(screen.queryByText(/Parsed Ingredients/)).not.toBeInTheDocument();
-        });
-      }, 10000);
+        // Verify handleAddAll was called with the ingredients
+        expect(handleAddAll).toHaveBeenCalledTimes(1);
+        expect(handleAddAll).toHaveBeenCalledWith(mockIngredients);
+      });
 
       it("should submit manual ingredient when Add button is clicked in manual mode", async () => {
         const actionSpy = vi.fn();
