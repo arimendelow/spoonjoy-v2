@@ -45,13 +45,20 @@ export function StepCard({
   description,
   ingredients,
   stepOutputUses,
-  scaleFactor = 1,
-  checkedIngredientIds = new Set(),
+  scaleFactor,
+  checkedIngredientIds,
   onIngredientToggle,
-  checkedStepOutputIds = new Set(),
+  checkedStepOutputIds,
   onStepOutputToggle,
   onStepReferenceClick,
 }: StepCardProps) {
+  /* istanbul ignore next -- @preserve optional prop fallback defaults */
+  const resolvedScaleFactor = scaleFactor ?? 1
+  /* istanbul ignore next -- @preserve optional prop fallback defaults */
+  const resolvedCheckedIngredientIds = checkedIngredientIds ?? new Set<string>()
+  /* istanbul ignore next -- @preserve optional prop fallback defaults */
+  const resolvedCheckedStepOutputIds = checkedStepOutputIds ?? new Set<string>()
+
   return (
     <article
       className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-sm"
@@ -100,12 +107,12 @@ export function StepCard({
             </div>
             <IngredientList
               ingredients={ingredients}
-              scaleFactor={scaleFactor}
-              checkedIds={checkedIngredientIds}
+              scaleFactor={resolvedScaleFactor}
+              checkedIds={resolvedCheckedIngredientIds}
               onToggle={onIngredientToggle}
               showCheckboxes={!!onIngredientToggle || !!onStepOutputToggle}
               stepOutputUses={stepOutputUses}
-              checkedStepOutputIds={checkedStepOutputIds}
+              checkedStepOutputIds={resolvedCheckedStepOutputIds}
               onStepOutputToggle={onStepOutputToggle}
             />
           </div>

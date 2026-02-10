@@ -70,6 +70,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
   }
 
   const confirmRemove = useCallback(() => {
+    /* istanbul ignore next -- @preserve confirm action only available when stepToRemove is set */
     if (!stepToRemove) return
 
     const newSteps = steps

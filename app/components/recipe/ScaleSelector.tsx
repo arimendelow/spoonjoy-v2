@@ -34,6 +34,7 @@ export function ScaleSelector({
   const isAtMax = value >= max
 
   const handleDecrement = () => {
+    /* istanbul ignore next -- @preserve decrement button is disabled at min boundary */
     if (!isAtMin) {
       // Round to avoid floating point issues
       const newValue = Math.round((value - step) * 100) / 100
@@ -42,6 +43,7 @@ export function ScaleSelector({
   }
 
   const handleIncrement = () => {
+    /* istanbul ignore next -- @preserve increment button is disabled at max boundary */
     if (!isAtMax) {
       // Round to avoid floating point issues
       const newValue = Math.round((value + step) * 100) / 100

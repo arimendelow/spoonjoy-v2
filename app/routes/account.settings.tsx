@@ -1,7 +1,7 @@
 import type { Route } from "./+types/account.settings";
 import { useLoaderData, useActionData, Form, redirect } from "react-router";
 import { useState, useRef, useEffect } from "react";
-import { db, getDb } from "~/lib/db.server";
+import { getDb, getLocalDb } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { unlinkOAuthAccount } from "~/lib/oauth-user.server";
 import { hashPassword, verifyPassword } from "~/lib/auth.server";
@@ -35,7 +35,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? await getDb(context.cloudflare.env as { DB: D1Database })
-    : db;
+    : await getLocalDb();
 
   const user = await database.user.findUnique({
     where: { id: userId },
@@ -120,7 +120,7 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
   /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
   const database = context?.cloudflare?.env?.DB
     ? await getDb(context.cloudflare.env as { DB: D1Database })
-    : db;
+    : await getLocalDb();
 
   const formData = await request.formData();
   const intent = formData.get("intent");

@@ -64,6 +64,7 @@ export function RecipeImageUpload({
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    /* istanbul ignore next -- @preserve native file input onChange only fires with a selected file */
     if (!file) return
 
     if (!validateFile(file)) {

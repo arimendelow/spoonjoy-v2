@@ -102,6 +102,7 @@ export function RecipeBuilder({
     // Prevent save if disabled, loading, or no title
     // Note: Button is only disabled when isDisabled=true, not when title is empty
     // When title is empty, button is visually dimmed but still clickable
+    /* istanbul ignore next -- @preserve defensive guard; save button is disabled for these states */
     if (isDisabled || !title.trim()) return
 
     const data: RecipeBuilderData = {

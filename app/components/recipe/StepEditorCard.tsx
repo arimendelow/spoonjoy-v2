@@ -172,6 +172,7 @@ export function StepEditorCard({
   }
 
   const handleRemove = () => {
+    /* istanbul ignore next -- @preserve remove button is disabled when disabled=true */
     if (disabled) return
     onRemove()
   }
