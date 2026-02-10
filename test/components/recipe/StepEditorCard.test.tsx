@@ -946,6 +946,30 @@ describe('StepEditorCard', () => {
       expect(screen.getByText('2')).toBeInTheDocument()
     })
 
+    it('handles parsed list add-all action without changing ingredients', async () => {
+      const existingStep: StepData = {
+        id: 'step-1',
+        stepNum: 1,
+        description: 'Test step',
+        ingredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
+      }
+      const onSave = vi.fn()
+      const Wrapper = createTestWrapper(async () => ({ parsedIngredients: [] }), {
+        step: existingStep,
+        onSave,
+      })
+      render(<Wrapper initialEntries={['/recipes/recipe-1/steps/edit']} />)
+
+      await userEvent.click(screen.getByRole('button', { name: /add all 1 ingredients to recipe/i }))
+      await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ingredients: [{ quantity: 2, unit: 'cup', ingredientName: 'flour' }],
+        })
+      )
+    })
+
     it('includes ingredients in onSave callback', async () => {
       const existingStep: StepData = {
         id: 'step-1',
