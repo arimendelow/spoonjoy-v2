@@ -409,7 +409,11 @@ describe("Recipes $id Steps New Route", () => {
     it("should accept stepTitle at exactly 200 characters", async () => {
       const exactTitle = "a".repeat(200);
       const request = await createFormRequest(
-        { stepTitle: exactTitle, description: "Valid description" },
+        {
+          stepTitle: exactTitle,
+          description: "Valid description",
+          ingredientsJson: JSON.stringify([{ quantity: 1, unit: "cup", ingredientName: "sugar" }]),
+        },
         testUserId
       );
 
@@ -426,7 +430,10 @@ describe("Recipes $id Steps New Route", () => {
     it("should accept description at exactly 5000 characters", async () => {
       const exactDescription = "a".repeat(5000);
       const request = await createFormRequest(
-        { description: exactDescription },
+        {
+          description: exactDescription,
+          ingredientsJson: JSON.stringify([{ quantity: 1, unit: "cup", ingredientName: "milk" }]),
+        },
         testUserId
       );
 
@@ -445,6 +452,7 @@ describe("Recipes $id Steps New Route", () => {
         {
           stepTitle: "Prep Work",
           description: "Prepare all ingredients",
+          ingredientsJson: JSON.stringify([{ quantity: 1, unit: "cup", ingredientName: "flour" }]),
         },
         testUserId
       );
@@ -457,7 +465,7 @@ describe("Recipes $id Steps New Route", () => {
 
       expect(response).toBeInstanceOf(Response);
       expect(response.status).toBe(302);
-      expect(response.headers.get("Location")).toMatch(/\/recipes\/[\w-]+\/steps\/[\w-]+\/edit/);
+      expect(response.headers.get("Location")).toMatch(/\/recipes\/[\w-]+\/steps\/[\w-]+\/edit\?created=1/);
 
       // Verify step was created
       const steps = await db.recipeStep.findMany({
@@ -473,6 +481,7 @@ describe("Recipes $id Steps New Route", () => {
       const request = await createFormRequest(
         {
           description: "Just a description",
+          ingredientsJson: JSON.stringify([{ quantity: 1, unit: "cup", ingredientName: "salt" }]),
         },
         testUserId
       );
@@ -508,6 +517,7 @@ describe("Recipes $id Steps New Route", () => {
       const request = await createFormRequest(
         {
           description: "New step",
+          ingredientsJson: JSON.stringify([{ quantity: 1, unit: "cup", ingredientName: "water" }]),
         },
         testUserId
       );
@@ -910,11 +920,11 @@ describe("Recipes $id Steps New Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-      expect(await screen.findByRole("heading", { name: /Add Step to Test Recipe/i })).toBeInTheDocument();
-      expect(screen.getByLabelText(/Step Title/i)).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: /Add Step/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/Title/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Description/i)).toBeInTheDocument();
       expect(screen.queryByLabelText(/Duration/i)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Create Step & Add Ingredients/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Create/i })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: /← Back to recipe/i })).toHaveAttribute("href", "/recipes/recipe-1/edit");
       expect(screen.getByRole("link", { name: /Cancel/i })).toHaveAttribute("href", "/recipes/recipe-1/edit");
     });
@@ -971,7 +981,7 @@ describe("Recipes $id Steps New Route", () => {
       render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
       // Submit the form to trigger action
-      const form = await screen.findByRole("button", { name: /Create Step & Add Ingredients/i });
+      const form = await screen.findByRole("button", { name: /Create/i });
       expect(form).toBeInTheDocument();
     });
 
@@ -1020,10 +1030,10 @@ describe("Recipes $id Steps New Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-      const form = (await screen.findByRole("button", { name: /Create Step & Add Ingredients/i })).closest("form");
+      const form = (await screen.findByRole("button", { name: /Create/i })).closest("form");
       expect(form).toHaveAttribute("method", "post");
 
-      const stepTitleInput = screen.getByLabelText(/Step Title/i);
+      const stepTitleInput = screen.getByLabelText(/Title/i);
       expect(stepTitleInput).toHaveAttribute("type", "text");
       expect(stepTitleInput).toHaveAttribute("name", "stepTitle");
     });
@@ -1049,7 +1059,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         // Label should be shown but without "(optional)" suffix
         expect(screen.getByText("Uses Output From")).toBeInTheDocument();
@@ -1077,7 +1087,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
       });
@@ -1104,7 +1114,7 @@ describe("Recipes $id Steps New Route", () => {
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
         // Should render the new step form correctly
-        await screen.findByRole("heading", { name: /Add Step to Brand New Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         // Should show empty state for Uses Output From section
         expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
@@ -1118,7 +1128,7 @@ describe("Recipes $id Steps New Route", () => {
 
         // Cancel and Create Step buttons should be present
         expect(screen.getByRole("link", { name: /Cancel/i })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: /Create Step & Add Ingredients/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Create/i })).toBeInTheDocument();
       });
 
       it("should show Uses Output From when nextStepNum > 1 with available steps", async () => {
@@ -1143,7 +1153,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         expect(screen.getByText(/Uses Output From/i)).toBeInTheDocument();
       });
@@ -1171,7 +1181,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         // Click to open the listbox
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
@@ -1209,7 +1219,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
         await act(async () => {
@@ -1251,7 +1261,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         // Click to open the listbox
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
@@ -1290,7 +1300,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         // Fill in required field
         const descriptionInput = screen.getByLabelText(/Description/i);
@@ -1299,7 +1309,7 @@ describe("Recipes $id Steps New Route", () => {
         });
 
         // Submit the form to trigger action
-        const submitButton = screen.getByRole("button", { name: /Create Step & Add Ingredients/i });
+        const submitButton = screen.getByRole("button", { name: /Create/i });
         await act(async () => {
           fireEvent.click(submitButton);
         });
@@ -1335,7 +1345,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         // Fill in required field
         const descriptionInput = screen.getByLabelText(/Description/i);
@@ -1344,7 +1354,7 @@ describe("Recipes $id Steps New Route", () => {
         });
 
         // Submit the form to trigger action
-        const submitButton = screen.getByRole("button", { name: /Create Step & Add Ingredients/i });
+        const submitButton = screen.getByRole("button", { name: /Create/i });
         await act(async () => {
           fireEvent.click(submitButton);
         });
@@ -1380,7 +1390,7 @@ describe("Recipes $id Steps New Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
 
-        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+        await screen.findByRole("heading", { name: /Add Step/i });
 
         // Fill in required field
         const descriptionInput = screen.getByLabelText(/Description/i);
@@ -1389,7 +1399,7 @@ describe("Recipes $id Steps New Route", () => {
         });
 
         // Submit the form to trigger action
-        const submitButton = screen.getByRole("button", { name: /Create Step & Add Ingredients/i });
+        const submitButton = screen.getByRole("button", { name: /Create/i });
         await act(async () => {
           fireEvent.click(submitButton);
         });

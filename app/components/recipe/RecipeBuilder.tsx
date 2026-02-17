@@ -55,6 +55,7 @@ export interface RecipeBuilderProps {
     image?: string
     general?: string
   }
+  showSteps?: boolean
 }
 
 export function RecipeBuilder({
@@ -64,6 +65,7 @@ export function RecipeBuilder({
   disabled = false,
   loading = false,
   errors,
+  showSteps = true,
 }: RecipeBuilderProps) {
   // Generate unique IDs for aria-describedby
   const titleErrorId = useId()
@@ -236,17 +238,18 @@ export function RecipeBuilder({
         </Fieldset>
       </fieldset>
 
-      {/* Steps section */}
-      <section aria-label="Recipe Steps" className="space-y-4">
-        <h2 className="text-xl font-semibold">Recipe Steps</h2>
+      {showSteps && (
+        <section aria-label="Recipe Steps" className="space-y-4">
+          <h2 className="text-xl font-semibold">Recipe Steps</h2>
 
-        <StepList
-          steps={steps}
-          recipeId={recipeId}
-          onChange={handleStepsChange}
-          disabled={isDisabled}
-        />
-      </section>
+          <StepList
+            steps={steps}
+            recipeId={recipeId}
+            onChange={handleStepsChange}
+            disabled={isDisabled}
+          />
+        </section>
+      )}
 
       {/* Action buttons */}
       <div className="flex gap-4 justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
