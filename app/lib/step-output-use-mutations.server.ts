@@ -40,14 +40,16 @@ export async function createStepOutputUses(
   inputStepNum: number,
   outputStepNums: number[]
 ): Promise<{ count: number }> {
+  const uniqueOutputStepNums = [...new Set(outputStepNums)];
+
   // Handle empty array gracefully
-  if (outputStepNums.length === 0) {
+  if (uniqueOutputStepNums.length === 0) {
     return { count: 0 };
   }
 
   // Create all StepOutputUse records
   const result = await db.stepOutputUse.createMany({
-    data: outputStepNums.map((outputStepNum) => ({
+    data: uniqueOutputStepNums.map((outputStepNum) => ({
       recipeId,
       inputStepNum,
       outputStepNum,

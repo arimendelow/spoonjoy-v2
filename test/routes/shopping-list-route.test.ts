@@ -709,6 +709,69 @@ describe("Shopping List Route", () => {
       expect(shoppingList?.items[0].unit?.name).toBe(unit.name);
     });
 
+    it("should multiply quantities by submitted scaleFactor when adding from recipe", async () => {
+      const recipe = await db.recipe.create({
+        data: {
+          title: "Scaled Shopping Recipe",
+          chefId: testUserId,
+        },
+      });
+
+      await db.recipeStep.create({
+        data: {
+          recipeId: recipe.id,
+          stepNum: 1,
+          description: "Scale me",
+        },
+      });
+
+      const unit = await db.unit.create({
+        data: { name: "cup_scaled_" + faker.string.alphanumeric(6) },
+      });
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "milk_scaled_" + faker.string.alphanumeric(6) },
+      });
+
+      await db.ingredient.create({
+        data: {
+          recipeId: recipe.id,
+          stepNum: 1,
+          quantity: 1.5,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
+      const request = await createFormRequest(
+        {
+          intent: "addFromRecipe",
+          recipeId: recipe.id,
+          scaleFactor: "2",
+        },
+        testUserId
+      );
+
+      await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const shoppingList = await db.shoppingList.findUnique({
+        where: { authorId: testUserId },
+        include: {
+          items: {
+            include: { ingredientRef: true, unit: true },
+          },
+        },
+      });
+
+      expect(shoppingList?.items).toHaveLength(1);
+      expect(shoppingList?.items[0].ingredientRef.name).toBe(ingredientRef.name);
+      expect(shoppingList?.items[0].quantity).toBe(3);
+      expect(shoppingList?.items[0].unit?.name).toBe(unit.name);
+    });
+
     it("should add ingredients from multiple steps", async () => {
       // Create recipe with multiple steps
       const recipe = await db.recipe.create({

@@ -59,6 +59,8 @@ interface Ingredient {
   ingredientName: string;
 }
 
+const STEP_CONTENT_REQUIREMENT_ERROR = "Add at least 1 ingredient or 1 step output use before saving this step.";
+
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
   const { id, stepId } = params;
@@ -343,8 +345,20 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return data({ errors }, { status: 400 });
   }
 
-  // Filter to only valid step numbers (extra safety)
-  const usesSteps = parsedSteps.filter((n) => !isNaN(n) && n > 0 && n < step.stepNum);
+  // Filter to only valid step numbers and de-duplicate (extra safety)
+  const usesSteps = [...new Set(parsedSteps.filter((n) => !isNaN(n) && n > 0 && n < step.stepNum))];
+
+  const stepIngredientCount = await database.ingredient.count({
+    where: {
+      recipeId: id,
+      stepNum: step.stepNum,
+    },
+  });
+
+  if (stepIngredientCount === 0 && usesSteps.length === 0) {
+    errors.usesSteps = STEP_CONTENT_REQUIREMENT_ERROR;
+    return data({ errors }, { status: 400 });
+  }
 
   try {
     await database.recipeStep.update({
@@ -477,7 +491,6 @@ export default function EditStep() {
             <Field>
               <Label>Uses Output From (optional)</Label>
               <Listbox
-                name="usesSteps"
                 multiple
                 value={selectedSteps}
                 onChange={setSelectedSteps}
@@ -497,6 +510,9 @@ export default function EditStep() {
                   {actionData.errors.usesSteps}
                 </div>
               )}
+              {selectedSteps.map((stepNum) => (
+                <input key={stepNum} type="hidden" name="usesSteps" value={stepNum} />
+              ))}
             </Field>
           )}
 

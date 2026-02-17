@@ -357,7 +357,11 @@ export default function RecipeDetail() {
 
   const handleAddToList = useCallback(() => {
     addToListFetcher.submit(
-      { intent: "addFromRecipe", recipeId: recipe.id },
+      {
+        intent: "addFromRecipe",
+        recipeId: recipe.id,
+        scaleFactor: String(scaleFactor),
+      },
       { method: "post", action: "/shopping-list" }
     );
 
@@ -366,9 +370,10 @@ export default function RecipeDetail() {
       posthog.capture("recipe_added_to_shopping_list", {
         recipe_id: recipe.id,
         source: "recipe_detail_dock",
+        scale_factor: scaleFactor,
       });
     }
-  }, [addToListFetcher, recipe.id, posthog]);
+  }, [addToListFetcher, recipe.id, scaleFactor, posthog]);
 
   useEffect(() => {
     const wasSuccessful =
@@ -558,11 +563,11 @@ export default function RecipeDetail() {
         initialFocus={saveModalTitleRef}
         autoFocus={false}
         size="md"
-        className="pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className="max-h-[calc(100dvh-2rem)] overflow-hidden pb-[max(1rem,env(safe-area-inset-bottom))]"
       >
         <div data-testid="save-modal">
           <DialogTitle ref={saveModalTitleRef} tabIndex={-1}>Save to Cookbook</DialogTitle>
-          <DialogBody className="max-h-[70vh] overflow-y-auto pb-0">
+          <DialogBody className="max-h-[min(70vh,calc(100dvh-10rem))] overflow-y-auto pb-3">
             {availableCookbooks.length > 0 ? (
               <div className="space-y-2">
                 {availableCookbooks.map((cookbook) => {
@@ -592,7 +597,7 @@ export default function RecipeDetail() {
               </Text>
             )}
 
-            <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+            <div className="sticky bottom-0 mt-4 border-t border-zinc-200 bg-white pt-4 dark:border-zinc-700 dark:bg-zinc-900">
               <createCookbookFetcher.Form
                 method="post"
                 className="space-y-3"

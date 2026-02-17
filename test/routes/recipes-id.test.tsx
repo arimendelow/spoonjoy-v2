@@ -725,6 +725,8 @@ describe("Recipes $id Route", () => {
       expect(panel).toBeTruthy();
       expect(backdrop).toHaveClass("data-enter:duration-300", "data-leave:duration-200");
       expect(panel).toHaveClass("data-closed:translate-y-8", "motion-reduce:transition-none");
+      expect(panel?.className).toContain("max-h-[calc(100dvh-2rem)]");
+      expect(screen.getByTestId("create-cookbook-button").closest("div")?.className).toContain("sticky");
 
       expect(document.activeElement).toHaveTextContent("Save to Cookbook");
       expect(scrollToSpy).not.toHaveBeenCalled();
@@ -775,6 +777,7 @@ describe("Recipes $id Route", () => {
     });
 
     it("shows add-to-list confirmation banner from dock action", async () => {
+      let submittedScaleFactor: string | null = null;
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -798,18 +801,25 @@ describe("Recipes $id Route", () => {
         },
         {
           path: "/shopping-list",
-          action: () => ({ success: true }),
+          action: async ({ request }) => {
+            const formData = await request.formData();
+            submittedScaleFactor = formData.get("scaleFactor")?.toString() ?? null;
+            return { success: true };
+          },
           Component: () => null,
         },
       ]);
 
+      const user = userEvent.setup();
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
       await screen.findByRole("heading", { name: "Dock Add Recipe" });
+      await user.click(screen.getByRole("button", { name: "Increase scale" }));
 
       const dockActionRegistration = vi.mocked(useRecipeDetailActions).mock.calls.at(-1)?.[0];
       dockActionRegistration?.onAddToList?.();
 
       expect(await screen.findByTestId("add-to-list-confirmation")).toBeInTheDocument();
+      expect(submittedScaleFactor).toBe("1.25");
     });
 
     it("should render recipe with no steps (empty state) as owner", async () => {

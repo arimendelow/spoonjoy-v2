@@ -229,6 +229,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   if (intent === "addFromRecipe") {
     const recipeId = formData.get("recipeId")?.toString();
+    const scaleFactorRaw = formData.get("scaleFactor")?.toString();
+    const parsedScaleFactor = scaleFactorRaw ? Number.parseFloat(scaleFactorRaw) : 1;
+    const scaleFactor = Number.isFinite(parsedScaleFactor) && parsedScaleFactor > 0 ? parsedScaleFactor : 1;
 
     if (recipeId) {
       const recipe = await database.recipe.findUnique({
@@ -270,8 +273,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 
             if (existingItem) {
               /* istanbul ignore next -- @preserve ternary branches for quantity addition */
-              const newQuantity = ingredient.quantity
-                ? (existingItem.quantity || 0) + ingredient.quantity
+              const scaledQuantity = ingredient.quantity ? ingredient.quantity * scaleFactor : null;
+              const newQuantity = scaledQuantity
+                ? (existingItem.quantity || 0) + scaledQuantity
                 : existingItem.quantity;
 
               await database.shoppingListItem.update({
@@ -291,7 +295,7 @@ export async function action({ request, context }: Route.ActionArgs) {
               await database.shoppingListItem.create({
                 data: {
                   shoppingListId: shoppingList.id,
-                  quantity: ingredient.quantity,
+                  quantity: ingredient.quantity ? ingredient.quantity * scaleFactor : null,
                   unitId: ingredient.unitId,
                   ingredientRefId: ingredient.ingredientRefId,
                   sortIndex,

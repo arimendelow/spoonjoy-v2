@@ -335,6 +335,27 @@ describe("step-output-use-mutations", () => {
       expect(records[0].recipeId).toBe(recipeId);
     });
 
+    it("should deduplicate outputStepNums before creating records", async () => {
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 1, description: "Step 1" },
+      });
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 2, description: "Step 2" },
+      });
+      await db.recipeStep.create({
+        data: { recipeId, stepNum: 3, description: "Step 3" },
+      });
+
+      const result = await createStepOutputUses(db, recipeId, 3, [1, 1, 2, 2]);
+      expect(result.count).toBe(2);
+
+      const records = await db.stepOutputUse.findMany({
+        where: { recipeId, inputStepNum: 3 },
+        orderBy: { outputStepNum: "asc" },
+      });
+      expect(records.map((record) => record.outputStepNum)).toEqual([1, 2]);
+    });
+
     it("should create records with correct recipeId and inputStepNum", async () => {
       // Create steps 1, 2, 3, and 4
       for (let i = 1; i <= 4; i++) {

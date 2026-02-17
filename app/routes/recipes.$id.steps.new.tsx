@@ -24,6 +24,8 @@ interface ActionData {
   };
 }
 
+const STEP_CONTENT_REQUIREMENT_ERROR = "Add at least 1 ingredient or 1 step output use before saving this step.";
+
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
   const { id } = params;
@@ -144,8 +146,15 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return data({ errors }, { status: 400 });
   }
 
-  // Filter to only valid step numbers (extra safety)
-  const usesSteps = parsedSteps.filter((n) => !isNaN(n) && n > 0 && n < nextStepNum);
+  // Filter to only valid step numbers and de-duplicate (extra safety)
+  const usesSteps = [...new Set(parsedSteps.filter((n) => !isNaN(n) && n > 0 && n < nextStepNum))];
+
+  // For non-first steps, require a dependency at creation time because ingredients
+  // are added on the next screen after step creation.
+  if (nextStepNum > 1 && usesSteps.length === 0) {
+    errors.usesSteps = STEP_CONTENT_REQUIREMENT_ERROR;
+    return data({ errors }, { status: 400 });
+  }
 
   try {
     const step = await database.recipeStep.create({
@@ -226,7 +235,6 @@ export default function NewStep() {
               <Field>
                 <Label>Uses Output From (optional)</Label>
                 <Listbox
-                  name="usesSteps"
                   multiple
                   value={selectedSteps}
                   onChange={setSelectedSteps}
@@ -246,6 +254,9 @@ export default function NewStep() {
                     {actionData.errors.usesSteps}
                   </ErrorMessage>
                 )}
+                {selectedSteps.map((stepNum) => (
+                  <input key={stepNum} type="hidden" name="usesSteps" value={stepNum} />
+                ))}
               </Field>
             )}
 

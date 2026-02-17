@@ -553,7 +553,7 @@ describe("Recipes $id Steps New Route", () => {
     });
 
     describe("step output uses", () => {
-      it("should create step without step output uses when none selected", async () => {
+      it("should return validation error when step has no ingredients and no step output uses", async () => {
         // Create existing step
         await db.recipeStep.create({
           data: {
@@ -574,14 +574,11 @@ describe("Recipes $id Steps New Route", () => {
           params: { id: recipeId },
         } as any);
 
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(302);
-
-        // Verify no StepOutputUse records created
-        const stepOutputUses = await db.stepOutputUse.findMany({
-          where: { recipeId },
-        });
-        expect(stepOutputUses).toHaveLength(0);
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe(
+          "Add at least 1 ingredient or 1 step output use before saving this step."
+        );
       });
 
       it("should create step with single step output use", async () => {
@@ -692,7 +689,7 @@ describe("Recipes $id Steps New Route", () => {
         expect(data.errors.usesSteps).toBe("Can only reference previous steps");
       });
 
-      it("should handle empty usesSteps array gracefully", async () => {
+      it("should return validation error for explicit empty usesSteps array", async () => {
         // Create existing step
         await db.recipeStep.create({
           data: {
@@ -714,14 +711,11 @@ describe("Recipes $id Steps New Route", () => {
           params: { id: recipeId },
         } as any);
 
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(302);
-
-        // Verify no StepOutputUse records created
-        const stepOutputUses = await db.stepOutputUse.findMany({
-          where: { recipeId },
-        });
-        expect(stepOutputUses).toHaveLength(0);
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe(
+          "Add at least 1 ingredient or 1 step output use before saving this step."
+        );
       });
 
       it("should return validation error when selecting current step (self-reference)", async () => {
@@ -1189,6 +1183,49 @@ describe("Recipes $id Steps New Route", () => {
           expect(screen.getByText("Step 1: Prep the ingredients")).toBeInTheDocument();
           expect(screen.getByText("Step 2: Mix the batter")).toBeInTheDocument();
         });
+      });
+
+      it("should submit selected step output uses as hidden form inputs", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          nextStepNum: 3,
+          availableSteps: [
+            { stepNum: 1, stepTitle: "Prep the ingredients" },
+            { stepNum: 2, stepTitle: "Mix the batter" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/new",
+            Component: NewStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/new"]} />);
+
+        await screen.findByRole("heading", { name: /Add Step to Test Recipe/i });
+
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        await act(async () => {
+          fireEvent.click(listboxButton);
+        });
+        await act(async () => {
+          fireEvent.click(screen.getByText("Step 1: Prep the ingredients"));
+        });
+        await act(async () => {
+          fireEvent.click(screen.getByText("Step 2: Mix the batter"));
+        });
+
+        const hiddenInputs = document.querySelectorAll('input[name="usesSteps"]');
+        expect(hiddenInputs).toHaveLength(2);
+        expect(Array.from(hiddenInputs).map((input) => (input as HTMLInputElement).value)).toEqual(
+          expect.arrayContaining(["1", "2"])
+        );
       });
 
       it("should display available steps without title correctly", async () => {

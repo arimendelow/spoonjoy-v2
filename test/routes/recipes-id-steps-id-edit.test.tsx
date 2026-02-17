@@ -1097,6 +1097,22 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
           },
         });
 
+        const unit = await db.unit.create({
+          data: { name: "tbsp_clear_uses_" + faker.string.alphanumeric(6) },
+        });
+        const ingredientRef = await db.ingredientRef.create({
+          data: { name: "oil_clear_uses_" + faker.string.alphanumeric(6) },
+        });
+        await db.ingredient.create({
+          data: {
+            recipeId,
+            stepNum: 2,
+            quantity: 1,
+            unitId: unit.id,
+            ingredientRefId: ingredientRef.id,
+          },
+        });
+
         // Update with no usesSteps (empty selection)
         const request = await createFormRequest(
           {
@@ -1185,7 +1201,23 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       });
 
       it("should allow step update without usesSteps for step 1", async () => {
-        // Step 1 exists from beforeEach
+        // Step 1 exists from beforeEach; add an ingredient to satisfy validation.
+        const unit = await db.unit.create({
+          data: { name: "cup_step1_" + faker.string.alphanumeric(6) },
+        });
+        const ingredientRef = await db.ingredientRef.create({
+          data: { name: "water_step1_" + faker.string.alphanumeric(6) },
+        });
+        await db.ingredient.create({
+          data: {
+            recipeId,
+            stepNum: 1,
+            quantity: 1,
+            unitId: unit.id,
+            ingredientRefId: ingredientRef.id,
+          },
+        });
+
         // Update step 1 without any usesSteps - should succeed
         const request = await createFormRequest(
           {
@@ -1210,6 +1242,32 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         // Verify step was updated
         const updatedStep = await db.recipeStep.findUnique({ where: { id: stepId } });
         expect(updatedStep?.stepTitle).toBe("Updated Step 1");
+      });
+
+      it("should return validation error when step has no ingredients and no step output uses", async () => {
+        // Step 1 has no ingredients from beforeEach and cannot reference previous steps.
+        const request = await createFormRequest(
+          {
+            stepTitle: "Updated Step 1",
+            description: "Still empty",
+          },
+          testUserId,
+          recipeId,
+          stepId,
+          []
+        );
+
+        const response = await action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId, stepId },
+        } as any);
+
+        const { data, status } = extractResponseData(response);
+        expect(status).toBe(400);
+        expect(data.errors.usesSteps).toBe(
+          "Add at least 1 ingredient or 1 step output use before saving this step."
+        );
       });
 
       it("should return validation error when selecting current step (self-reference)", async () => {
@@ -2694,6 +2752,56 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
           expect(screen.getByText("Step 1: Prep the ingredients")).toBeInTheDocument();
           expect(screen.getByText("Step 2: Mix the batter")).toBeInTheDocument();
         });
+      });
+
+      it("should submit selected step output uses as hidden form inputs", async () => {
+        const mockData = {
+          recipe: {
+            id: "recipe-1",
+            title: "Test Recipe",
+          },
+          step: {
+            id: "step-3",
+            stepNum: 3,
+            stepTitle: null,
+            description: "Third step",
+            ingredients: [],
+            usingSteps: [],
+          },
+          availableSteps: [
+            { stepNum: 1, stepTitle: "Prep the ingredients" },
+            { stepNum: 2, stepTitle: "Mix the batter" },
+          ],
+        };
+
+        const Stub = createTestRoutesStub([
+          {
+            path: "/recipes/:id/steps/:stepId/edit",
+            Component: EditStep,
+            loader: () => mockData,
+          },
+        ]);
+
+        render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
+
+        await screen.findByRole("heading", { name: /Edit Step 3/i });
+
+        const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
+        await act(async () => {
+          fireEvent.click(listboxButton);
+        });
+        await act(async () => {
+          fireEvent.click(screen.getByText("Step 1: Prep the ingredients"));
+        });
+        await act(async () => {
+          fireEvent.click(screen.getByText("Step 2: Mix the batter"));
+        });
+
+        const hiddenInputs = document.querySelectorAll('input[name="usesSteps"]');
+        expect(hiddenInputs).toHaveLength(2);
+        expect(Array.from(hiddenInputs).map((input) => (input as HTMLInputElement).value)).toEqual(
+          expect.arrayContaining(["1", "2"])
+        );
       });
 
       it("should display available steps without title correctly", async () => {
