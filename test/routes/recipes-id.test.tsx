@@ -984,12 +984,14 @@ describe("Recipes $id Route", () => {
       expect(await screen.findByRole("heading", { name: "Spaghetti Bolognese" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Prep the Sauce" })).toBeInTheDocument();
       expect(screen.getByText("Heat oil in a pan and sauté the onions")).toBeInTheDocument();
-      expect(screen.getByText("2 tbsp olive oil")).toBeInTheDocument();
-      expect(screen.getByText("1 medium onion")).toBeInTheDocument();
+      expect(screen.getByText("olive oil")).toBeInTheDocument();
+      expect(screen.getByText("onion")).toBeInTheDocument();
+      expect(screen.getByTestId("ingredient-quantity-ing-1")).toHaveTextContent("2 tbsp");
+      expect(screen.getByTestId("ingredient-quantity-ing-2")).toHaveTextContent("1 medium");
       expect(screen.getByText("Cook the pasta according to package instructions")).toBeInTheDocument();
       // Step numbers
-      expect(screen.getByText("1")).toBeInTheDocument();
-      expect(screen.getByText("2")).toBeInTheDocument();
+      expect(screen.getByText("Step 1")).toBeInTheDocument();
+      expect(screen.getByText("Step 2")).toBeInTheDocument();
     });
 
     it("should not show edit/delete in header for owners (moved to dock/edit page)", async () => {
@@ -1360,7 +1362,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("Do everything in one step")).toBeInTheDocument();
 
       // Single step should render with step number
-      expect(screen.getByText("1")).toBeInTheDocument();
+      expect(screen.getByText("Step 1")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "The Only Step" })).toBeInTheDocument();
 
       // Owner edit/delete buttons removed from header (available in dock/edit page)

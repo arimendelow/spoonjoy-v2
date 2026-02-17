@@ -1,4 +1,3 @@
-import { Subheading } from '../ui/heading'
 import { Text } from '../ui/text'
 import { IngredientList, type Ingredient } from './IngredientList'
 import type { StepReference } from './StepOutputUseCallout'
@@ -29,15 +28,13 @@ export interface StepCardProps {
 }
 
 /**
- * A single recipe step card showing step number, ingredients, step uses, and instructions.
+ * A single recipe step section showing step number, ingredients, step uses, and instructions.
  *
  * Features:
- * - Prominent step number badge
+ * - Editorial step heading treatment
  * - Optional step title
- * - StepOutputUseCallout for references to previous steps
  * - IngredientList with checkboxes and scaling
- * - Clear visual hierarchy
- * - Mobile-first design
+ * - Spacious vertical rhythm for reading
  */
 export function StepCard({
   stepNumber,
@@ -61,48 +58,32 @@ export function StepCard({
 
   return (
     <article
-      className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-sm"
+      className="py-10 sm:py-12"
       aria-labelledby={`step-${stepNumber}-heading`}
     >
-      {/* Step Header */}
-      <div className="flex items-start gap-4 p-4 sm:p-6">
-        {/* Step Number Badge */}
-        <div
+      <div className="space-y-3">
+        <p
           data-testid="step-number"
-          className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-lg sm:text-xl"
+          className="m-0 font-serif text-xs uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400"
           aria-label={`Step ${stepNumber}`}
         >
-          {stepNumber}
-        </div>
-
-        {/* Title (optional) */}
-        <div className="flex-1 min-w-0 pt-1 sm:pt-2">
-          {title && (
-            <Subheading
-              level={3}
-              id={`step-${stepNumber}-heading`}
-              className="text-lg sm:text-xl font-semibold m-0 truncate"
-            >
-              {title}
-            </Subheading>
-          )}
-          {!title && (
-            <span
-              id={`step-${stepNumber}-heading`}
-              className="sr-only"
-            >
-              Step {stepNumber}
-            </span>
-          )}
-        </div>
+          Step {stepNumber}
+        </p>
+        {title && (
+          <h3
+            id={`step-${stepNumber}-heading`}
+            className="m-0 font-serif text-2xl font-medium tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-100"
+          >
+            {title}
+          </h3>
+        )}
+        {!title && <span id={`step-${stepNumber}-heading`} className="sr-only">Step {stepNumber}</span>}
       </div>
 
-      {/* Content Area */}
-      <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-4">
-        {/* Ingredients Section (includes step output uses inline) */}
+      <div className="mt-8 space-y-8">
         {(ingredients.length > 0 || stepOutputUses.length > 0) && (
-          <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">
+          <div>
+            <div className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
               Ingredients
             </div>
             <IngredientList
@@ -118,8 +99,7 @@ export function StepCard({
           </div>
         )}
 
-        {/* Description */}
-        <Text className="text-base leading-relaxed m-0 whitespace-pre-wrap">
+        <Text className="m-0 whitespace-pre-wrap text-base leading-loose sm:text-lg">
           {description}
         </Text>
       </div>

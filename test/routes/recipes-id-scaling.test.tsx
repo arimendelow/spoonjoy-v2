@@ -381,9 +381,9 @@ describe("Recipe View Scaling Integration", () => {
       // All step numbers should be visible
       const stepNumbers = screen.getAllByTestId("step-number");
       expect(stepNumbers).toHaveLength(3);
-      expect(stepNumbers[0]).toHaveTextContent("1");
-      expect(stepNumbers[1]).toHaveTextContent("2");
-      expect(stepNumbers[2]).toHaveTextContent("3");
+      expect(stepNumbers[0]).toHaveTextContent("Step 1");
+      expect(stepNumbers[1]).toHaveTextContent("Step 2");
+      expect(stepNumbers[2]).toHaveTextContent("Step 3");
 
       // Step titles should be visible
       expect(screen.getByRole("heading", { name: "First Step" })).toBeInTheDocument();

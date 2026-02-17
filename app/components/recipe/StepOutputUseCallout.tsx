@@ -50,15 +50,15 @@ export function StepOutputUseCallout({
   return (
     <div
       data-testid="step-output-callout"
-      className="border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-500 rounded-r-lg px-4 py-3 my-3"
+      className="my-3 border-l border-zinc-300 bg-zinc-50/70 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-900/40"
     >
       <div className="flex items-start gap-2">
         <ArrowUp
-          className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0"
+          className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400"
           aria-hidden="true"
         />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
             Using output from:
           </span>
           <ul className="mt-1 space-y-1">
@@ -79,7 +79,7 @@ export function StepOutputUseCallout({
                         className={`cursor-pointer text-sm ${
                           isChecked
                             ? 'line-through text-zinc-500 dark:text-zinc-500'
-                            : 'text-amber-700 dark:text-amber-300'
+                            : 'text-zinc-600 dark:text-zinc-300'
                         }`}
                       >
                         <StepReferenceText reference={ref} />
@@ -95,12 +95,12 @@ export function StepOutputUseCallout({
                     <button
                       type="button"
                       onClick={() => onStepClick(ref.stepNumber)}
-                      className="text-sm text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:underline focus:outline-none focus:underline"
+                      className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline focus:outline-none focus:underline dark:text-zinc-300 dark:hover:text-zinc-100"
                     >
                       <StepReferenceText reference={ref} />
                     </button>
                   ) : (
-                    <span className="text-sm text-amber-700 dark:text-amber-300">
+                    <span className="text-sm text-zinc-600 dark:text-zinc-300">
                       <StepReferenceText reference={ref} />
                     </span>
                   )}

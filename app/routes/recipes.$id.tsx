@@ -644,8 +644,8 @@ export default function RecipeDetail() {
       </Dialog>
 
       {/* Steps Section */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-4xl mx-auto">
-        <Heading level={2} className="text-2xl font-bold mb-6">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <Heading level={2} className="mb-6 font-serif text-2xl font-medium tracking-tight sm:text-3xl">
           Steps
         </Heading>
 
@@ -660,9 +660,9 @@ export default function RecipeDetail() {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="border-y border-zinc-200 dark:border-zinc-700">
             {recipe.steps.map((step) => (
-              <div key={step.id} id={`step-${step.stepNum}`}>
+              <div key={step.id} id={`step-${step.stepNum}`} className="border-b border-zinc-200 last:border-b-0 dark:border-zinc-700">
                 <StepCard
                   stepNumber={step.stepNum}
                   title={step.stepTitle ?? undefined}

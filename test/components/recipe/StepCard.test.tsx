@@ -28,7 +28,22 @@ describe('StepCard', () => {
     )
 
     expect(screen.getByText('Mix')).toBeInTheDocument()
+    expect(screen.getByTestId('step-number')).toHaveTextContent('Step 1')
     expect(screen.getByText('Mix everything')).toBeInTheDocument()
+  })
+
+  it('renders accessible fallback heading when title is missing', () => {
+    render(
+      <StepCard
+        stepNumber={2}
+        description="No explicit title"
+        ingredients={[]}
+        stepOutputUses={[]}
+      />
+    )
+
+    expect(screen.getByTestId('step-number')).toHaveTextContent('Step 2')
+    expect(screen.getByText('Step 2', { selector: '#step-2-heading' })).toBeInTheDocument()
   })
 
   it('passes showCheckboxes=true when only step output toggle is provided', () => {
