@@ -616,6 +616,80 @@ describe("Recipes $id Edit Route", () => {
       expect(updatedStep?.stepNum).toBe(1);
     });
 
+    it("should delete a step for deleteStep intent", async () => {
+      const step = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Step to delete",
+        },
+      });
+
+      const request = await createFormRequest(
+        {
+          intent: "deleteStep",
+          stepId: step.id,
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      const { data } = extractResponseData(response);
+      expect(data.success).toBe(true);
+
+      const deletedStep = await db.recipeStep.findUnique({ where: { id: step.id } });
+      expect(deletedStep).toBeNull();
+    });
+
+    it("should return step deletion error when dependent steps exist", async () => {
+      const producer = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Producer",
+        },
+      });
+
+      await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 2,
+          description: "Consumer",
+        },
+      });
+
+      await db.stepOutputUse.create({
+        data: {
+          recipeId,
+          outputStepNum: 1,
+          inputStepNum: 2,
+        },
+      });
+
+      const request = await createFormRequest(
+        {
+          intent: "deleteStep",
+          stepId: producer.id,
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.stepDeletion).toContain("Cannot delete");
+    });
+
     it("should throw 404 for soft-deleted recipe in action", async () => {
       // Soft delete the recipe
       await db.recipe.update({
@@ -1012,7 +1086,7 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      expect(await screen.findByText("No steps yet. Add your first step below.")).toBeInTheDocument();
+      expect(await screen.findByText("No steps yet. Add your first step.")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "+ Add Step" })).toHaveAttribute("href", "/recipes/recipe-1/steps/new");
     });
 
@@ -1079,15 +1153,9 @@ describe("Recipes $id Edit Route", () => {
       expect(await screen.findByRole("heading", { name: "Recipe Steps" })).toBeInTheDocument();
       // Step title is shown in the card header
       expect(screen.getByText("Prep the Ingredients")).toBeInTheDocument();
-      // Step description appears in the instructions textarea (step has both title and description)
-      const chopTextElements = screen.getAllByDisplayValue("Chop all vegetables");
-      expect(chopTextElements.length).toBeGreaterThan(0);
-      // Second step description appears in header preview (no title)
-      const cookElements = await screen.findAllByText("Cook everything together");
-      expect(cookElements.length).toBeGreaterThan(0);
-      // Each step has a Save button (inline editing) - matches exactly "Save", not "Save Recipe"
-      const saveButtons = screen.getAllByRole("button", { name: /^save$/i });
-      expect(saveButtons.length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText("2 ingredients")).toBeInTheDocument();
+      expect(screen.getByText("0 ingredients")).toBeInTheDocument();
+      expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
     });
 
     it("should render singular ingredient count for single ingredient", async () => {
@@ -1132,9 +1200,7 @@ describe("Recipes $id Edit Route", () => {
       // Wait for step to render by looking for the step content
       const mixFlourElements = await screen.findAllByText("Mix the flour");
       expect(mixFlourElements.length).toBeGreaterThan(0);
-      // Ingredients are shown in ParsedIngredientList, not as a count
-      // The ingredient name should be visible in the list
-      expect(screen.getByText("flour")).toBeInTheDocument();
+      expect(screen.getByText("1 ingredient")).toBeInTheDocument();
     });
 
     it("should not show ingredient count when step has no ingredients", async () => {
@@ -1176,11 +1242,10 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      // Wait for step to render - text appears in both header and textarea
+      // Wait for step to render
       const instructionElements = await screen.findAllByText("Just instructions");
       expect(instructionElements.length).toBeGreaterThan(0);
-      // When step has no ingredients, it shows "No ingredients added yet" (not a count)
-      expect(screen.getByText("No ingredients added yet")).toBeInTheDocument();
+      expect(screen.getByText("0 ingredients")).toBeInTheDocument();
     });
 
     it("should render reorder buttons for multiple steps", async () => {
@@ -1329,13 +1394,11 @@ describe("Recipes $id Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/edit"]} />);
 
-      // Wait for steps to render - text appears in both header preview and instructions textarea
+      // Wait for step card to render
       const firstStepElements = await screen.findAllByText("First step");
       expect(firstStepElements.length).toBeGreaterThan(0);
-      // New UI uses inline editing with StepEditorCard, not Edit links
-      // Each step has Save and Remove buttons for inline editing
-      expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/recipes/recipe-1/steps/step-abc/edit");
+      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
     });
 
     it("should populate hidden form and submit when Save Recipe is clicked", async () => {

@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.$id.edit";
-import { Form, redirect, data, useActionData, useLoaderData, useNavigate, useNavigation } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData, useNavigate, useNavigation, useSubmit } from "react-router";
 import { useRecipeEditActions } from "~/components/navigation";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
@@ -13,7 +13,10 @@ import {
   validateServings,
 } from "~/lib/validation";
 import { validateStepReorderComplete } from "~/lib/step-reorder-validation.server";
-import { useRef } from "react";
+import { validateStepDeletion } from "~/lib/step-deletion-validation.server";
+import { Button } from "~/components/ui/button";
+import { Dialog, DialogActions, DialogDescription, DialogTitle } from "~/components/ui/dialog";
+import { useRef, useState } from "react";
 
 interface ActionData {
   errors?: {
@@ -23,6 +26,7 @@ interface ActionData {
     image?: string;
     general?: string;
     reorder?: string;
+    stepDeletion?: string;
   };
   success?: boolean;
 }
@@ -119,13 +123,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       if (step && step.recipeId === id) {
         const targetStepNum = direction === "up" ? step.stepNum - 1 : step.stepNum + 1;
 
-        // Validate that reordering won't break dependencies
         const validationResult = await validateStepReorderComplete(database, id, step.stepNum, targetStepNum);
         if (!validationResult.valid) {
           return data({ errors: { reorder: validationResult.error } }, { status: 400 });
         }
 
-        // Find the step to swap with
         const targetStep = await database.recipeStep.findUnique({
           where: {
             recipeId_stepNum: {
@@ -136,12 +138,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         });
 
         if (targetStep) {
-          // Swap step numbers using a temporary number to avoid unique constraint violation
           const tempStepNum = -1;
-
-          // Note: SQLite's ON UPDATE CASCADE automatically updates StepOutputUse
-          // references when RecipeStep.stepNum changes, so we don't need to
-          // manually update StepOutputUse records here.
 
           await database.recipeStep.update({
             where: { id: stepId },
@@ -162,6 +159,38 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         }
       }
     }
+  }
+
+  // Handle delete step intent
+  if (intent === "deleteStep") {
+    const stepId = formData.get("stepId")?.toString();
+
+    if (!stepId) {
+      return data({ errors: { stepDeletion: "Step not found" } }, { status: 400 });
+    }
+
+    const step = await database.recipeStep.findUnique({
+      where: { id: stepId },
+      select: { id: true, recipeId: true, stepNum: true },
+    });
+
+    if (!step || step.recipeId !== id) {
+      return data({ errors: { stepDeletion: "Step not found" } }, { status: 404 });
+    }
+
+    const validationResult = await validateStepDeletion(database, id, step.stepNum);
+    if (!validationResult.valid) {
+      return data(
+        { errors: { stepDeletion: validationResult.error } },
+        { status: 400 }
+      );
+    }
+
+    await database.recipeStep.delete({
+      where: { id: stepId },
+    });
+
+    return data({ success: true });
   }
 
   const title = formData.get("title")?.toString() || "";
@@ -203,15 +232,12 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   }
 
   try {
-    // Build update data
     const updateData: { title: string; description: string | null; servings: string | null; imageUrl?: string } = {
       title: title.trim(),
       description: description.trim() || null,
       servings: servings.trim() || null,
     };
 
-    // Handle image: clear if requested, otherwise keep existing
-    // TODO: In production, upload imageFile to R2/storage and set URL
     if (clearImage) {
       updateData.imageUrl = "";
     }
@@ -235,8 +261,10 @@ export default function EditRecipe() {
   const actionData = useActionData<ActionData>();
   const navigate = useNavigate();
   const navigation = useNavigation();
+  const submit = useSubmit();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [stepToDelete, setStepToDelete] = useState<{ id: string; stepNum: number } | null>(null);
   const isLoading = navigation.state === 'submitting';
 
   const handleCancel = () => {
@@ -247,7 +275,6 @@ export default function EditRecipe() {
     /* istanbul ignore next -- @preserve defensive null check for ref */
     if (!formRef.current) return;
 
-    // Populate form with recipe data
     const form = formRef.current;
     const titleInput = form.querySelector('input[name="title"]') as HTMLInputElement;
     const descriptionInput = form.querySelector('textarea[name="description"]') as HTMLTextAreaElement;
@@ -266,18 +293,25 @@ export default function EditRecipe() {
     /* istanbul ignore else -- @preserve */
     if (clearImageInput) clearImageInput.value = recipeData.clearImage ? "true" : "";
 
-    // Handle image file
     if (recipeData.imageFile && fileInputRef.current) {
       const dataTransfer = new DataTransfer();
       dataTransfer.items.add(recipeData.imageFile);
       fileInputRef.current.files = dataTransfer.files;
     }
 
-    // Submit the form
     form.requestSubmit();
   };
 
-  // Register dock actions for this recipe edit page
+  const handleDeleteStep = () => {
+    if (!stepToDelete) return;
+
+    const formData = new FormData();
+    formData.set("intent", "deleteStep");
+    formData.set("stepId", stepToDelete.id);
+    submit(formData, { method: "post" });
+    setStepToDelete(null);
+  };
+
   useRecipeEditActions({
     recipeId: recipe.id,
   });
@@ -295,7 +329,6 @@ export default function EditRecipe() {
           </Link>
         </div>
 
-        {/* Hidden form for submitting data to the action */}
         <Form ref={formRef} method="post" encType="multipart/form-data" className="hidden" aria-hidden="true">
           <input type="hidden" name="id" value={recipe.id} />
           <input type="hidden" name="title" />
@@ -311,6 +344,10 @@ export default function EditRecipe() {
           <ValidationError error={actionData.errors.reorder} className="mb-4" />
         )}
 
+        {actionData?.errors?.stepDeletion && (
+          <ValidationError error={actionData.errors.stepDeletion} className="mb-4" />
+        )}
+
         <RecipeBuilder
           recipe={{
             id: recipe.id,
@@ -324,7 +361,83 @@ export default function EditRecipe() {
           onCancel={handleCancel}
           errors={actionData?.errors}
           loading={isLoading}
+          showSteps={false}
         />
+
+        <section aria-label="Recipe Steps" className="space-y-4 mt-10">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Recipe Steps</h2>
+            <Link href={`/recipes/${recipe.id}/steps/new`}>+ Add Step</Link>
+          </div>
+
+          {recipe.steps.length === 0 ? (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+              No steps yet. Add your first step.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recipe.steps.map((step, index) => {
+                const title = step.stepTitle?.trim() || step.description;
+                return (
+                  <article
+                    key={step.id}
+                    className="rounded-lg border border-zinc-200 bg-white p-4"
+                    aria-label={`Step ${step.stepNum}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="m-0 text-sm text-zinc-500">Step {step.stepNum}</p>
+                        <h3 className="m-0 text-base font-semibold truncate">{title}</h3>
+                        <p className="m-0 mt-1 text-sm text-zinc-600">
+                          {step.ingredients.length} ingredient{step.ingredients.length === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 justify-end">
+                        <Form method="post" className="m-0">
+                          <input type="hidden" name="intent" value="reorderStep" />
+                          <input type="hidden" name="stepId" value={step.id} />
+                          <input type="hidden" name="direction" value="up" />
+                          <Button type="submit" disabled={index === 0}>Move Up</Button>
+                        </Form>
+
+                        <Form method="post" className="m-0">
+                          <input type="hidden" name="intent" value="reorderStep" />
+                          <input type="hidden" name="stepId" value={step.id} />
+                          <input type="hidden" name="direction" value="down" />
+                          <Button type="submit" disabled={index === recipe.steps.length - 1}>Move Down</Button>
+                        </Form>
+
+                        <Button href={`/recipes/${recipe.id}/steps/${step.id}/edit`}>Edit</Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={() => setStepToDelete({ id: step.id, stepNum: step.stepNum })}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <Dialog open={stepToDelete !== null} onClose={() => setStepToDelete(null)} role="alertdialog">
+          <DialogTitle>Delete Step</DialogTitle>
+          <DialogDescription>
+            Delete Step {stepToDelete?.stepNum}? This cannot be undone.
+          </DialogDescription>
+          <DialogActions>
+            <Button plain onClick={() => setStepToDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteStep}>
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
       </div>
     </div>
   );

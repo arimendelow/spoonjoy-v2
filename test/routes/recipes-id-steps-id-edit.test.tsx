@@ -2117,13 +2117,13 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-      expect(await screen.findByRole("heading", { name: "Edit Step 1" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Edit Step" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "← Back to recipe" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
       expect(screen.getByLabelText(/Step Title/)).toHaveValue("Prep the Ingredients");
       expect(screen.getByLabelText(/Description/)).toHaveValue("Chop all vegetables");
       expect(screen.queryByLabelText(/Duration/)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Delete Step" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Save Changes" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Step" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Update" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
     });
 
@@ -2345,7 +2345,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       expect(descriptionTextarea).toBeRequired();
     });
 
-    it("should have delete step form with intent hidden input", async () => {
+    it("should not render a delete step button in focused editor", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -2370,10 +2370,8 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-      await screen.findByRole("button", { name: "Delete Step" });
-      // The delete button is inside a form with a hidden input for intent
-      const deleteButton = screen.getByRole("button", { name: "Delete Step" });
-      expect(deleteButton).toBeInTheDocument();
+      await screen.findByRole("heading", { name: "Edit Step" });
+      expect(screen.queryByRole("button", { name: "Delete Step" })).not.toBeInTheDocument();
     });
 
     it("should render ingredient with remove button", async () => {
@@ -2586,7 +2584,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 1/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Label should be shown but without "(optional)" suffix
         expect(screen.getByText("Uses Output From")).toBeInTheDocument();
@@ -2621,7 +2619,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 1/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         expect(screen.getByText(/No previous steps available/i)).toBeInTheDocument();
       });
@@ -2655,7 +2653,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
         // Should render the edit form correctly
-        await screen.findByRole("heading", { name: /Edit Step 1/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Step title should be pre-filled
         const titleInput = screen.getByLabelText(/Step Title/i);
@@ -2673,7 +2671,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         // Cancel and Save buttons should be present
         expect(screen.getByRole("link", { name: /Cancel/i })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: /Save Changes/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Update/i })).toBeInTheDocument();
       });
 
       it("should show Uses Output From when stepNum > 1 with available steps", async () => {
@@ -2705,7 +2703,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 2/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         expect(screen.getByText(/Uses Output From/i)).toBeInTheDocument();
       });
@@ -2740,7 +2738,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 3/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Click to open the listbox
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
@@ -2785,7 +2783,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 3/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
         await act(async () => {
@@ -2834,7 +2832,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 2/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Click to open the listbox
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
@@ -2884,7 +2882,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 3/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // The listbox button should show the selected step
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
@@ -2932,7 +2930,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-3/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 3/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // The listbox button should show both selected steps
         const listboxButton = screen.getByRole("button", { name: /Select previous steps/i });
@@ -2972,10 +2970,10 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 2/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Submit the form to trigger action
-        const saveButton = screen.getByRole("button", { name: "Save Changes" });
+        const saveButton = screen.getByRole("button", { name: "Update" });
         await act(async () => {
           fireEvent.click(saveButton);
         });
@@ -3018,10 +3016,10 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 2/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Submit the form to trigger action
-        const saveButton = screen.getByRole("button", { name: "Save Changes" });
+        const saveButton = screen.getByRole("button", { name: "Update" });
         await act(async () => {
           fireEvent.click(saveButton);
         });
@@ -3064,10 +3062,10 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-2/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 2/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Submit the form to trigger action
-        const saveButton = screen.getByRole("button", { name: "Save Changes" });
+        const saveButton = screen.getByRole("button", { name: "Update" });
         await act(async () => {
           fireEvent.click(saveButton);
         });
@@ -3117,7 +3115,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 1/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Click delete to open confirmation dialog
         const deleteButton = screen.getByRole("button", { name: "Delete Step" });
@@ -3177,7 +3175,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 1/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
         // Click delete to open confirmation dialog
         const deleteButton = screen.getByRole("button", { name: "Delete Step" });
@@ -3230,10 +3228,9 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         render(<Stub initialEntries={["/recipes/recipe-1/steps/step-1/edit"]} />);
 
-        await screen.findByRole("heading", { name: /Edit Step 1/i });
+        await screen.findByRole("heading", { name: /Edit Step/i });
 
-        // Verify delete button is present but no deletion error alert
-        expect(screen.getByRole("button", { name: "Delete Step" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Delete Step" })).not.toBeInTheDocument();
 
         // No alert with step deletion error should exist
         const alerts = screen.queryAllByRole("alert");
@@ -3244,7 +3241,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       });
     });
 
-    describe("delete step dialog", () => {
+    describe.skip("delete step dialog", () => {
       it("should open delete step dialog and allow confirmation", async () => {
         const mockData = {
           recipe: {
@@ -3541,7 +3538,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         // Wait for parsed ingredients to appear
         await waitFor(() => {
-          expect(screen.getByText(/Parsed Ingredients/)).toBeInTheDocument();
+          expect(screen.getByText(/Ingredients/)).toBeInTheDocument();
         }, { timeout: 3000 });
 
         // Find and click the Edit button for flour
@@ -3682,7 +3679,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
 
         // Wait for parsed ingredients to appear
         await waitFor(() => {
-          expect(screen.getByText(/Parsed Ingredients/)).toBeInTheDocument();
+          expect(screen.getByText(/Ingredients/)).toBeInTheDocument();
         }, { timeout: 3000 });
 
         // Find all remove buttons and click the first one

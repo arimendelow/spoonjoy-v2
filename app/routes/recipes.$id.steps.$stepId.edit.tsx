@@ -1,8 +1,8 @@
 import type { Route } from "./+types/recipes.$id.steps.$stepId.edit";
-import { Form, redirect, data, useActionData, useLoaderData, useSubmit } from "react-router";
+import { Form, redirect, data, useActionData, useLoaderData, useSearchParams, useSubmit } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
-import { useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -11,6 +11,8 @@ import { Field, Label } from "~/components/ui/fieldset";
 import { Text } from "~/components/ui/text";
 import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
+import { Heading } from "~/components/ui/heading";
+import { useToast } from "~/components/ui/toast";
 import { Listbox, ListboxOption, ListboxLabel } from "~/components/ui/listbox";
 import {
   deleteExistingStepOutputUses,
@@ -51,12 +53,6 @@ interface ActionData {
   };
   success?: boolean;
   parsedIngredients?: ParsedIngredient[];
-}
-
-interface Ingredient {
-  quantity: string;
-  unitName: string;
-  ingredientName: string;
 }
 
 const STEP_CONTENT_REQUIREMENT_ERROR = "Add at least 1 ingredient or 1 step output use before saving this step.";
@@ -388,12 +384,12 @@ export default function EditStep() {
   const { recipe, step, availableSteps } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const [showIngredientForm, setShowIngredientForm] = useState(false);
-  const [showDeleteStepDialog, setShowDeleteStepDialog] = useState(false);
   const [ingredientToRemove, setIngredientToRemove] = useState<string | null>(null);
   const [ingredientInputMode, setIngredientInputMode] = useState<IngredientInputMode>('ai');
   const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
   const submit = useSubmit();
-  const deleteStepFormRef = useRef<HTMLFormElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { showToast } = useToast();
 
   // Initialize selected steps from existing usingSteps
   const [selectedSteps, setSelectedSteps] = useState<number[]>(
@@ -405,6 +401,15 @@ export default function EditStep() {
   const stepDeletionErrorElement = stepDeletionError
     ? <ValidationError error={stepDeletionError} className="mb-4" />
     : null;
+
+  useEffect(() => {
+    if (searchParams.get("created") === "1") {
+      showToast({ message: "Step created successfully." });
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("created");
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, showToast]);
 
   // Ingredient input mode handlers
   const handleModeChange = (mode: IngredientInputMode) => {
@@ -454,7 +459,8 @@ export default function EditStep() {
     <div className="font-sans leading-relaxed p-8">
       <div className="max-w-[800px] mx-auto">
         <div className="mb-8">
-          <h1>Edit Step {step.stepNum}</h1>
+          <Heading level={1}>Edit Step</Heading>
+          <Text>Step {step.stepNum}</Text>
           <Link
             href={`/recipes/${recipe.id}/edit`}
             className="text-blue-600 no-underline"
@@ -541,37 +547,12 @@ export default function EditStep() {
               Cancel
             </Button>
             <Button type="submit">
-              Save Changes
+              Update
             </Button>
           </div>
         </Form>
 
-        <div className="mt-4">
-          {stepDeletionErrorElement}
-          <Form method="post" ref={deleteStepFormRef}>
-            <input type="hidden" name="intent" value="delete" />
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => setShowDeleteStepDialog(true)}
-            >
-              Delete Step
-            </Button>
-          </Form>
-          <ConfirmationDialog
-            open={showDeleteStepDialog}
-            onClose={() => setShowDeleteStepDialog(false)}
-            onConfirm={() => {
-              setShowDeleteStepDialog(false);
-              deleteStepFormRef.current?.submit();
-            }}
-            title="Delete this step? 🗑️"
-            description="This step and all its ingredients will be permanently deleted. Other steps that depend on this one may be affected."
-            confirmLabel="Delete it"
-            cancelLabel="Keep it"
-            destructive
-          />
-        </div>
+        <div className="mt-4">{stepDeletionErrorElement}</div>
 
         <div className="mt-12 pt-8 border-t border-zinc-200">
           <div className="flex justify-between items-center mb-4">

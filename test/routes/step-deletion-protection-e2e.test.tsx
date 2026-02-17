@@ -392,10 +392,8 @@ describe("E2E: Step Deletion Protection", () => {
       render(<Stub initialEntries={[`/recipes/${recipeId}/steps/${step1Id}/edit`]} />);
 
       // Wait for the page to render
-      await screen.findByRole("heading", { name: /Edit Step 1/i });
-
-      // Verify Delete button is present
-      expect(screen.getByRole("button", { name: "Delete Step" })).toBeInTheDocument();
+      await screen.findByRole("heading", { name: /Edit Step/i });
+      expect(screen.queryByRole("button", { name: "Delete Step" })).not.toBeInTheDocument();
 
       // No deletion error should be visible
       const alerts = screen.queryAllByRole("alert");

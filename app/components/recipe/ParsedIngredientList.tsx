@@ -72,7 +72,7 @@ export function ParsedIngredientList({
   return (
     <div>
       <h3 className="text-lg font-semibold mb-3">
-        Parsed Ingredients ({ingredients.length})
+        Ingredients ({ingredients.length})
       </h3>
       <ul className="list-none p-0 m-0 divide-y divide-zinc-200 dark:divide-zinc-700" role="list">
         {ingredients.map((ingredient, index) => (

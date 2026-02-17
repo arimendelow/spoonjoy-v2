@@ -383,8 +383,8 @@ describe('Step Edit Ingredient Integration', () => {
 
       await waitFor(
         () => {
-          // Should show header like "Parsed Ingredients (2)"
-          expect(screen.getByRole('heading', { name: /Parsed Ingredients \(2\)/i })).toBeInTheDocument()
+          // Should show header like "Ingredients (2)"
+          expect(screen.getByRole('heading', { name: /Ingredients \(2\)/i })).toBeInTheDocument()
         },
         { timeout: 3000 }
       )
