@@ -636,9 +636,10 @@ describe("Shopping List Routes", () => {
       render(<Stub initialEntries={["/shopping-list"]} />);
 
       expect(await screen.findByText("Add Item")).toBeInTheDocument();
-      expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
-      expect(screen.getByLabelText("Unit")).toBeInTheDocument();
-      expect(screen.getByLabelText("Ingredient *")).toBeInTheDocument();
+      expect(screen.getByLabelText("Item")).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText("e.g., 2 lbs chicken breast or a dozen eggs")
+      ).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
     });
 

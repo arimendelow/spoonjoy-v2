@@ -1,7 +1,7 @@
 import type { Route } from "./+types/shopping-list";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useLoaderData, Form, data, useSubmit, useFetcher } from "react-router";
+import { useLoaderData, Form, data, useSubmit, useFetcher, useActionData } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Heading, Subheading } from "~/components/ui/heading";
@@ -12,12 +12,110 @@ import { Field, Label } from "~/components/ui/fieldset";
 import { Select } from "~/components/ui/select";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { INGREDIENT_ICON_COMPONENTS, resolveIngredientAffordance } from "~/lib/ingredient-affordances";
+import { IngredientParseError, parseIngredients } from "~/lib/ingredient-parse.server";
 
 type ShoppingListItemState = {
   id: string;
   checkedAt: Date | null;
   sortIndex: number;
 };
+
+type ParsedItemDraft = {
+  quantity: string;
+  unitName: string;
+  ingredientName: string;
+  isAmbiguous: boolean;
+  originalText: string;
+};
+
+function parseFractionToken(token: string): number | null {
+  const trimmed = token.trim();
+  const mixed = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) {
+    const whole = Number.parseFloat(mixed[1]);
+    const numerator = Number.parseFloat(mixed[2]);
+    const denominator = Number.parseFloat(mixed[3]);
+    return denominator > 0 ? whole + numerator / denominator : null;
+  }
+
+  const fraction = trimmed.match(/^(\d+)\/(\d+)$/);
+  if (fraction) {
+    const numerator = Number.parseFloat(fraction[1]);
+    const denominator = Number.parseFloat(fraction[2]);
+    return denominator > 0 ? numerator / denominator : null;
+  }
+
+  const numeric = Number.parseFloat(trimmed);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+export function parseShoppingItemFallback(text: string): ParsedItemDraft {
+  const normalized = text.trim().replace(/\s+/g, " ");
+
+  if (!normalized) {
+    return {
+      quantity: "",
+      unitName: "",
+      ingredientName: "",
+      isAmbiguous: true,
+      originalText: text,
+    };
+  }
+
+  const dozenMatch = normalized.match(/^(a|an)\s+dozen\s+(.+)$/i);
+  if (dozenMatch) {
+    return {
+      quantity: "12",
+      unitName: "whole",
+      ingredientName: dozenMatch[2].trim(),
+      isAmbiguous: false,
+      originalText: text,
+    };
+  }
+
+  const amountMatch = normalized.match(/^((?:\d+\s+)?\d+\/\d+|\d+(?:\.\d+)?)\s+(.+)$/);
+  if (!amountMatch) {
+    return {
+      quantity: "",
+      unitName: "",
+      ingredientName: normalized,
+      isAmbiguous: true,
+      originalText: text,
+    };
+  }
+
+  const parsedQuantity = parseFractionToken(amountMatch[1]);
+  const remainder = amountMatch[2].trim();
+  const [first, ...rest] = remainder.split(" ");
+
+  if (!parsedQuantity || !remainder) {
+    return {
+      quantity: "",
+      unitName: "",
+      ingredientName: normalized,
+      isAmbiguous: true,
+      originalText: text,
+    };
+  }
+
+  if (rest.length === 0) {
+    return {
+      quantity: String(parsedQuantity),
+      unitName: "whole",
+      ingredientName: first,
+      isAmbiguous: false,
+      originalText: text,
+    };
+  }
+
+  return {
+    quantity: String(parsedQuantity),
+    unitName: first,
+    ingredientName: rest.join(" "),
+    isAmbiguous: false,
+    originalText: text,
+  };
+}
 
 async function nextSortIndex(database: NonNullable<typeof db>, shoppingListId: string) {
   const maxItem = await database.shoppingListItem.findFirst({
@@ -140,13 +238,79 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   if (intent === "addItem") {
-    const quantity = formData.get("quantity")?.toString();
-    const unitName = formData.get("unitName")?.toString() || "";
-    const ingredientName = formData.get("ingredientName")?.toString() || "";
+    const ingredientText = formData.get("ingredientText")?.toString() || "";
+    const manualQuantity = formData.get("quantity")?.toString() || "";
+    const manualUnitName = formData.get("unitName")?.toString() || "";
+    const manualIngredientName = formData.get("ingredientName")?.toString() || "";
     const submittedCategoryKey = formData.get("categoryKey")?.toString() || null;
     const submittedIconKey = formData.get("iconKey")?.toString() || null;
 
-    if (ingredientName) {
+    let parsedDraft: ParsedItemDraft = {
+      quantity: manualQuantity,
+      unitName: manualUnitName,
+      ingredientName: manualIngredientName,
+      isAmbiguous: false,
+      originalText: ingredientText,
+    };
+
+    if (!parsedDraft.ingredientName.trim() && ingredientText.trim()) {
+      const apiKey =
+        context?.cloudflare?.env?.OPENAI_API_KEY ||
+        process.env.OPENAI_API_KEY ||
+        "";
+
+      if (apiKey) {
+        try {
+          const parsedIngredients = await parseIngredients(ingredientText, apiKey);
+          const firstParsed = parsedIngredients[0];
+
+          if (parsedIngredients.length === 1 && firstParsed) {
+            parsedDraft = {
+              quantity: String(firstParsed.quantity),
+              unitName: firstParsed.unit,
+              ingredientName: firstParsed.ingredientName,
+              isAmbiguous: false,
+              originalText: ingredientText,
+            };
+          } else {
+            const fallbackDraft = parseShoppingItemFallback(ingredientText);
+            return data(
+              {
+                errors: {
+                  parse: "Couldn't confidently parse one item. Review and correct before adding.",
+                },
+                parseDraft: fallbackDraft,
+              },
+              { status: 400 }
+            );
+          }
+        } catch (error) {
+          const fallbackDraft = parseShoppingItemFallback(ingredientText);
+          const parseMessage =
+            error instanceof IngredientParseError
+              ? error.message
+              : "Unable to parse item right now. Review and correct before adding.";
+
+          return data(
+            {
+              errors: {
+                parse: parseMessage,
+              },
+              parseDraft: fallbackDraft,
+            },
+            { status: 400 }
+          );
+        }
+      } else {
+        parsedDraft = parseShoppingItemFallback(ingredientText);
+      }
+    }
+
+    const ingredientName = parsedDraft.ingredientName.trim();
+    const unitName = parsedDraft.unitName.trim();
+    const quantity = parsedDraft.quantity.trim();
+
+    if (ingredientName && !parsedDraft.isAmbiguous) {
       // Get or create ingredient ref
       let ingredientRef = await database.ingredientRef.findUnique({
         where: { name: ingredientName.toLowerCase() },
@@ -224,6 +388,19 @@ export async function action({ request, context }: Route.ActionArgs) {
         });
       }
     }
+
+    if (!ingredientName || parsedDraft.isAmbiguous) {
+      return data(
+        {
+          errors: {
+            parse: "Couldn't confidently parse one item. Review and correct before adding.",
+          },
+          parseDraft: parsedDraft,
+        },
+        { status: 400 }
+      );
+    }
+
     return data({ success: true });
   }
 
@@ -403,6 +580,7 @@ export function shouldDeleteOnSwipe(offsetX: number, isRevealed = false) {
 }
 
 export default function ShoppingList() {
+  const actionData = useActionData<typeof action>();
   const { shoppingList, recipes } = useLoaderData<typeof loader>();
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [optimisticCheckedById, setOptimisticCheckedById] = useState<Record<string, boolean>>({});
@@ -544,40 +722,64 @@ export default function ShoppingList() {
       </div>
 
       {/* Add Item Form */}
-      <div className="rounded-lg bg-zinc-50 p-6 dark:bg-zinc-800/50 mb-6">
+      <div className="border border-zinc-200 bg-zinc-50/70 p-6 dark:border-zinc-700 dark:bg-zinc-800/30 mb-6">
         <Subheading level={2}>Add Item</Subheading>
         <Form method="post" className="mt-4">
           <input type="hidden" name="intent" value="addItem" />
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+          <div className="space-y-4">
             <Field>
-              <Label>Quantity</Label>
-              <Input
-                type="number"
-                name="quantity"
-                step="0.01"
-                placeholder="2"
-              />
-            </Field>
-            <Field>
-              <Label>Unit</Label>
+              <Label>Item</Label>
               <Input
                 type="text"
-                name="unitName"
-                placeholder="lbs"
-              />
-            </Field>
-            <Field className="sm:col-span-1">
-              <Label>Ingredient *</Label>
-              <Input
-                type="text"
-                name="ingredientName"
+                name="ingredientText"
                 required
-                placeholder="chicken breast"
+                placeholder="e.g., 2 lbs chicken breast or a dozen eggs"
+                defaultValue={actionData?.parseDraft?.originalText || ""}
+                className="before:rounded-none after:rounded-none [&_input]:rounded-none"
               />
             </Field>
-            <Button type="submit">
-              Add
-            </Button>
+            {actionData?.parseDraft && (
+              <div className="border border-zinc-300 p-3 dark:border-zinc-700">
+                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                  {actionData?.errors?.parse || "Review the parsed item before adding."}
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mt-3">
+                  <Field>
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      name="quantity"
+                      step="0.01"
+                      placeholder="2"
+                      defaultValue={actionData.parseDraft.quantity}
+                      className="before:rounded-none after:rounded-none [&_input]:rounded-none"
+                    />
+                  </Field>
+                  <Field>
+                    <Label>Unit</Label>
+                    <Input
+                      type="text"
+                      name="unitName"
+                      placeholder="lb"
+                      defaultValue={actionData.parseDraft.unitName}
+                      className="before:rounded-none after:rounded-none [&_input]:rounded-none"
+                    />
+                  </Field>
+                  <Field>
+                    <Label>Ingredient</Label>
+                    <Input
+                      type="text"
+                      name="ingredientName"
+                      required
+                      placeholder="chicken breast"
+                      defaultValue={actionData.parseDraft.ingredientName}
+                      className="before:rounded-none after:rounded-none [&_input]:rounded-none"
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
+            <Button type="submit">Add</Button>
           </div>
         </Form>
       </div>

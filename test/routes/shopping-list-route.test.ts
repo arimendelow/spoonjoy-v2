@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { db } from "~/lib/db.server";
-import { loader, action } from "~/routes/shopping-list";
+import { loader, action, parseShoppingItemFallback } from "~/routes/shopping-list";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
@@ -273,6 +273,104 @@ describe("Shopping List Route", () => {
 
       expect(updatedList?.items).toHaveLength(1);
       expect(updatedList?.items[0].quantity).toBe(8); // 5 + 3
+    });
+
+    it("should parse free-text item into structured fields", async () => {
+      delete process.env.OPENAI_API_KEY;
+
+      const request = await createFormRequest(
+        {
+          intent: "addItem",
+          ingredientText: "2 lbs chicken breast",
+        },
+        testUserId
+      );
+
+      await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const shoppingList = await db.shoppingList.findUnique({
+        where: { authorId: testUserId },
+        include: {
+          items: {
+            include: { ingredientRef: true, unit: true },
+          },
+        },
+      });
+
+      expect(shoppingList?.items).toHaveLength(1);
+      expect(shoppingList?.items[0].quantity).toBe(2);
+      expect(shoppingList?.items[0].unit?.name).toBe("lbs");
+      expect(shoppingList?.items[0].ingredientRef.name).toBe("chicken breast");
+    });
+
+    it("should parse dozen phrasing from free-text item", async () => {
+      delete process.env.OPENAI_API_KEY;
+
+      const request = await createFormRequest(
+        {
+          intent: "addItem",
+          ingredientText: "a dozen eggs",
+        },
+        testUserId
+      );
+
+      await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const shoppingList = await db.shoppingList.findUnique({
+        where: { authorId: testUserId },
+        include: {
+          items: {
+            include: { ingredientRef: true, unit: true },
+          },
+        },
+      });
+
+      expect(shoppingList?.items).toHaveLength(1);
+      expect(shoppingList?.items[0].quantity).toBe(12);
+      expect(shoppingList?.items[0].unit?.name).toBe("whole");
+      expect(shoppingList?.items[0].ingredientRef.name).toBe("eggs");
+    });
+
+    it("should return parse draft for ambiguous free-text", async () => {
+      delete process.env.OPENAI_API_KEY;
+
+      const request = await createFormRequest(
+        {
+          intent: "addItem",
+          ingredientText: "fresh basil",
+        },
+        testUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      expect(result).toMatchObject({
+        type: "DataWithResponseInit",
+        init: { status: 400 },
+        data: {
+          errors: {
+            parse: "Couldn't confidently parse one item. Review and correct before adding.",
+          },
+          parseDraft: {
+            quantity: "",
+            unitName: "",
+            ingredientName: "fresh basil",
+            isAmbiguous: true,
+          },
+        },
+      });
     });
   });
 
@@ -1363,6 +1461,35 @@ describe("Shopping List Route", () => {
 
       expect(shoppingList).not.toBeNull();
       expect(shoppingList?.items).toHaveLength(1);
+    });
+  });
+
+  describe("parseShoppingItemFallback", () => {
+    it("parses quantity/unit/ingredient from standard text", () => {
+      expect(parseShoppingItemFallback("2 lbs chicken breast")).toMatchObject({
+        quantity: "2",
+        unitName: "lbs",
+        ingredientName: "chicken breast",
+        isAmbiguous: false,
+      });
+    });
+
+    it("parses dozen phrasing", () => {
+      expect(parseShoppingItemFallback("a dozen eggs")).toMatchObject({
+        quantity: "12",
+        unitName: "whole",
+        ingredientName: "eggs",
+        isAmbiguous: false,
+      });
+    });
+
+    it("flags ambiguous text without quantity", () => {
+      expect(parseShoppingItemFallback("olive oil")).toMatchObject({
+        quantity: "",
+        unitName: "",
+        ingredientName: "olive oil",
+        isAmbiguous: true,
+      });
     });
   });
 });
