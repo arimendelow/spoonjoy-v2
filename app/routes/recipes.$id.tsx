@@ -6,7 +6,10 @@ import { ArrowLeft } from "lucide-react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
+import { Dialog, DialogBody, DialogTitle } from "~/components/ui/dialog";
+import { Field, Label } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
+import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { RecipeHeader } from "~/components/recipe/RecipeHeader";
 import { StepCard } from "~/components/recipe/StepCard";
@@ -191,10 +194,37 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   return null;
 }
 
+type CookbookListItem = { id: string; title: string };
+
+export function applyCreatedCookbookState(
+  currentCookbooks: CookbookListItem[],
+  currentSavedCookbookIds: Set<string>,
+  newCookbook: CookbookListItem
+) {
+  const hasCookbook = currentCookbooks.some((cookbook) => cookbook.id === newCookbook.id);
+  const nextCookbooks = hasCookbook
+    ? currentCookbooks
+    : [...currentCookbooks, newCookbook].sort((a, b) => a.title.localeCompare(b.title));
+
+  const nextSavedCookbookIds = new Set(currentSavedCookbookIds);
+  nextSavedCookbookIds.add(newCookbook.id);
+
+  return {
+    cookbooks: nextCookbooks,
+    savedCookbookIds: nextSavedCookbookIds,
+  };
+}
+
 export default function RecipeDetail() {
-  const { recipe, isOwner, cookbooks, savedInCookbookIds } = useLoaderData<typeof loader>();
+  const {
+    recipe,
+    isOwner,
+    cookbooks = [],
+    savedInCookbookIds = [],
+  } = useLoaderData<typeof loader>();
   const submit = useSubmit();
   const addToListFetcher = useFetcher();
+  const createCookbookFetcher = useFetcher<typeof action>();
   const posthog = usePostHog();
 
   // Scale state for recipe scaling
@@ -206,6 +236,8 @@ export default function RecipeDetail() {
   // Track which step outputs have been checked off
   const [checkedStepOutputs, setCheckedStepOutputs] = useState<Set<string>>(new Set());
 
+  const [availableCookbooks, setAvailableCookbooks] = useState(() => cookbooks);
+
   // Track which cookbooks this recipe is saved in (optimistic UI)
   const [savedCookbookIds, setSavedCookbookIds] = useState<Set<string>>(
     () => new Set(savedInCookbookIds)
@@ -213,6 +245,7 @@ export default function RecipeDetail() {
 
   // Track view start time for engagement metrics
   const viewStartTime = useRef<number>(Date.now());
+  const lastHandledCreatedCookbookId = useRef<string | null>(null);
 
   // PostHog: Track recipe view on mount
   useEffect(() => {
@@ -317,6 +350,7 @@ export default function RecipeDetail() {
 
   // State for Save modal (bottom sheet)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [newCookbookTitle, setNewCookbookTitle] = useState("");
 
   const handleAddToList = useCallback(() => {
     addToListFetcher.submit(
@@ -342,6 +376,32 @@ export default function RecipeDetail() {
     onAddToList: handleAddToList,
     onShare: handleShare,
   });
+
+  useEffect(() => {
+    setAvailableCookbooks(cookbooks);
+  }, [cookbooks]);
+
+  useEffect(() => {
+    if (
+      createCookbookFetcher.data &&
+      "success" in createCookbookFetcher.data &&
+      createCookbookFetcher.data.success &&
+      "newCookbook" in createCookbookFetcher.data &&
+      createCookbookFetcher.data.newCookbook &&
+      lastHandledCreatedCookbookId.current !== createCookbookFetcher.data.newCookbook.id
+    ) {
+      const nextState = applyCreatedCookbookState(
+        availableCookbooks,
+        savedCookbookIds,
+        createCookbookFetcher.data.newCookbook
+      );
+      setAvailableCookbooks(nextState.cookbooks);
+      setSavedCookbookIds(nextState.savedCookbookIds);
+      setNewCookbookTitle("");
+      setIsSaveModalOpen(false);
+      lastHandledCreatedCookbookId.current = createCookbookFetcher.data.newCookbook.id;
+    }
+  }, [createCookbookFetcher.data, availableCookbooks, savedCookbookIds]);
 
   const handleToggleCookbookSave = (cookbookId: string) => {
     const isCurrentlySaved = savedCookbookIds.has(cookbookId);
@@ -372,7 +432,7 @@ export default function RecipeDetail() {
   };
 
   const handleCreateAndSave = (title: string) => {
-    submit(
+    createCookbookFetcher.submit(
       { intent: "createCookbookAndSave", title },
       { method: "post" }
     );
@@ -450,95 +510,84 @@ export default function RecipeDetail() {
       />
 
       {/* Save to Cookbook Modal (Bottom Sheet) */}
-      {isSaveModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/50"
-          onClick={() => setIsSaveModalOpen(false)}
-          data-testid="save-modal-backdrop"
-        >
-          <div
-            className="w-full sm:max-w-md bg-white dark:bg-zinc-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[80vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-            data-testid="save-modal"
-          >
-            <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
-              <Heading level={2} className="text-xl font-bold">Save to Cookbook</Heading>
-            </div>
-            <div className="overflow-y-auto flex-1 p-4">
-              {cookbooks.length > 0 ? (
-                <div className="space-y-2">
-                  {cookbooks.map((cookbook) => {
-                    const isSaved = savedCookbookIds.has(cookbook.id);
-                    return (
-                      <button
-                        key={cookbook.id}
-                        onClick={() => handleToggleCookbookSave(cookbook.id)}
-                        className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                          isSaved
-                            ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50'
-                            : 'bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
-                        }`}
-                        data-testid={`cookbook-item-${cookbook.id}`}
-                      >
-                        <Text className="flex items-center justify-between">
-                          <span>{cookbook.title}</span>
-                          {isSaved && <span className="text-blue-500">✓</span>}
-                        </Text>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <Text className="text-center text-zinc-500 dark:text-zinc-400 py-8">
-                  No cookbooks yet. Create your first one below!
-                </Text>
-              )}
-              
-              {/* Create New Cookbook Section */}
-              <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <div className="space-y-3">
-                  <label htmlFor="new-cookbook-input" className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    Create new cookbook
-                  </label>
-                  <input
+      <Dialog
+        open={isSaveModalOpen}
+        onClose={setIsSaveModalOpen}
+        size="md"
+        className="pb-[max(1rem,env(safe-area-inset-bottom))]"
+      >
+        <div data-testid="save-modal">
+          <DialogTitle>Save to Cookbook</DialogTitle>
+          <DialogBody className="max-h-[70vh] overflow-y-auto pb-0">
+            {availableCookbooks.length > 0 ? (
+              <div className="space-y-2">
+                {availableCookbooks.map((cookbook) => {
+                  const isSaved = savedCookbookIds.has(cookbook.id);
+                  return (
+                    <button
+                      key={cookbook.id}
+                      onClick={() => handleToggleCookbookSave(cookbook.id)}
+                      className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                        isSaved
+                          ? "bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50"
+                          : "bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                      }`}
+                      data-testid={`cookbook-item-${cookbook.id}`}
+                    >
+                      <Text className="flex items-center justify-between">
+                        <span>{cookbook.title}</span>
+                        {isSaved && <span className="text-blue-500">✓</span>}
+                      </Text>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <Text className="text-center text-zinc-500 dark:text-zinc-400 py-8">
+                No cookbooks yet. Create your first one below!
+              </Text>
+            )}
+
+            <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+              <createCookbookFetcher.Form
+                method="post"
+                className="space-y-3"
+                onSubmit={(event) => {
+                  const title = newCookbookTitle.trim();
+                  if (!title) {
+                    event.preventDefault();
+                    return;
+                  }
+                  handleCreateAndSave(title);
+                  event.preventDefault();
+                }}
+              >
+                <input type="hidden" name="intent" value="createCookbookAndSave" />
+                <Field>
+                  <Label htmlFor="new-cookbook-input">Create new cookbook</Label>
+                  <Input
                     id="new-cookbook-input"
+                    name="title"
                     type="text"
                     placeholder="Cookbook name"
-                    className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const input = e.currentTarget;
-                        const title = input.value.trim();
-                        if (title) {
-                          handleCreateAndSave(title);
-                          setIsSaveModalOpen(false);
-                          input.value = '';
-                        }
-                      }
-                    }}
+                    value={newCookbookTitle}
+                    onChange={(event) => setNewCookbookTitle(event.target.value)}
                     data-testid="new-cookbook-input"
                   />
-                  <Button
-                    color="blue"
-                    onClick={(e) => {
-                      const input = document.getElementById('new-cookbook-input') as HTMLInputElement;
-                      const title = input?.value.trim();
-                      if (title) {
-                        handleCreateAndSave(title);
-                        setIsSaveModalOpen(false);
-                        input.value = '';
-                      }
-                    }}
-                    data-testid="create-cookbook-button"
-                  >
-                    Create & Save
-                  </Button>
-                </div>
-              </div>
+                </Field>
+                <Button
+                  type="submit"
+                  color="blue"
+                  disabled={newCookbookTitle.trim().length === 0 || createCookbookFetcher.state !== "idle"}
+                  data-testid="create-cookbook-button"
+                >
+                  Create & Save
+                </Button>
+              </createCookbookFetcher.Form>
             </div>
-          </div>
+          </DialogBody>
         </div>
-      )}
+      </Dialog>
 
       {/* Steps Section */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-4xl mx-auto">

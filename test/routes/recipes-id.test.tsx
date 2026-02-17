@@ -1,10 +1,21 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
-import { loader, action } from "~/routes/recipes.$id";
+
+vi.mock("~/components/navigation", async () => {
+  const actual = await vi.importActual<typeof import("~/components/navigation")>("~/components/navigation");
+  return {
+    ...actual,
+    shareContent: vi.fn(async () => ({ success: true, method: "native" })),
+    useRecipeDetailActions: vi.fn(),
+  };
+});
+
+import { useRecipeDetailActions } from "~/components/navigation";
+import { loader, action, applyCreatedCookbookState } from "~/routes/recipes.$id";
 import RecipeDetail from "~/routes/recipes.$id";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
@@ -28,6 +39,7 @@ describe("Recipes $id Route", () => {
   let recipeId: string;
 
   beforeEach(async () => {
+    vi.clearAllMocks();
     await cleanupDatabase();
     const email = faker.internet.email();
     const username = faker.internet.username() + "_" + faker.string.alphanumeric(8);
@@ -616,9 +628,94 @@ describe("Recipes $id Route", () => {
         return true;
       });
     });
+
+    it("creates cookbook, saves recipe, and returns created cookbook for immediate UI reflection", async () => {
+      const request = await createFormRequest(
+        { intent: "createCookbookAndSave", title: "Fresh Saves" },
+        testUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          newCookbook: expect.objectContaining({ title: "Fresh Saves" }),
+        })
+      );
+
+      const cookbookId = (result as { newCookbook: { id: string } }).newCookbook.id;
+      const recipeInCookbook = await db.recipeInCookbook.findUnique({
+        where: {
+          cookbookId_recipeId: {
+            cookbookId,
+            recipeId,
+          },
+        },
+      });
+      expect(recipeInCookbook).not.toBeNull();
+    });
+  });
+
+  describe("create cookbook reflection state", () => {
+    it("adds new cookbook and marks it as saved immediately in local UI state", () => {
+      const state = applyCreatedCookbookState(
+        [{ id: "cb-existing", title: "Existing" }],
+        new Set<string>(),
+        { id: "cb-new", title: "Brand New" }
+      );
+
+      expect(state.cookbooks.map((cookbook) => cookbook.id)).toEqual(["cb-new", "cb-existing"]);
+      expect(state.savedCookbookIds.has("cb-new")).toBe(true);
+    });
   });
 
   describe("component", () => {
+    const openSaveModalFromDock = () => {
+      const dockActionRegistration = vi.mocked(useRecipeDetailActions).mock.calls.at(-1)?.[0];
+      dockActionRegistration?.onSave?.();
+    };
+
+    it("uses shared dialog/input components for save modal and keeps modal above dock z-index", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Save Modal Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [{ id: "cb-1", title: "Weeknights" }],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Save Modal Recipe" });
+
+      openSaveModalFromDock();
+
+      expect(await screen.findByRole("dialog", { name: "Save to Cookbook" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Create new cookbook")).toBeInTheDocument();
+
+      const backdrop = document.querySelector(".z-\\[60\\]");
+      expect(backdrop).toBeTruthy();
+    });
+
     it("should render recipe with no steps (empty state) as owner", async () => {
       const mockData = {
         recipe: {
