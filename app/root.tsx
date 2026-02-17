@@ -12,6 +12,7 @@ import {
 import { useEffect } from "react";
 import { usePostHog } from "@posthog/react";
 import { getUserId } from "~/lib/session.server";
+import { applyStorageSchemaMigration } from "~/lib/client-storage-schema";
 import { ThemeProvider } from "~/components/ui/theme-provider";
 import { ToastProvider } from "~/components/ui/toast";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
@@ -48,7 +49,6 @@ export function links() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const userId = await getUserId(request);
-  console.log("[root.loader] userId:", userId, "url:", request.url);
   return { userId };
 }
 
@@ -205,6 +205,11 @@ export default function App() {
   const { userId } = useLoaderData<typeof loader>();
   const location = useLocation();
   const posthog = usePostHog();
+
+  // Apply storage schema migration after hydration (client-side only)
+  useEffect(() => {
+    applyStorageSchemaMigration();
+  }, []);
 
   // Track page views on route changes
   useEffect(() => {

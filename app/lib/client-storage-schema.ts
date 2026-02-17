@@ -48,7 +48,7 @@ export function applyStorageSchemaMigration(): void {
     removeMatchingKeys(window.localStorage, {
       exactKeys: APP_LOCAL_STORAGE_KEYS,
       prefixes: APP_LOCAL_STORAGE_PREFIXES,
-      excludedKeys: new Set([THEME_STORAGE_KEY]),
+      excludedKeys: new Set([THEME_STORAGE_KEY, STORAGE_SCHEMA_VERSION_KEY]),
     })
 
     removeMatchingKeys(window.sessionStorage, {
