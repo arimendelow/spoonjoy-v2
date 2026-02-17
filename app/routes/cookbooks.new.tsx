@@ -106,10 +106,10 @@ export default function NewCookbook() {
             </Field>
 
             <div className="flex gap-4 justify-end pt-4">
-              <Button href="/cookbooks" color="zinc">
+              <Button href="/cookbooks">
                 Cancel
               </Button>
-              <Button type="submit" color="green">
+              <Button type="submit">
                 Create Cookbook
               </Button>
             </div>

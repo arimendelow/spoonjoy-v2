@@ -173,7 +173,7 @@ export default function Signup() {
             )}
           </Field>
 
-          <Button type="submit" color="blue" className="w-full">
+          <Button type="submit" className="w-full">
             Sign Up
           </Button>
         </Form>

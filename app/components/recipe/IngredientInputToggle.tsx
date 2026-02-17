@@ -105,7 +105,7 @@ export function IngredientInputToggle({
         checked={effectiveMode === 'ai'}
         onChange={handleChange}
         disabled={disabled}
-        color="blue"
+
       />
     </SwitchField>
   )

@@ -199,7 +199,7 @@ describe('Dialog', () => {
             <Button plain onClick={onClose}>
               Cancel
             </Button>
-            <Button color="indigo">Save Changes</Button>
+            <Button>Save Changes</Button>
           </DialogActions>
         </Dialog>
       )

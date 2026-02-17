@@ -131,7 +131,7 @@ export default function Login() {
             )}
           </Field>
 
-          <Button type="submit" color="blue" className="w-full">
+          <Button type="submit" className="w-full">
             Log In
           </Button>
         </Form>

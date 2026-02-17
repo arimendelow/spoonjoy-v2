@@ -33,7 +33,7 @@ export function RecipeGrid({
         <Subheading level={2}>{emptyTitle}</Subheading>
         <Text className="mt-2">{emptyMessage}</Text>
         <div className="mt-4">
-          <Button href={emptyCtaHref} color="blue">
+          <Button href={emptyCtaHref}>
             Create Recipe
           </Button>
         </div>
@@ -78,7 +78,7 @@ export function RecipeGrid({
                   {typeof recipe.cookTimeMinutes === 'number' && (
                     <Badge color="amber">{recipe.cookTimeMinutes} min</Badge>
                   )}
-                  {recipe.difficulty && <Badge color="zinc">{recipe.difficulty}</Badge>}
+                  {recipe.difficulty && <Badge>{recipe.difficulty}</Badge>}
                 </div>
               </div>
             </article>

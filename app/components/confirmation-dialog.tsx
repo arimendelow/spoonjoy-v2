@@ -47,7 +47,7 @@ export function ConfirmationDialog({
           {cancelLabel}
         </Button>
         <Button
-          color={destructive ? "red" : "blue"}
+          variant={destructive ? "destructive" : "default"}
           onClick={onConfirm}
         >
           {confirmLabel}

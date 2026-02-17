@@ -66,7 +66,7 @@ export function ScaleSelector({
       {/* Minus button */}
       <Button
         type="button"
-        outline
+        plain
         disabled={isAtMin}
         onClick={handleDecrement}
         aria-label="Decrease scale"
@@ -87,7 +87,7 @@ export function ScaleSelector({
       {/* Plus button */}
       <Button
         type="button"
-        outline
+        plain
         disabled={isAtMax}
         onClick={handleIncrement}
         aria-label="Increase scale"

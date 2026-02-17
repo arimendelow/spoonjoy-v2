@@ -212,7 +212,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
           type="button"
           onClick={handleAddStep}
           disabled={disabled}
-          outline
+          plain
         >
           <Plus data-slot="icon" />
           Add Step
@@ -227,13 +227,13 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
         </DialogDescription>
         <DialogActions>
           <Button
-            outline
+            plain
             onClick={cancelRemove}
           >
             Cancel
           </Button>
           <Button
-            color="red"
+            variant="destructive"
             onClick={confirmRemove}
           >
             Confirm

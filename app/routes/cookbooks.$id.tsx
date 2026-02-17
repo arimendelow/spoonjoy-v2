@@ -205,12 +205,12 @@ export default function CookbookDetail() {
                   autoFocus
                   className="text-2xl font-bold"
                 />
-                <Button type="submit" color="green">
+                <Button type="submit">
                   Save
                 </Button>
                 <Button
                   type="button"
-                  color="zinc"
+
                   onClick={() => setIsEditingTitle(false)}
                 >
                   Cancel
@@ -222,7 +222,7 @@ export default function CookbookDetail() {
                 {isOwner && (
                   <Button
                     onClick={() => setIsEditingTitle(true)}
-                    color="blue"
+
                     className="text-sm"
                   >
                     Edit Title
@@ -243,7 +243,7 @@ export default function CookbookDetail() {
                 <input type="hidden" name="intent" value="delete" />
                 <Button
                   type="button"
-                  color="red"
+                  variant="destructive"
                   onClick={() => setShowDeleteDialog(true)}
                 >
                   Delete Cookbook
@@ -283,7 +283,7 @@ export default function CookbookDetail() {
                   </option>
                 ))}
               </Select>
-              <Button type="submit" color="green">
+              <Button type="submit">
                 Add Recipe
               </Button>
             </Form>
@@ -330,7 +330,7 @@ export default function CookbookDetail() {
                   <div className="px-4 pb-4">
                     <Button
                       type="button"
-                      color="red"
+                      variant="destructive"
                       className="w-full text-sm"
                       onClick={() => setRecipeToRemove(item.id)}
                     >

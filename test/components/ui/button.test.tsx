@@ -37,22 +37,24 @@ describe('Button', () => {
       expect(screen.getByRole('link', { name: 'Link button' })).toHaveAttribute('href', '/test')
     })
 
-    it('applies default color styles (dark/zinc)', () => {
+    it('applies default framed styles', () => {
       const { container } = render(<Button>Default</Button>)
       const button = container.querySelector('button')
       expect(button).toHaveClass('cursor-default')
+      expect(button).toHaveClass('rounded-sm')
+      expect(button).toHaveClass('border-zinc-300')
     })
 
-    it('applies outline styles when outline prop is true', () => {
-      const { container } = render(<Button outline>Outline</Button>)
+    it('applies destructive styles when destructive variant is used', () => {
+      const { container } = render(<Button variant="destructive">Delete</Button>)
       const button = container.querySelector('button')
-      expect(button).toBeInTheDocument()
+      expect(button).toHaveClass('text-red-700')
     })
 
     it('applies plain styles when plain prop is true', () => {
       const { container } = render(<Button plain>Plain</Button>)
       const button = container.querySelector('button')
-      expect(button).toBeInTheDocument()
+      expect(button).toHaveClass('border-transparent')
     })
 
     it('applies custom className', () => {
@@ -65,15 +67,6 @@ describe('Button', () => {
       render(<Button disabled>Disabled</Button>)
       const button = screen.getByRole('button', { name: 'Disabled' })
       expect(button).toBeDisabled()
-    })
-
-    it('renders with different color variants', () => {
-      const colors = ['red', 'blue', 'green', 'indigo', 'zinc'] as const
-      colors.forEach((color) => {
-        const { unmount } = render(<Button color={color}>{color}</Button>)
-        expect(screen.getByRole('button', { name: color })).toBeInTheDocument()
-        unmount()
-      })
     })
 
     it('renders link button with target attribute', () => {

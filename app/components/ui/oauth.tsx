@@ -3,13 +3,11 @@ import { Button } from './button'
 
 type OAuthProvider = 'google' | 'apple'
 
-const providerStyles: Record<OAuthProvider, { color: 'white' | 'dark'; label: string }> = {
+const providerStyles: Record<OAuthProvider, { label: string }> = {
   google: {
-    color: 'white',
     label: 'Continue with Google',
   },
   apple: {
-    color: 'dark',
     label: 'Continue with Apple',
   },
 }
@@ -20,11 +18,11 @@ interface OAuthButtonProps {
 }
 
 export function OAuthButton({ provider, className }: OAuthButtonProps) {
-  const { color, label } = providerStyles[provider]
+  const { label } = providerStyles[provider]
 
   return (
     <form action={`/auth/${provider}`} method="post">
-      <Button type="submit" color={color} className={clsx('w-full', className)}>
+      <Button type="submit" className={clsx('w-full', className)}>
         {label}
       </Button>
     </form>

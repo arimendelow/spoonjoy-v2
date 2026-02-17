@@ -626,14 +626,14 @@ function ProfilePhotoUpload({ photoUrl }: { photoUrl: string | null }) {
                 }
               }}
             />
-            <Button type="button" outline onClick={handleUploadClick}>
+            <Button type="button" plain onClick={handleUploadClick}>
               {buttonText}
             </Button>
           </Form>
           {photoUrl && (
             <Form method="post">
               <input type="hidden" name="intent" value="removePhoto" />
-              <Button type="submit" outline className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-400 data-hover:bg-red-50 dark:data-hover:bg-red-950/25">
+              <Button type="submit" variant="destructive">
                 Remove Photo
               </Button>
             </Form>
@@ -700,7 +700,7 @@ export default function AccountSettings() {
         <div className="flex items-center justify-between">
           <Subheading>User Information</Subheading>
           {!isEditing && (
-            <Button outline onClick={() => setIsEditing(true)}>
+            <Button plain onClick={() => setIsEditing(true)}>
               Edit
             </Button>
           )}
@@ -733,10 +733,10 @@ export default function AccountSettings() {
               )}
             </Field>
             <div className="flex gap-3">
-              <Button type="submit" color="blue">
+              <Button type="submit">
                 Save
               </Button>
-              <Button type="button" outline onClick={() => setIsEditing(false)}>
+              <Button type="button" plain onClick={() => setIsEditing(false)}>
                 Cancel
               </Button>
             </div>
@@ -810,7 +810,7 @@ export default function AccountSettings() {
                         <input type="hidden" name="provider" value={provider} />
                         <Button
                           type="submit"
-                          color="red"
+                          variant="destructive"
                           aria-label={`Confirm unlink ${capitalizeProvider(provider)}`}
                         >
                           Confirm
@@ -818,7 +818,7 @@ export default function AccountSettings() {
                       </Form>
                       <Button
                         type="button"
-                        outline
+                        plain
                         onClick={() => setUnlinkingProvider(null)}
                       >
                         Cancel
@@ -827,7 +827,7 @@ export default function AccountSettings() {
                   ) : (
                     <Button
                       type="button"
-                      outline
+                      plain
                       aria-label={`Unlink ${capitalizeProvider(provider)}`}
                       disabled={!canUnlinkOAuth}
                       onClick={() => setUnlinkingProvider(provider)}
@@ -841,7 +841,7 @@ export default function AccountSettings() {
                     <input type="hidden" name="provider" value={provider} />
                     <Button
                       type="submit"
-                      outline
+                      plain
                       aria-label={`Link ${capitalizeProvider(provider)}`}
                     >
                       Link
@@ -894,10 +894,10 @@ export default function AccountSettings() {
                   />
                 </Field>
                 <div className="flex gap-3">
-                  <Button type="submit" color="blue">
+                  <Button type="submit">
                     Change Password
                   </Button>
-                  <Button type="button" outline onClick={() => setPasswordFormState("idle")}>
+                  <Button type="button" plain onClick={() => setPasswordFormState("idle")}>
                     Cancel
                   </Button>
                 </div>
@@ -916,10 +916,10 @@ export default function AccountSettings() {
                     />
                   </Field>
                   <div className="flex gap-3">
-                    <Button type="submit" color="red">
+                    <Button type="submit" variant="destructive">
                       Confirm
                     </Button>
-                    <Button type="button" outline onClick={() => setPasswordFormState("idle")}>
+                    <Button type="button" plain onClick={() => setPasswordFormState("idle")}>
                       Cancel
                     </Button>
                   </div>
@@ -927,11 +927,11 @@ export default function AccountSettings() {
               </div>
             ) : (
               <div className="flex gap-3">
-                <Button type="button" outline onClick={() => setPasswordFormState("change")}>
+                <Button type="button" plain onClick={() => setPasswordFormState("change")}>
                   Change Password
                 </Button>
                 {canRemovePassword && (
-                  <Button type="button" outline className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-400 data-hover:bg-red-50 dark:data-hover:bg-red-950/25" onClick={() => setPasswordFormState("removeConfirm")}>
+                  <Button type="button" variant="destructive" onClick={() => setPasswordFormState("removeConfirm")}>
                     Remove Password
                   </Button>
                 )}
@@ -965,10 +965,10 @@ export default function AccountSettings() {
                   />
                 </Field>
                 <div className="flex gap-3">
-                  <Button type="submit" color="blue">
+                  <Button type="submit">
                     Set Password
                   </Button>
-                  <Button type="button" outline onClick={() => setPasswordFormState("idle")}>
+                  <Button type="button" plain onClick={() => setPasswordFormState("idle")}>
                     Cancel
                   </Button>
                 </div>
@@ -978,7 +978,7 @@ export default function AccountSettings() {
                 <Text className="mb-4">
                   You don't have a password set. Set one to enable email/password login.
                 </Text>
-                <Button type="button" outline onClick={() => setPasswordFormState("set")}>
+                <Button type="button" plain onClick={() => setPasswordFormState("set")}>
                   Set Password
                 </Button>
               </div>
