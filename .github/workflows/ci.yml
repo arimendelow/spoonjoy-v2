@@ -31,6 +31,11 @@ jobs:
       - name: 🔧 Generate Prisma client
         run: pnpm prisma:generate
 
+      - name: 🔒 Verify blake3 override resolution
+        run: |
+          pnpm why blake3-wasm
+          pnpm why @c4312/blake3-internal
+
       - name: 🗄️ Apply D1 migrations (local)
         run: pnpm exec wrangler d1 migrations apply DB --local
 
@@ -75,6 +80,11 @@ jobs:
 
       - name: 🔧 Generate Prisma client
         run: pnpm prisma:generate
+
+      - name: 🔒 Verify blake3 override resolution
+        run: |
+          pnpm why blake3-wasm
+          pnpm why @c4312/blake3-internal
 
       - name: 🎭 Install Playwright Browsers
         run: pnpm exec playwright install --with-deps chromium
