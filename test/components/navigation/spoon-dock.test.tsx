@@ -58,12 +58,12 @@ describe('SpoonDock', () => {
       expect(nav).toHaveClass('bottom-0')
     })
 
-    it('is horizontally centered', () => {
+    it('is horizontally centered with side insets for breathing room', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      // Should have centering classes
-      expect(nav).toHaveClass('left-0')
-      expect(nav).toHaveClass('right-0')
+      expect(nav).toHaveClass('left-[max(1rem,env(safe-area-inset-left))]')
+      expect(nav).toHaveClass('right-[max(1rem,env(safe-area-inset-right))]')
+      expect(nav).toHaveClass('mx-auto')
     })
   })
 
@@ -124,10 +124,11 @@ describe('SpoonDock', () => {
       expect(nav.className).toMatch(/max-w-/)
     })
 
-    it('has horizontal margins from screen edges', () => {
+    it('has horizontal insets from screen edges', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      expect(nav.className).toMatch(/mx-\d+/)
+      expect(nav.className).toContain('left-[max(1rem,env(safe-area-inset-left))]')
+      expect(nav.className).toContain('right-[max(1rem,env(safe-area-inset-right))]')
     })
 
     it('has a pill/rounded shape', () => {

@@ -8,7 +8,7 @@ import clsx from 'clsx'
  * 
  * ## Design Specs
  * - Fixed bottom position, floating (not edge-to-edge)
- * - Width: max-w-md centered, mx-4 from edges
+ * - Width: max-w-md centered, inset from screen edges
  * - Height: ~56px (thumb-friendly)
  * - Shape: Pill/rounded-full
  * - Glass morphism: bg-black/60 backdrop-blur-xl border-white/10
@@ -35,13 +35,13 @@ export function SpoonDock({
       aria-label={ariaLabel}
       className={clsx(
         // Positioning - fixed at bottom, centered horizontally
-        'fixed bottom-0 left-0 right-0',
+        'fixed bottom-0 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))]',
         
         // Layout
         'flex items-center justify-around',
         
         // Sizing
-        'max-w-md mx-4',
+        'max-w-md mx-auto',
         'h-14', // 56px - thumb-friendly
         'px-2',
         
@@ -66,11 +66,6 @@ export function SpoonDock({
         // Custom class
         className
       )}
-      // Inline styles for centering since we can't use mx-auto with mx-4
-      style={{
-        marginLeft: 'auto',
-        marginRight: 'auto',
-      }}
       {...props}
     >
       {children}

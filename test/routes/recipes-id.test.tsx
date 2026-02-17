@@ -680,7 +680,7 @@ describe("Recipes $id Route", () => {
       dockActionRegistration?.onSave?.();
     };
 
-    it("uses shared dialog/input components for save modal and keeps modal above dock z-index", async () => {
+    it("uses shared dialog/input components for save modal, keeps modal above dock z-index, and preserves scroll on open", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -704,6 +704,13 @@ describe("Recipes $id Route", () => {
         },
       ]);
 
+      Object.defineProperty(window, "scrollY", {
+        value: 320,
+        writable: true,
+        configurable: true,
+      });
+      const scrollToSpy = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
       await screen.findByRole("heading", { name: "Save Modal Recipe" });
 
@@ -712,8 +719,17 @@ describe("Recipes $id Route", () => {
       expect(await screen.findByRole("dialog", { name: "Save to Cookbook" })).toBeInTheDocument();
       expect(screen.getByLabelText("Create new cookbook")).toBeInTheDocument();
 
-      const backdrop = document.querySelector(".z-\\[60\\]");
+      const backdrop = document.querySelector('[data-slot="dialog-backdrop"]');
+      const panel = document.querySelector('[data-slot="dialog-panel"]');
       expect(backdrop).toBeTruthy();
+      expect(panel).toBeTruthy();
+      expect(backdrop).toHaveClass("data-enter:duration-300", "data-leave:duration-200");
+      expect(panel).toHaveClass("data-closed:translate-y-8", "motion-reduce:transition-none");
+
+      expect(document.activeElement).toHaveTextContent("Save to Cookbook");
+      expect(scrollToSpy).not.toHaveBeenCalled();
+
+      scrollToSpy.mockRestore();
     });
 
     it("should render recipe with no steps (empty state) as owner", async () => {

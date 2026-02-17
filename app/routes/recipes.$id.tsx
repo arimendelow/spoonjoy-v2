@@ -351,6 +351,28 @@ export default function RecipeDetail() {
   // State for Save modal (bottom sheet)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [newCookbookTitle, setNewCookbookTitle] = useState("");
+  const saveModalTitleRef = useRef<HTMLHeadingElement>(null);
+  const saveModalScrollYRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isSaveModalOpen || typeof window === "undefined") {
+      saveModalScrollYRef.current = null;
+      return;
+    }
+
+    saveModalScrollYRef.current = window.scrollY;
+
+    const rafId = window.requestAnimationFrame(() => {
+      if (
+        saveModalScrollYRef.current !== null &&
+        window.scrollY !== saveModalScrollYRef.current
+      ) {
+        window.scrollTo({ top: saveModalScrollYRef.current, behavior: "auto" });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isSaveModalOpen]);
 
   const handleAddToList = useCallback(() => {
     addToListFetcher.submit(
@@ -513,11 +535,13 @@ export default function RecipeDetail() {
       <Dialog
         open={isSaveModalOpen}
         onClose={setIsSaveModalOpen}
+        initialFocus={saveModalTitleRef}
+        autoFocus={false}
         size="md"
         className="pb-[max(1rem,env(safe-area-inset-bottom))]"
       >
         <div data-testid="save-modal">
-          <DialogTitle>Save to Cookbook</DialogTitle>
+          <DialogTitle ref={saveModalTitleRef} tabIndex={-1}>Save to Cookbook</DialogTitle>
           <DialogBody className="max-h-[70vh] overflow-y-auto pb-0">
             {availableCookbooks.length > 0 ? (
               <div className="space-y-2">
