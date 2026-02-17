@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "description": "Spoonjoy recipe management platform rebuilt with React Router v7 on Cloudflare",
   "type": "module",
+  "packageManager": "pnpm@10.28.1",
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "react-router dev",
     "build": "react-router build",
     "preview": "wrangler pages dev",
-    "deploy": "npm run build && wrangler pages deploy",
+    "deploy": "pnpm build && wrangler pages deploy",
     "typecheck": "react-router typegen && tsc",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -16,7 +17,7 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed": "pnpm exec tsx prisma/seed.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "chromatic": "chromatic --exit-zero-on-changes",
@@ -25,8 +26,8 @@
     "test:storybook": "test-storybook",
     "db:migrate:local:option2": "wrangler d1 execute spoonjoy --local --file=./migrations/0003_shopping_list_item_option2.sql",
     "db:migrate:local:option2:idempotent": "node ./scripts/migrate-option2-local-idempotent.mjs",
-    "dev:sync": "npm run prisma:generate && npm run db:migrate:local:option2:idempotent && npm run dev",
-    "dev:refresh": "rm -rf node_modules/.prisma && npm run prisma:generate"
+    "dev:sync": "pnpm prisma:generate && pnpm db:migrate:local:option2:idempotent && pnpm dev",
+    "dev:refresh": "rm -rf node_modules/.prisma && pnpm prisma:generate"
   },
   "keywords": [
     "recipes",

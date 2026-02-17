@@ -23,7 +23,7 @@ Let's go! 🚀
 
 You'll need:
 - **Node.js 18+** (`node --version` to check)
-- **npm** (comes with Node)
+- **pnpm** (`pnpm --version` to check; install via `corepack enable` if needed)
 - A terminal
 - ~5 minutes
 
@@ -37,7 +37,7 @@ cd spoonjoy-v2
 ### Install Dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 This installs everything: React Router, Prisma, Tailwind, testing tools, Storybook — the works.
@@ -51,13 +51,13 @@ Spoonjoy uses Cloudflare D1 (SQLite at the edge). For local development, the Clo
 ### Generate Prisma Client
 
 ```bash
-npm run prisma:generate
+pnpm prisma:generate
 ```
 
 ### Create the Database Tables
 
 ```bash
-npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
+pnpm exec wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
 ```
 
 That's it! The local D1 database is ready.
@@ -67,7 +67,7 @@ That's it! The local D1 database is ready.
 To populate the database with sample recipes and a demo user:
 
 ```bash
-npx wrangler d1 execute spoonjoy-local --local --file=./migrations/seed.sql
+pnpm exec wrangler d1 execute spoonjoy-local --local --file=./migrations/seed.sql
 ```
 
 This creates:
@@ -86,7 +86,7 @@ This creates:
 ## Part 3: Run the App! 🎉
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open **http://localhost:5173** — welcome to Spoonjoy!
@@ -184,7 +184,7 @@ Under your profile:
 Spoonjoy includes a full Storybook with 34 documented components.
 
 ```bash
-npm run storybook
+pnpm storybook
 ```
 
 Opens at **http://localhost:6006**
@@ -211,13 +211,13 @@ The test suite has 21,000+ lines of tests covering auth, recipes, steps, ingredi
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Run with a pretty UI
-npm run test:ui
+pnpm test:ui
 
 # Run with coverage report
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ### Test Areas
@@ -305,7 +305,7 @@ export default function Recipes() {
 
 4. **Add a test** — Find a route in `test/routes/` and add a new test case
 
-5. **Build for production** — `npm run build` creates an optimized bundle
+5. **Build for production** — `pnpm build` creates an optimized bundle
 
 ### Future Features (In Progress)
 
@@ -321,13 +321,13 @@ export default function Recipes() {
 
 | Command | What It Does |
 |---------|--------------|
-| `npm run dev` | Start the dev server |
-| `npm run storybook` | Launch component explorer |
-| `npm test` | Run test suite |
-| `npm run test:ui` | Tests with visual UI |
-| `npm run prisma:generate` | Regenerate Prisma client |
-| `npm run build` | Production build |
-| `npm run typecheck` | TypeScript validation |
+| `pnpm dev` | Start the dev server |
+| `pnpm storybook` | Launch component explorer |
+| `pnpm test` | Run test suite |
+| `pnpm test:ui` | Tests with visual UI |
+| `pnpm prisma:generate` | Regenerate Prisma client |
+| `pnpm build` | Production build |
+| `pnpm typecheck` | TypeScript validation |
 
 ---
 
@@ -338,7 +338,7 @@ export default function Recipes() {
 The D1 database tables haven't been created. Run:
 
 ```bash
-npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
+pnpm exec wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
 ```
 
 ### "Cannot find module '@prisma/client'"
@@ -346,7 +346,7 @@ npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
 The Prisma client needs to be generated. Run:
 
 ```bash
-npm run prisma:generate
+pnpm prisma:generate
 ```
 
 ### Port already in use

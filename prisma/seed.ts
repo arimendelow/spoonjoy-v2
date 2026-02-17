@@ -8,7 +8,7 @@
  * - Cookbooks organizing recipes
  * - Shopping list items
  *
- * Run with: npm run db:seed
+ * Run with: pnpm db:seed
  * Idempotent: safe to run multiple times
  */
 

@@ -21,16 +21,16 @@ Recipe management platform rebuilt with React Router v7 on Cloudflare.
 # Clone and install
 git clone https://github.com/arimendelow/spoonjoy-v2.git
 cd spoonjoy-v2
-npm install
+pnpm install
 
 # Generate Prisma client
-npm run prisma:generate
+pnpm prisma:generate
 
 # Set up local D1 database
-npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
+pnpm exec wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
 
 # Start dev server
-npm run dev
+pnpm dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) — no additional setup required!
@@ -66,18 +66,18 @@ For production, use `wrangler secret put` for sensitive values.
 
 | Command | Purpose |
 |---------|---------|
-| `npm run dev` | Start dev server |
-| `npm run storybook` | Component explorer |
-| `npm test` | Run test suite |
-| `npm run test:ui` | Tests with visual UI |
-| `npm run test:coverage` | Coverage report |
-| `npm run test:e2e` | Run Playwright e2e tests |
-| `npm run test:storybook` | Run Storybook interaction tests |
-| `npm run prisma:generate` | Regenerate Prisma client |
-| `npm run db:migrate:local:option2:idempotent` | Safely apply/skip local option2 migration (rerunnable) |
-| `npm run dev:sync` | Generate Prisma client, run idempotent local option2 migration, then start dev |
-| `npm run build` | Production build |
-| `npm run typecheck` | TypeScript validation |
+| `pnpm dev` | Start dev server |
+| `pnpm storybook` | Component explorer |
+| `pnpm test` | Run test suite |
+| `pnpm test:ui` | Tests with visual UI |
+| `pnpm test:coverage` | Coverage report |
+| `pnpm test:e2e` | Run Playwright e2e tests |
+| `pnpm test:storybook` | Run Storybook interaction tests |
+| `pnpm prisma:generate` | Regenerate Prisma client |
+| `pnpm db:migrate:local:option2:idempotent` | Safely apply/skip local option2 migration (rerunnable) |
+| `pnpm dev:sync` | Generate Prisma client, run idempotent local option2 migration, then start dev |
+| `pnpm build` | Production build |
+| `pnpm typecheck` | TypeScript validation |
 
 ## E2E Testing
 
@@ -85,7 +85,7 @@ End-to-end tests use [Playwright](https://playwright.dev/) and live in the `e2e/
 
 ```bash
 # Install Playwright browsers (first time)
-npx playwright install
+pnpm exec playwright install
 
 # Run all e2e tests
 pnpm test:e2e
@@ -115,10 +115,10 @@ Local development uses D1 via the Cloudflare Vite plugin (stored in `.wrangler/`
 
 ```bash
 # Apply schema to local D1
-npx wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
+pnpm exec wrangler d1 execute spoonjoy-local --local --file=./migrations/init.sql
 
 # Regenerate migration from Prisma schema (if schema changes)
-npx prisma migrate diff --from-empty --to-schema-datamodel=./prisma/schema.prisma --script > migrations/init.sql
+pnpm exec prisma migrate diff --from-empty --to-schema-datamodel=./prisma/schema.prisma --script > migrations/init.sql
 ```
 
 ## Deployment to Cloudflare
@@ -147,7 +147,7 @@ npx prisma migrate diff --from-empty --to-schema-datamodel=./prisma/schema.prism
 
 5. Deploy:
    ```bash
-   npm run deploy
+   pnpm deploy
    ```
 
 ## Project Structure
