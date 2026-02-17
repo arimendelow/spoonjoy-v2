@@ -5,7 +5,7 @@ import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
 import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
-import { Link } from "~/components/ui/link";
+import { CookbookCard } from "~/components/pantry/CookbookCard";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -25,6 +25,18 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     include: {
       _count: {
         select: { recipes: true },
+      },
+      recipes: {
+        take: 4,
+        orderBy: { addedAt: "desc" },
+        include: {
+          recipe: {
+            select: {
+              imageUrl: true,
+              title: true,
+            },
+          },
+        },
       },
     },
   });
@@ -53,7 +65,7 @@ export default function CookbooksList() {
         </div>
 
         {cookbooks.length === 0 ? (
-          <div className="bg-zinc-100 dark:bg-zinc-800/50 p-12 rounded-lg text-center">
+          <div className="border border-dashed border-zinc-300 dark:border-zinc-700 rounded-sm p-12 text-center">
             <Subheading level={2} className="text-zinc-500 dark:text-zinc-400">No cookbooks yet</Subheading>
             <Text className="mb-6">
               Create your first cookbook to organize your recipes
@@ -63,23 +75,18 @@ export default function CookbooksList() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {cookbooks.map((cookbook) => (
-              <Link
+              <CookbookCard
                 key={cookbook.id}
-                href={`/cookbooks/${cookbook.id}`}
-                className="bg-white dark:bg-zinc-800 border-2 border-blue-600 dark:border-blue-500 rounded-lg p-6 no-underline text-inherit transition-shadow duration-200 hover:shadow-lg block"
-              >
-                <div className="flex items-center mb-4">
-                  <div className="w-[50px] h-[50px] bg-blue-600 dark:bg-blue-500 text-white rounded-lg flex items-center justify-center text-2xl mr-4">
-                    📖
-                  </div>
-                  <Subheading level={3} className="m-0 flex-1">{cookbook.title}</Subheading>
-                </div>
-                <Text className="m-0">
-                  {cookbook._count.recipes} {cookbook._count.recipes === 1 ? "recipe" : "recipes"}
-                </Text>
-              </Link>
+                id={cookbook.id}
+                title={cookbook.title}
+                recipeCount={cookbook._count.recipes}
+                recipeImages={cookbook.recipes.map((r) => ({
+                  imageUrl: r.recipe.imageUrl,
+                  title: r.recipe.title,
+                }))}
+              />
             ))}
           </div>
         )}
