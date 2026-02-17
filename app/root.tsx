@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import { usePostHog } from "@posthog/react";
 import { getUserId } from "~/lib/session.server";
 import { ThemeProvider } from "~/components/ui/theme-provider";
+import { ToastProvider } from "~/components/ui/toast";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
 import { MobileNav, DockContextProvider } from "~/components/navigation";
 import { StackedLayout } from "~/components/ui/stacked-layout";
@@ -245,25 +246,27 @@ export default function App() {
       <body className="m-0 p-0">
         <ThemeProvider>
           <DockContextProvider>
-            {/* Desktop: StackedLayout */}
-            <div className="hidden lg:block">
-              <StackedLayout
-                navbar={<AppNavbar userId={userId} />}
-                sidebar={<AppSidebar userId={userId} />}
-              >
-                <Outlet />
-              </StackedLayout>
-            </div>
+            <ToastProvider>
+              {/* Desktop: StackedLayout */}
+              <div className="hidden lg:block">
+                <StackedLayout
+                  navbar={<AppNavbar userId={userId} />}
+                  sidebar={<AppSidebar userId={userId} />}
+                >
+                  <Outlet />
+                </StackedLayout>
+              </div>
 
-            {/* Mobile: Content only */}
-            <div className="lg:hidden">
-              <main className="pb-[calc(5rem+env(safe-area-inset-bottom))]">
-                <Outlet />
-              </main>
-            </div>
+              {/* Mobile: Content only */}
+              <div className="lg:hidden">
+                <main className="pb-[calc(5rem+env(safe-area-inset-bottom))]">
+                  <Outlet />
+                </main>
+              </div>
 
-            {/* SpoonDock - mobile only (MobileNav has lg:hidden) */}
-            <MobileNav isAuthenticated={!!userId} />
+              {/* SpoonDock - mobile only (MobileNav has lg:hidden) */}
+              <MobileNav isAuthenticated={!!userId} />
+            </ToastProvider>
           </DockContextProvider>
         </ThemeProvider>
         <ScrollRestoration />

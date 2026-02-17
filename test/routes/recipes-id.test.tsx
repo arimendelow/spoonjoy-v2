@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
+import { ToastProvider } from "~/components/ui/toast";
 
 vi.mock("~/components/navigation", async () => {
   const actual = await vi.importActual<typeof import("~/components/navigation")>("~/components/navigation");
@@ -786,7 +787,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getByTestId("cookbook-item-cb-2")).toHaveTextContent("✓");
     });
 
-    it("shows add-to-list confirmation banner from dock action", async () => {
+    it("shows add-to-list toast from dock action", async () => {
       let submittedScaleFactor: string | null = null;
       const mockData = {
         recipe: {
@@ -796,7 +797,29 @@ describe("Recipes $id Route", () => {
           servings: null,
           imageUrl: null,
           chef: { id: "user-1", username: "testchef" },
-          steps: [],
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: null,
+              description: "prep",
+              ingredients: [
+                {
+                  id: "ing-1",
+                  quantity: 1,
+                  unit: { name: "cup" },
+                  ingredientRef: { name: "flour" },
+                },
+                {
+                  id: "ing-2",
+                  quantity: 2,
+                  unit: { name: "tbsp" },
+                  ingredientRef: { name: "oil" },
+                },
+              ],
+              usingSteps: [],
+            },
+          ],
         },
         isOwner: true,
         cookbooks: [],
@@ -821,14 +844,18 @@ describe("Recipes $id Route", () => {
       ]);
 
       const user = userEvent.setup();
-      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      render(
+        <ToastProvider>
+          <Stub initialEntries={["/recipes/recipe-1"]} />
+        </ToastProvider>
+      );
       await screen.findByRole("heading", { name: "Dock Add Recipe" });
       await user.click(screen.getByRole("button", { name: "Increase scale" }));
 
       const dockActionRegistration = vi.mocked(useRecipeDetailActions).mock.calls.at(-1)?.[0];
       dockActionRegistration?.onAddToList?.();
 
-      expect(await screen.findByTestId("add-to-list-confirmation")).toBeInTheDocument();
+      expect(await screen.findByText("2 items added at 1.25x")).toBeInTheDocument();
       expect(submittedScaleFactor).toBe("1.25");
     });
 
