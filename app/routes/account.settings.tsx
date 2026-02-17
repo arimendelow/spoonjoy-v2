@@ -1,7 +1,7 @@
 import type { Route } from "./+types/account.settings";
 import { useLoaderData, useActionData, Form, redirect } from "react-router";
 import { useState, useRef, useEffect } from "react";
-import { getDb, getLocalDb } from "~/lib/db.server";
+import { getDb } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { unlinkOAuthAccount } from "~/lib/oauth-user.server";
 import { hashPassword, verifyPassword } from "~/lib/auth.server";
@@ -32,10 +32,12 @@ interface LoaderData {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
 
-  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
-  const database = context?.cloudflare?.env?.DB
-    ? await getDb(context.cloudflare.env as { DB: D1Database })
-    : await getLocalDb();
+  const dbBinding = context?.cloudflare?.env?.DB;
+  if (!dbBinding) {
+    throw new Error("Cloudflare D1 binding `DB` is required.");
+  }
+
+  const database = await getDb({ DB: dbBinding });
 
   const user = await database.user.findUnique({
     where: { id: userId },
@@ -117,10 +119,12 @@ function isValidEmail(email: string): boolean {
 export async function action({ request, context }: Route.ActionArgs): Promise<ActionResult> {
   const userId = await requireUserId(request);
 
-  /* istanbul ignore next -- @preserve Cloudflare D1 production-only path */
-  const database = context?.cloudflare?.env?.DB
-    ? await getDb(context.cloudflare.env as { DB: D1Database })
-    : await getLocalDb();
+  const dbBinding = context?.cloudflare?.env?.DB;
+  if (!dbBinding) {
+    throw new Error("Cloudflare D1 binding `DB` is required.");
+  }
+
+  const database = await getDb({ DB: dbBinding });
 
   const formData = await request.formData();
   const intent = formData.get("intent");

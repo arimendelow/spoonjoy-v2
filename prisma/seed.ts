@@ -12,11 +12,33 @@
  * Idempotent: safe to run multiple times
  */
 
+import { PrismaD1 } from "@prisma/adapter-d1";
 import { PrismaClient } from "@prisma/client";
 import { faker } from "@faker-js/faker";
 import bcrypt from "bcryptjs";
+import { getPlatformProxy } from "wrangler";
+import type { D1Database } from "@cloudflare/workers-types";
 
-const prisma = new PrismaClient();
+let prisma: PrismaClient;
+let platformDispose: (() => Promise<void>) | undefined;
+
+async function initPrismaForLocalD1() {
+  const platform = await getPlatformProxy<{ DB: D1Database }>();
+
+  if (!platform.env?.DB) {
+    throw new Error("Cloudflare D1 binding `DB` not found. Check wrangler.json d1_databases configuration.");
+  }
+
+  const adapter = new PrismaD1(platform.env.DB);
+  prisma = new PrismaClient({ adapter });
+
+  platformDispose = async () => {
+    await prisma.$disconnect();
+    if (typeof platform.dispose === "function") {
+      await platform.dispose();
+    }
+  };
+}
 
 // Constants
 const SALT_ROUNDS = 10;
@@ -204,6 +226,12 @@ interface SeedUser {
 }
 
 const SEED_USERS: SeedUser[] = [
+  {
+    email: "demo@spoonjoy.com",
+    username: "demo_chef",
+    password: "demo1234",
+    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=demo",
+  },
   {
     email: "chef.julia@example.com",
     username: "chef_julia",
@@ -1027,6 +1055,8 @@ async function main() {
   const startTime = Date.now();
 
   try {
+    await initPrismaForLocalD1();
+
     // Seed in order of dependencies
     const units = await seedUnits();
     const ingredientRefs = await seedIngredientRefs();
@@ -1051,5 +1081,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    if (platformDispose) {
+      await platformDispose();
+    }
   });
