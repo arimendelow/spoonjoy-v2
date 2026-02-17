@@ -1,6 +1,6 @@
 import type { Route } from "./+types/recipes.$id";
 import { redirect, useLoaderData, useSubmit } from "react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePostHog } from "@posthog/react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
@@ -106,6 +106,28 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const database = context?.cloudflare?.env?.DB
     ? await getDb(context.cloudflare.env as { DB: D1Database })
     : db;
+
+  // Create cookbook and save recipe to it
+  if (intent === "createCookbookAndSave") {
+    const title = formData.get("title")?.toString()?.trim();
+    if (!title) {
+      throw new Response("Title is required", { status: 400 });
+    }
+    const newCookbook = await database.cookbook.create({
+      data: {
+        title,
+        authorId: userId,
+      },
+    });
+    await database.recipeInCookbook.create({
+      data: {
+        cookbookId: newCookbook.id,
+        recipeId: id,
+        addedById: userId,
+      },
+    });
+    return { success: true, newCookbook: { id: newCookbook.id, title: newCookbook.title } };
+  }
 
   // Add to cookbook doesn't require recipe ownership
   if (intent === "addToCookbook") {
@@ -223,10 +245,6 @@ export default function RecipeDetail() {
     }
   };
 
-  const handleDeleteConfirm = () => {
-    submit({ intent: "delete" }, { method: "post" });
-  };
-
   const handleIngredientToggle = (id: string) => {
     const newChecked = new Set(checkedIngredients);
     const wasChecked = newChecked.has(id);
@@ -271,7 +289,7 @@ export default function RecipeDetail() {
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = useCallback(async () => {
     /* istanbul ignore next -- @preserve browser share API */
     const result = await shareContent({
       title: recipe.title,
@@ -287,7 +305,7 @@ export default function RecipeDetail() {
         share_success: result.success,
       });
     }
-  };
+  }, [recipe.id, recipe.title, recipe.description, posthog]);
 
   // Register dock actions for this recipe detail page
   useRecipeDetailActions({
@@ -315,10 +333,19 @@ export default function RecipeDetail() {
     }
   };
 
-  /* istanbul ignore next -- @preserve browser-only navigation (not testable in vitest/jsdom) */
-  const handleCreateNewCookbook = () => {
-    if (typeof window !== "undefined") {
-      window.location.href = "/cookbooks/new";
+  const handleCreateAndSave = (title: string) => {
+    submit(
+      { intent: "createCookbookAndSave", title },
+      { method: "post" }
+    );
+
+    // PostHog: Track cookbook creation from recipe detail
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("cookbook_created_from_recipe", {
+        recipe_id: recipe.id,
+        cookbook_title: title,
+      });
     }
   };
 
@@ -363,7 +390,7 @@ export default function RecipeDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
       {/* Back Link */}
       <div className="px-4 py-3 sm:px-6 lg:px-8 max-w-4xl mx-auto">
         <Link href="/recipes" className="text-blue-600 dark:text-blue-400 text-sm hover:underline">
@@ -384,14 +411,13 @@ export default function RecipeDetail() {
         onScaleChange={handleScaleChange}
         isOwner={isOwner}
         recipeId={recipe.id}
-        onDelete={handleDeleteConfirm}
         onShare={handleShare}
         renderSaveButton={() => (
           <SaveToCookbookDropdown
             cookbooks={cookbooks}
             savedInCookbookIds={savedCookbookIds}
             onSave={handleSaveToCookbook}
-            onCreateNew={handleCreateNewCookbook}
+            onCreateAndSave={handleCreateAndSave}
           />
         )}
       />
