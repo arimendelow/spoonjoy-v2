@@ -336,6 +336,8 @@ export default function RecipeDetail() {
   // Register dock actions for this recipe detail page
   useRecipeDetailActions({
     recipeId: recipe.id,
+    chefId: recipe.chef.id,
+    isOwner,
     onSave: () => setIsSaveModalOpen(true),
     onAddToList: handleAddToList,
     onShare: handleShare,
@@ -427,6 +429,13 @@ export default function RecipeDetail() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
+      <div className="px-4 sm:px-6 lg:px-8 pt-4 max-w-4xl mx-auto">
+        <Button href="/recipes" plain>
+          <ArrowLeft data-slot="icon" />
+          Back to recipes
+        </Button>
+      </div>
+
       {/* Recipe Header with prominent image */}
       <RecipeHeader
         title={recipe.title}

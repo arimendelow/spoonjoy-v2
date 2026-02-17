@@ -23,15 +23,15 @@ describe('Recipe Page Dock Integration', () => {
     vi.mocked(useNavigate).mockReturnValue(mockNavigate)
   })
 
-  it('detail actions: back/edit/save/add/share', async () => {
+  it('detail actions for owner: edit/add-to-list/save/share', async () => {
     const onAddToList = vi.fn()
     const onSave = vi.fn()
     const onShare = vi.fn()
 
-    function P() { useRecipeDetailActions({ recipeId: 'recipe-1', onSave, onAddToList, onShare }); return null }
+    function P() { useRecipeDetailActions({ recipeId: 'recipe-1', chefId: 'chef-1', isOwner: true, onSave, onAddToList, onShare }); return null }
     render(<MemoryRouter><DockContextProvider><ContextDisplay /><P /></DockContextProvider></MemoryRouter>)
 
-    expect(screen.getByTestId('action-ids')).toHaveTextContent('back,edit,save,add-to-list,share')
+    expect(screen.getByTestId('action-ids')).toHaveTextContent('edit,add-to-list,save,share')
 
     await act(async () => { (capturedActions?.find(a => a.id === 'edit')?.onAction as () => void)() })
     expect(mockNavigate).toHaveBeenCalledWith('/recipes/recipe-1/edit')
@@ -45,8 +45,17 @@ describe('Recipe Page Dock Integration', () => {
     expect(onShare).toHaveBeenCalled()
   })
 
+  it('detail actions for non-owner: view-chef-profile/add-to-list/save/share', () => {
+    function P() { useRecipeDetailActions({ recipeId: 'recipe-1', chefId: 'chef-1', isOwner: false }); return null }
+    render(<MemoryRouter><DockContextProvider><ContextDisplay /><P /></DockContextProvider></MemoryRouter>)
+
+    expect(screen.getByTestId('action-ids')).toHaveTextContent('view-chef-profile,add-to-list,save,share')
+    expect(capturedActions?.find(a => a.id === 'edit')).toBeUndefined()
+    expect(capturedActions?.find(a => a.id === 'view-chef-profile')?.onAction).toBe('/users/chef-1')
+  })
+
   it('detail actions use no-op fallbacks', () => {
-    function P() { useRecipeDetailActions({ recipeId: 'recipe-1' }); return null }
+    function P() { useRecipeDetailActions({ recipeId: 'recipe-1', chefId: 'chef-1', isOwner: false }); return null }
     render(<MemoryRouter><DockContextProvider><ContextDisplay /><P /></DockContextProvider></MemoryRouter>)
 
     expect(() => capturedActions?.find(a => a.id === 'save')?.onAction?.()).not.toThrow()
@@ -59,4 +68,4 @@ describe('Recipe Page Dock Integration', () => {
     render(<MemoryRouter><DockContextProvider><ContextDisplay /><P /></DockContextProvider></MemoryRouter>)
     expect(screen.getByTestId('action-ids')).toHaveTextContent('cancel,save')
   })
-}
+})

@@ -2,11 +2,13 @@
 
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, Edit, ShoppingCart, Share, X, Save, Bookmark } from 'lucide-react'
+import { Edit, ShoppingCart, Share, X, Save, Bookmark, User } from 'lucide-react'
 import { useDockActions, type DockAction } from './dock-context'
 
 export interface UseRecipeDetailActionsOptions {
   recipeId: string
+  chefId: string
+  isOwner: boolean
   onSave?: () => void
   onAddToList?: () => void
   onShare?: () => void
@@ -14,49 +16,67 @@ export interface UseRecipeDetailActionsOptions {
 
 export function useRecipeDetailActions({
   recipeId,
+  chefId,
+  isOwner,
   onSave,
   onAddToList,
   onShare,
 }: UseRecipeDetailActionsOptions): void {
   const navigate = useNavigate()
 
-  const actions = useMemo<DockAction[]>(() => [
-    {
-      id: 'back',
-      icon: ArrowLeft,
-      label: 'Back',
-      onAction: '/recipes',
-      position: 'left',
-    },
-    {
-      id: 'edit',
-      icon: Edit,
-      label: 'Edit',
-      onAction: () => navigate(`/recipes/${recipeId}/edit`),
-      position: 'left',
-    },
-    {
-      id: 'save',
-      icon: Bookmark,
-      label: 'Save',
-      onAction: onSave || (() => {}),
-      position: 'right',
-    },
-    {
-      id: 'add-to-list',
-      icon: ShoppingCart,
-      label: 'Add',
-      onAction: onAddToList || (() => {}),
-      position: 'right',
-    },
-    {
-      id: 'share',
-      icon: Share,
-      label: 'Share',
-      onAction: onShare || (() => {}),
-      position: 'right',
-    },
-  ], [recipeId, navigate, onSave, onAddToList, onShare])
+  const actions = useMemo<DockAction[]>(() => {
+    const leftActions: DockAction[] = isOwner
+      ? [
+          {
+            id: 'edit',
+            icon: Edit,
+            label: 'Edit',
+            onAction: () => navigate(`/recipes/${recipeId}/edit`),
+            position: 'left',
+          },
+          {
+            id: 'add-to-list',
+            icon: ShoppingCart,
+            label: 'Add to List',
+            onAction: onAddToList || (() => {}),
+            position: 'left',
+          },
+        ]
+      : [
+          {
+            id: 'view-chef-profile',
+            icon: User,
+            label: 'View Chef Profile',
+            onAction: `/users/${chefId}`,
+            position: 'left',
+          },
+          {
+            id: 'add-to-list',
+            icon: ShoppingCart,
+            label: 'Add to List',
+            onAction: onAddToList || (() => {}),
+            position: 'left',
+          },
+        ]
+
+    return [
+      ...leftActions,
+      {
+        id: 'save',
+        icon: Bookmark,
+        label: 'Save',
+        onAction: onSave || (() => {}),
+        position: 'right',
+      },
+      {
+        id: 'share',
+        icon: Share,
+        label: 'Share',
+        onAction: onShare || (() => {}),
+        position: 'right',
+      },
+    ]
+  }, [recipeId, chefId, isOwner, navigate, onSave, onAddToList, onShare])
 
   useDockActions(actions)
 }
