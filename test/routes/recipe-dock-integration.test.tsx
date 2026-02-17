@@ -59,4 +59,4 @@ describe('Recipe Page Dock Integration', () => {
     render(<MemoryRouter><DockContextProvider><ContextDisplay /><P /></DockContextProvider></MemoryRouter>)
     expect(screen.getByTestId('action-ids')).toHaveTextContent('cancel,save')
   })
-})
+}

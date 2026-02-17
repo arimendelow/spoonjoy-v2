@@ -2,6 +2,7 @@ import type { Route } from "./+types/recipes.$id";
 import { redirect, useFetcher, useLoaderData, useSubmit } from "react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePostHog } from "@posthog/react";
+import { ArrowLeft } from "lucide-react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -335,7 +336,6 @@ export default function RecipeDetail() {
   // Register dock actions for this recipe detail page
   useRecipeDetailActions({
     recipeId: recipe.id,
-    isOwner,
     onSave: () => setIsSaveModalOpen(true),
     onAddToList: handleAddToList,
     onShare: handleShare,
