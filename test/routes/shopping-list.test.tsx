@@ -237,7 +237,7 @@ describe("Shopping List Routes", () => {
   });
 
   describe("action - toggleCheck", () => {
-    it("should toggle item checked status", async () => {
+    it("should toggle item checked status and set checkedAt", async () => {
       const shoppingList = await db.shoppingList.create({
         data: { authorId: testUserId },
       });
@@ -251,20 +251,25 @@ describe("Shopping List Routes", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef.id,
           checked: false,
+          checkedAt: null,
         },
       });
 
       const updated = await db.shoppingListItem.update({
         where: { id: item.id },
-        data: { checked: !item.checked },
+        data: {
+          checked: true,
+          checkedAt: new Date(),
+        },
       });
 
       expect(updated.checked).toBe(true);
+      expect(updated.checkedAt).not.toBeNull();
     });
   });
 
   describe("action - clearCompleted", () => {
-    it("should delete only checked items", async () => {
+    it("should soft-delete only checked items", async () => {
       const shoppingList = await db.shoppingList.create({
         data: { authorId: testUserId },
       });
@@ -286,6 +291,7 @@ describe("Shopping List Routes", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef1.id,
           checked: true,
+          checkedAt: new Date(),
         },
       });
 
@@ -294,6 +300,7 @@ describe("Shopping List Routes", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef2.id,
           checked: false,
+          checkedAt: null,
         },
       });
 
@@ -302,27 +309,37 @@ describe("Shopping List Routes", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef3.id,
           checked: true,
+          checkedAt: new Date(),
         },
       });
 
-      await db.shoppingListItem.deleteMany({
+      await db.shoppingListItem.updateMany({
         where: {
           shoppingListId: shoppingList.id,
-          checked: true,
+          checkedAt: { not: null },
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: new Date(),
         },
       });
 
-      const remaining = await db.shoppingListItem.findMany({
-        where: { shoppingListId: shoppingList.id },
+      const activeItems = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: null },
       });
 
-      expect(remaining).toHaveLength(1);
-      expect(remaining[0].ingredientRefId).toBe(ingredientRef2.id);
+      const deletedItems = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: { not: null } },
+      });
+
+      expect(activeItems).toHaveLength(1);
+      expect(activeItems[0].ingredientRefId).toBe(ingredientRef2.id);
+      expect(deletedItems).toHaveLength(2);
     });
   });
 
   describe("action - clearAll", () => {
-    it("should delete all items from shopping list", async () => {
+    it("should soft-delete all items from shopping list", async () => {
       const shoppingList = await db.shoppingList.create({
         data: { authorId: testUserId },
       });
@@ -348,15 +365,21 @@ describe("Shopping List Routes", () => {
         ],
       });
 
-      await db.shoppingListItem.deleteMany({
-        where: { shoppingListId: shoppingList.id },
+      await db.shoppingListItem.updateMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: null },
+        data: { deletedAt: new Date() },
       });
 
-      const items = await db.shoppingListItem.findMany({
-        where: { shoppingListId: shoppingList.id },
+      const activeItems = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: null },
       });
 
-      expect(items).toHaveLength(0);
+      const deletedItems = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: { not: null } },
+      });
+
+      expect(activeItems).toHaveLength(0);
+      expect(deletedItems).toHaveLength(2);
     });
   });
 

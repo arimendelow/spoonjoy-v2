@@ -155,7 +155,7 @@ describe("ShoppingList Model", () => {
       expect(updated.checkedAt).not.toBeNull();
     });
 
-    it("should delete checked items", async () => {
+    it("should soft delete checked items", async () => {
       const shoppingList = await db.shoppingList.create({
         data: {
           authorId: testUserId,
@@ -171,6 +171,7 @@ describe("ShoppingList Model", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef1.id,
           checked: true,
+          checkedAt: new Date(),
         },
       });
 
@@ -182,19 +183,31 @@ describe("ShoppingList Model", () => {
         },
       });
 
-      await db.shoppingListItem.deleteMany({
+      const deletedAt = new Date();
+
+      await db.shoppingListItem.updateMany({
         where: {
           shoppingListId: shoppingList.id,
-          checked: true,
+          checkedAt: { not: null },
+          deletedAt: null,
+        },
+        data: {
+          deletedAt,
         },
       });
 
-      const remaining = await db.shoppingListItem.findMany({
-        where: { shoppingListId: shoppingList.id },
+      const activeItems = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: null },
       });
 
-      expect(remaining).toHaveLength(1);
-      expect(remaining[0].ingredientRefId).toBe(ingredientRef2.id);
+      const softDeletedItems = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: { not: null } },
+      });
+
+      expect(activeItems).toHaveLength(1);
+      expect(activeItems[0].ingredientRefId).toBe(ingredientRef2.id);
+      expect(softDeletedItems).toHaveLength(1);
+      expect(softDeletedItems[0].ingredientRefId).toBe(ingredientRef1.id);
     });
   });
 
