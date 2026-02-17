@@ -278,10 +278,10 @@ export default function NewStep() {
             </Field>
 
             <div className="flex gap-4 justify-end pt-4">
-              <Button href={`/recipes/${recipe.id}/edit`} color="zinc">
+              <Button href={`/recipes/${recipe.id}/edit`}>
                 Cancel
               </Button>
-              <Button type="submit" color="green">
+              <Button type="submit">
                 Create Step & Add Ingredients
               </Button>
             </div>

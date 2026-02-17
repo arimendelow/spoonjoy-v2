@@ -48,10 +48,10 @@ export default function Index() {
             Sign up or log in to start managing your recipes
           </Text>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button href="/signup" color="blue">
+            <Button href="/signup">
               Sign Up
             </Button>
-            <Button href="/login" outline>
+            <Button href="/login" plain>
               Log In
             </Button>
           </div>
@@ -74,7 +74,7 @@ export default function Index() {
           </Text>
         </div>
         <Form method="post" action="/logout">
-          <Button type="submit" color="red">
+          <Button type="submit" variant="destructive">
             Logout
           </Button>
         </Form>

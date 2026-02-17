@@ -479,13 +479,10 @@ export default function ShoppingList() {
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button href="/" outline>
-            Home
-          </Button>
           {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
             <Form method="post">
               <input type="hidden" name="intent" value="clearCompleted" />
-              <Button type="submit" color="amber">
+              <Button type="submit" plain>
                 Clear Completed
               </Button>
             </Form>
@@ -493,7 +490,7 @@ export default function ShoppingList() {
           {/* istanbul ignore next -- @preserve */ displayItems.length > 0 && (
             <>
               <Button
-                color="red"
+                variant="destructive"
                 onClick={() => setShowClearDialog(true)}
               >
                 Clear All
@@ -545,7 +542,7 @@ export default function ShoppingList() {
                 placeholder="chicken breast"
               />
             </Field>
-            <Button type="submit" color="green">
+            <Button type="submit">
               Add
             </Button>
           </div>
@@ -566,7 +563,7 @@ export default function ShoppingList() {
                 </option>
               ))}
             </Select>
-            <Button type="submit" color="blue">
+            <Button type="submit">
               Add Ingredients
             </Button>
           </Form>

@@ -537,10 +537,10 @@ export default function EditStep() {
           </div>
 
           <div className="flex gap-4 justify-end">
-            <Button href={`/recipes/${recipe.id}/edit`} color="zinc">
+            <Button href={`/recipes/${recipe.id}/edit`}>
               Cancel
             </Button>
-            <Button type="submit" color="blue">
+            <Button type="submit">
               Save Changes
             </Button>
           </div>
@@ -552,7 +552,7 @@ export default function EditStep() {
             <input type="hidden" name="intent" value="delete" />
             <Button
               type="button"
-              color="red"
+              variant="destructive"
               onClick={() => setShowDeleteStepDialog(true)}
             >
               Delete Step
@@ -578,7 +578,7 @@ export default function EditStep() {
             <h2 className="m-0">Ingredients</h2>
             <Button
               onClick={() => setShowIngredientForm(!showIngredientForm)}
-              color="green"
+
             >
               {showIngredientForm ? "Cancel" : "+ Add Ingredient"}
             </Button>
@@ -629,7 +629,7 @@ export default function EditStep() {
                   </span>
                   <Button
                     type="button"
-                    color="red"
+                    variant="destructive"
                     onClick={() => setIngredientToRemove(ingredient.id)}
                   >
                     Remove

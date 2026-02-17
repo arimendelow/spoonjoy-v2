@@ -199,7 +199,7 @@ describe('Alert', () => {
             <Button plain onClick={onClose}>
               Cancel
             </Button>
-            <Button color="red">Delete</Button>
+            <Button variant="destructive">Delete</Button>
           </AlertActions>
         </Alert>
       )

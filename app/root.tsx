@@ -101,7 +101,7 @@ function AppNavbar({ userId }: { userId: string | null }) {
               <User data-slot="icon" />
             </NavbarItem>
             <Form method="post" action="/logout" className="m-0">
-              <Button type="submit" color="red">
+              <Button type="submit" variant="destructive">
                 <LogOut data-slot="icon" />
                 Logout
               </Button>
@@ -116,7 +116,7 @@ function AppNavbar({ userId }: { userId: string | null }) {
             <NavbarItem href="/login">
               <NavbarLabel>Login</NavbarLabel>
             </NavbarItem>
-            <Button href="/signup" color="blue">
+            <Button href="/signup">
               Sign Up
             </Button>
           </NavbarSection>
@@ -182,7 +182,7 @@ function AppSidebar({ userId }: { userId: string | null }) {
               <SidebarLabel>Settings</SidebarLabel>
             </SidebarItem>
             <Form method="post" action="/logout" className="w-full">
-              <Button type="submit" color="red" className="w-full justify-start">
+              <Button type="submit" variant="destructive" className="w-full justify-start">
                 <LogOut data-slot="icon" />
                 Logout
               </Button>

@@ -626,7 +626,7 @@ export default function RecipeDetail() {
                 </Field>
                 <Button
                   type="submit"
-                  color="blue"
+                 
                   disabled={newCookbookTitle.trim().length === 0 || createCookbookFetcher.state !== "idle"}
                   data-testid="create-cookbook-button"
                 >
@@ -649,7 +649,7 @@ export default function RecipeDetail() {
             <Text className="mb-4">No steps added yet</Text>
             {/* istanbul ignore next -- @preserve owner-only UI rendering */}
             {isOwner && (
-              <Button href={`/recipes/${recipe.id}/edit`} color="blue">
+              <Button href={`/recipes/${recipe.id}/edit`}>
                 Add Steps
               </Button>
             )}

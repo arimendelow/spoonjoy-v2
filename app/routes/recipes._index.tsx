@@ -51,10 +51,7 @@ export default function RecipesList() {
             </Text>
           </div>
           <div className="flex gap-4">
-            <Button href="/" color="zinc">
-              Home
-            </Button>
-            <Button href="/recipes/new" color="green">
+            <Button href="/recipes/new">
               + New Recipe
             </Button>
           </div>
@@ -66,7 +63,7 @@ export default function RecipesList() {
             <Text className="mb-6">
               Create your first recipe to get started
             </Text>
-            <Button href="/recipes/new" color="green">
+            <Button href="/recipes/new">
               Create Recipe
             </Button>
           </div>

@@ -252,7 +252,7 @@ export function RecipeBuilder({
       <div className="flex gap-4 justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
         <Button
           type="button"
-          color="zinc"
+
           onClick={handleCancel}
           disabled={isDisabled}
         >
@@ -260,7 +260,7 @@ export function RecipeBuilder({
         </Button>
         <Button
           type="button"
-          color="green"
+
           onClick={handleSave}
           disabled={isDisabled}
           aria-disabled={isSaveDisabled || undefined}

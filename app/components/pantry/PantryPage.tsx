@@ -27,7 +27,7 @@ export function PantryPage({
           </Text>
         </div>
 
-        <Button href={createRecipeHref} color="blue" className="w-full justify-center sm:w-auto">
+        <Button href={createRecipeHref} className="w-full justify-center sm:w-auto">
           Create Recipe
         </Button>
       </div>

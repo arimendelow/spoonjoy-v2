@@ -99,7 +99,7 @@ export function SaveToCookbookDropdown({
     return (
       <div className="relative" data-testid="inline-create-cookbook">
         <Button
-          outline
+          plain
           disabled
           className="flex items-center gap-1.5"
           aria-label="Save to cookbook"
@@ -124,7 +124,6 @@ export function SaveToCookbookDropdown({
           />
           <div className="flex gap-2 mt-2">
             <Button
-              color="blue"
               className="text-xs px-2 py-1"
               onClick={handleCreateSubmit}
               disabled={!newCookbookTitle.trim()}
@@ -132,7 +131,7 @@ export function SaveToCookbookDropdown({
               Create
             </Button>
             <Button
-              outline
+              plain
               className="text-xs px-2 py-1"
               onClick={handleCreateCancel}
             >
@@ -147,7 +146,7 @@ export function SaveToCookbookDropdown({
   return (
     <Dropdown>
       <DropdownButton
-        outline
+        plain
         disabled={disabled}
         className="flex items-center gap-1.5"
         aria-label="Save to cookbook"
