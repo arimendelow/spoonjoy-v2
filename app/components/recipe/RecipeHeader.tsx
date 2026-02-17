@@ -1,11 +1,9 @@
-import { useState } from 'react'
-import { ImageOff, Pencil, Share2, Trash2 } from 'lucide-react'
+import { ImageOff, Share2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Heading } from '../ui/heading'
 import { Text, Strong } from '../ui/text'
 import { Link } from '../ui/link'
 import { Avatar } from '../ui/avatar'
-import { ConfirmationDialog } from '../confirmation-dialog'
 import { ScaleSelector } from './ScaleSelector'
 import { scaleServingsText } from '~/lib/quantity'
 
@@ -30,10 +28,8 @@ export interface RecipeHeaderProps {
   onScaleChange: (value: number) => void
   /** Whether current user owns this recipe */
   isOwner: boolean
-  /** Recipe ID for edit/delete actions */
+  /** Recipe ID (for future use) */
   recipeId: string
-  /** Callback when delete is confirmed */
-  onDelete?: () => void
   /** Callback when share is clicked */
   onShare?: () => void
   /** Optional custom save button (for SaveToCookbookDropdown) */
@@ -41,13 +37,13 @@ export interface RecipeHeaderProps {
 }
 
 /**
- * Recipe header with prominent image, title, chef info, scaling controls, and owner actions.
+ * Recipe header with prominent image, title, chef info, and scaling controls.
  *
  * Features:
  * - PROMINENT hero-style recipe image (or placeholder)
  * - Mobile-first design for kitchen use
  * - Integrated ScaleSelector with scaled servings text
- * - Edit/delete buttons for recipe owners
+ * - Share and save to cookbook buttons for all users
  */
 export function RecipeHeader({
   title,
@@ -61,16 +57,9 @@ export function RecipeHeader({
   onScaleChange,
   isOwner,
   recipeId,
-  onDelete,
   onShare,
   renderSaveButton,
 }: RecipeHeaderProps) {
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-
-  const handleDeleteConfirm = () => {
-    setShowDeleteDialog(false)
-    onDelete?.()
-  }
 
   // Scale the servings text based on the scale factor
   const scaledServings = servings ? scaleServingsText(servings, scaleFactor) : undefined
@@ -134,7 +123,7 @@ export function RecipeHeader({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2 shrink-0">
             {/* Save to cookbook - visible for all users */}
             {renderSaveButton?.()}
 
@@ -149,38 +138,6 @@ export function RecipeHeader({
                 <Share2 className="w-4 h-4" aria-hidden="true" />
                 Share
               </Button>
-            )}
-
-            {/* Owner-only actions */}
-            {isOwner && (
-              <>
-                <Button
-                  href={`/recipes/${recipeId}/edit`}
-                  color="blue"
-                  className="flex items-center gap-1.5"
-                >
-                  <Pencil className="w-4 h-4" aria-hidden="true" />
-                  Edit
-                </Button>
-                <Button
-                  color="red"
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-4 h-4" aria-hidden="true" />
-                  Delete
-                </Button>
-                <ConfirmationDialog
-                  open={showDeleteDialog}
-                  onClose={() => setShowDeleteDialog(false)}
-                  onConfirm={handleDeleteConfirm}
-                  title="Banish this recipe?"
-                  description={`"${title}" will be sent to the shadow realm. This cannot be undone!`}
-                  confirmLabel="Delete it"
-                  cancelLabel="Keep it"
-                  destructive
-                />
-              </>
             )}
           </div>
         </div>
