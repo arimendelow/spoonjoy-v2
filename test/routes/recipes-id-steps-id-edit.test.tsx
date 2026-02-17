@@ -719,6 +719,19 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
     });
 
     it("should accept stepTitle at exactly 200 characters", async () => {
+      // First, add an ingredient to the step so it passes validation
+      const unit = await db.unit.findFirst() || await db.unit.create({ data: { name: "cup_test_" + faker.string.alphanumeric(6) } });
+      const ingredientRef = await db.ingredientRef.findFirst() || await db.ingredientRef.create({ data: { name: "flour_test_" + faker.string.alphanumeric(6) } });
+      await db.ingredient.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          quantity: 1,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
       const exactTitle = "a".repeat(200);
       const request = await createFormRequest(
         { stepTitle: exactTitle, description: "Valid description" },
@@ -731,11 +744,24 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         params: { id: recipeId, stepId },
       } as any);
 
-      expect(response).toBeInstanceOf(Response);
-      expect(response.status).toBe(302);
+      const { status } = extractResponseData(response);
+      expect(status).toBe(302);
     });
 
     it("should accept description at exactly 5000 characters", async () => {
+      // First, add an ingredient to the step so it passes validation
+      const unit = await db.unit.findFirst() || await db.unit.create({ data: { name: "tbsp_test_" + faker.string.alphanumeric(6) } });
+      const ingredientRef = await db.ingredientRef.findFirst() || await db.ingredientRef.create({ data: { name: "butter_test_" + faker.string.alphanumeric(6) } });
+      await db.ingredient.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          quantity: 2,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
       const exactDescription = "a".repeat(5000);
       const request = await createFormRequest(
         { description: exactDescription },
@@ -748,11 +774,24 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         params: { id: recipeId, stepId },
       } as any);
 
-      expect(response).toBeInstanceOf(Response);
-      expect(response.status).toBe(302);
+      const { status } = extractResponseData(response);
+      expect(status).toBe(302);
     });
 
     it("should successfully update step and redirect", async () => {
+      // First, add an ingredient to the step so it passes validation
+      const unit = await db.unit.findFirst() || await db.unit.create({ data: { name: "oz_test_" + faker.string.alphanumeric(6) } });
+      const ingredientRef = await db.ingredientRef.findFirst() || await db.ingredientRef.create({ data: { name: "salt_test_" + faker.string.alphanumeric(6) } });
+      await db.ingredient.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          quantity: 1.5,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
       const request = await createFormRequest(
         {
           stepTitle: "Updated Title",
@@ -767,9 +806,20 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         params: { id: recipeId, stepId },
       } as any);
 
-      expect(response).toBeInstanceOf(Response);
-      expect(response.status).toBe(302);
-      expect(response.headers.get("Location")).toBe(`/recipes/${recipeId}/edit`);
+      // Handle both Response and DataWithResponseInit from React Router
+      let statusCode = 200;
+      if (response instanceof Response) {
+        statusCode = response.status;
+        expect(statusCode).toBe(302);
+        expect(response.headers.get("Location")).toBe(`/recipes/${recipeId}/edit`);
+      } else if (response && typeof response === "object" && response.type === "DataWithResponseInit") {
+        statusCode = response.init?.status || 200;
+        expect(statusCode).toBe(302);
+        // DataWithResponseInit wraps the init object from redirect response
+        const headers = response.init?.headers || {};
+        const location = headers instanceof Headers ? headers.get("Location") : headers.Location;
+        expect(location).toBe(`/recipes/${recipeId}/edit`);
+      }
 
       // Verify step was updated
       const updatedStep = await db.recipeStep.findUnique({ where: { id: stepId } });
@@ -778,6 +828,19 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
     });
 
     it("should update step without optional title (set to null)", async () => {
+      // First, add an ingredient to the step so it passes validation
+      const unit = await db.unit.findFirst() || await db.unit.create({ data: { name: "tsp_test_" + faker.string.alphanumeric(6) } });
+      const ingredientRef = await db.ingredientRef.findFirst() || await db.ingredientRef.create({ data: { name: "pepper_test_" + faker.string.alphanumeric(6) } });
+      await db.ingredient.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          quantity: 0.5,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
       const request = await createFormRequest(
         {
           stepTitle: "",
@@ -792,8 +855,8 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
         params: { id: recipeId, stepId },
       } as any);
 
-      expect(response).toBeInstanceOf(Response);
-      expect(response.status).toBe(302);
+      const { status } = extractResponseData(response);
+      expect(status).toBe(302);
 
       // Verify step title is null
       const updatedStep = await db.recipeStep.findUnique({ where: { id: stepId } });
@@ -802,6 +865,19 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
     });
 
     it("should return generic error for database errors", async () => {
+      // First, add an ingredient to the step so it passes validation
+      const unit = await db.unit.findFirst() || await db.unit.create({ data: { name: "ml_test_" + faker.string.alphanumeric(6) } });
+      const ingredientRef = await db.ingredientRef.findFirst() || await db.ingredientRef.create({ data: { name: "water_test_" + faker.string.alphanumeric(6) } });
+      await db.ingredient.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          quantity: 250,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
       // Mock db.recipeStep.update to throw a generic error
       const originalUpdate = db.recipeStep.update;
       db.recipeStep.update = vi.fn().mockRejectedValue(new Error("Database connection failed"));
