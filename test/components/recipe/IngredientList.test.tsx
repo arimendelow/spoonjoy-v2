@@ -189,6 +189,40 @@ describe('IngredientList', () => {
     expect(checkedText.closest('button')).toHaveClass('line-through')
   })
 
+  it('applies min-h-11 touch target class to step output use buttons', () => {
+    render(
+      <IngredientList
+        ingredients={sampleIngredients}
+        stepOutputUses={sampleStepOutputUses}
+        checkedIds={new Set()}
+        checkedStepOutputIds={new Set()}
+        onToggle={vi.fn()}
+        onStepOutputToggle={vi.fn()}
+      />
+    )
+
+    const section = screen.getByTestId('step-output-uses-section')
+    const buttons = within(section).getAllByRole('button')
+    for (const button of buttons) {
+      expect(button).toHaveClass('min-h-11')
+    }
+  })
+
+  it('applies min-h-11 touch target class to ingredient row buttons', () => {
+    render(
+      <IngredientList
+        ingredients={sampleIngredients}
+        checkedIds={new Set()}
+        onToggle={vi.fn()}
+      />
+    )
+
+    const buttons = screen.getAllByRole('button')
+    for (const button of buttons) {
+      expect(button).toHaveClass('min-h-11')
+    }
+  })
+
   it('hides step output checkboxes when showCheckboxes is false', () => {
     render(
       <IngredientList

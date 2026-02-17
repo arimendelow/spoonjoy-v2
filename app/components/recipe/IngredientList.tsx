@@ -94,11 +94,11 @@ export function IngredientList({
               if (shouldShowCheckbox) {
                 return (
                   <li key={ref.id}>
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                       <button
                         type="button"
                         onClick={() => onStepOutputToggle(ref.id)}
-                        className={`min-w-0 text-left text-sm transition-colors ${
+                        className={`min-h-11 min-w-0 text-left text-sm transition-colors ${
                           isChecked
                             ? 'line-through text-zinc-500 dark:text-zinc-500'
                             : 'text-zinc-600 dark:text-zinc-300'
@@ -172,12 +172,12 @@ function IngredientRow({
   const shouldShowCheckbox = showCheckboxes && onToggle
 
   return (
-    <div className={`grid items-center gap-3 ${shouldShowCheckbox ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}`}>
+    <div className={`grid min-h-11 items-center gap-3 ${shouldShowCheckbox ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}`}>
       {shouldShowCheckbox ? (
         <button
           type="button"
           onClick={() => onToggle(ingredient.id)}
-          className="flex min-w-0 items-center gap-2 text-left"
+          className="flex min-h-11 min-w-0 items-center gap-2 text-left"
         >
           <IngredientIcon Icon={Icon} />
           <span

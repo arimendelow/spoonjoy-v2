@@ -3,6 +3,9 @@ import { hydrateRoot } from "react-dom/client";
 import { HydratedRouter } from "react-router/dom";
 import posthog from "posthog-js";
 import { PostHogProvider } from "@posthog/react";
+import { applyStorageSchemaMigration } from "~/lib/client-storage-schema";
+
+applyStorageSchemaMigration();
 
 // Initialize PostHog on the client
 const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
