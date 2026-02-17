@@ -187,6 +187,8 @@ describe("Shopping List Route", () => {
       expect(shoppingList?.items).toHaveLength(1);
       expect(shoppingList?.items[0].ingredientRef.name).toBe("bananas");
       expect(shoppingList?.items[0].quantity).toBe(3);
+      expect(shoppingList?.items[0].sortIndex).toBe(0);
+      expect(shoppingList?.items[0].deletedAt).toBeNull();
     });
 
     it("should add item with unit", async () => {
@@ -337,6 +339,44 @@ describe("Shopping List Route", () => {
       });
 
       expect(updatedItem?.checked).toBe(true);
+      expect(updatedItem?.checkedAt).not.toBeNull();
+    });
+
+    it("should move checked item to the bottom by persisted sortIndex", async () => {
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+
+      const [a, b, c] = await Promise.all([
+        db.ingredientRef.create({ data: { name: `item_a_${faker.string.alphanumeric(5)}` } }),
+        db.ingredientRef.create({ data: { name: `item_b_${faker.string.alphanumeric(5)}` } }),
+        db.ingredientRef.create({ data: { name: `item_c_${faker.string.alphanumeric(5)}` } }),
+      ]);
+
+      const [itemA, itemB, itemC] = await Promise.all([
+        db.shoppingListItem.create({ data: { shoppingListId: shoppingList.id, ingredientRefId: a.id, sortIndex: 0 } }),
+        db.shoppingListItem.create({ data: { shoppingListId: shoppingList.id, ingredientRefId: b.id, sortIndex: 1 } }),
+        db.shoppingListItem.create({ data: { shoppingListId: shoppingList.id, ingredientRefId: c.id, sortIndex: 2 } }),
+      ]);
+
+      const request = await createFormRequest(
+        {
+          intent: "toggleCheck",
+          itemId: itemB.id,
+          nextChecked: "true",
+        },
+        testUserId
+      );
+
+      await action({ request, context: { cloudflare: { env: null } }, params: {} } as any);
+
+      const ordered = await db.shoppingListItem.findMany({
+        where: { shoppingListId: shoppingList.id, deletedAt: null },
+        orderBy: { sortIndex: "asc" },
+      });
+
+      expect(ordered.map((item) => item.id)).toEqual([itemA.id, itemC.id, itemB.id]);
+      expect(ordered[2].checkedAt).not.toBeNull();
     });
   });
 
@@ -385,6 +425,7 @@ describe("Shopping List Route", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef1.id,
           checked: true,
+          checkedAt: new Date(),
         },
       });
 
@@ -408,7 +449,7 @@ describe("Shopping List Route", () => {
       } as any);
 
       const items = await db.shoppingListItem.findMany({
-        where: { shoppingListId: shoppingList.id },
+        where: { shoppingListId: shoppingList.id, deletedAt: null },
       });
 
       expect(items).toHaveLength(1);
@@ -477,7 +518,7 @@ describe("Shopping List Route", () => {
         where: { id: item.id },
       });
 
-      expect(deletedItem).toBeNull();
+      expect(deletedItem?.deletedAt).not.toBeNull();
     });
 
     it("should do nothing when itemId is not provided", async () => {
@@ -546,6 +587,7 @@ describe("Shopping List Route", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef1.id,
           checked: true,
+          checkedAt: new Date(),
         },
       });
 
@@ -569,7 +611,7 @@ describe("Shopping List Route", () => {
       } as any);
 
       const items = await db.shoppingListItem.findMany({
-        where: { shoppingListId: shoppingList.id },
+        where: { shoppingListId: shoppingList.id, deletedAt: null },
       });
 
       expect(items).toHaveLength(0);
@@ -1123,6 +1165,7 @@ describe("Shopping List Route", () => {
           shoppingListId: shoppingList.id,
           ingredientRefId: ingredientRef.id,
           checked: true,
+          checkedAt: new Date(),
         },
       });
 
@@ -1145,6 +1188,7 @@ describe("Shopping List Route", () => {
       });
 
       expect(updatedItem?.checked).toBe(false);
+      expect(updatedItem?.checkedAt).toBeNull();
     });
   });
 

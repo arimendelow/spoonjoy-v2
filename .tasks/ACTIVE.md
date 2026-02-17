@@ -84,6 +84,44 @@ Audit complete. Work units defined. Ready to begin with Unit 1.
 
 ---
 
+## Shopping List Implementation (Option 2)
+
+**Type**: coding
+**Status**: in-progress
+
+### Objective
+Move shopping list behavior to server-backed D1 state so item ordering/check/deletion/category/icon metadata syncs across sessions/devices.
+
+### Phase Plan (Option 2)
+
+#### Unit 1 (required): D1 schema + server persistence wiring
+**Scope**
+- [ ] Add D1-backed fields to `ShoppingListItem`: `categoryKey`, `iconKey`, `sortIndex`, `checkedAt`, `deletedAt`
+- [ ] Add migration/backfill SQL for existing shopping list rows
+- [ ] Update shopping list loader/action server wiring so item state comes from D1 (`deletedAt` filter, ordering by `sortIndex`, checked state via `checkedAt`)
+- [ ] Ensure add/remove/clear/toggle flows persist to D1 with soft-delete semantics and deterministic ordering
+- [ ] Add/update tests for model + route action/loader coverage
+
+#### Unit 2 (if feasible): item-card toggle UX + checked-to-bottom ordering
+**Scope**
+- [ ] Entire item card toggles check/uncheck (not only checkbox control)
+- [ ] Checked items move to bottom with ordering persisted server-side (`sortIndex` normalization)
+- [ ] Client uses optimistic toggle + server reconcile (cross-session source of truth remains D1)
+- [ ] Add/update UI interaction tests for card toggle and checked ordering behavior
+
+#### Unit 3 (next): sync + conflict behavior hardening
+**Scope**
+- [ ] Add explicit conflict handling tests for concurrent toggles/reorders across sessions
+- [ ] Add idempotency coverage for repeated action submissions
+- [ ] Validate soft-deleted rows can be restored deterministically via add flows
+
+#### Unit 4 (next): regression/integration coverage
+**Scope**
+- [ ] Expand route/model integration tests for category/icon metadata lifecycle
+- [ ] Add end-to-end flow assertions for cross-device/session sync path
+
+---
+
 ## ROADMAP (revised 2026-01-27)
 
 1. **auth + oauth** ← CURRENT

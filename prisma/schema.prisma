@@ -216,11 +216,17 @@ model ShoppingListItem {
   ingredientRefId String
   ingredientRef   IngredientRef @relation(fields: [ingredientRefId], references: [id])
   checked         Boolean       @default(false)
+  checkedAt       DateTime?
+  deletedAt       DateTime?
+  sortIndex       Int           @default(0)
+  categoryKey     String?
+  iconKey         String?
 
   updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([shoppingListId, unitId, ingredientRefId])
   @@index([shoppingListId])
+  @@index([shoppingListId, deletedAt, sortIndex])
   @@index([unitId])
   @@index([ingredientRefId])
 }

@@ -64,12 +64,20 @@ describe("ShoppingList Model", () => {
           quantity: 2,
           unitId: unit.id,
           ingredientRefId: ingredientRef.id,
+          categoryKey: "produce",
+          iconKey: "carrot",
+          sortIndex: 0,
         },
       });
 
       expect(item).toBeDefined();
       expect(item.quantity).toBe(2);
       expect(item.checked).toBe(false);
+      expect(item.checkedAt).toBeNull();
+      expect(item.deletedAt).toBeNull();
+      expect(item.sortIndex).toBe(0);
+      expect(item.categoryKey).toBe("produce");
+      expect(item.iconKey).toBe("carrot");
     });
 
     it("should allow item without quantity or unit", async () => {
@@ -140,10 +148,11 @@ describe("ShoppingList Model", () => {
 
       const updated = await db.shoppingListItem.update({
         where: { id: item.id },
-        data: { checked: true },
+        data: { checked: true, checkedAt: new Date() },
       });
 
       expect(updated.checked).toBe(true);
+      expect(updated.checkedAt).not.toBeNull();
     });
 
     it("should delete checked items", async () => {

@@ -1,6 +1,6 @@
 import type { Route } from "./+types/shopping-list";
-import { useState } from "react";
-import { useLoaderData, Form, data, useSubmit } from "react-router";
+import { useMemo, useState } from "react";
+import { useLoaderData, Form, data, useSubmit, useFetcher } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Heading, Subheading } from "~/components/ui/heading";
@@ -11,6 +11,46 @@ import { Field, Label } from "~/components/ui/fieldset";
 import { Select } from "~/components/ui/select";
 import { Link } from "~/components/ui/link";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
+
+type ShoppingListItemState = {
+  id: string;
+  checkedAt: Date | null;
+  sortIndex: number;
+};
+
+async function nextSortIndex(database: NonNullable<typeof db>, shoppingListId: string) {
+  const maxItem = await database.shoppingListItem.findFirst({
+    where: { shoppingListId, deletedAt: null },
+    orderBy: { sortIndex: "desc" },
+    select: { sortIndex: true },
+  });
+
+  return (maxItem?.sortIndex ?? -1) + 1;
+}
+
+async function normalizeShoppingListOrdering(
+  database: NonNullable<typeof db>,
+  shoppingListId: string
+) {
+  const activeItems: ShoppingListItemState[] = await database.shoppingListItem.findMany({
+    where: { shoppingListId, deletedAt: null },
+    select: { id: true, checkedAt: true, sortIndex: true },
+    orderBy: [{ checkedAt: "asc" }, { sortIndex: "asc" }, { updatedAt: "asc" }, { id: "asc" }],
+  });
+
+  const unchecked = activeItems.filter((item) => !item.checkedAt);
+  const checked = activeItems.filter((item) => item.checkedAt);
+  const ordered = [...unchecked, ...checked];
+
+  await Promise.all(
+    ordered.map((item, index) =>
+      database.shoppingListItem.update({
+        where: { id: item.id },
+        data: { sortIndex: index, checked: Boolean(item.checkedAt) },
+      })
+    )
+  );
+}
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -25,15 +65,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     where: { authorId: userId },
     include: {
       items: {
+        where: { deletedAt: null },
         include: {
           unit: true,
           ingredientRef: true,
         },
-        orderBy: {
-          ingredientRef: {
-            name: "asc",
+        orderBy: [
+          { checkedAt: "asc" },
+          { sortIndex: "asc" },
+          {
+            ingredientRef: {
+              name: "asc",
+            },
           },
-        },
+        ],
       },
     },
   });
@@ -97,6 +142,8 @@ export async function action({ request, context }: Route.ActionArgs) {
     const quantity = formData.get("quantity")?.toString();
     const unitName = formData.get("unitName")?.toString() || "";
     const ingredientName = formData.get("ingredientName")?.toString() || "";
+    const categoryKey = formData.get("categoryKey")?.toString() || null;
+    const iconKey = formData.get("iconKey")?.toString() || null;
 
     if (ingredientName) {
       // Get or create ingredient ref
@@ -140,7 +187,6 @@ export async function action({ request, context }: Route.ActionArgs) {
       });
 
       if (existingItem) {
-        // Update quantity
         /* istanbul ignore next -- @preserve ternary branches for quantity addition */
         const newQuantity = quantity
           ? (existingItem.quantity || 0) + parseFloat(quantity)
@@ -148,16 +194,25 @@ export async function action({ request, context }: Route.ActionArgs) {
 
         await database.shoppingListItem.update({
           where: { id: existingItem.id },
-          data: { quantity: newQuantity },
+          data: {
+            quantity: newQuantity,
+            categoryKey,
+            iconKey,
+            deletedAt: null,
+          },
         });
       } else {
-        // Create new item
+        const sortIndex = await nextSortIndex(database, shoppingList.id);
+
         await database.shoppingListItem.create({
           data: {
             shoppingListId: shoppingList.id,
             quantity: quantity ? parseFloat(quantity) : null,
             unitId,
             ingredientRefId: ingredientRef.id,
+            categoryKey,
+            iconKey,
+            sortIndex,
           },
         });
       }
@@ -201,7 +256,6 @@ export async function action({ request, context }: Route.ActionArgs) {
             });
 
             if (existingItem) {
-              // Update quantity
               /* istanbul ignore next -- @preserve ternary branches for quantity addition */
               const newQuantity = ingredient.quantity
                 ? (existingItem.quantity || 0) + ingredient.quantity
@@ -209,16 +263,21 @@ export async function action({ request, context }: Route.ActionArgs) {
 
               await database.shoppingListItem.update({
                 where: { id: existingItem.id },
-                data: { quantity: newQuantity },
+                data: {
+                  quantity: newQuantity,
+                  deletedAt: null,
+                },
               });
             } else {
-              // Create new item
+              const sortIndex = await nextSortIndex(database, shoppingList.id);
+
               await database.shoppingListItem.create({
                 data: {
                   shoppingListId: shoppingList.id,
                   quantity: ingredient.quantity,
                   unitId: ingredient.unitId,
                   ingredientRefId: ingredient.ingredientRefId,
+                  sortIndex,
                 },
               });
             }
@@ -231,6 +290,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   if (intent === "toggleCheck") {
     const itemId = formData.get("itemId")?.toString();
+    const nextCheckedRaw = formData.get("nextChecked")?.toString();
 
     if (itemId) {
       const item = await database.shoppingListItem.findUnique({
@@ -239,10 +299,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       /* istanbul ignore else -- @preserve item should exist if toggling */
       if (item) {
+        const willBeChecked = nextCheckedRaw ? nextCheckedRaw === "true" : !item.checked;
+
         await database.shoppingListItem.update({
           where: { id: itemId },
-          data: { checked: !item.checked },
+          data: {
+            checked: willBeChecked,
+            checkedAt: willBeChecked ? new Date() : null,
+          },
         });
+
+        await normalizeShoppingListOrdering(database, shoppingList.id);
       }
     }
     return data({ success: true });
@@ -252,26 +319,32 @@ export async function action({ request, context }: Route.ActionArgs) {
     const itemId = formData.get("itemId")?.toString();
 
     if (itemId) {
-      await database.shoppingListItem.delete({
+      await database.shoppingListItem.update({
         where: { id: itemId },
+        data: { deletedAt: new Date() },
       });
+      await normalizeShoppingListOrdering(database, shoppingList.id);
     }
     return data({ success: true });
   }
 
   if (intent === "clearCompleted") {
-    await database.shoppingListItem.deleteMany({
+    await database.shoppingListItem.updateMany({
       where: {
         shoppingListId: shoppingList.id,
-        checked: true,
+        checkedAt: { not: null },
+        deletedAt: null,
       },
+      data: { deletedAt: new Date() },
     });
+    await normalizeShoppingListOrdering(database, shoppingList.id);
     return data({ success: true });
   }
 
   if (intent === "clearAll") {
-    await database.shoppingListItem.deleteMany({
-      where: { shoppingListId: shoppingList.id },
+    await database.shoppingListItem.updateMany({
+      where: { shoppingListId: shoppingList.id, deletedAt: null },
+      data: { deletedAt: new Date() },
     });
     return data({ success: true });
   }
@@ -282,14 +355,46 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function ShoppingList() {
   const { shoppingList, recipes } = useLoaderData<typeof loader>();
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [optimisticCheckedById, setOptimisticCheckedById] = useState<Record<string, boolean>>({});
   const submit = useSubmit();
+  const toggleFetcher = useFetcher();
 
-  const checkedCount = shoppingList.items.filter((item) => item.checked).length;
-  const uncheckedCount = shoppingList.items.length - checkedCount;
+  const displayItems = useMemo(() => {
+    const withOptimistic = shoppingList.items.map((item) => {
+      const optimisticChecked = optimisticCheckedById[item.id];
+      const checked = optimisticChecked ?? Boolean(item.checkedAt ?? item.checked);
+
+      return {
+        ...item,
+        checked,
+      };
+    });
+
+    const unchecked = withOptimistic.filter((item) => !item.checked);
+    const checked = withOptimistic.filter((item) => item.checked);
+    return [...unchecked, ...checked];
+  }, [shoppingList.items, optimisticCheckedById]);
+
+  const checkedCount = displayItems.filter((item) => item.checked).length;
+  const uncheckedCount = displayItems.length - checkedCount;
 
   const handleClearAllConfirm = () => {
     setShowClearDialog(false);
     submit({ intent: "clearAll" }, { method: "post" });
+  };
+
+  const toggleItem = (item: (typeof displayItems)[number]) => {
+    const nextChecked = !item.checked;
+    setOptimisticCheckedById((current) => ({ ...current, [item.id]: nextChecked }));
+
+    toggleFetcher.submit(
+      {
+        intent: "toggleCheck",
+        itemId: item.id,
+        nextChecked: String(nextChecked),
+      },
+      { method: "post" }
+    );
   };
 
   return (
@@ -299,7 +404,7 @@ export default function ShoppingList() {
         <div>
           <Heading level={1}>Shopping List</Heading>
           <Text className="mt-1">
-            {shoppingList.items.length} {shoppingList.items.length === 1 ? "item" : "items"}
+            {displayItems.length} {displayItems.length === 1 ? "item" : "items"}
             {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
               <span> ({checkedCount} checked, {uncheckedCount} remaining)</span>
             )}
@@ -317,7 +422,7 @@ export default function ShoppingList() {
               </Button>
             </Form>
           )}
-          {/* istanbul ignore next -- @preserve */ shoppingList.items.length > 0 && (
+          {/* istanbul ignore next -- @preserve */ displayItems.length > 0 && (
             <>
               <Button
                 color="red"
@@ -401,7 +506,7 @@ export default function ShoppingList() {
       )}
 
       {/* Empty State */}
-      {shoppingList.items.length === 0 ? (
+      {displayItems.length === 0 ? (
         <div className="rounded-lg bg-zinc-50 p-8 dark:bg-zinc-800/50 text-center">
           <Subheading level={2} className="text-zinc-500 dark:text-zinc-400">
             Your shopping list is empty
@@ -413,7 +518,7 @@ export default function ShoppingList() {
       ) : (
         /* Item List */
         <div className="space-y-2">
-          {shoppingList.items.map((item) => (
+          {displayItems.map((item) => (
             <div
               key={item.id}
               className={`
@@ -423,24 +528,23 @@ export default function ShoppingList() {
                 ${item.checked ? "opacity-60" : ""}
               `}
             >
-              <div className="flex items-center gap-4 flex-1">
-                <Form method="post" className="m-0">
-                  <input type="hidden" name="intent" value="toggleCheck" />
-                  <input type="hidden" name="itemId" value={item.id} />
-                  <button
-                    type="submit"
-                    className={`
-                      w-6 h-6 rounded border-2 flex items-center justify-center
-                      transition-colors cursor-pointer text-sm font-bold
-                      ${item.checked 
-                        ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500" 
-                        : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
-                    `}
-                    aria-label={item.checked ? "Uncheck item" : "Check item"}
-                  >
-                    {item.checked && "✓"}
-                  </button>
-                </Form>
+              <button
+                type="button"
+                onClick={() => toggleItem(item)}
+                className="flex items-center gap-4 flex-1 text-left"
+                aria-label={item.checked ? "Uncheck item" : "Check item"}
+              >
+                <span
+                  className={`
+                    w-6 h-6 rounded border-2 flex items-center justify-center
+                    transition-colors cursor-pointer text-sm font-bold
+                    ${item.checked
+                      ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500"
+                      : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
+                  `}
+                >
+                  {item.checked && "✓"}
+                </span>
                 <span className={`text-lg ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
                   {item.quantity && <strong>{item.quantity}</strong>}
                   {item.quantity && item.unit && " "}
@@ -448,8 +552,8 @@ export default function ShoppingList() {
                   {(item.quantity || item.unit) && " "}
                   {item.ingredientRef.name}
                 </span>
-              </div>
-              <Form method="post" className="m-0">
+              </button>
+              <Form method="post" className="m-0" onClick={(e) => e.stopPropagation()}>
                 <input type="hidden" name="intent" value="removeItem" />
                 <input type="hidden" name="itemId" value={item.id} />
                 <Button type="submit" color="red" className="text-sm">
