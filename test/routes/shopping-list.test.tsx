@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
-import ShoppingList, { shouldDeleteOnSwipe } from "~/routes/shopping-list";
+import ShoppingList, { resolveSwipeAction, shouldDeleteOnSwipe } from "~/routes/shopping-list";
 import { getOrCreateUnit, getOrCreateIngredientRef, createTestUser } from "../utils";
 import { cleanupDatabase } from "../helpers/cleanup";
 
@@ -1099,14 +1099,17 @@ describe("Shopping List Routes", () => {
   });
 
   describe("swipe delete behavior", () => {
-    it("should delete on sufficiently large left swipe", () => {
-      expect(shouldDeleteOnSwipe(-72)).toBe(true);
-      expect(shouldDeleteOnSwipe(-120)).toBe(true);
+    it("should only delete on a second left swipe from revealed state", () => {
+      expect(resolveSwipeAction(-80, false)).toBe("reveal");
+      expect(resolveSwipeAction(-120, true)).toBe("confirmDelete");
+      expect(shouldDeleteOnSwipe(-120, true)).toBe(true);
     });
 
-    it("should not delete on short or right swipe", () => {
-      expect(shouldDeleteOnSwipe(-71)).toBe(false);
-      expect(shouldDeleteOnSwipe(120)).toBe(false);
+    it("should dismiss or no-op for short and right swipes", () => {
+      expect(resolveSwipeAction(40, true)).toBe("dismiss");
+      expect(resolveSwipeAction(-20, false)).toBe("none");
+      expect(shouldDeleteOnSwipe(120, true)).toBe(false);
+      expect(shouldDeleteOnSwipe(-120, false)).toBe(false);
     });
   });
 });

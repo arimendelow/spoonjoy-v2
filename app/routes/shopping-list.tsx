@@ -375,8 +375,31 @@ export async function action({ request, context }: Route.ActionArgs) {
   return null;
 }
 
-export function shouldDeleteOnSwipe(offsetX: number, threshold = 72) {
-  return offsetX <= -threshold;
+const SWIPE_REVEAL_OFFSET = 104;
+const SWIPE_REVEAL_THRESHOLD = 56;
+const SWIPE_CONFIRM_THRESHOLD = 56;
+const SWIPE_DISMISS_THRESHOLD = 28;
+
+export type SwipeAction = "reveal" | "confirmDelete" | "dismiss" | "none";
+
+export function resolveSwipeAction(offsetX: number, isRevealed: boolean): SwipeAction {
+  if (isRevealed && offsetX <= -SWIPE_CONFIRM_THRESHOLD) {
+    return "confirmDelete";
+  }
+
+  if (!isRevealed && offsetX <= -SWIPE_REVEAL_THRESHOLD) {
+    return "reveal";
+  }
+
+  if (isRevealed && offsetX >= SWIPE_DISMISS_THRESHOLD) {
+    return "dismiss";
+  }
+
+  return "none";
+}
+
+export function shouldDeleteOnSwipe(offsetX: number, isRevealed = false) {
+  return resolveSwipeAction(offsetX, isRevealed) === "confirmDelete";
 }
 
 export default function ShoppingList() {
@@ -384,6 +407,7 @@ export default function ShoppingList() {
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [optimisticCheckedById, setOptimisticCheckedById] = useState<Record<string, boolean>>({});
   const [optimisticRemovedById, setOptimisticRemovedById] = useState<Record<string, boolean>>({});
+  const [revealedItemId, setRevealedItemId] = useState<string | null>(null);
   const submit = useSubmit();
   const toggleFetcher = useFetcher();
   const removeFetcher = useFetcher();
@@ -404,6 +428,8 @@ export default function ShoppingList() {
       );
       return Object.keys(next).length === Object.keys(current).length ? current : next;
     });
+
+    setRevealedItemId((current) => (current && activeIds.has(current) ? current : null));
   }, [shoppingList.items]);
 
   const displayItems = useMemo(() => {
@@ -433,6 +459,11 @@ export default function ShoppingList() {
 
   const checkedCount = displayItems.filter((item) => item.checked).length;
   const uncheckedCount = displayItems.length - checkedCount;
+  const displayOrderKey = displayItems.map((item) => item.id).join("|");
+
+  useEffect(() => {
+    setRevealedItemId(null);
+  }, [displayOrderKey]);
 
   const handleClearAllConfirm = () => {
     setShowClearDialog(false);
@@ -440,6 +471,7 @@ export default function ShoppingList() {
   };
 
   const toggleItem = (item: (typeof displayItems)[number]) => {
+    setRevealedItemId(null);
     const nextChecked = !item.checked;
     setOptimisticCheckedById((current) => ({ ...current, [item.id]: nextChecked }));
 
@@ -454,6 +486,7 @@ export default function ShoppingList() {
   };
 
   const removeItem = (itemId: string) => {
+    setRevealedItemId((current) => (current === itemId ? null : current));
     setOptimisticRemovedById((current) => ({ ...current, [itemId]: true }));
 
     removeFetcher.submit(
@@ -605,34 +638,69 @@ export default function ShoppingList() {
                       {affordance.categoryLabel}
                     </div>
                   )}
-                  <div className="relative overflow-hidden rounded-lg">
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center bg-red-600 px-4 text-xs font-semibold uppercase tracking-wide text-white">
-                      Delete
+                  <div className="relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div
+                      className={`
+                        absolute inset-y-0 right-0 w-28 bg-red-600 text-white
+                        ${revealedItemId === item.id ? "pointer-events-auto" : "pointer-events-none"}
+                      `}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase tracking-wide"
+                        aria-label={`Delete ${item.ingredientRef.name}`}
+                      >
+                        Delete
+                      </button>
                     </div>
                     <motion.div
                       layout
                       drag="x"
-                      dragConstraints={{ left: -108, right: 0 }}
-                      dragElastic={{ left: 0.12, right: 0.02 }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        x: revealedItemId === item.id ? -SWIPE_REVEAL_OFFSET : 0,
+                      }}
+                      dragConstraints={{ left: -168, right: 0 }}
+                      dragElastic={0}
+                      dragMomentum={false}
                       dragDirectionLock
                       onDragEnd={(_, info) => {
-                        if (shouldDeleteOnSwipe(info.offset.x)) {
+                        const action = resolveSwipeAction(info.offset.x, revealedItemId === item.id);
+
+                        if (action === "confirmDelete") {
                           removeItem(item.id);
+                          return;
+                        }
+
+                        if (action === "reveal") {
+                          setRevealedItemId(item.id);
+                          return;
+                        }
+
+                        if (action === "dismiss") {
+                          setRevealedItemId(null);
                         }
                       }}
                       initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      transition={{ type: "spring", stiffness: 520, damping: 42, mass: 0.5 }}
                       className={`
-                        relative z-10 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2
+                        relative z-10 px-3 py-2
                         flex items-center bg-white dark:bg-zinc-800
                         ${item.checked ? "opacity-60" : ""}
                       `}
                     >
                       <button
                         type="button"
-                        onClick={() => toggleItem(item)}
+                        onClick={() => {
+                          if (revealedItemId === item.id) {
+                            setRevealedItemId(null);
+                            return;
+                          }
+                          toggleItem(item);
+                        }}
                         className="flex min-w-0 items-center gap-2 text-left"
                         aria-label={item.checked ? "Uncheck item" : "Check item"}
                       >
