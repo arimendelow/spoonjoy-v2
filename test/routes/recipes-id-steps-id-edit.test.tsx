@@ -2121,6 +2121,7 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       expect(screen.getByRole("link", { name: "← Back to recipe" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
       expect(screen.getByLabelText(/Step Title/)).toHaveValue("Prep the Ingredients");
       expect(screen.getByLabelText(/Description/)).toHaveValue("Chop all vegetables");
+      expect(screen.queryByLabelText(/Duration/)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Delete Step" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Save Changes" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/recipes/recipe-1/edit");

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { BrowserRouter } from 'react-router'
 import { RecipeHeader } from '../../../app/components/recipe/RecipeHeader'
@@ -85,13 +86,13 @@ describe('RecipeHeader', () => {
   describe('scaling', () => {
     it('renders scale selector with current scale factor', () => {
       renderWithRouter(<RecipeHeader {...defaultProps} scaleFactor={2} />)
-      expect(screen.getByText('Scale:')).toBeInTheDocument()
+      expect(screen.getByText('Servings:')).toBeInTheDocument()
     })
 
     it('calls onScaleChange when scale is changed', () => {
       const onScaleChange = vi.fn()
       renderWithRouter(<RecipeHeader {...defaultProps} onScaleChange={onScaleChange} />)
-      expect(screen.getByText('Scale:')).toBeInTheDocument()
+      expect(screen.getByText('Servings:')).toBeInTheDocument()
     })
 
     it('displays scaled servings when servings text is provided', () => {
@@ -99,14 +100,32 @@ describe('RecipeHeader', () => {
       expect(screen.getByText('Serves 8')).toBeInTheDocument()
     })
 
-    it('displays original servings note when scale factor is not 1', () => {
+    it('does not display original servings note when scale factor is not 1', () => {
       renderWithRouter(<RecipeHeader {...defaultProps} servings="Serves 4" scaleFactor={2} />)
-      expect(screen.getByText(/originally: Serves 4/)).toBeInTheDocument()
+      expect(screen.queryByText(/originally: Serves 4/)).toBeNull()
     })
 
     it('does not display original servings note when scale factor is 1', () => {
       renderWithRouter(<RecipeHeader {...defaultProps} servings="Serves 4" scaleFactor={1} />)
       expect(screen.queryByText(/originally/)).toBeNull()
+    })
+
+    it('renders clear progress button when onClearProgress is provided', () => {
+      const onClearProgress = vi.fn()
+      renderWithRouter(<RecipeHeader {...defaultProps} onClearProgress={onClearProgress} />)
+      expect(screen.getByRole('button', { name: 'Clear progress' })).toBeInTheDocument()
+    })
+
+    it('calls onClearProgress when button is clicked', async () => {
+      const onClearProgress = vi.fn()
+      renderWithRouter(<RecipeHeader {...defaultProps} onClearProgress={onClearProgress} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Clear progress' }))
+      expect(onClearProgress).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not render clear progress button when onClearProgress is not provided', () => {
+      renderWithRouter(<RecipeHeader {...defaultProps} />)
+      expect(screen.queryByRole('button', { name: 'Clear progress' })).toBeNull()
     })
   })
 

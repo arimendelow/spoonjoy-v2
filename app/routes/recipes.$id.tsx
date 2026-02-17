@@ -331,6 +331,11 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleClearProgress = () => {
+    setCheckedIngredients(new Set());
+    setCheckedStepOutputs(new Set());
+  };
+
   const handleShare = useCallback(async () => {
     /* istanbul ignore next -- @preserve browser share API */
     const result = await shareContent({
@@ -540,6 +545,7 @@ export default function RecipeDetail() {
         servings={recipe.servings ?? undefined}
         scaleFactor={scaleFactor}
         onScaleChange={handleScaleChange}
+        onClearProgress={handleClearProgress}
       />
 
       {showAddToListConfirmation && (

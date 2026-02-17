@@ -29,6 +29,11 @@ describe('ScaleSelector', () => {
       render(<ScaleSelector value={1} onChange={vi.fn()} />)
       expect(screen.getByTestId('scale-plus')).toBeInTheDocument()
     })
+
+    it('renders custom display value when provided', () => {
+      render(<ScaleSelector value={1} displayValue="4" onChange={vi.fn()} />)
+      expect(screen.getByTestId('scale-display')).toHaveTextContent('4')
+    })
   })
 
   describe('increment behavior', () => {

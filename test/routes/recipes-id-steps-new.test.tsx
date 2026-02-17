@@ -913,6 +913,7 @@ describe("Recipes $id Steps New Route", () => {
       expect(await screen.findByRole("heading", { name: /Add Step to Test Recipe/i })).toBeInTheDocument();
       expect(screen.getByLabelText(/Step Title/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Description/i)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Duration/i)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Create Step & Add Ingredients/i })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: /← Back to recipe/i })).toHaveAttribute("href", "/recipes/recipe-1/edit");
       expect(screen.getByRole("link", { name: /Cancel/i })).toHaveAttribute("href", "/recipes/recipe-1/edit");
