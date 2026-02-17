@@ -563,11 +563,14 @@ export default function RecipeDetail() {
         initialFocus={saveModalTitleRef}
         autoFocus={false}
         size="md"
-        className="max-h-[calc(100dvh-2rem)] overflow-hidden pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className="max-h-[calc(100dvh-1.5rem)] overflow-hidden !rounded-sm !shadow-none pb-[max(0.75rem,env(safe-area-inset-bottom))] data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in data-closed:translate-y-4 data-enter:data-closed:translate-y-4 sm:max-h-[calc(100dvh-4rem)] sm:data-closed:translate-y-1"
       >
-        <div data-testid="save-modal">
+        <div className="flex max-h-full flex-col" data-testid="save-modal">
           <DialogTitle ref={saveModalTitleRef} tabIndex={-1}>Save to Cookbook</DialogTitle>
-          <DialogBody className="max-h-[min(70vh,calc(100dvh-10rem))] overflow-y-auto pb-3">
+          <DialogBody
+            className="mt-4 min-h-0 flex-1 overflow-y-auto pb-3"
+            data-testid="save-modal-body"
+          >
             {availableCookbooks.length > 0 ? (
               <div className="space-y-2">
                 {availableCookbooks.map((cookbook) => {
@@ -596,45 +599,46 @@ export default function RecipeDetail() {
                 No cookbooks yet. Create your first one below!
               </Text>
             )}
-
-            <div className="sticky bottom-0 mt-4 border-t border-zinc-200 bg-white pt-4 dark:border-zinc-700 dark:bg-zinc-900">
-              <createCookbookFetcher.Form
-                method="post"
-                className="space-y-3"
-                onSubmit={(event) => {
-                  const title = newCookbookTitle.trim();
-                  if (!title) {
-                    event.preventDefault();
-                    return;
-                  }
-                  handleCreateAndSave(title);
-                  event.preventDefault();
-                }}
-              >
-                <input type="hidden" name="intent" value="createCookbookAndSave" />
-                <Field>
-                  <Label htmlFor="new-cookbook-input">Create new cookbook</Label>
-                  <Input
-                    id="new-cookbook-input"
-                    name="title"
-                    type="text"
-                    placeholder="Cookbook name"
-                    value={newCookbookTitle}
-                    onChange={(event) => setNewCookbookTitle(event.target.value)}
-                    data-testid="new-cookbook-input"
-                  />
-                </Field>
-                <Button
-                  type="submit"
-                 
-                  disabled={newCookbookTitle.trim().length === 0 || createCookbookFetcher.state !== "idle"}
-                  data-testid="create-cookbook-button"
-                >
-                  Create & Save
-                </Button>
-              </createCookbookFetcher.Form>
-            </div>
           </DialogBody>
+          <div
+            className="sticky bottom-0 mt-3 shrink-0 border-t border-zinc-200 bg-white pt-4 dark:border-zinc-700 dark:bg-zinc-900"
+            data-testid="save-modal-footer"
+          >
+            <createCookbookFetcher.Form
+              method="post"
+              className="space-y-3"
+              onSubmit={(event) => {
+                const title = newCookbookTitle.trim();
+                if (!title) {
+                  event.preventDefault();
+                  return;
+                }
+                handleCreateAndSave(title);
+                event.preventDefault();
+              }}
+            >
+              <input type="hidden" name="intent" value="createCookbookAndSave" />
+              <Field>
+                <Label htmlFor="new-cookbook-input">Create new cookbook</Label>
+                <Input
+                  id="new-cookbook-input"
+                  name="title"
+                  type="text"
+                  placeholder="Cookbook name"
+                  value={newCookbookTitle}
+                  onChange={(event) => setNewCookbookTitle(event.target.value)}
+                  data-testid="new-cookbook-input"
+                />
+              </Field>
+              <Button
+                type="submit"
+                disabled={newCookbookTitle.trim().length === 0 || createCookbookFetcher.state !== "idle"}
+                data-testid="create-cookbook-button"
+              >
+                Create & Save
+              </Button>
+            </createCookbookFetcher.Form>
+          </div>
         </div>
       </Dialog>
 

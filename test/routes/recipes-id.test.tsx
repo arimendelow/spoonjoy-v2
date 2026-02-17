@@ -724,9 +724,19 @@ describe("Recipes $id Route", () => {
       expect(backdrop).toBeTruthy();
       expect(panel).toBeTruthy();
       expect(backdrop).toHaveClass("data-enter:duration-300", "data-leave:duration-200");
-      expect(panel).toHaveClass("data-closed:translate-y-8", "motion-reduce:transition-none");
-      expect(panel?.className).toContain("max-h-[calc(100dvh-2rem)]");
-      expect(screen.getByTestId("create-cookbook-button").closest("div")?.className).toContain("sticky");
+      expect(panel).toHaveClass(
+        "data-closed:translate-y-4",
+        "data-enter:data-closed:translate-y-4",
+        "data-closed:opacity-0"
+      );
+      expect(panel?.className).toContain("max-h-[calc(100dvh-1.5rem)]");
+      expect(panel).toHaveClass("!rounded-sm", "!shadow-none");
+
+      const modalBody = screen.getByTestId("save-modal-body");
+      const modalFooter = screen.getByTestId("save-modal-footer");
+      expect(modalBody).toHaveClass("overflow-y-auto", "flex-1", "min-h-0");
+      expect(modalFooter).toHaveClass("sticky", "bottom-0", "shrink-0");
+      expect(modalFooter.contains(screen.getByTestId("create-cookbook-button"))).toBe(true);
 
       expect(document.activeElement).toHaveTextContent("Save to Cookbook");
       expect(scrollToSpy).not.toHaveBeenCalled();
