@@ -38,10 +38,10 @@ export function Dialog({
             transition
             data-slot="dialog-panel"
             className={clsx(
-              className,
               sizes[size],
               'row-start-2 w-full min-w-0 rounded-t-3xl bg-white p-(--gutter) shadow-lg ring-1 ring-zinc-950/10 [--gutter:--spacing(8)] sm:mb-auto sm:rounded-2xl dark:bg-zinc-900 dark:ring-white/10 forced-colors:outline',
-              'transition will-change-transform data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in data-closed:translate-y-8 data-closed:opacity-0 data-enter:data-closed:translate-y-8 data-enter:data-closed:opacity-0 sm:data-closed:translate-y-0 sm:data-closed:scale-95 sm:data-enter:data-closed:translate-y-0 sm:data-enter:data-closed:scale-95 motion-reduce:transition-none motion-reduce:data-closed:translate-y-0'
+              'transition will-change-transform data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in data-closed:translate-y-8 data-closed:opacity-0 data-enter:data-closed:translate-y-8 data-enter:data-closed:opacity-0 sm:data-closed:translate-y-0 sm:data-closed:scale-95 sm:data-enter:data-closed:translate-y-0 sm:data-enter:data-closed:scale-95 motion-reduce:transition-none motion-reduce:data-closed:translate-y-0',
+              className
             )}
           >
             {children}
