@@ -130,72 +130,21 @@ global.cloudflare = {
 // Clean database before all tests
 beforeAll(async () => {
   const db = await getLocalDb();
-  
-  // Delete all data in the correct order to respect foreign key constraints
-  // Use try-catch to handle missing tables in fresh database
-  try {
-    await db.shoppingListItem.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.shoppingList.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.stepOutputUse.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.ingredient.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.recipeStep.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.recipeInCookbook.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.cookbook.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.recipe.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.ingredientRef.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.unit.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.userCredential.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.oAuth.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
-  try {
-    await db.user.deleteMany({});
-  } catch (e) {
-    // Table might not exist yet
-  }
+
+  // Delete all data in the correct order to respect foreign key constraints.
+  // Tables must exist before tests run — ensured by `prisma db push` in CI
+  // and by running `pnpm prisma:push` locally (see README / DEPLOY.md).
+  await db.shoppingListItem.deleteMany({});
+  await db.shoppingList.deleteMany({});
+  await db.stepOutputUse.deleteMany({});
+  await db.ingredient.deleteMany({});
+  await db.recipeStep.deleteMany({});
+  await db.recipeInCookbook.deleteMany({});
+  await db.cookbook.deleteMany({});
+  await db.recipe.deleteMany({});
+  await db.ingredientRef.deleteMany({});
+  await db.unit.deleteMany({});
+  await db.userCredential.deleteMany({});
+  await db.oAuth.deleteMany({});
+  await db.user.deleteMany({});
 });

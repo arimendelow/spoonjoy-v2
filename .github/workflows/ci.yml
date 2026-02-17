@@ -39,6 +39,9 @@ jobs:
       - name: 🗄️ Apply D1 migrations (local)
         run: pnpm exec wrangler d1 migrations apply DB --local
 
+      - name: 🗄️ Apply Prisma schema to test database
+        run: DATABASE_URL="file:./test.db" pnpm exec prisma db push --skip-generate
+
       - name: 🔎 CI preflight - seed backend + migration status
         run: |
           echo "Seed script backend: Cloudflare D1 via wrangler getPlatformProxy()"
