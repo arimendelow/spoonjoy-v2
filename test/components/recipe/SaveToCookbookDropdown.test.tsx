@@ -42,8 +42,7 @@ describe('SaveToCookbookDropdown', () => {
           onSave={vi.fn()}
         />
       )
-      const button = screen.getByRole('button', { name: /save/i })
-      await userEvent.click(button)
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
       expect(screen.getByText('Weeknight Dinners')).toBeInTheDocument()
     })
 
@@ -87,7 +86,6 @@ describe('SaveToCookbookDropdown', () => {
       )
       await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
-      // Saved cookbooks should show checkmark
       expect(screen.getByText(/Weeknight Dinners.*✓/)).toBeInTheDocument()
       expect(screen.getByText(/Quick & Easy.*✓/)).toBeInTheDocument()
     })
@@ -103,7 +101,6 @@ describe('SaveToCookbookDropdown', () => {
       )
       await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
-      // Try to click the saved cookbook
       const savedItem = screen.getByText(/Weeknight Dinners.*✓/)
       await userEvent.click(savedItem)
 
@@ -111,7 +108,7 @@ describe('SaveToCookbookDropdown', () => {
     })
   })
 
-  describe('create new cookbook', () => {
+  describe('create new cookbook (legacy onCreateNew)', () => {
     it('shows create new option when onCreateNew provided', async () => {
       render(
         <SaveToCookbookDropdown
@@ -125,7 +122,7 @@ describe('SaveToCookbookDropdown', () => {
       expect(screen.getByText(/create new cookbook/i)).toBeInTheDocument()
     })
 
-    it('calls onCreateNew when clicked', async () => {
+    it('calls onCreateNew when clicked (no onCreateAndSave)', async () => {
       const onCreateNew = vi.fn()
       render(
         <SaveToCookbookDropdown
@@ -140,7 +137,7 @@ describe('SaveToCookbookDropdown', () => {
       expect(onCreateNew).toHaveBeenCalled()
     })
 
-    it('does not show create option when onCreateNew not provided', async () => {
+    it('does not show create option when neither onCreateNew nor onCreateAndSave provided', async () => {
       render(
         <SaveToCookbookDropdown
           cookbooks={sampleCookbooks}
@@ -153,13 +150,163 @@ describe('SaveToCookbookDropdown', () => {
     })
   })
 
+  describe('inline create cookbook (onCreateAndSave)', () => {
+    it('shows inline input when create is clicked with onCreateAndSave', async () => {
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      expect(screen.getByTestId('inline-create-cookbook')).toBeInTheDocument()
+      expect(screen.getByLabelText(/new cookbook name/i)).toBeInTheDocument()
+    })
+
+    it('calls onCreateAndSave on submit', async () => {
+      const onCreateAndSave = vi.fn()
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={onCreateAndSave}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, 'My New Cookbook')
+      await userEvent.click(screen.getByRole('button', { name: /^create$/i }))
+
+      expect(onCreateAndSave).toHaveBeenCalledWith('My New Cookbook')
+    })
+
+    it('calls onCreateAndSave on Enter key', async () => {
+      const onCreateAndSave = vi.fn()
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={onCreateAndSave}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, 'Enter Cookbook{Enter}')
+
+      expect(onCreateAndSave).toHaveBeenCalledWith('Enter Cookbook')
+    })
+
+    it('cancels inline create on Escape key', async () => {
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      expect(screen.getByTestId('inline-create-cookbook')).toBeInTheDocument()
+
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, '{Escape}')
+
+      expect(screen.queryByTestId('inline-create-cookbook')).not.toBeInTheDocument()
+    })
+
+    it('cancels inline create on Cancel button click', async () => {
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      expect(screen.getByTestId('inline-create-cookbook')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+      expect(screen.queryByTestId('inline-create-cookbook')).not.toBeInTheDocument()
+    })
+
+    it('does not submit with empty/whitespace title', async () => {
+      const onCreateAndSave = vi.fn()
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={onCreateAndSave}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      // Try to submit with empty input
+      await userEvent.click(screen.getByRole('button', { name: /^create$/i }))
+      expect(onCreateAndSave).not.toHaveBeenCalled()
+
+      // Try with whitespace only
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, '   {Enter}')
+      expect(onCreateAndSave).not.toHaveBeenCalled()
+    })
+
+    it('trims whitespace from title before submitting', async () => {
+      const onCreateAndSave = vi.fn()
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={onCreateAndSave}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, '  Trimmed Title  {Enter}')
+
+      expect(onCreateAndSave).toHaveBeenCalledWith('Trimmed Title')
+    })
+
+    it('resets input after successful submit', async () => {
+      const onCreateAndSave = vi.fn()
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={sampleCookbooks}
+          onSave={vi.fn()}
+          onCreateAndSave={onCreateAndSave}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create new cookbook/i))
+
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, 'Test{Enter}')
+
+      // After submit, inline form should be hidden (reset)
+      expect(screen.queryByTestId('inline-create-cookbook')).not.toBeInTheDocument()
+    })
+  })
+
   describe('empty state', () => {
     it('shows empty message when no cookbooks', async () => {
       render(
         <SaveToCookbookDropdown
           cookbooks={[]}
           onSave={vi.fn()}
-          onCreateNew={vi.fn()}
+          onCreateAndSave={vi.fn()}
         />
       )
       await userEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -178,6 +325,83 @@ describe('SaveToCookbookDropdown', () => {
       await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
       expect(screen.getByText(/create your first cookbook/i)).toBeInTheDocument()
+    })
+
+    it('shows inline create in empty state with onCreateAndSave', async () => {
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={[]}
+          onSave={vi.fn()}
+          onCreateAndSave={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create your first cookbook/i))
+
+      expect(screen.getByTestId('inline-create-cookbook')).toBeInTheDocument()
+    })
+
+    it('calls onCreateAndSave from empty state', async () => {
+      const onCreateAndSave = vi.fn()
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={[]}
+          onSave={vi.fn()}
+          onCreateAndSave={onCreateAndSave}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create your first cookbook/i))
+
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, 'First Cookbook{Enter}')
+
+      expect(onCreateAndSave).toHaveBeenCalledWith('First Cookbook')
+    })
+
+    it('cancels inline create in empty state on Escape', async () => {
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={[]}
+          onSave={vi.fn()}
+          onCreateAndSave={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create your first cookbook/i))
+
+      const input = screen.getByLabelText(/new cookbook name/i)
+      await userEvent.type(input, '{Escape}')
+
+      expect(screen.queryByTestId('inline-create-cookbook')).not.toBeInTheDocument()
+    })
+
+    it('cancels inline create in empty state on Cancel button', async () => {
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={[]}
+          onSave={vi.fn()}
+          onCreateAndSave={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+      await userEvent.click(screen.getByText(/create your first cookbook/i))
+
+      await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+      expect(screen.queryByTestId('inline-create-cookbook')).not.toBeInTheDocument()
+    })
+
+    it('does not show create option in empty state when no callbacks', async () => {
+      render(
+        <SaveToCookbookDropdown
+          cookbooks={[]}
+          onSave={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+      expect(screen.queryByText(/create/i)).toBeNull()
     })
   })
 
