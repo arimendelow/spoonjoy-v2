@@ -1,5 +1,5 @@
 import type { Route } from "./+types/recipes.$id";
-import { redirect, useLoaderData, useSubmit } from "react-router";
+import { redirect, useFetcher, useLoaderData, useSubmit } from "react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePostHog } from "@posthog/react";
 import { getDb, db } from "~/lib/db.server";
@@ -7,13 +7,11 @@ import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
-import { Link } from "~/components/ui/link";
 import { RecipeHeader } from "~/components/recipe/RecipeHeader";
 import { StepCard } from "~/components/recipe/StepCard";
 import type { Ingredient } from "~/components/recipe/IngredientList";
 import type { StepReference } from "~/components/recipe/StepOutputUseCallout";
 import { shareContent, useRecipeDetailActions } from "~/components/navigation";
-import { SaveToCookbookDropdown } from "~/components/recipe/SaveToCookbookDropdown";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -129,8 +127,8 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return { success: true, newCookbook: { id: newCookbook.id, title: newCookbook.title } };
   }
 
-  // Add to cookbook doesn't require recipe ownership
-  if (intent === "addToCookbook") {
+  // Add/remove cookbook membership doesn't require recipe ownership
+  if (intent === "addToCookbook" || intent === "removeFromCookbook") {
     const cookbookId = formData.get("cookbookId")?.toString();
     if (cookbookId) {
       // Verify user owns the cookbook
@@ -141,6 +139,14 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       if (!cookbook || cookbook.authorId !== userId) {
         throw new Response("Unauthorized", { status: 403 });
       }
+
+      if (intent === "removeFromCookbook") {
+        await database.recipeInCookbook.deleteMany({
+          where: { cookbookId, recipeId: id },
+        });
+        return { success: true };
+      }
+
       try {
         await database.recipeInCookbook.create({
           data: {
@@ -187,6 +193,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 export default function RecipeDetail() {
   const { recipe, isOwner, cookbooks, savedInCookbookIds } = useLoaderData<typeof loader>();
   const submit = useSubmit();
+  const addToListFetcher = useFetcher();
   const posthog = usePostHog();
 
   // Scale state for recipe scaling
@@ -307,26 +314,55 @@ export default function RecipeDetail() {
     }
   }, [recipe.id, recipe.title, recipe.description, posthog]);
 
+  // State for Save modal (bottom sheet)
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
+  const handleAddToList = useCallback(() => {
+    addToListFetcher.submit(
+      { intent: "addFromRecipe", recipeId: recipe.id },
+      { method: "post", action: "/shopping-list" }
+    );
+
+    /* istanbul ignore next -- @preserve PostHog client-only analytics */
+    if (posthog) {
+      posthog.capture("recipe_added_to_shopping_list", {
+        recipe_id: recipe.id,
+        source: "recipe_detail_dock",
+      });
+    }
+  }, [addToListFetcher, recipe.id, posthog]);
+
   // Register dock actions for this recipe detail page
   useRecipeDetailActions({
     recipeId: recipe.id,
+    isOwner,
+    onSave: () => setIsSaveModalOpen(true),
+    onAddToList: handleAddToList,
     onShare: handleShare,
   });
 
-  const handleSaveToCookbook = (cookbookId: string) => {
-    // Optimistic UI update
-    setSavedCookbookIds((prev) => new Set([...prev, cookbookId]));
+  const handleToggleCookbookSave = (cookbookId: string) => {
+    const isCurrentlySaved = savedCookbookIds.has(cookbookId);
 
-    // Submit the form
+    // Optimistic UI update
+    setSavedCookbookIds((prev) => {
+      const next = new Set(prev);
+      if (isCurrentlySaved) {
+        next.delete(cookbookId);
+      } else {
+        next.add(cookbookId);
+      }
+      return next;
+    });
+
     submit(
-      { intent: "addToCookbook", cookbookId },
+      { intent: isCurrentlySaved ? "removeFromCookbook" : "addToCookbook", cookbookId },
       { method: "post" }
     );
 
-    // PostHog: Track recipe saved to cookbook
     /* istanbul ignore next -- @preserve PostHog client-only analytics */
     if (posthog) {
-      posthog.capture("recipe_saved_to_cookbook", {
+      posthog.capture(isCurrentlySaved ? "recipe_removed_from_cookbook" : "recipe_saved_to_cookbook", {
         recipe_id: recipe.id,
         cookbook_id: cookbookId,
       });
@@ -391,13 +427,6 @@ export default function RecipeDetail() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
-      {/* Back Link */}
-      <div className="px-4 py-3 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-        <Link href="/recipes" className="text-blue-600 dark:text-blue-400 text-sm hover:underline">
-          ← Back to recipes
-        </Link>
-      </div>
-
       {/* Recipe Header with prominent image */}
       <RecipeHeader
         title={recipe.title}
@@ -409,18 +438,98 @@ export default function RecipeDetail() {
         servings={recipe.servings ?? undefined}
         scaleFactor={scaleFactor}
         onScaleChange={handleScaleChange}
-        isOwner={isOwner}
-        recipeId={recipe.id}
-        onShare={handleShare}
-        renderSaveButton={() => (
-          <SaveToCookbookDropdown
-            cookbooks={cookbooks}
-            savedInCookbookIds={savedCookbookIds}
-            onSave={handleSaveToCookbook}
-            onCreateAndSave={handleCreateAndSave}
-          />
-        )}
       />
+
+      {/* Save to Cookbook Modal (Bottom Sheet) */}
+      {isSaveModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/50"
+          onClick={() => setIsSaveModalOpen(false)}
+          data-testid="save-modal-backdrop"
+        >
+          <div
+            className="w-full sm:max-w-md bg-white dark:bg-zinc-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="save-modal"
+          >
+            <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
+              <Heading level={2} className="text-xl font-bold">Save to Cookbook</Heading>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4">
+              {cookbooks.length > 0 ? (
+                <div className="space-y-2">
+                  {cookbooks.map((cookbook) => {
+                    const isSaved = savedCookbookIds.has(cookbook.id);
+                    return (
+                      <button
+                        key={cookbook.id}
+                        onClick={() => handleToggleCookbookSave(cookbook.id)}
+                        className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                          isSaved
+                            ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50'
+                            : 'bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                        }`}
+                        data-testid={`cookbook-item-${cookbook.id}`}
+                      >
+                        <Text className="flex items-center justify-between">
+                          <span>{cookbook.title}</span>
+                          {isSaved && <span className="text-blue-500">✓</span>}
+                        </Text>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Text className="text-center text-zinc-500 dark:text-zinc-400 py-8">
+                  No cookbooks yet. Create your first one below!
+                </Text>
+              )}
+              
+              {/* Create New Cookbook Section */}
+              <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <div className="space-y-3">
+                  <label htmlFor="new-cookbook-input" className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                    Create new cookbook
+                  </label>
+                  <input
+                    id="new-cookbook-input"
+                    type="text"
+                    placeholder="Cookbook name"
+                    className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const input = e.currentTarget;
+                        const title = input.value.trim();
+                        if (title) {
+                          handleCreateAndSave(title);
+                          setIsSaveModalOpen(false);
+                          input.value = '';
+                        }
+                      }
+                    }}
+                    data-testid="new-cookbook-input"
+                  />
+                  <Button
+                    color="blue"
+                    onClick={(e) => {
+                      const input = document.getElementById('new-cookbook-input') as HTMLInputElement;
+                      const title = input?.value.trim();
+                      if (title) {
+                        handleCreateAndSave(title);
+                        setIsSaveModalOpen(false);
+                        input.value = '';
+                      }
+                    }}
+                    data-testid="create-cookbook-button"
+                  >
+                    Create & Save
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Steps Section */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-4xl mx-auto">

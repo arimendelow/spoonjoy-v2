@@ -478,9 +478,9 @@ describe("Recipe View Scaling Integration", () => {
 
       await screen.findByRole("heading", { name: "My Recipe" });
 
-      // Edit and delete buttons should be visible
-      expect(screen.getByRole("link", { name: /edit/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
+      // Edit and delete buttons are no longer in RecipeHeader (moved to dock/edit page)
+      expect(screen.queryByRole("link", { name: /edit/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
     });
 
     it("should not show owner controls when isOwner is false", async () => {

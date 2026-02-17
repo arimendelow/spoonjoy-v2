@@ -1,5 +1,4 @@
-import { ImageOff, Share2 } from 'lucide-react'
-import { Button } from '../ui/button'
+import { ImageOff } from 'lucide-react'
 import { Heading } from '../ui/heading'
 import { Text, Strong } from '../ui/text'
 import { Link } from '../ui/link'
@@ -26,14 +25,6 @@ export interface RecipeHeaderProps {
   scaleFactor: number
   /** Callback when scale factor changes */
   onScaleChange: (value: number) => void
-  /** Whether current user owns this recipe */
-  isOwner: boolean
-  /** Recipe ID (for future use) */
-  recipeId: string
-  /** Callback when share is clicked */
-  onShare?: () => void
-  /** Optional custom save button (for SaveToCookbookDropdown) */
-  renderSaveButton?: () => React.ReactNode
 }
 
 /**
@@ -43,7 +34,7 @@ export interface RecipeHeaderProps {
  * - PROMINENT hero-style recipe image (or placeholder)
  * - Mobile-first design for kitchen use
  * - Integrated ScaleSelector with scaled servings text
- * - Share and save to cookbook buttons for all users
+ * - Purely presentational — all actions are in SpoonDock
  */
 export function RecipeHeader({
   title,
@@ -55,12 +46,7 @@ export function RecipeHeader({
   servings,
   scaleFactor,
   onScaleChange,
-  isOwner,
-  recipeId,
-  onShare,
-  renderSaveButton,
 }: RecipeHeaderProps) {
-
   // Scale the servings text based on the scale factor
   const scaledServings = servings ? scaleServingsText(servings, scaleFactor) : undefined
 
@@ -94,51 +80,30 @@ export function RecipeHeader({
 
       {/* Content Section */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-4xl mx-auto">
-        {/* Title and Actions Row */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-          <div className="flex-1 min-w-0">
-            <Heading level={1} className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight break-words">
-              {title}
-            </Heading>
-            <div className="mt-2 flex items-center gap-2">
-              <span data-testid="chef-avatar">
-                <Avatar
-                  src={chefPhotoUrl}
-                  initials={chefName.charAt(0).toUpperCase()}
-                  alt={chefName}
-                  className="size-8"
-                />
-              </span>
-              <Text>
-                By{' '}
-                {chefId ? (
-                  <Link href={`/users/${chefId}`} className="hover:underline">
-                    <Strong>{chefName}</Strong>
-                  </Link>
-                ) : (
+        {/* Title and Chef Info */}
+        <div className="mb-4">
+          <Heading level={1} className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight break-words">
+            {title}
+          </Heading>
+          <div className="mt-2 flex items-center gap-2">
+            <span data-testid="chef-avatar">
+              <Avatar
+                src={chefPhotoUrl}
+                initials={chefName.charAt(0).toUpperCase()}
+                alt={chefName}
+                className="size-8"
+              />
+            </span>
+            <Text>
+              By{' '}
+              {chefId ? (
+                <Link href={`/users/${chefId}`} className="hover:underline">
                   <Strong>{chefName}</Strong>
-                )}
-              </Text>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2 shrink-0">
-            {/* Save to cookbook - visible for all users */}
-            {renderSaveButton?.()}
-
-            {/* Share button - visible for all users */}
-            {onShare && (
-              <Button
-                outline
-                onClick={onShare}
-                className="flex items-center gap-1.5"
-                aria-label="Share recipe"
-              >
-                <Share2 className="w-4 h-4" aria-hidden="true" />
-                Share
-              </Button>
-            )}
+                </Link>
+              ) : (
+                <Strong>{chefName}</Strong>
+              )}
+            </Text>
           </div>
         </div>
 

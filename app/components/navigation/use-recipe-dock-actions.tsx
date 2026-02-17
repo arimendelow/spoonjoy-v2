@@ -2,29 +2,19 @@
 
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, Edit, ShoppingCart, Share, X, Save } from 'lucide-react'
+import { ArrowLeft, Edit, ShoppingCart, Share, X, Save, Bookmark } from 'lucide-react'
 import { useDockActions, type DockAction } from './dock-context'
 
-/**
- * Hook to register contextual dock actions for recipe detail pages.
- * 
- * On recipe detail (/recipes/:id):
- * - Back: Navigate to recipes list
- * - Edit: Navigate to edit page
- * - Add to List: Add ingredients to shopping list
- * - Share: Share recipe via native share or copy link
- * 
- * @param recipeId - The recipe ID
- * @param handlers - Action handlers
- */
 export interface UseRecipeDetailActionsOptions {
   recipeId: string
+  onSave?: () => void
   onAddToList?: () => void
   onShare?: () => void
 }
 
 export function useRecipeDetailActions({
   recipeId,
+  onSave,
   onAddToList,
   onShare,
 }: UseRecipeDetailActionsOptions): void {
@@ -46,6 +36,13 @@ export function useRecipeDetailActions({
       position: 'left',
     },
     {
+      id: 'save',
+      icon: Bookmark,
+      label: 'Save',
+      onAction: onSave || (() => {}),
+      position: 'right',
+    },
+    {
       id: 'add-to-list',
       icon: ShoppingCart,
       label: 'Add',
@@ -59,21 +56,11 @@ export function useRecipeDetailActions({
       onAction: onShare || (() => {}),
       position: 'right',
     },
-  ], [recipeId, navigate, onAddToList, onShare])
+  ], [recipeId, navigate, onSave, onAddToList, onShare])
 
   useDockActions(actions)
 }
 
-/**
- * Hook to register contextual dock actions for recipe edit pages.
- * 
- * On recipe edit (/recipes/:id/edit):
- * - Cancel: Navigate back to detail view
- * - Save: Submit form
- * 
- * @param recipeId - The recipe ID
- * @param handlers - Action handlers
- */
 export interface UseRecipeEditActionsOptions {
   recipeId: string
   onSave?: () => void

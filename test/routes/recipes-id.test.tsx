@@ -652,7 +652,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("4")).toBeInTheDocument();
       expect(screen.getByText("No steps added yet")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Add Steps" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
-      expect(screen.getByRole("link", { name: "← Back to recipes" })).toHaveAttribute("href", "/recipes");
+      expect(screen.queryByRole("link", { name: "← Back to recipes" })).not.toBeInTheDocument();
     });
 
     it("should render recipe with no steps (empty state) as non-owner", async () => {
@@ -752,7 +752,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("2")).toBeInTheDocument();
     });
 
-    it("should show owner controls (edit, delete)", async () => {
+    it("should not show edit/delete in header for owners (moved to dock/edit page)", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -776,8 +776,9 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      expect(await screen.findByRole("link", { name: "Edit" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
-      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+      await screen.findByRole("heading", { name: "My Recipe" });
+      expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     });
 
     it("should not render description when null", async () => {
@@ -1122,9 +1123,9 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("1")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "The Only Step" })).toBeInTheDocument();
 
-      // Owner controls should be present
-      expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
-      expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+      // Owner edit/delete buttons removed from header (available in dock/edit page)
+      expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
 
       // Step output uses section should NOT appear (single step has no dependencies)
       expect(screen.queryByTestId("step-output-uses-section")).not.toBeInTheDocument();
@@ -1218,7 +1219,7 @@ describe("Recipes $id Route", () => {
       expect(stepReferencePosition).toBeLessThan(descriptionPosition);
     });
 
-    it("should open delete dialog and allow confirmation", async () => {
+    it("should not show delete dialog (delete removed from recipe detail header)", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1237,73 +1238,18 @@ describe("Recipes $id Route", () => {
           path: "/recipes/:id",
           Component: RecipeDetail,
           loader: () => mockData,
-          action: () => null,
-        },
-        {
-          path: "/recipes",
-          Component: () => <div>Recipes List</div>,
         },
       ]);
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Click delete button
-      const deleteButton = await screen.findByRole("button", { name: "Delete" });
-      fireEvent.click(deleteButton);
-
-      // Dialog should be open
-      expect(await screen.findByText("Banish this recipe?")).toBeInTheDocument();
-      expect(screen.getByText(/will be sent to the shadow realm/)).toBeInTheDocument();
-
-      // Click confirm button
-      const confirmButton = screen.getByRole("button", { name: "Delete it" });
-      fireEvent.click(confirmButton);
-
-      // Dialog should close (may need to wait for animation)
-      await waitFor(() => {
-        expect(screen.queryByText("Banish this recipe?")).not.toBeInTheDocument();
-      });
+      await screen.findByRole("heading", { name: "Recipe to Delete" });
+      // Delete button and dialog are no longer in recipe detail (moved to edit page)
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Banish this recipe?")).not.toBeInTheDocument();
     });
 
-    it("should close delete dialog when clicking cancel", async () => {
-      const mockData = {
-        recipe: {
-          id: "recipe-1",
-          title: "Keep This Recipe",
-          description: null,
-          servings: null,
-          imageUrl: null,
-          chef: { id: "user-1", username: "testchef" },
-          steps: [],
-        },
-        isOwner: true,
-      };
-
-      const Stub = createTestRoutesStub([
-        {
-          path: "/recipes/:id",
-          Component: RecipeDetail,
-          loader: () => mockData,
-        },
-      ]);
-
-      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
-
-      // Click delete button
-      const deleteButton = await screen.findByRole("button", { name: "Delete" });
-      fireEvent.click(deleteButton);
-
-      // Click cancel
-      const cancelButton = screen.getByRole("button", { name: "Keep it" });
-      fireEvent.click(cancelButton);
-
-      // Dialog should close (may need to wait for animation)
-      await waitFor(() => {
-        expect(screen.queryByText("Banish this recipe?")).not.toBeInTheDocument();
-      });
-    });
-
-    it("should render Share button for owner", async () => {
+    it("should not render Share button in header (moved to SpoonDock)", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1329,11 +1275,13 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Share button should be visible
-      expect(await screen.findByRole("button", { name: "Share recipe" })).toBeInTheDocument();
+      // Share button should NOT be in header (moved to SpoonDock)
+      await screen.findByRole("heading", { name: "Owner Recipe" });
+      expect(screen.queryByRole("button", { name: "Share recipe" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /share/i })).not.toBeInTheDocument();
     });
 
-    it("should render Share button for non-owner", async () => {
+    it("should not render action buttons in header for non-owner (moved to SpoonDock)", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1359,15 +1307,15 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Share button should be visible for non-owner too
-      expect(await screen.findByRole("button", { name: "Share recipe" })).toBeInTheDocument();
-      // But Edit/Delete buttons should NOT be visible
+      // No action buttons should be in header (all moved to SpoonDock)
+      await screen.findByRole("heading", { name: "Someone Elses Recipe" });
+      expect(screen.queryByRole("button", { name: /share/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     });
 
-    it("should render Save to Cookbook dropdown", async () => {
-      const user = userEvent.setup();
+    it("should not render Save button in header (moved to SpoonDock)", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1396,146 +1344,10 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Save button should be visible
-      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
-      expect(saveButton).toBeInTheDocument();
-
-      // Click to open dropdown and wait for menu to appear
-      await user.click(saveButton);
-
-      // Should show cookbook options
-      expect(await screen.findByText("My Favorites")).toBeInTheDocument();
-      expect(screen.getByText("Quick Meals")).toBeInTheDocument();
-
-      // Close dropdown and wait for it to be removed to avoid act() warnings
-      await user.keyboard("{Escape}");
-      await waitFor(() => {
-        expect(screen.queryByText("My Favorites")).not.toBeInTheDocument();
-      });
-    });
-
-    it("should show checkmark on already saved cookbooks", async () => {
-      const user = userEvent.setup();
-      const mockData = {
-        recipe: {
-          id: "recipe-1",
-          title: "Already Saved Recipe",
-          description: null,
-          servings: null,
-          imageUrl: null,
-          chef: { id: "user-1", username: "testchef" },
-          steps: [],
-        },
-        isOwner: true,
-        cookbooks: [
-          { id: "cb-1", title: "My Favorites" },
-          { id: "cb-2", title: "Quick Meals" },
-        ],
-        savedInCookbookIds: ["cb-1"], // Already saved in My Favorites
-      };
-
-      const Stub = createTestRoutesStub([
-        {
-          path: "/recipes/:id",
-          Component: RecipeDetail,
-          loader: () => mockData,
-        },
-      ]);
-
-      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
-
-      // Click Save button to open dropdown
-      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
-      await user.click(saveButton);
-
-      // Wait for dropdown to render - My Favorites should show checkmark (already saved)
-      expect(await screen.findByText("My Favorites ✓")).toBeInTheDocument();
-      // Quick Meals should not have checkmark
-      expect(screen.getByText("Quick Meals")).toBeInTheDocument();
-      expect(screen.queryByText("Quick Meals ✓")).not.toBeInTheDocument();
-
-      // Close dropdown and wait for it to be removed to avoid act() warnings
-      await user.keyboard("{Escape}");
-      await waitFor(() => {
-        expect(screen.queryByText("My Favorites ✓")).not.toBeInTheDocument();
-      });
-    });
-
-    it("should show empty state when user has no cookbooks", async () => {
-      const user = userEvent.setup();
-      const mockData = {
-        recipe: {
-          id: "recipe-1",
-          title: "Recipe No Cookbooks",
-          description: null,
-          servings: null,
-          imageUrl: null,
-          chef: { id: "user-1", username: "testchef" },
-          steps: [],
-        },
-        isOwner: true,
-        cookbooks: [],
-        savedInCookbookIds: [],
-      };
-
-      const Stub = createTestRoutesStub([
-        {
-          path: "/recipes/:id",
-          Component: RecipeDetail,
-          loader: () => mockData,
-        },
-      ]);
-
-      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
-
-      // Click Save button to open dropdown
-      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
-      await user.click(saveButton);
-
-      // Should show empty state message
-      expect(await screen.findByText("No cookbooks yet")).toBeInTheDocument();
-      expect(screen.getByText("Create your first cookbook")).toBeInTheDocument();
-
-      // Close dropdown and wait for it to be removed to avoid act() warnings
-      await user.keyboard("{Escape}");
-      await waitFor(() => {
-        expect(screen.queryByText("No cookbooks yet")).not.toBeInTheDocument();
-      });
-    });
-
-    it("should call Share handler when Share button is clicked", async () => {
-      const mockData = {
-        recipe: {
-          id: "recipe-1",
-          title: "Shareable Recipe",
-          description: "A recipe to share",
-          servings: null,
-          imageUrl: null,
-          chef: { id: "user-1", username: "testchef" },
-          steps: [],
-        },
-        isOwner: true,
-        cookbooks: [],
-        savedInCookbookIds: [],
-      };
-
-      const Stub = createTestRoutesStub([
-        {
-          path: "/recipes/:id",
-          Component: RecipeDetail,
-          loader: () => mockData,
-        },
-      ]);
-
-      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
-
-      // Click Share button
-      const shareButton = await screen.findByRole("button", { name: "Share recipe" });
-      fireEvent.click(shareButton);
-
-      // The share handler uses browser share API which is tested via integration
-      // Here we just verify the button is clickable without errors
-      expect(shareButton).toBeInTheDocument();
+      // Save button should NOT be in header (moved to SpoonDock)
+      await screen.findByRole("heading", { name: "Recipe to Save" });
+      expect(screen.queryByRole("button", { name: "Save to cookbook" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
     });
 
     it("should toggle step output checkbox when clicked", async () => {
@@ -1746,8 +1558,7 @@ describe("Recipes $id Route", () => {
       expect(scaleDisplay).toHaveTextContent("1×");
     });
 
-    it("should save recipe to cookbook via dropdown (optimistic UI)", async () => {
-      const user = userEvent.setup();
+    it("should not render Save button in page (Save moved to SpoonDock)", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1766,47 +1577,21 @@ describe("Recipes $id Route", () => {
         savedInCookbookIds: [],
       };
 
-      let actionCalled = false;
       const Stub = createTestRoutesStub([
         {
           path: "/recipes/:id",
           Component: RecipeDetail,
           loader: () => mockData,
-          action: async () => {
-            actionCalled = true;
-            return { success: true };
-          },
         },
       ]);
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Click Save button to open dropdown
-      const saveButton = await screen.findByRole("button", { name: "Save to cookbook" });
-      await user.click(saveButton);
-
-      // Wait for dropdown to render
-      const cookbookOption = await screen.findByText("My Favorites");
-      expect(cookbookOption).toBeInTheDocument();
-
-      // Click on the cookbook option to save
-      await user.click(cookbookOption);
-
-      // Verify action was called (submit was invoked)
-      await waitFor(() => {
-        expect(actionCalled).toBe(true);
-      });
-
-      // Optimistic UI: cookbook should now show as saved
-      // Re-open the dropdown to verify
-      await user.click(saveButton);
-      expect(await screen.findByText("My Favorites ✓")).toBeInTheDocument();
-
-      // Close dropdown and wait for it to fully close to avoid act() warnings
-      await user.keyboard("{Escape}");
-      await waitFor(() => {
-        expect(screen.queryByText("Quick Meals")).not.toBeInTheDocument();
-      });
+      // Save button should NOT be in header/page (moved to SpoonDock)
+      // Note: Save functionality is tested in dock action tests
+      await screen.findByRole("heading", { name: "Recipe to Save to Cookbook" });
+      expect(screen.queryByRole("button", { name: "Save to cookbook" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
     });
   });
 
@@ -1987,6 +1772,65 @@ describe("Recipes $id Route", () => {
 
       // Falls through to return null since no cookbookId
       expect(result).toBeNull();
+    });
+
+    it("should remove recipe from cookbook successfully", async () => {
+      await db.recipeInCookbook.create({
+        data: {
+          cookbookId: testCookbookId,
+          recipeId,
+          addedById: testUserId,
+        },
+      });
+
+      const request = await createFormRequest(
+        { intent: "removeFromCookbook", cookbookId: testCookbookId },
+        testUserId
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual({ success: true });
+
+      const recipeInCookbook = await db.recipeInCookbook.findUnique({
+        where: {
+          cookbookId_recipeId: {
+            cookbookId: testCookbookId,
+            recipeId,
+          },
+        },
+      });
+      expect(recipeInCookbook).toBeNull();
+    });
+
+    it("should throw 403 when removing from someone else's cookbook", async () => {
+      const otherCookbook = await db.cookbook.create({
+        data: {
+          title: "Other User Cookbook Remove " + faker.string.alphanumeric(6),
+          authorId: otherUserId,
+        },
+      });
+
+      const request = await createFormRequest(
+        { intent: "removeFromCookbook", cookbookId: otherCookbook.id },
+        testUserId
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any)
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(403);
+        return true;
+      });
     });
   });
 });

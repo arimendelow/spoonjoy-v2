@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { BrowserRouter } from 'react-router'
 import { RecipeHeader } from '../../../app/components/recipe/RecipeHeader'
@@ -14,8 +13,6 @@ describe('RecipeHeader', () => {
     chefName: 'Test Chef',
     scaleFactor: 1,
     onScaleChange: vi.fn(),
-    isOwner: false,
-    recipeId: 'recipe-123',
   }
 
   describe('chef information', () => {
@@ -113,50 +110,13 @@ describe('RecipeHeader', () => {
     })
   })
 
-  describe('action buttons', () => {
-    it('does not render edit or delete buttons (removed from header)', () => {
-      renderWithRouter(<RecipeHeader {...defaultProps} isOwner={true} />)
-      expect(screen.queryByRole('link', { name: /edit/i })).toBeNull()
-      expect(screen.queryByRole('button', { name: /delete/i })).toBeNull()
-    })
-
-    it('does not render edit or delete buttons for non-owners', () => {
-      renderWithRouter(<RecipeHeader {...defaultProps} isOwner={false} />)
-      expect(screen.queryByRole('link', { name: /edit/i })).toBeNull()
-      expect(screen.queryByRole('button', { name: /delete/i })).toBeNull()
-    })
-  })
-
-  describe('share functionality', () => {
-    it('renders share button when onShare is provided', () => {
-      const onShare = vi.fn()
-      renderWithRouter(<RecipeHeader {...defaultProps} onShare={onShare} />)
-      expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument()
-    })
-
-    it('does not render share button when onShare is not provided', () => {
+  describe('no action buttons', () => {
+    it('does not render edit, delete, share, or save buttons', () => {
       renderWithRouter(<RecipeHeader {...defaultProps} />)
+      expect(screen.queryByRole('link', { name: /edit/i })).toBeNull()
+      expect(screen.queryByRole('button', { name: /delete/i })).toBeNull()
       expect(screen.queryByRole('button', { name: /share/i })).toBeNull()
-    })
-
-    it('calls onShare when share button is clicked', async () => {
-      const onShare = vi.fn()
-      renderWithRouter(<RecipeHeader {...defaultProps} onShare={onShare} />)
-      await userEvent.click(screen.getByRole('button', { name: /share/i }))
-      expect(onShare).toHaveBeenCalled()
-    })
-  })
-
-  describe('custom save button', () => {
-    it('renders custom save button when renderSaveButton is provided', () => {
-      const renderSaveButton = () => <button>Custom Save</button>
-      renderWithRouter(<RecipeHeader {...defaultProps} renderSaveButton={renderSaveButton} />)
-      expect(screen.getByText('Custom Save')).toBeInTheDocument()
-    })
-
-    it('does not render custom save button when renderSaveButton is not provided', () => {
-      renderWithRouter(<RecipeHeader {...defaultProps} />)
-      expect(screen.queryByText('Custom Save')).toBeNull()
+      expect(screen.queryByRole('button', { name: /save/i })).toBeNull()
     })
   })
 })
