@@ -86,7 +86,7 @@ export function MobileNav({ isAuthenticated = true }: MobileNavProps) {
               key={action.id}
               icon={action.icon}
               label={action.label}
-              href={isHref ? action.onAction : '#'}
+              href={isHref ? action.onAction : undefined}
               onClick={isHref ? undefined : (action.onAction as () => void)}
             />
           )
@@ -116,7 +116,7 @@ export function MobileNav({ isAuthenticated = true }: MobileNavProps) {
               key={action.id}
               icon={action.icon}
               label={action.label}
-              href={isHref ? action.onAction : '#'}
+              href={isHref ? action.onAction : undefined}
               onClick={isHref ? undefined : (action.onAction as () => void)}
             />
           )

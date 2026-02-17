@@ -812,6 +812,8 @@ describe("Shopping List Route", () => {
           quantity: 1,
           unitId: unit.id,
           ingredientRefId: ingredientRef.id,
+          checked: true,
+          checkedAt: new Date(),
         },
       });
 
@@ -862,6 +864,8 @@ describe("Shopping List Route", () => {
 
       expect(updatedList?.items).toHaveLength(1);
       expect(updatedList?.items[0].quantity).toBe(3); // 1 + 2
+      expect(updatedList?.items[0].checked).toBe(false);
+      expect(updatedList?.items[0].checkedAt).toBeNull();
     });
 
     it("should do nothing when recipeId is not provided", async () => {

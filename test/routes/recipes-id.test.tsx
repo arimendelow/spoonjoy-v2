@@ -732,6 +732,86 @@ describe("Recipes $id Route", () => {
       scrollToSpy.mockRestore();
     });
 
+    it("keeps save modal open after creating a cookbook and marks it saved", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Save Modal Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [{ id: "cb-1", title: "Weeknights" }],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+          action: () => ({ success: true, newCookbook: { id: "cb-2", title: "Fresh Saves" } }),
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Save Modal Recipe" });
+
+      openSaveModalFromDock();
+      await screen.findByRole("dialog", { name: "Save to Cookbook" });
+
+      await user.type(screen.getByLabelText("Create new cookbook"), "Fresh Saves");
+      await user.click(screen.getByRole("button", { name: "Create & Save" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog", { name: "Save to Cookbook" })).toBeInTheDocument();
+      });
+      expect(screen.getByTestId("cookbook-item-cb-2")).toBeInTheDocument();
+      expect(screen.getByTestId("cookbook-item-cb-2")).toHaveTextContent("✓");
+    });
+
+    it("shows add-to-list confirmation banner from dock action", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Dock Add Recipe",
+          description: null,
+          servings: null,
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+        {
+          path: "/shopping-list",
+          action: () => ({ success: true }),
+          Component: () => null,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Dock Add Recipe" });
+
+      const dockActionRegistration = vi.mocked(useRecipeDetailActions).mock.calls.at(-1)?.[0];
+      dockActionRegistration?.onAddToList?.();
+
+      expect(await screen.findByTestId("add-to-list-confirmation")).toBeInTheDocument();
+    });
+
     it("should render recipe with no steps (empty state) as owner", async () => {
       const mockData = {
         recipe: {

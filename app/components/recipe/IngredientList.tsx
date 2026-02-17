@@ -2,6 +2,7 @@ import { Checkbox, CheckboxField } from '../ui/checkbox'
 import { Label } from '../ui/fieldset'
 import { ScaledQuantity } from './ScaledQuantity'
 import type { StepReference } from './StepOutputUseCallout'
+import { INGREDIENT_ICON_COMPONENTS, type IngredientIconKey } from '~/lib/ingredient-affordances'
 
 export interface Ingredient {
   /** Unique identifier */
@@ -12,6 +13,10 @@ export interface Ingredient {
   unit: string
   /** Ingredient name */
   name: string
+  /** Optional shopping affordance category label */
+  categoryLabel?: string
+  /** Optional shopping affordance icon key */
+  iconKey?: IngredientIconKey
 }
 
 export interface IngredientListProps {
@@ -130,12 +135,7 @@ export function IngredientList({
                       : 'text-zinc-900 dark:text-white'
                   }`}
                 >
-                  <ScaledQuantity
-                    quantity={ingredient.quantity}
-                    unit={ingredient.unit}
-                    name={ingredient.name}
-                    scaleFactor={scaleFactor}
-                  />
+                  <IngredientLine ingredient={ingredient} scaleFactor={scaleFactor} />
                 </Label>
               </CheckboxField>
             </li>
@@ -144,16 +144,32 @@ export function IngredientList({
 
         return (
           <li key={ingredient.id} className="py-1">
-            <ScaledQuantity
-              quantity={ingredient.quantity}
-              unit={ingredient.unit}
-              name={ingredient.name}
-              scaleFactor={scaleFactor}
-            />
+            <IngredientLine ingredient={ingredient} scaleFactor={scaleFactor} />
           </li>
         )
       })}
     </ul>
+  )
+}
+
+function IngredientLine({ ingredient, scaleFactor }: { ingredient: Ingredient; scaleFactor: number }) {
+  const Icon = ingredient.iconKey ? INGREDIENT_ICON_COMPONENTS[ingredient.iconKey] : null
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <ScaledQuantity
+        quantity={ingredient.quantity}
+        unit={ingredient.unit}
+        name={ingredient.name}
+        scaleFactor={scaleFactor}
+      />
+      {(Icon || ingredient.categoryLabel) && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-200/80 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+          {Icon && <Icon className="h-3 w-3" aria-hidden="true" />}
+          {ingredient.categoryLabel && <span>{ingredient.categoryLabel}</span>}
+        </span>
+      )}
+    </span>
   )
 }
 

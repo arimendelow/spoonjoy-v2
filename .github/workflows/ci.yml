@@ -10,78 +10,107 @@ jobs:
   quality:
     name: 🍴 Quality Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: 📦 Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-      
+
       - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      
+
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: 🔧 Generate Prisma client
         run: pnpm prisma:generate
-      
-      - name: 🗃️ Setup test database
-        run: pnpm prisma db push
-        env:
-          DATABASE_URL: file:./test.db
-      
-      - name: 🌱 Seed test database
+
+      - name: 🗄️ Apply D1 migrations (local)
+        run: pnpm exec wrangler d1 migrations apply DB --local
+
+      - name: 🔎 CI preflight: seed backend + migration status
+        run: |
+          echo "Seed script backend: Cloudflare D1 via wrangler getPlatformProxy()"
+          echo "DATABASE_URL=${DATABASE_URL:-<unset>}"
+          echo "\nMigrations status (wrangler):"
+          pnpm exec wrangler d1 migrations list DB --local
+          echo "\nTables before seed:"
+          pnpm exec wrangler d1 execute DB --local --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+
+      - name: 🌱 Seed local D1 database
         run: pnpm db:seed
-        env:
-          DATABASE_URL: file:./test.db
-      
+
       - name: 🧪 Test & Coverage
         run: pnpm test:coverage
-        env:
-          DATABASE_URL: file:./test.db
-      
+
       - name: 🏗️ Build
         run: pnpm build
 
   e2e:
     name: 🎭 Playwright E2E Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: 📦 Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-      
+
       - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      
+
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: 🔧 Generate Prisma client
         run: pnpm prisma:generate
-      
+
       - name: 🎭 Install Playwright Browsers
         run: pnpm exec playwright install --with-deps chromium
-      
+
       - name: 🗄️ Apply D1 migrations
         run: pnpm exec wrangler d1 migrations apply DB --local
-      
+
+      - name: 🚦 Fast web server boot check
+        run: |
+          set -euo pipefail
+          rm -f /tmp/spoonjoy-dev.log
+          pnpm dev > /tmp/spoonjoy-dev.log 2>&1 &
+          DEV_PID=$!
+
+          cleanup() {
+            kill "$DEV_PID" 2>/dev/null || true
+            wait "$DEV_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5173 >/dev/null; then
+              echo "✅ dev server responded on attempt $i"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "❌ dev server failed to boot within 60s"
+          echo "--- /tmp/spoonjoy-dev.log (tail) ---"
+          tail -n 200 /tmp/spoonjoy-dev.log || true
+          exit 1
+
       - name: 🎭 Run Playwright tests
         run: pnpm test:e2e
-      
+
       - name: 📤 Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import {
   DockContextProvider,
@@ -63,13 +63,12 @@ describe('Recipe Dock Actions', () => {
       expect(capturedActions?.find(a => a.id === 'view-chef-profile')?.onAction).toBe('/users/chef-1')
     })
 
-    it('owner edit action and shared handlers execute', async () => {
+    it('owner edit action uses direct route and shared handlers execute', async () => {
       const onSave = vi.fn(); const onAddToList = vi.fn(); const onShare = vi.fn()
       render(<MemoryRouter><DockContextProvider><ContextDisplay /><RecipeDetailPage recipeId="123" chefId="chef-1" isOwner={true} onSave={onSave} onAddToList={onAddToList} onShare={onShare} /></DockContextProvider></MemoryRouter>)
 
       const edit = capturedActions?.find(a => a.id === 'edit')
-      expect(typeof edit?.onAction).toBe('function')
-      await act(async () => { if (typeof edit?.onAction === 'function') edit.onAction() })
+      expect(edit?.onAction).toBe('/recipes/123/edit')
 
       capturedActions?.find(a => a.id === 'save')?.onAction?.()
       capturedActions?.find(a => a.id === 'add-to-list')?.onAction?.()

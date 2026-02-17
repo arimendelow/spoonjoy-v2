@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router'
 import { Edit, ShoppingCart, Share, X, Save, Bookmark, User } from 'lucide-react'
 import { useDockActions, type DockAction } from './dock-context'
 
@@ -22,8 +21,6 @@ export function useRecipeDetailActions({
   onAddToList,
   onShare,
 }: UseRecipeDetailActionsOptions): void {
-  const navigate = useNavigate()
-
   const actions = useMemo<DockAction[]>(() => {
     const leftActions: DockAction[] = isOwner
       ? [
@@ -31,7 +28,7 @@ export function useRecipeDetailActions({
             id: 'edit',
             icon: Edit,
             label: 'Edit',
-            onAction: () => navigate(`/recipes/${recipeId}/edit`),
+            onAction: `/recipes/${recipeId}/edit`,
             position: 'left',
           },
           {
@@ -76,7 +73,7 @@ export function useRecipeDetailActions({
         position: 'right',
       },
     ]
-  }, [recipeId, chefId, isOwner, navigate, onSave, onAddToList, onShare])
+  }, [recipeId, chefId, isOwner, onSave, onAddToList, onShare])
 
   useDockActions(actions)
 }

@@ -23,26 +23,19 @@ describe("Catch-all Route ($)", () => {
       }
     });
 
-    it("should throw 404 for Chrome DevTools request", async () => {
+    it("should return 204 for Chrome DevTools well-known request", async () => {
       const request = new UndiciRequest(
         "http://localhost:3000/.well-known/appspecific/com.chrome.devtools.json"
       );
 
-      try {
-        await loader({
-          request,
-          context: { cloudflare: { env: null } },
-          params: { "*": ".well-known/appspecific/com.chrome.devtools.json" },
-        } as any);
-        expect.fail("Should have thrown a 404 response");
-      } catch (response: any) {
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(404);
-        const text = await response.text();
-        expect(text).toBe(
-          "Not Found: /.well-known/appspecific/com.chrome.devtools.json"
-        );
-      }
+      const response = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { "*": ".well-known/appspecific/com.chrome.devtools.json" },
+      } as any);
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(204);
     });
 
     it("should throw 404 for deeply nested unknown paths", async () => {

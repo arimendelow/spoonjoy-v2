@@ -425,10 +425,10 @@ describe('MobileNav', () => {
         </MemoryRouter>
       )
 
-      const shareLink = screen.getByText('Share').closest('a')
-      expect(shareLink).toBeInTheDocument()
+      const shareButton = screen.getByRole('button', { name: /share/i })
+      expect(shareButton).toBeInTheDocument()
 
-      await user.click(shareLink!)
+      await user.click(shareButton)
       expect(handleShare).toHaveBeenCalledTimes(1)
     })
 

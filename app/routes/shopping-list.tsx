@@ -1,5 +1,6 @@
 import type { Route } from "./+types/shopping-list";
 import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useLoaderData, Form, data, useSubmit, useFetcher } from "react-router";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
@@ -9,8 +10,8 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Field, Label } from "~/components/ui/fieldset";
 import { Select } from "~/components/ui/select";
-import { Link } from "~/components/ui/link";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
+import { INGREDIENT_ICON_COMPONENTS, resolveIngredientAffordance } from "~/lib/ingredient-affordances";
 
 type ShoppingListItemState = {
   id: string;
@@ -142,8 +143,8 @@ export async function action({ request, context }: Route.ActionArgs) {
     const quantity = formData.get("quantity")?.toString();
     const unitName = formData.get("unitName")?.toString() || "";
     const ingredientName = formData.get("ingredientName")?.toString() || "";
-    const categoryKey = formData.get("categoryKey")?.toString() || null;
-    const iconKey = formData.get("iconKey")?.toString() || null;
+    const submittedCategoryKey = formData.get("categoryKey")?.toString() || null;
+    const submittedIconKey = formData.get("iconKey")?.toString() || null;
 
     if (ingredientName) {
       // Get or create ingredient ref
@@ -156,6 +157,12 @@ export async function action({ request, context }: Route.ActionArgs) {
           data: { name: ingredientName.toLowerCase() },
         });
       }
+
+      const affordance = resolveIngredientAffordance(
+        ingredientName,
+        submittedCategoryKey,
+        submittedIconKey
+      );
 
       let unitId: string | null = null;
 
@@ -196,8 +203,8 @@ export async function action({ request, context }: Route.ActionArgs) {
           where: { id: existingItem.id },
           data: {
             quantity: newQuantity,
-            categoryKey,
-            iconKey,
+            categoryKey: affordance.categoryKey,
+            iconKey: affordance.iconKey,
             deletedAt: null,
           },
         });
@@ -210,8 +217,8 @@ export async function action({ request, context }: Route.ActionArgs) {
             quantity: quantity ? parseFloat(quantity) : null,
             unitId,
             ingredientRefId: ingredientRef.id,
-            categoryKey,
-            iconKey,
+            categoryKey: affordance.categoryKey,
+            iconKey: affordance.iconKey,
             sortIndex,
           },
         });
@@ -255,6 +262,12 @@ export async function action({ request, context }: Route.ActionArgs) {
               },
             });
 
+            const affordance = resolveIngredientAffordance(
+              ingredient.ingredientRef.name,
+              null,
+              null
+            );
+
             if (existingItem) {
               /* istanbul ignore next -- @preserve ternary branches for quantity addition */
               const newQuantity = ingredient.quantity
@@ -265,7 +278,11 @@ export async function action({ request, context }: Route.ActionArgs) {
                 where: { id: existingItem.id },
                 data: {
                   quantity: newQuantity,
+                  checked: false,
+                  checkedAt: null,
                   deletedAt: null,
+                  categoryKey: existingItem.categoryKey ?? affordance.categoryKey,
+                  iconKey: existingItem.iconKey ?? affordance.iconKey,
                 },
               });
             } else {
@@ -278,6 +295,8 @@ export async function action({ request, context }: Route.ActionArgs) {
                   unitId: ingredient.unitId,
                   ingredientRefId: ingredient.ingredientRefId,
                   sortIndex,
+                  categoryKey: affordance.categoryKey,
+                  iconKey: affordance.iconKey,
                 },
               });
             }
@@ -363,10 +382,17 @@ export default function ShoppingList() {
     const withOptimistic = shoppingList.items.map((item) => {
       const optimisticChecked = optimisticCheckedById[item.id];
       const checked = optimisticChecked ?? Boolean(item.checkedAt ?? item.checked);
+      const affordance = resolveIngredientAffordance(
+        item.ingredientRef.name,
+        item.categoryKey,
+        item.iconKey
+      );
 
       return {
         ...item,
         checked,
+        categoryLabel: affordance.categoryLabel,
+        iconKey: affordance.iconKey,
       };
     });
 
@@ -518,50 +544,82 @@ export default function ShoppingList() {
       ) : (
         /* Item List */
         <div className="space-y-2">
-          {displayItems.map((item) => (
-            <div
-              key={item.id}
-              className={`
-                rounded-lg border border-zinc-200 dark:border-zinc-700 p-4
-                flex items-center justify-between gap-4
-                bg-white dark:bg-zinc-800
-                ${item.checked ? "opacity-60" : ""}
-              `}
-            >
-              <button
-                type="button"
-                onClick={() => toggleItem(item)}
-                className="flex items-center gap-4 flex-1 text-left"
-                aria-label={item.checked ? "Uncheck item" : "Check item"}
-              >
-                <span
+          <AnimatePresence initial={false}>
+            {displayItems.map((item, index) => {
+              const affordance = resolveIngredientAffordance(
+                item.ingredientRef.name,
+                item.categoryKey,
+                item.iconKey
+              );
+              const Icon = INGREDIENT_ICON_COMPONENTS[affordance.iconKey];
+              const prev = index > 0 ? resolveIngredientAffordance(
+                displayItems[index - 1].ingredientRef.name,
+                displayItems[index - 1].categoryKey,
+                displayItems[index - 1].iconKey
+              ) : null;
+              const showCategoryHeader = !prev || prev.categoryLabel !== affordance.categoryLabel;
+
+              return (
+                <div key={item.id} className="space-y-1">
+                  {showCategoryHeader && (
+                    <div className="px-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400" data-testid="shopping-list-category">
+                      {affordance.categoryLabel}
+                    </div>
+                  )}
+                  <motion.div
+                  layout
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
                   className={`
-                    w-6 h-6 rounded border-2 flex items-center justify-center
-                    transition-colors cursor-pointer text-sm font-bold
-                    ${item.checked
-                      ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500"
-                      : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
+                    rounded-lg border border-zinc-200 dark:border-zinc-700 p-4
+                    flex items-center justify-between gap-4
+                    bg-white dark:bg-zinc-800
+                    ${item.checked ? "opacity-60" : ""}
                   `}
                 >
-                  {item.checked && "✓"}
-                </span>
-                <span className={`text-lg ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
-                  {item.quantity && <strong>{item.quantity}</strong>}
-                  {item.quantity && item.unit && " "}
-                  {item.unit?.name && <span>{item.unit.name}</span>}
-                  {(item.quantity || item.unit) && " "}
-                  {item.ingredientRef.name}
-                </span>
-              </button>
-              <Form method="post" className="m-0" onClick={(e) => e.stopPropagation()}>
-                <input type="hidden" name="intent" value="removeItem" />
-                <input type="hidden" name="itemId" value={item.id} />
-                <Button type="submit" color="red" className="text-sm">
-                  Remove
-                </Button>
-              </Form>
-            </div>
-          ))}
+                  <button
+                    type="button"
+                    onClick={() => toggleItem(item)}
+                    className="flex items-center gap-4 flex-1 text-left"
+                    aria-label={item.checked ? "Uncheck item" : "Check item"}
+                  >
+                    <span
+                      className={`
+                        w-6 h-6 rounded border-2 flex items-center justify-center
+                        transition-colors cursor-pointer text-sm font-bold
+                        ${item.checked
+                          ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500"
+                          : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
+                      `}
+                    >
+                      {item.checked && "✓"}
+                    </span>
+                    <span className={`text-lg ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
+                      {item.quantity && <strong>{item.quantity}</strong>}
+                      {item.quantity && item.unit && " "}
+                      {item.unit?.name && <span>{item.unit.name}</span>}
+                      {(item.quantity || item.unit) && " "}
+                      {item.ingredientRef.name}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+                      <Icon className="h-3 w-3" aria-hidden="true" />
+                      <span>{affordance.categoryLabel}</span>
+                    </span>
+                  </button>
+                  <Form method="post" className="m-0" onClick={(e) => e.stopPropagation()}>
+                    <input type="hidden" name="intent" value="removeItem" />
+                    <input type="hidden" name="itemId" value={item.id} />
+                    <Button type="submit" color="red" className="text-sm">
+                      Remove
+                    </Button>
+                  </Form>
+                </motion.div>
+                </div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>

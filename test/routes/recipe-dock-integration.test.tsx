@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
-import { MemoryRouter, useNavigate } from 'react-router'
+import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { DockContextProvider, useDockContext, useRecipeDetailActions, useRecipeEditActions, type DockAction } from '~/components/navigation'
-
-vi.mock('react-router', async () => {
-  const actual = await vi.importActual('react-router')
-  return { ...actual, useNavigate: vi.fn() }
-})
 
 let capturedActions: DockAction[] | null = null
 function ContextDisplay() {
@@ -16,11 +11,8 @@ function ContextDisplay() {
 }
 
 describe('Recipe Page Dock Integration', () => {
-  const mockNavigate = vi.fn()
   beforeEach(() => {
     capturedActions = null
-    mockNavigate.mockClear()
-    vi.mocked(useNavigate).mockReturnValue(mockNavigate)
   })
 
   it('detail actions for owner: edit/add-to-list/save/share', async () => {
@@ -33,8 +25,7 @@ describe('Recipe Page Dock Integration', () => {
 
     expect(screen.getByTestId('action-ids')).toHaveTextContent('edit,add-to-list,save,share')
 
-    await act(async () => { (capturedActions?.find(a => a.id === 'edit')?.onAction as () => void)() })
-    expect(mockNavigate).toHaveBeenCalledWith('/recipes/recipe-1/edit')
+    expect(capturedActions?.find(a => a.id === 'edit')?.onAction).toBe('/recipes/recipe-1/edit')
 
     capturedActions?.find(a => a.id === 'save')?.onAction?.()
     capturedActions?.find(a => a.id === 'add-to-list')?.onAction?.()

@@ -420,6 +420,8 @@ describe("Shopping List Routes", () => {
               checked: false,
               unit: { name: "lbs" },
               ingredientRef: { name: "chicken" },
+              categoryKey: "protein",
+              iconKey: "beef",
             },
             {
               id: "item-2",
@@ -427,6 +429,8 @@ describe("Shopping List Routes", () => {
               checked: false,
               unit: null,
               ingredientRef: { name: "salt" },
+              categoryKey: "spices",
+              iconKey: "pot",
             },
           ],
         },
@@ -448,6 +452,8 @@ describe("Shopping List Routes", () => {
       expect(screen.getByText("lbs")).toBeInTheDocument();
       expect(screen.getByText("chicken")).toBeInTheDocument();
       expect(screen.getByText("salt")).toBeInTheDocument();
+      expect(screen.getAllByText("Protein").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Spices").length).toBeGreaterThan(0);
     });
 
     it("should show singular item count", async () => {

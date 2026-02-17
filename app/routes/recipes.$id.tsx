@@ -2,7 +2,7 @@ import type { Route } from "./+types/recipes.$id";
 import { redirect, useFetcher, useLoaderData, useSubmit } from "react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePostHog } from "@posthog/react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
@@ -16,6 +16,7 @@ import { StepCard } from "~/components/recipe/StepCard";
 import type { Ingredient } from "~/components/recipe/IngredientList";
 import type { StepReference } from "~/components/recipe/StepOutputUseCallout";
 import { shareContent, useRecipeDetailActions } from "~/components/navigation";
+import { resolveIngredientAffordance } from "~/lib/ingredient-affordances";
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const userId = await requireUserId(request);
@@ -351,28 +352,8 @@ export default function RecipeDetail() {
   // State for Save modal (bottom sheet)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [newCookbookTitle, setNewCookbookTitle] = useState("");
+  const [showAddToListConfirmation, setShowAddToListConfirmation] = useState(false);
   const saveModalTitleRef = useRef<HTMLHeadingElement>(null);
-  const saveModalScrollYRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!isSaveModalOpen || typeof window === "undefined") {
-      saveModalScrollYRef.current = null;
-      return;
-    }
-
-    saveModalScrollYRef.current = window.scrollY;
-
-    const rafId = window.requestAnimationFrame(() => {
-      if (
-        saveModalScrollYRef.current !== null &&
-        window.scrollY !== saveModalScrollYRef.current
-      ) {
-        window.scrollTo({ top: saveModalScrollYRef.current, behavior: "auto" });
-      }
-    });
-
-    return () => window.cancelAnimationFrame(rafId);
-  }, [isSaveModalOpen]);
 
   const handleAddToList = useCallback(() => {
     addToListFetcher.submit(
@@ -388,6 +369,23 @@ export default function RecipeDetail() {
       });
     }
   }, [addToListFetcher, recipe.id, posthog]);
+
+  useEffect(() => {
+    const wasSuccessful =
+      addToListFetcher.state === "idle" &&
+      Boolean(addToListFetcher.data) &&
+      typeof addToListFetcher.data === "object" &&
+      "success" in addToListFetcher.data &&
+      addToListFetcher.data.success === true;
+
+    if (!wasSuccessful) {
+      return;
+    }
+
+    setShowAddToListConfirmation(true);
+    const timeoutId = window.setTimeout(() => setShowAddToListConfirmation(false), 2500);
+    return () => window.clearTimeout(timeoutId);
+  }, [addToListFetcher.state, addToListFetcher.data]);
 
   // Register dock actions for this recipe detail page
   useRecipeDetailActions({
@@ -420,7 +418,6 @@ export default function RecipeDetail() {
       setAvailableCookbooks(nextState.cookbooks);
       setSavedCookbookIds(nextState.savedCookbookIds);
       setNewCookbookTitle("");
-      setIsSaveModalOpen(false);
       lastHandledCreatedCookbookId.current = createCookbookFetcher.data.newCookbook.id;
     }
   }, [createCookbookFetcher.data, availableCookbooks, savedCookbookIds]);
@@ -487,12 +484,17 @@ export default function RecipeDetail() {
       ingredientRef: { name: string };
     }>
   ): Ingredient[] => {
-    return ingredients.map((ing) => ({
-      id: ing.id,
-      quantity: ing.quantity,
-      unit: ing.unit.name,
-      name: ing.ingredientRef.name,
-    }));
+    return ingredients.map((ing) => {
+      const affordance = resolveIngredientAffordance(ing.ingredientRef.name, null, null);
+      return {
+        id: ing.id,
+        quantity: ing.quantity,
+        unit: ing.unit.name,
+        name: ing.ingredientRef.name,
+        categoryLabel: affordance.categoryLabel,
+        iconKey: affordance.iconKey,
+      };
+    });
   };
 
   const transformStepOutputUses = (
@@ -530,6 +532,20 @@ export default function RecipeDetail() {
         scaleFactor={scaleFactor}
         onScaleChange={handleScaleChange}
       />
+
+      {showAddToListConfirmation && (
+        <div
+          className="fixed top-4 left-1/2 z-[70] w-[min(90vw,28rem)] -translate-x-1/2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900 shadow-md dark:border-green-800 dark:bg-green-950/80 dark:text-green-100"
+          role="status"
+          aria-live="polite"
+          data-testid="add-to-list-confirmation"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            Added ingredients to your shopping list.
+          </div>
+        </div>
+      )}
 
       {/* Save to Cookbook Modal (Bottom Sheet) */}
       <Dialog
