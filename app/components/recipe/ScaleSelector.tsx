@@ -4,6 +4,8 @@ import { Button } from '../ui/button'
 export interface ScaleSelectorProps {
   /** Current scale factor */
   value: number
+  /** Optional custom display text instead of the formatted scale factor */
+  displayValue?: string
   /** Callback when scale changes */
   onChange: (value: number) => void
   /** Minimum scale factor (default: 0.25) */
@@ -25,6 +27,7 @@ export interface ScaleSelectorProps {
  */
 export function ScaleSelector({
   value,
+  displayValue,
   onChange,
   min = 0.25,
   max = 50,
@@ -62,7 +65,7 @@ export function ScaleSelector({
   }
 
   return (
-    <div className="inline-flex items-center gap-1">
+    <div className="inline-flex items-center gap-0.5">
       {/* Minus button */}
       <Button
         type="button"
@@ -71,17 +74,17 @@ export function ScaleSelector({
         onClick={handleDecrement}
         aria-label="Decrease scale"
         data-testid="scale-minus"
-        className="!p-2.5 !min-w-[44px] !min-h-[44px] flex items-center justify-center"
+        className="!p-1.5 !min-w-7 !min-h-7 flex items-center justify-center"
       >
-        <Minus className="h-5 w-5" aria-hidden="true" />
+        <Minus className="h-4 w-4" aria-hidden="true" />
       </Button>
 
       {/* Scale display */}
       <span
         data-testid="scale-display"
-        className="min-w-[4rem] text-center text-lg font-semibold tabular-nums text-zinc-900 dark:text-white"
+        className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums text-zinc-900 dark:text-white"
       >
-        {formatDisplayValue(value)}
+        {displayValue ?? formatDisplayValue(value)}
       </span>
 
       {/* Plus button */}
@@ -92,9 +95,9 @@ export function ScaleSelector({
         onClick={handleIncrement}
         aria-label="Increase scale"
         data-testid="scale-plus"
-        className="!p-2.5 !min-w-[44px] !min-h-[44px] flex items-center justify-center"
+        className="!p-1.5 !min-w-7 !min-h-7 flex items-center justify-center"
       >
-        <Plus className="h-5 w-5" aria-hidden="true" />
+        <Plus className="h-4 w-4" aria-hidden="true" />
       </Button>
     </div>
   )

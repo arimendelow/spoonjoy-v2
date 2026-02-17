@@ -1741,6 +1741,7 @@ describe("Recipes $id Route", () => {
 
       // Wait for recipe to render
       await screen.findByRole("heading", { name: "Scalable Recipe" });
+      expect(screen.getByText("Servings:")).toBeInTheDocument();
 
       // Initial scale should be 1x
       const scaleDisplay = screen.getByTestId("scale-display");
@@ -1759,6 +1760,77 @@ describe("Recipes $id Route", () => {
 
       // Scale should be back to 1x
       expect(scaleDisplay).toHaveTextContent("1×");
+    });
+
+    it("should clear ingredient and step-output progress when clicking Clear progress", async () => {
+      const user = userEvent.setup();
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Progress Recipe",
+          description: null,
+          servings: "4",
+          imageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Prep",
+              description: "First step",
+              ingredients: [
+                {
+                  id: "ing-1",
+                  quantity: 1,
+                  unit: { name: "cup" },
+                  ingredientRef: { name: "flour" },
+                },
+              ],
+              usingSteps: [],
+            },
+            {
+              id: "step-2",
+              stepNum: 2,
+              stepTitle: "Combine",
+              description: "Use output",
+              ingredients: [],
+              usingSteps: [
+                {
+                  id: "use-1",
+                  outputStepNum: 1,
+                  outputOfStep: { stepNum: 1, stepTitle: "Prep" },
+                },
+              ],
+            },
+          ],
+        },
+        isOwner: false,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Progress Recipe" });
+
+      const checkboxes = screen.getAllByRole("checkbox");
+      expect(checkboxes.length).toBeGreaterThanOrEqual(2);
+
+      await user.click(checkboxes[0]);
+      await user.click(checkboxes[1]);
+      expect(checkboxes[0]).toBeChecked();
+      expect(checkboxes[1]).toBeChecked();
+
+      await user.click(screen.getByRole("button", { name: "Clear progress" }));
+      expect(checkboxes[0]).not.toBeChecked();
+      expect(checkboxes[1]).not.toBeChecked();
     });
 
     it("should not render Save button in page (Save moved to SpoonDock)", async () => {

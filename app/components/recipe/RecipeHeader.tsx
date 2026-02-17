@@ -1,6 +1,6 @@
 import { ImageOff } from 'lucide-react'
 import { Heading } from '../ui/heading'
-import { Text, Strong } from '../ui/text'
+import { Text } from '../ui/text'
 import { Link } from '../ui/link'
 import { Avatar } from '../ui/avatar'
 import { ScaleSelector } from './ScaleSelector'
@@ -25,6 +25,8 @@ export interface RecipeHeaderProps {
   scaleFactor: number
   /** Callback when scale factor changes */
   onScaleChange: (value: number) => void
+  /** Reset checked ingredients/steps progress */
+  onClearProgress?: () => void
 }
 
 /**
@@ -46,6 +48,7 @@ export function RecipeHeader({
   servings,
   scaleFactor,
   onScaleChange,
+  onClearProgress,
 }: RecipeHeaderProps) {
   // Scale the servings text based on the scale factor
   const scaledServings = servings ? scaleServingsText(servings, scaleFactor) : undefined
@@ -115,25 +118,24 @@ export function RecipeHeader({
         )}
 
         {/* Scaling Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
-          {/* Scale Selector */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Scale:</span>
-            <ScaleSelector value={scaleFactor} onChange={onScaleChange} />
+        <div className="flex items-center justify-between gap-3 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Servings:</span>
+            <ScaleSelector
+              value={scaleFactor}
+              onChange={onScaleChange}
+              displayValue={scaledServings}
+            />
           </div>
-
-          {/* Scaled Servings */}
-          {scaledServings && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                {scaleFactor !== 1 && (
-                  <span className="text-xs text-zinc-400 dark:text-zinc-500 mr-1">
-                    (originally: {servings})
-                  </span>
-                )}
-              </span>
-              <Strong className="text-lg">{scaledServings}</Strong>
-            </div>
+          {onClearProgress && (
+            <button
+              type="button"
+              onClick={onClearProgress}
+              className="text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+              data-testid="clear-progress-button"
+            >
+              Clear progress
+            </button>
           )}
         </div>
       </div>
