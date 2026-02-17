@@ -3,9 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { SpoonDock } from '~/components/navigation/spoon-dock'
 import { DockItem } from '~/components/navigation/dock-item'
-import { DockIndicator } from '~/components/navigation/dock-indicator'
 import { DockCenter } from '~/components/navigation/dock-center'
-import { BookOpen, Book, ShoppingCart, User } from 'lucide-react'
+import { Plus, ShoppingCart } from 'lucide-react'
 
 // Mock useLocation for route-aware testing
 vi.mock('react-router', async () => {
@@ -18,74 +17,57 @@ vi.mock('react-router', async () => {
 
 const mockedUseLocation = vi.mocked(useLocation)
 
-// Navigation items configuration
+// v3 3-slot navigation items
 const navItems = [
-  { icon: BookOpen, label: 'Recipes', href: '/recipes' },
-  { icon: Book, label: 'Cookbooks', href: '/cookbooks' },
-  // Center item (DockCenter) goes here
-  { icon: ShoppingCart, label: 'List', href: '/shopping-list' },
-  { icon: User, label: 'Profile', href: '/account/settings' },
-]
+  { icon: Plus, label: 'New', href: '/recipes/new', position: 'left' },
+  // Center is the logo
+  { icon: ShoppingCart, label: 'List', href: '/shopping-list', position: 'right' },
+] as const
 
 /**
- * Assembled SpoonDock component for testing
- * This simulates what would be rendered in the root layout
+ * Assembled SpoonDock v3 for testing — 3-slot layout
  */
 function AssembledSpoonDock({ currentPath = '/' }: { currentPath?: string }) {
-  // Determine active index based on current path
-  const getActiveIndex = (path: string) => {
-    // Home is center (not in the index)
-    if (path === '/') return -1
-    
-    const leftItems = navItems.slice(0, 2) // Recipes, Cookbooks
-    const rightItems = navItems.slice(2) // List, Profile
-    
-    for (let i = 0; i < leftItems.length; i++) {
-      if (path.startsWith(leftItems[i].href)) return i
+  const getActiveHref = (path: string): string | null => {
+    for (const item of navItems) {
+      if (path.startsWith(item.href)) return item.href
     }
-    
-    for (let i = 0; i < rightItems.length; i++) {
-      if (path.startsWith(rightItems[i].href)) return i + 3 // +3 to account for center
-    }
-    
-    return -1
+    return null
   }
 
-  const activeIndex = getActiveIndex(currentPath)
-  const leftItems = navItems.slice(0, 2)
-  const rightItems = navItems.slice(2)
+  const activeHref = getActiveHref(currentPath)
+  const leftItem = navItems.find(i => i.position === 'left')!
+  const rightItem = navItems.find(i => i.position === 'right')!
 
   return (
     <SpoonDock>
-      {/* Left items */}
-      {leftItems.map((item, index) => (
+      {/* Left slot */}
+      <div className="flex items-center justify-center">
         <DockItem
-          key={item.href}
-          icon={item.icon}
-          label={item.label}
-          href={item.href}
-          active={activeIndex === index}
+          icon={leftItem.icon}
+          label={leftItem.label}
+          href={leftItem.href}
+          active={activeHref === leftItem.href}
         />
-      ))}
-      
+      </div>
+
       {/* Center logo */}
       <DockCenter href="/" />
-      
-      {/* Right items */}
-      {rightItems.map((item, index) => (
+
+      {/* Right slot */}
+      <div className="flex items-center justify-center">
         <DockItem
-          key={item.href}
-          icon={item.icon}
-          label={item.label}
-          href={item.href}
-          active={activeIndex === index + 3}
+          icon={rightItem.icon}
+          label={rightItem.label}
+          href={rightItem.href}
+          active={activeHref === rightItem.href}
         />
-      ))}
+      </div>
     </SpoonDock>
   )
 }
 
-describe('SpoonDock Layout Integration', () => {
+describe('SpoonDock v3 Layout Integration', () => {
   beforeEach(() => {
     mockedUseLocation.mockReturnValue({ pathname: '/', search: '', hash: '', state: null, key: 'default' })
   })
@@ -94,25 +76,30 @@ describe('SpoonDock Layout Integration', () => {
     vi.restoreAllMocks()
   })
 
-  describe('dock rendering in layout', () => {
-    it('renders SpoonDock with all items', () => {
+  describe('3-slot dock rendering', () => {
+    it('renders SpoonDock with 3 slots: New, Logo, List', () => {
       render(
         <MemoryRouter>
           <AssembledSpoonDock />
         </MemoryRouter>
       )
 
-      // Should render navigation
       expect(screen.getByRole('navigation')).toBeInTheDocument()
-
-      // Should render all nav items
-      expect(screen.getByText('Recipes')).toBeInTheDocument()
-      expect(screen.getByText('Cookbooks')).toBeInTheDocument()
-      expect(screen.getByText('List')).toBeInTheDocument()
-      expect(screen.getByText('Profile')).toBeInTheDocument()
-
-      // Should render center logo
+      expect(screen.getByText('New')).toBeInTheDocument()
       expect(screen.getByTestId('dock-center')).toBeInTheDocument()
+      expect(screen.getByText('List')).toBeInTheDocument()
+    })
+
+    it('does NOT render old 5-slot items', () => {
+      render(
+        <MemoryRouter>
+          <AssembledSpoonDock />
+        </MemoryRouter>
+      )
+
+      expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
+      expect(screen.queryByText('Cookbooks')).not.toBeInTheDocument()
+      expect(screen.queryByText('Profile')).not.toBeInTheDocument()
     })
 
     it('renders DockCenter with home link', () => {
@@ -122,45 +109,32 @@ describe('SpoonDock Layout Integration', () => {
         </MemoryRouter>
       )
 
-      const homeLink = screen.getByRole('link', { name: /home|spoonjoy|logo/i })
+      const homeLink = screen.getByRole('link', { name: /kitchen/i })
       expect(homeLink).toHaveAttribute('href', '/')
     })
 
-    it('renders nav items as links', () => {
+    it('renders nav items as links with correct hrefs', () => {
       render(
         <MemoryRouter>
           <AssembledSpoonDock />
         </MemoryRouter>
       )
 
-      expect(screen.getByRole('link', { name: /recipes/i })).toHaveAttribute('href', '/recipes')
-      expect(screen.getByRole('link', { name: /cookbooks/i })).toHaveAttribute('href', '/cookbooks')
+      expect(screen.getByRole('link', { name: /new/i })).toHaveAttribute('href', '/recipes/new')
       expect(screen.getByRole('link', { name: /list/i })).toHaveAttribute('href', '/shopping-list')
-      expect(screen.getByRole('link', { name: /profile/i })).toHaveAttribute('href', '/account/settings')
     })
   })
 
   describe('route-aware active state', () => {
-    it('marks Recipes as active on /recipes', () => {
+    it('marks New as active on /recipes/new', () => {
       render(
-        <MemoryRouter initialEntries={['/recipes']}>
-          <AssembledSpoonDock currentPath="/recipes" />
+        <MemoryRouter initialEntries={['/recipes/new']}>
+          <AssembledSpoonDock currentPath="/recipes/new" />
         </MemoryRouter>
       )
 
-      const recipesItem = screen.getByRole('link', { name: /recipes/i })
-      expect(recipesItem.className).toContain('dock-item-active')
-    })
-
-    it('marks Cookbooks as active on /cookbooks', () => {
-      render(
-        <MemoryRouter initialEntries={['/cookbooks']}>
-          <AssembledSpoonDock currentPath="/cookbooks" />
-        </MemoryRouter>
-      )
-
-      const cookbooksItem = screen.getByRole('link', { name: /cookbooks/i })
-      expect(cookbooksItem.className).toContain('dock-item-active')
+      const newItem = screen.getByRole('link', { name: /new/i })
+      expect(newItem.className).toContain('dock-item-active')
     })
 
     it('marks List as active on /shopping-list', () => {
@@ -174,17 +148,6 @@ describe('SpoonDock Layout Integration', () => {
       expect(listItem.className).toContain('dock-item-active')
     })
 
-    it('marks Profile as active on /account/settings', () => {
-      render(
-        <MemoryRouter initialEntries={['/account/settings']}>
-          <AssembledSpoonDock currentPath="/account/settings" />
-        </MemoryRouter>
-      )
-
-      const profileItem = screen.getByRole('link', { name: /profile/i })
-      expect(profileItem.className).toContain('dock-item-active')
-    })
-
     it('no item is active on home (/)', () => {
       render(
         <MemoryRouter initialEntries={['/']}>
@@ -192,22 +155,23 @@ describe('SpoonDock Layout Integration', () => {
         </MemoryRouter>
       )
 
-      // No dock-item-active class on any nav item
       const links = screen.getAllByRole('link')
       const activeLinks = links.filter(link => link.className.includes('dock-item-active'))
-      // Only the home link (center) might have special styling, but regular items should not
-      expect(activeLinks.filter(l => !l.getAttribute('aria-label')?.includes('home'))).toHaveLength(0)
+      expect(activeLinks).toHaveLength(0)
     })
+  })
 
-    it('handles nested routes (e.g., /recipes/123)', () => {
+  describe('fixed-width grid layout', () => {
+    it('dock uses 3-column grid with fixed side columns', () => {
       render(
-        <MemoryRouter initialEntries={['/recipes/123']}>
-          <AssembledSpoonDock currentPath="/recipes/123" />
+        <MemoryRouter>
+          <AssembledSpoonDock />
         </MemoryRouter>
       )
 
-      const recipesItem = screen.getByRole('link', { name: /recipes/i })
-      expect(recipesItem.className).toContain('dock-item-active')
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveClass('grid')
+      expect(nav).toHaveClass('grid-cols-[72px_1fr_72px]')
     })
   })
 

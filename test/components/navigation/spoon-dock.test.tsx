@@ -2,20 +2,6 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { SpoonDock } from '~/components/navigation/spoon-dock'
 
-// Mock matchMedia for prefers-reduced-motion tests
-const mockMatchMedia = (matches: boolean) => {
-  window.matchMedia = vi.fn().mockImplementation((query) => ({
-    matches: query === '(prefers-reduced-motion: reduce)' ? matches : false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  }))
-}
-
 describe('SpoonDock', () => {
   describe('rendering', () => {
     it('renders as a navigation element', () => {
@@ -26,7 +12,13 @@ describe('SpoonDock', () => {
     it('has aria-label for accessibility', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      expect(nav).toHaveAttribute('aria-label')
+      expect(nav).toHaveAttribute('aria-label', 'Main navigation')
+    })
+
+    it('supports custom aria-label', () => {
+      render(<SpoonDock aria-label="Custom nav" />)
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveAttribute('aria-label', 'Custom nav')
     })
 
     it('renders children', () => {
@@ -46,24 +38,34 @@ describe('SpoonDock', () => {
   })
 
   describe('positioning', () => {
-    it('has fixed positioning', () => {
+    it('has fixed positioning at bottom', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
       expect(nav).toHaveClass('fixed')
-    })
-
-    it('is positioned at the bottom of the viewport', () => {
-      render(<SpoonDock />)
-      const nav = screen.getByRole('navigation')
       expect(nav).toHaveClass('bottom-0')
     })
 
-    it('is horizontally centered with side insets for breathing room', () => {
+    it('is horizontally centered with safe area insets', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
       expect(nav).toHaveClass('left-[max(1rem,env(safe-area-inset-left))]')
       expect(nav).toHaveClass('right-[max(1rem,env(safe-area-inset-right))]')
       expect(nav).toHaveClass('mx-auto')
+    })
+  })
+
+  describe('3-column grid layout', () => {
+    it('uses grid layout with fixed-width side columns', () => {
+      render(<SpoonDock />)
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveClass('grid')
+      expect(nav).toHaveClass('grid-cols-[72px_1fr_72px]')
+    })
+
+    it('centers items vertically', () => {
+      render(<SpoonDock />)
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveClass('items-center')
     })
   })
 
@@ -77,7 +79,6 @@ describe('SpoonDock', () => {
     it('has semi-transparent background', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      // Should have bg-black/60 or similar opacity
       expect(nav.className).toMatch(/bg-.*\/\d+/)
     })
 
@@ -89,23 +90,10 @@ describe('SpoonDock', () => {
   })
 
   describe('safe area handling', () => {
-    it('has safe-area-inset-bottom handling in styles', () => {
-      const { container } = render(<SpoonDock />)
-      const nav = container.querySelector('nav')
-      
-      // Check for CSS that includes env(safe-area-inset-bottom)
-      // This can be checked via computed styles or inline styles
-      const styles = nav?.getAttribute('style') || ''
-      const className = nav?.className || ''
-      
-      // Should either have inline style with env() or a class that sets margin/padding bottom
-      // Using pb-safe or mb-safe pattern, or inline style
-      const hasSafeAreaHandling = 
-        styles.includes('safe-area-inset-bottom') ||
-        className.includes('pb-[') ||
-        className.includes('mb-[')
-      
-      expect(hasSafeAreaHandling).toBe(true)
+    it('has safe-area-inset-bottom margin', () => {
+      render(<SpoonDock />)
+      const nav = screen.getByRole('navigation')
+      expect(nav.className).toContain('mb-[')
     })
   })
 
@@ -124,37 +112,22 @@ describe('SpoonDock', () => {
       expect(nav.className).toMatch(/max-w-/)
     })
 
-    it('has horizontal insets from screen edges', () => {
-      render(<SpoonDock />)
-      const nav = screen.getByRole('navigation')
-      expect(nav.className).toContain('left-[max(1rem,env(safe-area-inset-left))]')
-      expect(nav.className).toContain('right-[max(1rem,env(safe-area-inset-right))]')
-    })
-
     it('has a pill/rounded shape', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      expect(nav.className).toMatch(/rounded-full|rounded-\d+xl/)
-    })
-  })
-
-  describe('layout', () => {
-    it('uses flexbox for item layout', () => {
-      render(<SpoonDock />)
-      const nav = screen.getByRole('navigation')
-      expect(nav).toHaveClass('flex')
+      expect(nav).toHaveClass('rounded-full')
     })
 
-    it('centers items horizontally', () => {
+    it('has 64px height for center logo breathing room', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      expect(nav.className).toMatch(/justify-around|justify-evenly|justify-between/)
+      expect(nav).toHaveClass('h-16')
     })
 
-    it('centers items vertically', () => {
+    it('has z-50 to float above content', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      expect(nav).toHaveClass('items-center')
+      expect(nav).toHaveClass('z-50')
     })
   })
 })

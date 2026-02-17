@@ -100,7 +100,7 @@ describe('DockCenter', () => {
       
       const center = screen.getByTestId('dock-center')
       // Should have larger dimensions than regular 44px items
-      expect(center.className).toMatch(/w-1[2-6]|h-1[2-6]|w-\[4[8-9]|h-\[4[8-9]|w-\[5|h-\[5/)
+      expect(center.className).toMatch(/w-\[52px\]|h-\[52px\]|w-1[2-6]|h-1[2-6]/)
     })
 
     it('has distinct styling', () => {
@@ -214,7 +214,7 @@ describe('DockCenter', () => {
       )
       
       // Link should have aria-label or text content
-      const link = screen.getByRole('link', { name: /home|spoonjoy|logo/i })
+      const link = screen.getByRole('link', { name: /kitchen|home|spoonjoy|logo/i })
       expect(link).toBeInTheDocument()
     })
   })

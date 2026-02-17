@@ -5,28 +5,28 @@ import { SpoonDock } from './spoon-dock'
 import { DockItem } from './dock-item'
 import { DockCenter } from './dock-center'
 import { useDockContext, type DockAction } from './dock-context'
-import { BookOpen, Book, ShoppingCart, User, Home } from 'lucide-react'
+import { Plus, ShoppingCart, Home, User } from 'lucide-react'
 
 /**
- * MobileNav - Mobile navigation dock
+ * MobileNav - Mobile navigation dock (v3 — 3-slot IA)
  *
- * Uses the current route to determine the active navigation item.
- * Hidden on desktop (lg breakpoint and above).
+ * 3-slot structure:
+ *   LEFT:   NEW (+) → /recipes/new
+ *   CENTER: Logo → / (Kitchen home)
+ *   RIGHT:  LIST (cart) → /shopping-list
  *
- * Supports contextual actions via DockContext - when a page registers
- * contextual actions, those replace the default navigation items.
+ * Supports L2 contextual actions via DockContext — when a page registers
+ * contextual actions, those replace the L1 navigation items while the
+ * center logo remains.
  *
  * @param isAuthenticated - When false, shows unauthenticated variant (Home, Logo, Login)
- *                          When true or undefined, shows authenticated variant
  */
 
-// Navigation items for authenticated users
+// Navigation items for authenticated users (v3 — 3 slots)
 const authenticatedNavItems = [
-  { icon: BookOpen, label: 'Recipes', href: '/recipes', position: 'left' },
-  { icon: Book, label: 'Cookbooks', href: '/cookbooks', position: 'left' },
+  { icon: Plus, label: 'New', href: '/recipes/new', position: 'left' },
   // Center is the logo
   { icon: ShoppingCart, label: 'List', href: '/shopping-list', position: 'right' },
-  { icon: User, label: 'Profile', href: '/account/settings', position: 'right' },
 ] as const
 
 // Navigation items for unauthenticated users
@@ -42,8 +42,6 @@ type NavItem = { icon: typeof Home; label: string; href: string; position: 'left
  * Determine which nav item is active based on current path
  */
 function getActiveHref(pathname: string, navItems: readonly NavItem[]): string | null {
-  // Check each nav item to see if current path starts with its href
-  // For the home route, require exact match to avoid matching all routes
   for (const item of navItems) {
     if (item.href === '/') {
       if (pathname === '/') {
@@ -58,6 +56,32 @@ function getActiveHref(pathname: string, navItems: readonly NavItem[]): string |
 
 interface MobileNavProps {
   isAuthenticated?: boolean
+}
+
+function renderContextualItem(action: DockAction) {
+  if (typeof action.onAction === 'string') {
+    return (
+      <DockItem
+        key={action.id}
+        icon={action.icon}
+        label={action.label}
+        iconClassName={action.iconClassName}
+        labelClassName={action.labelClassName}
+        href={action.onAction}
+      />
+    )
+  }
+
+  return (
+    <DockItem
+      key={action.id}
+      icon={action.icon}
+      label={action.label}
+      iconClassName={action.iconClassName}
+      labelClassName={action.labelClassName}
+      onClick={action.onAction}
+    />
+  )
 }
 
 export function MobileNav({ isAuthenticated = true }: MobileNavProps) {
@@ -76,66 +100,48 @@ export function MobileNav({ isAuthenticated = true }: MobileNavProps) {
 
   return (
     <SpoonDock>
-      {/* Left items */}
-      {leftItems.map((item) => {
-        if (isContextual) {
-          const action = item as DockAction
-          const isHref = typeof action.onAction === 'string'
+      {/* Left slot — fixed width via grid */}
+      <div className="flex items-center justify-center">
+        {leftItems.map((item) => {
+          if (isContextual) {
+            const action = item as DockAction
+            return renderContextualItem(action)
+          }
+          const navItem = item as NavItem
           return (
             <DockItem
-              key={action.id}
-              icon={action.icon}
-              label={action.label}
-              iconClassName={action.iconClassName}
-              labelClassName={action.labelClassName}
-              href={isHref ? action.onAction : undefined}
-              onClick={isHref ? undefined : (action.onAction as () => void)}
+              key={navItem.href}
+              icon={navItem.icon}
+              label={navItem.label}
+              href={navItem.href}
+              active={activeHref === navItem.href}
             />
           )
-        }
-        const navItem = item as NavItem
-        return (
-          <DockItem
-            key={navItem.href}
-            icon={navItem.icon}
-            label={navItem.label}
-            href={navItem.href}
-            active={activeHref === navItem.href}
-          />
-        )
-      })}
+        })}
+      </div>
 
-      {/* Center logo */}
+      {/* Center slot — logo, hero of the dock */}
       <DockCenter href="/" />
 
-      {/* Right items */}
-      {rightItems.map((item) => {
-        if (isContextual) {
-          const action = item as DockAction
-          const isHref = typeof action.onAction === 'string'
+      {/* Right slot — fixed width via grid */}
+      <div className="flex items-center justify-center">
+        {rightItems.map((item) => {
+          if (isContextual) {
+            const action = item as DockAction
+            return renderContextualItem(action)
+          }
+          const navItem = item as NavItem
           return (
             <DockItem
-              key={action.id}
-              icon={action.icon}
-              label={action.label}
-              iconClassName={action.iconClassName}
-              labelClassName={action.labelClassName}
-              href={isHref ? action.onAction : undefined}
-              onClick={isHref ? undefined : (action.onAction as () => void)}
+              key={navItem.href}
+              icon={navItem.icon}
+              label={navItem.label}
+              href={navItem.href}
+              active={activeHref === navItem.href}
             />
           )
-        }
-        const navItem = item as NavItem
-        return (
-          <DockItem
-            key={navItem.href}
-            icon={navItem.icon}
-            label={navItem.label}
-            href={navItem.href}
-            active={activeHref === navItem.href}
-          />
-        )
-      })}
+        })}
+      </div>
     </SpoonDock>
   )
 }

@@ -27,10 +27,8 @@ describe('MobileNav unauthenticated variant', () => {
     expect(screen.getByText('Home')).toBeInTheDocument()
     expect(screen.getByText('Login')).toBeInTheDocument()
     // Should NOT show authenticated items
-    expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
-    expect(screen.queryByText('Cookbooks')).not.toBeInTheDocument()
+    expect(screen.queryByText('New')).not.toBeInTheDocument()
     expect(screen.queryByText('List')).not.toBeInTheDocument()
-    expect(screen.queryByText('Profile')).not.toBeInTheDocument()
   })
 
   it('shows SJ logo center', () => {
@@ -61,7 +59,6 @@ describe('MobileNav unauthenticated variant', () => {
       </MemoryRouter>
     )
 
-    // Find the Home nav item by its text label (not the center logo)
     const homeItem = screen.getByText('Home').closest('a')
     expect(homeItem?.className).toContain('dock-item-active')
   })
@@ -73,7 +70,6 @@ describe('MobileNav unauthenticated variant', () => {
       </MemoryRouter>
     )
 
-    // Find the Home nav item by its text label (not the center logo)
     const homeItem = screen.getByText('Home').closest('a')
     expect(homeItem?.className).not.toContain('dock-item-active')
   })
@@ -91,7 +87,7 @@ describe('MobileNav unauthenticated variant', () => {
 })
 
 describe('MobileNav', () => {
-  describe('authenticated variant', () => {
+  describe('v3 3-slot authenticated variant', () => {
     it('renders SpoonDock navigation', () => {
       render(
         <MemoryRouter initialEntries={['/']}>
@@ -102,51 +98,74 @@ describe('MobileNav', () => {
       expect(screen.getByRole('navigation')).toBeInTheDocument()
     })
 
-    it('renders all navigation items', () => {
+    it('renders 3-slot structure: New, Logo, List', () => {
       render(
         <MemoryRouter initialEntries={['/']}>
           <MobileNav />
         </MemoryRouter>
       )
 
-      expect(screen.getByText('Recipes')).toBeInTheDocument()
-      expect(screen.getByText('Cookbooks')).toBeInTheDocument()
+      expect(screen.getByText('New')).toBeInTheDocument()
+      expect(screen.getByTestId('dock-center')).toBeInTheDocument()
       expect(screen.getByText('List')).toBeInTheDocument()
-      expect(screen.getByText('Profile')).toBeInTheDocument()
     })
 
-    it('renders center logo', () => {
+    it('does NOT render old 5-slot items (Recipes, Cookbooks, Profile)', () => {
       render(
         <MemoryRouter initialEntries={['/']}>
           <MobileNav />
         </MemoryRouter>
       )
 
-      expect(screen.getByTestId('dock-center')).toBeInTheDocument()
+      expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
+      expect(screen.queryByText('Cookbooks')).not.toBeInTheDocument()
+      expect(screen.queryByText('Profile')).not.toBeInTheDocument()
+    })
+
+    it('New links to /recipes/new', () => {
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <MobileNav />
+        </MemoryRouter>
+      )
+
+      const newLink = screen.getByRole('link', { name: /new/i })
+      expect(newLink).toHaveAttribute('href', '/recipes/new')
+    })
+
+    it('List links to /shopping-list', () => {
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <MobileNav />
+        </MemoryRouter>
+      )
+
+      const listLink = screen.getByRole('link', { name: /list/i })
+      expect(listLink).toHaveAttribute('href', '/shopping-list')
+    })
+
+    it('center logo links to / (Kitchen home)', () => {
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <MobileNav />
+        </MemoryRouter>
+      )
+
+      const centerLink = screen.getByRole('link', { name: /kitchen/i })
+      expect(centerLink).toHaveAttribute('href', '/')
     })
   })
 
   describe('route-aware active state', () => {
-    it('marks Recipes as active on /recipes', () => {
+    it('marks New as active on /recipes/new', () => {
       render(
-        <MemoryRouter initialEntries={['/recipes']}>
+        <MemoryRouter initialEntries={['/recipes/new']}>
           <MobileNav />
         </MemoryRouter>
       )
 
-      const recipesItem = screen.getByRole('link', { name: /recipes/i })
-      expect(recipesItem.className).toContain('dock-item-active')
-    })
-
-    it('marks Cookbooks as active on /cookbooks', () => {
-      render(
-        <MemoryRouter initialEntries={['/cookbooks']}>
-          <MobileNav />
-        </MemoryRouter>
-      )
-
-      const cookbooksItem = screen.getByRole('link', { name: /cookbooks/i })
-      expect(cookbooksItem.className).toContain('dock-item-active')
+      const newItem = screen.getByRole('link', { name: /new/i })
+      expect(newItem.className).toContain('dock-item-active')
     })
 
     it('marks List as active on /shopping-list', () => {
@@ -160,28 +179,6 @@ describe('MobileNav', () => {
       expect(listItem.className).toContain('dock-item-active')
     })
 
-    it('marks Profile as active on /account/settings', () => {
-      render(
-        <MemoryRouter initialEntries={['/account/settings']}>
-          <MobileNav />
-        </MemoryRouter>
-      )
-
-      const profileItem = screen.getByRole('link', { name: /profile/i })
-      expect(profileItem.className).toContain('dock-item-active')
-    })
-
-    it('handles nested routes', () => {
-      render(
-        <MemoryRouter initialEntries={['/recipes/123/edit']}>
-          <MobileNav />
-        </MemoryRouter>
-      )
-
-      const recipesItem = screen.getByRole('link', { name: /recipes/i })
-      expect(recipesItem.className).toContain('dock-item-active')
-    })
-
     it('has no active item on home (/)', () => {
       render(
         <MemoryRouter initialEntries={['/']}>
@@ -189,9 +186,19 @@ describe('MobileNav', () => {
         </MemoryRouter>
       )
 
-      // Regular nav items should not be active on home
-      const recipesItem = screen.getByRole('link', { name: /recipes/i })
-      expect(recipesItem.className).not.toContain('dock-item-active')
+      const newItem = screen.getByRole('link', { name: /new/i })
+      expect(newItem.className).not.toContain('dock-item-active')
+    })
+
+    it('does not mark New active for other /recipes nested routes', () => {
+      render(
+        <MemoryRouter initialEntries={['/recipes/123/edit']}>
+          <MobileNav />
+        </MemoryRouter>
+      )
+
+      const newItem = screen.getByRole('link', { name: /new/i })
+      expect(newItem.className).not.toContain('dock-item-active')
     })
   })
 
@@ -205,11 +212,8 @@ describe('MobileNav', () => {
         </MemoryRouter>
       )
 
-      // Default authenticated nav items should be present
-      expect(screen.getByText('Recipes')).toBeInTheDocument()
-      expect(screen.getByText('Cookbooks')).toBeInTheDocument()
+      expect(screen.getByText('New')).toBeInTheDocument()
       expect(screen.getByText('List')).toBeInTheDocument()
-      expect(screen.getByText('Profile')).toBeInTheDocument()
     })
 
     it('renders contextual actions when context has actions (isContextual=true)', () => {
@@ -226,15 +230,10 @@ describe('MobileNav', () => {
         </MemoryRouter>
       )
 
-      // Contextual actions should be present
       expect(screen.getByText('Back')).toBeInTheDocument()
       expect(screen.getByText('Edit')).toBeInTheDocument()
-
-      // Default nav items should NOT be present
-      expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
-      expect(screen.queryByText('Cookbooks')).not.toBeInTheDocument()
+      expect(screen.queryByText('New')).not.toBeInTheDocument()
       expect(screen.queryByText('List')).not.toBeInTheDocument()
-      expect(screen.queryByText('Profile')).not.toBeInTheDocument()
     })
 
     it('renders left-position actions on left side of dock', () => {
@@ -257,11 +256,9 @@ describe('MobileNav', () => {
       const backElement = screen.getByText('Back').closest('a, button')
       const shareElement = screen.getByText('Share').closest('a, button')
 
-      // Back and Share should appear before center in DOM order
       expect(backElement).toBeInTheDocument()
       expect(shareElement).toBeInTheDocument()
 
-      // Verify left items are before center
       const allElements = nav.querySelectorAll('a, button, [data-testid="dock-center"]')
       const elementsArray = Array.from(allElements)
       const centerIndex = elementsArray.findIndex(el => el.getAttribute('data-testid') === 'dock-center')
@@ -291,10 +288,6 @@ describe('MobileNav', () => {
       const editElement = screen.getByText('Edit').closest('a, button')
       const deleteElement = screen.getByText('Delete').closest('a, button')
 
-      expect(editElement).toBeInTheDocument()
-      expect(deleteElement).toBeInTheDocument()
-
-      // Verify right items are after center
       const allElements = nav.querySelectorAll('a, button, [data-testid="dock-center"]')
       const elementsArray = Array.from(allElements)
       const centerIndex = elementsArray.findIndex(el => el.getAttribute('data-testid') === 'dock-center')
@@ -311,7 +304,6 @@ describe('MobileNav', () => {
         { id: 'edit', icon: Edit, label: 'Edit', onAction: () => {}, position: 'right' },
       ]
 
-      // With contextual actions
       const { unmount } = render(
         <MemoryRouter initialEntries={['/recipes/123']}>
           <DockContext.Provider value={{ actions, setActions: () => {}, isContextual: true }}>
@@ -322,7 +314,6 @@ describe('MobileNav', () => {
       expect(screen.getByTestId('dock-center')).toBeInTheDocument()
       unmount()
 
-      // Without contextual actions
       render(
         <MemoryRouter initialEntries={['/']}>
           <DockContext.Provider value={{ actions: null, setActions: () => {}, isContextual: false }}>
@@ -351,7 +342,6 @@ describe('MobileNav', () => {
 
       const editButton = screen.getByText('Edit').closest('a, button')!
       await user.click(editButton)
-
       expect(handleEdit).toHaveBeenCalledTimes(1)
     })
 
@@ -388,11 +378,9 @@ describe('MobileNav', () => {
         </MemoryRouter>
       )
 
-      // Initially showing contextual actions
       expect(screen.getByText('Back')).toBeInTheDocument()
-      expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
+      expect(screen.queryByText('New')).not.toBeInTheDocument()
 
-      // Rerender with cleared context
       rerender(
         <MemoryRouter initialEntries={['/recipes/123']}>
           <DockContext.Provider value={{ actions: null, setActions, isContextual: false }}>
@@ -401,12 +389,9 @@ describe('MobileNav', () => {
         </MemoryRouter>
       )
 
-      // Should now show default nav items
       expect(screen.queryByText('Back')).not.toBeInTheDocument()
-      expect(screen.getByText('Recipes')).toBeInTheDocument()
-      expect(screen.getByText('Cookbooks')).toBeInTheDocument()
+      expect(screen.getByText('New')).toBeInTheDocument()
       expect(screen.getByText('List')).toBeInTheDocument()
-      expect(screen.getByText('Profile')).toBeInTheDocument()
     })
 
     it('renders left item with function onAction as button', async () => {
@@ -460,9 +445,8 @@ describe('MobileNav', () => {
         </MemoryRouter>
       )
 
-      // Should render only center logo, no left/right items
       expect(screen.getByTestId('dock-center')).toBeInTheDocument()
-      expect(screen.queryByText('Recipes')).not.toBeInTheDocument()
+      expect(screen.queryByText('New')).not.toBeInTheDocument()
       expect(screen.queryByText('Back')).not.toBeInTheDocument()
     })
   })

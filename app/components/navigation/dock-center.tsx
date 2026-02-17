@@ -2,20 +2,22 @@
 
 import clsx from 'clsx'
 import { motion, useReducedMotion } from 'framer-motion'
+import type { TargetAndTransition } from 'framer-motion'
 import { Link } from '~/components/ui/link'
 import { SpoonjoyLogo } from '~/components/ui/spoonjoy-logo'
 
 /**
- * DockCenter - SJ Logo center element for the SpoonDock
+ * DockCenter - SJ Logo center element for the SpoonDock (v3)
  * 
- * Features a subtle breathing/glow idle animation that makes the dock
- * feel alive without being distracting. Tapping navigates to home.
+ * The hero of the dock. Larger than side items with intentional breathing
+ * gap from the glass container edges. Subtle breathing animation.
  * 
- * ## Animation Specs
- * - Breathing: scale 0.98 → 1.02
- * - Duration: ~2s continuous
- * - Easing: ease-in-out
+ * ## Design Specs (v3)
+ * - Size: 52x52px container (hero scale vs 44px side items)
+ * - Logo: 32px (larger than before)
+ * - Breathing: scale 0.98 → 1.02, 2s loop
  * - Reduced motion: static
+ * - Intentional center gap via justify-self-center on grid
  */
 
 export interface DockCenterProps {
@@ -34,27 +36,29 @@ export function DockCenter({
 }: DockCenterProps) {
   const prefersReducedMotion = useReducedMotion()
 
-  // Breathing animation variants
   const breathingAnimation = prefersReducedMotion
-    ? {}
-    : {
+    ? undefined
+    : ({
         scale: [0.98, 1.02, 0.98],
         transition: {
           duration: 2,
           ease: 'easeInOut',
           repeat: Infinity,
-          repeatType: 'loop' as const,
+          repeatType: 'loop',
         },
-      }
+      } satisfies TargetAndTransition)
 
   return (
     <motion.div
       data-testid="dock-center"
       animate={breathingAnimation}
       className={clsx(
-        // Size - larger than regular items (48px vs 44px)
-        'w-14 h-14',
+        // Hero size - larger than side items
+        'w-[52px] h-[52px]',
         'min-w-[44px] min-h-[44px]',
+        
+        // Center in grid column
+        'justify-self-center',
         
         // Flexbox centering
         'flex items-center justify-center',
@@ -72,23 +76,16 @@ export function DockCenter({
       <Link
         href={href}
         onClick={onClick}
-        aria-label="Go to home"
+        aria-label="Go to Kitchen"
         className={clsx(
-          // Full size of parent
           'w-full h-full',
-          
-          // Flexbox centering
           'flex items-center justify-center',
-          
-          // Shape
           'rounded-full',
-          
-          // No underline
           'no-underline',
         )}
       >
         <SpoonjoyLogo
-          size={28}
+          size={32}
           variant="white"
           className="text-white"
         />
