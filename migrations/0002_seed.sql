@@ -15,7 +15,7 @@ INSERT OR IGNORE INTO "User" (
     'demo_chef',
     '$2b$10$OsXoQzgl8Hk47gxH.bZqVu/18ydWWtF8oJs.c8WjaqxgU1HoLrI4i',
     '$2b$10$OsXoQzgl8Hk47gxH.bZqVu',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
+    'https://api.dicebear.com/7.x/initials/svg?seed=DC&backgroundColor=f4a261&fontFamily=Georgia',
     datetime('now'),
     datetime('now')
 );

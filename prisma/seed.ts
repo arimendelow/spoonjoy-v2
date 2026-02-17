@@ -230,30 +230,30 @@ const SEED_USERS: SeedUser[] = [
     email: "demo@spoonjoy.com",
     username: "demo_chef",
     password: "demo1234",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=demo",
+    photoUrl: "https://api.dicebear.com/7.x/initials/svg?seed=DC&backgroundColor=f4a261&fontFamily=Georgia",
   },
   {
     email: "chef.julia@example.com",
     username: "chef_julia",
     password: "password123",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=julia",
+    photoUrl: "https://api.dicebear.com/7.x/initials/svg?seed=CJ&backgroundColor=e76f51&fontFamily=Georgia",
   },
   {
     email: "marco.rossi@example.com",
     username: "marco_rossi",
     password: "password123",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=marco",
+    photoUrl: "https://api.dicebear.com/7.x/initials/svg?seed=MR&backgroundColor=2a9d8f&fontFamily=Georgia",
   },
   {
     email: "sarah.chen@example.com",
     username: "sarah_chen",
     password: "password123",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
+    photoUrl: "https://api.dicebear.com/7.x/initials/svg?seed=SC&backgroundColor=264653&fontFamily=Georgia",
   },
   {
     email: "alex.google@example.com",
     username: "alex_gourmet",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex",
+    photoUrl: "https://api.dicebear.com/7.x/initials/svg?seed=AG&backgroundColor=e9c46a&fontFamily=Georgia",
     oauth: {
       provider: "google",
       providerUserId: "google_123456789",
@@ -263,7 +263,7 @@ const SEED_USERS: SeedUser[] = [
   {
     email: "jamie.apple@example.com",
     username: "jamie_kitchen",
-    photoUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=jamie",
+    photoUrl: "https://api.dicebear.com/7.x/initials/svg?seed=JK&backgroundColor=606c38&fontFamily=Georgia",
     oauth: {
       provider: "apple",
       providerUserId: "apple_987654321",
@@ -354,6 +354,7 @@ const RECIPES: RecipeData[] = [
     description:
       "A traditional Italian pizza with fresh tomatoes, mozzarella, and basil. Simple ingredients, perfect execution.",
     servings: "2 pizzas",
+    imageUrl: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800&q=80",
     steps: [
       {
         stepTitle: "Make the dough",
@@ -401,6 +402,7 @@ const RECIPES: RecipeData[] = [
     description:
       "A quick and healthy weeknight dinner loaded with colorful vegetables and tender chicken in a savory sauce.",
     servings: "4 servings",
+    imageUrl: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=800&q=80",
     steps: [
       {
         stepTitle: "Make the sauce",
@@ -459,6 +461,7 @@ const RECIPES: RecipeData[] = [
     description:
       "A luxurious Italian rice dish with earthy mushrooms, white wine, and plenty of parmesan cheese.",
     servings: "4 servings",
+    imageUrl: "https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=800&q=80",
     steps: [
       {
         stepTitle: "Prep mushrooms",
@@ -521,6 +524,7 @@ const RECIPES: RecipeData[] = [
     title: "Fresh Guacamole",
     description: "Classic Mexican avocado dip with lime, cilantro, and a kick of jalapeño.",
     servings: "6 servings",
+    imageUrl: "https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?w=800&q=80",
     steps: [
       {
         stepTitle: "Prep ingredients",
@@ -560,6 +564,7 @@ const RECIPES: RecipeData[] = [
     description:
       "Restaurant-quality salmon with crispy skin and a bright, buttery sauce. Ready in 20 minutes.",
     servings: "2 servings",
+    imageUrl: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800&q=80",
     steps: [
       {
         stepTitle: "Season salmon",
@@ -606,6 +611,7 @@ const RECIPES: RecipeData[] = [
     description:
       "Perfectly chewy cookies with crisp edges and gooey chocolate chips. A timeless classic.",
     servings: "24 cookies",
+    imageUrl: "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&q=80",
     steps: [
       {
         stepTitle: "Cream butter and sugars",
@@ -655,6 +661,7 @@ const RECIPES: RecipeData[] = [
     description:
       "Aromatic coconut curry with tender chicken and vegetables. Restaurant-quality Thai food at home.",
     servings: "4 servings",
+    imageUrl: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800&q=80",
     steps: [
       {
         stepTitle: "Prep vegetables",
@@ -710,6 +717,7 @@ const RECIPES: RecipeData[] = [
     description:
       "Brunch classic with poached eggs, Canadian bacon, and silky hollandaise on an English muffin.",
     servings: "4 servings",
+    imageUrl: "https://images.unsplash.com/photo-1608039829572-9b0ba489e6ea?w=800&q=80",
     steps: [
       {
         stepTitle: "Make hollandaise",
