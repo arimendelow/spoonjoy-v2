@@ -9,7 +9,7 @@
     "dev": "react-router dev",
     "build": "react-router build",
     "preview": "wrangler pages dev",
-    "deploy": "pnpm build && cp -r build/server/_worker.js build/client/ && cp -r build/server/assets/* build/client/assets/ && npx -p wrangler@4.55.0 wrangler pages deploy build/client --project-name spoonjoy-v2 --commit-dirty=true",
+    "deploy": "pnpm build && npx -p wrangler@4.55.0 wrangler deploy",
     "typecheck": "react-router typegen && tsc",
     "test": "vitest",
     "test:ui": "vitest --ui",
