@@ -7,6 +7,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   type ReactNode,
   type ElementType,
 } from 'react'
@@ -119,18 +120,29 @@ export function useDockContext(): DockContextValue {
  * Automatically registers actions on mount and clears them on unmount.
  * Updates actions if the actions prop changes.
  * 
+ * Uses a stable string key (derived from action ids) to prevent infinite
+ * re-render loops when action callbacks change reference but content is the same.
+ * 
  * @param actions - Array of dock actions to register, or null to use default
  */
 export function useDockActions(actions: DockAction[] | null): void {
   const { setActions } = useDockContext()
-
+  const actionsRef = useRef(actions)
+  
+  // Only update if action ids/labels actually changed
+  const actionsKey = actions ? actions.map(a => a.id).join(',') : ''
+  const prevKeyRef = useRef(actionsKey)
+  
   useEffect(() => {
-    // Register actions on mount or when actions change
+    if (prevKeyRef.current !== actionsKey) {
+      prevKeyRef.current = actionsKey
+    }
     setActions(actions)
-
+    actionsRef.current = actions
+    
     // Clear actions on unmount
     return () => {
       setActions(null)
     }
-  }, [actions, setActions])
+  }, [actionsKey, setActions])
 }
