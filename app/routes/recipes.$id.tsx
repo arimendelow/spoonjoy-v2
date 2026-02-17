@@ -2,10 +2,11 @@ import type { Route } from "./+types/recipes.$id";
 import { redirect, useFetcher, useLoaderData, useSubmit } from "react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePostHog } from "@posthog/react";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
+import { useToast } from "~/components/ui/toast";
 import { Dialog, DialogBody, DialogTitle } from "~/components/ui/dialog";
 import { Field, Label } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
@@ -227,6 +228,7 @@ export default function RecipeDetail() {
   const addToListFetcher = useFetcher();
   const createCookbookFetcher = useFetcher<typeof action>();
   const posthog = usePostHog();
+  const { showToast } = useToast();
 
   // Scale state for recipe scaling
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -247,6 +249,9 @@ export default function RecipeDetail() {
   // Track view start time for engagement metrics
   const viewStartTime = useRef<number>(Date.now());
   const lastHandledCreatedCookbookId = useRef<string | null>(null);
+  const addToListSubmissionCount = useRef(0);
+  const lastHandledAddToListSubmissionCount = useRef(0);
+  const ingredientCount = recipe.steps.reduce((count, step) => count + step.ingredients.length, 0);
 
   // PostHog: Track recipe view on mount
   useEffect(() => {
@@ -357,10 +362,10 @@ export default function RecipeDetail() {
   // State for Save modal (bottom sheet)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [newCookbookTitle, setNewCookbookTitle] = useState("");
-  const [showAddToListConfirmation, setShowAddToListConfirmation] = useState(false);
   const saveModalTitleRef = useRef<HTMLHeadingElement>(null);
 
   const handleAddToList = useCallback(() => {
+    addToListSubmissionCount.current += 1;
     addToListFetcher.submit(
       {
         intent: "addFromRecipe",
@@ -388,14 +393,18 @@ export default function RecipeDetail() {
       "success" in addToListFetcher.data &&
       addToListFetcher.data.success === true;
 
-    if (!wasSuccessful) {
+    if (
+      !wasSuccessful ||
+      addToListSubmissionCount.current === lastHandledAddToListSubmissionCount.current
+    ) {
       return;
     }
 
-    setShowAddToListConfirmation(true);
-    const timeoutId = window.setTimeout(() => setShowAddToListConfirmation(false), 2500);
-    return () => window.clearTimeout(timeoutId);
-  }, [addToListFetcher.state, addToListFetcher.data]);
+    lastHandledAddToListSubmissionCount.current = addToListSubmissionCount.current;
+    showToast({
+      message: `${ingredientCount} items added at ${scaleFactor}x`,
+    });
+  }, [addToListFetcher.state, addToListFetcher.data, ingredientCount, scaleFactor, showToast]);
 
   // Register dock actions for this recipe detail page
   const handleOpenSaveModal = useCallback(() => {
@@ -547,20 +556,6 @@ export default function RecipeDetail() {
         onScaleChange={handleScaleChange}
         onClearProgress={handleClearProgress}
       />
-
-      {showAddToListConfirmation && (
-        <div
-          className="fixed top-4 left-1/2 z-[70] w-[min(90vw,28rem)] -translate-x-1/2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900 shadow-md dark:border-green-800 dark:bg-green-950/80 dark:text-green-100"
-          role="status"
-          aria-live="polite"
-          data-testid="add-to-list-confirmation"
-        >
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-            Added ingredients to your shopping list.
-          </div>
-        </div>
-      )}
 
       {/* Save to Cookbook Modal (Bottom Sheet) */}
       <Dialog
