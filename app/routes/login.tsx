@@ -27,7 +27,9 @@ interface LoaderData {
 // Loader - redirect if already logged in, handle OAuth errors
 export async function loader({ request, context }: Route.LoaderArgs) {
   const userId = await getUserId(request);
+  console.log("[login.loader] userId:", userId, "url:", request.url);
   if (userId) {
+    console.log("[login.loader] Redirecting to / because userId exists");
     throw redirect("/");
   }
 

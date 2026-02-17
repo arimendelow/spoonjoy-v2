@@ -39,13 +39,16 @@ jobs:
       - name: 🗄️ Apply D1 migrations (local)
         run: pnpm exec wrangler d1 migrations apply DB --local
 
-      - name: 🔎 CI preflight: seed backend + migration status
+      - name: 🔎 CI preflight - seed backend + migration status
         run: |
           echo "Seed script backend: Cloudflare D1 via wrangler getPlatformProxy()"
-          echo "DATABASE_URL=${DATABASE_URL:-<unset>}"
-          echo "\nMigrations status (wrangler):"
+          DATABASE_URL=${DATABASE_URL:-'<unset>'}
+          echo "DATABASE_URL=$DATABASE_URL"
+          echo ""
+          echo "Migrations status (wrangler):"
           pnpm exec wrangler d1 migrations list DB --local
-          echo "\nTables before seed:"
+          echo ""
+          echo "Tables before seed:"
           pnpm exec wrangler d1 execute DB --local --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 
       - name: 🌱 Seed local D1 database

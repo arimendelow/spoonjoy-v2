@@ -48,6 +48,7 @@ export function links() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const userId = await getUserId(request);
+  console.log("[root.loader] userId:", userId, "url:", request.url);
   return { userId };
 }
 
