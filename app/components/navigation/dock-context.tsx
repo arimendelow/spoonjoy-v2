@@ -45,6 +45,10 @@ export interface DockAction {
   icon: ElementType
   /** Label text */
   label: string
+  /** Optional icon class overrides */
+  iconClassName?: string
+  /** Optional label class overrides */
+  labelClassName?: string
   /** Action handler or route href */
   onAction: (() => void) | string
   /** Position in dock (left of center or right of center) */

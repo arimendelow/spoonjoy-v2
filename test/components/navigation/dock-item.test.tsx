@@ -54,6 +54,18 @@ describe('DockItem', () => {
       const link = screen.getByRole('link')
       expect(link.className).toContain('custom-class')
     })
+
+    it('applies icon and label class overrides', () => {
+      render(
+        <RouterWrapper>
+          <DockItem {...defaultProps} iconClassName="icon-custom" labelClassName="label-custom" />
+        </RouterWrapper>
+      )
+
+      const link = screen.getByRole('link')
+      expect(link.querySelector('svg')?.getAttribute('class')).toContain('icon-custom')
+      expect(screen.getByText('Home').className).toContain('label-custom')
+    })
   })
 
   describe('touch target', () => {

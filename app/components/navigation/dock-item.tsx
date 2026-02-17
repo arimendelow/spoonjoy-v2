@@ -8,6 +8,8 @@ export interface DockItemProps {
   href?: string
   active?: boolean
   className?: string
+  iconClassName?: string
+  labelClassName?: string
   onClick?: () => void
 }
 
@@ -17,6 +19,8 @@ export function DockItem({
   href,
   active = false,
   className,
+  iconClassName,
+  labelClassName,
   onClick,
 }: DockItemProps) {
   const baseClassName = clsx(
@@ -36,7 +40,8 @@ export function DockItem({
         className={clsx(
           'h-5 w-5',
           'transition-colors duration-150',
-          active ? 'text-white' : 'text-white/60'
+          active ? 'text-white' : 'text-white/60',
+          iconClassName
         )}
       />
       <span
@@ -46,7 +51,8 @@ export function DockItem({
           'uppercase',
           'font-medium',
           'transition-all duration-150',
-          active ? 'text-white' : 'text-white/60'
+          active ? 'text-white' : 'text-white/60',
+          labelClassName
         )}
         style={active ? { textShadow: '0 0 8px rgba(255, 255, 255, 0.4)' } : undefined}
       >

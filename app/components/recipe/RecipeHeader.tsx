@@ -101,10 +101,10 @@ export function RecipeHeader({
               By{' '}
               {chefId ? (
                 <Link href={`/users/${chefId}`} className="hover:underline">
-                  <Strong>{chefName}</Strong>
+                  <strong>{chefName}</strong>
                 </Link>
               ) : (
-                <Strong>{chefName}</Strong>
+                <strong>{chefName}</strong>
               )}
             </Text>
           </div>

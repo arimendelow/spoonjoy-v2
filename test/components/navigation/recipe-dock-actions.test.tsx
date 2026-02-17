@@ -30,23 +30,24 @@ describe('Recipe Dock Actions', () => {
   })
 
   describe('useRecipeDetailActions', () => {
-    function RecipeDetailPage({ recipeId, chefId, isOwner, onSave, onAddToList, onShare }: {
+    function RecipeDetailPage({ recipeId, chefId, isOwner, isInShoppingList, onSave, onAddToList, onShare }: {
       recipeId: string
       chefId: string
       isOwner: boolean
+      isInShoppingList?: boolean
       onSave?: () => void
       onAddToList?: () => void
       onShare?: () => void
     }) {
-      useRecipeDetailActions({ recipeId, chefId, isOwner, onSave, onAddToList, onShare })
+      useRecipeDetailActions({ recipeId, chefId, isOwner, isInShoppingList, onSave, onAddToList, onShare })
       return <div data-testid="recipe-detail">Recipe Detail</div>
     }
 
-    it('owner layout is Edit/Add to List left and Save/Share right', () => {
+    it('owner layout is Edit/List left and Save/Share right', () => {
       render(<MemoryRouter><DockContextProvider><ContextDisplay /><RecipeDetailPage recipeId="123" chefId="chef-1" isOwner={true} /></DockContextProvider></MemoryRouter>)
       expect(screen.getByTestId('action-count')).toHaveTextContent('4')
       expect(screen.getByTestId('action-ids')).toHaveTextContent('edit,add-to-list,save,share')
-      expect(screen.getByTestId('action-labels')).toHaveTextContent('Edit,Add to List,Save,Share')
+      expect(screen.getByTestId('action-labels')).toHaveTextContent('Edit,List,Save,Share')
 
       const left = capturedActions?.filter(a => a.position === 'left').map(a => a.id)
       const right = capturedActions?.filter(a => a.position === 'right').map(a => a.id)
@@ -54,13 +55,26 @@ describe('Recipe Dock Actions', () => {
       expect(right).toEqual(['save', 'share'])
     })
 
-    it('non-owner layout is View Chef Profile/Add to List left and Save/Share right', () => {
+    it('non-owner layout is View Chef Profile/List left and Save/Share right', () => {
       render(<MemoryRouter><DockContextProvider><ContextDisplay /><RecipeDetailPage recipeId="123" chefId="chef-1" isOwner={false} /></DockContextProvider></MemoryRouter>)
       expect(screen.getByTestId('action-count')).toHaveTextContent('4')
       expect(screen.getByTestId('action-ids')).toHaveTextContent('view-chef-profile,add-to-list,save,share')
-      expect(screen.getByTestId('action-labels')).toHaveTextContent('View Chef Profile,Add to List,Save,Share')
+      expect(screen.getByTestId('action-labels')).toHaveTextContent('View Chef Profile,List,Save,Share')
       expect(capturedActions?.find(a => a.id === 'edit')).toBeUndefined()
       expect(capturedActions?.find(a => a.id === 'view-chef-profile')?.onAction).toBe('/users/chef-1')
+    })
+
+    it('uses added state icon styling while keeping action tappable', () => {
+      const onAddToList = vi.fn()
+      render(<MemoryRouter><DockContextProvider><ContextDisplay /><RecipeDetailPage recipeId="123" chefId="chef-1" isOwner={true} isInShoppingList={true} onAddToList={onAddToList} /></DockContextProvider></MemoryRouter>)
+      const addToList = capturedActions?.find(a => a.id === 'add-to-list')
+      expect(addToList?.label).toBe('List')
+      expect(addToList?.iconClassName).toContain('fill-white/70')
+      expect(addToList?.labelClassName).toContain('text-white/40')
+      expect(addToList?.icon).not.toBeUndefined()
+
+      addToList?.onAction?.()
+      expect(onAddToList).toHaveBeenCalledOnce()
     })
 
     it('owner edit action uses direct route and shared handlers execute', async () => {

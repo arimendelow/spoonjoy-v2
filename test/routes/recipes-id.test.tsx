@@ -499,6 +499,113 @@ describe("Recipes $id Route", () => {
       expect(result.savedInCookbookIds).toContain(cookbook1.id);
       expect(result.savedInCookbookIds).not.toContain(cookbook2.id);
     });
+
+    it("should mark hasIngredientsInShoppingList true when all recipe ingredients exist in list", async () => {
+      const step = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Mix",
+        },
+      });
+      const unit = await db.unit.create({ data: { name: "cup_match_" + faker.string.alphanumeric(6) } });
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "sugar_match_" + faker.string.alphanumeric(6) },
+      });
+      await db.ingredient.create({
+        data: {
+          recipeId,
+          stepNum: step.stepNum,
+          quantity: 2,
+          unitId: unit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+      await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef.id,
+          unitId: unit.id,
+          quantity: 2,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers });
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.hasIngredientsInShoppingList).toBe(true);
+    });
+
+    it("should mark hasIngredientsInShoppingList false when recipe ingredients are missing from list", async () => {
+      const step = await db.recipeStep.create({
+        data: {
+          recipeId,
+          stepNum: 1,
+          description: "Mix",
+        },
+      });
+      const requiredUnit = await db.unit.create({
+        data: { name: "cup_missing_" + faker.string.alphanumeric(6) },
+      });
+      const differentUnit = await db.unit.create({
+        data: { name: "tbsp_missing_" + faker.string.alphanumeric(6) },
+      });
+      const ingredientRef = await db.ingredientRef.create({
+        data: { name: "flour_missing_" + faker.string.alphanumeric(6) },
+      });
+      await db.ingredient.create({
+        data: {
+          recipeId,
+          stepNum: step.stepNum,
+          quantity: 2,
+          unitId: requiredUnit.id,
+          ingredientRefId: ingredientRef.id,
+        },
+      });
+
+      const shoppingList = await db.shoppingList.create({
+        data: { authorId: testUserId },
+      });
+      await db.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef.id,
+          unitId: differentUnit.id,
+          quantity: 2,
+        },
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+
+      const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers });
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result.hasIngredientsInShoppingList).toBe(false);
+    });
   });
 
   describe("action", () => {
@@ -991,7 +1098,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("Cook the pasta according to package instructions")).toBeInTheDocument();
       // Step numbers
       expect(screen.getByText("Step 1")).toBeInTheDocument();
-      expect(screen.getByText("Step 2")).toBeInTheDocument();
+      expect(screen.getAllByText("Step 2").length).toBeGreaterThan(0);
     });
 
     it("should not show edit/delete in header for owners (moved to dock/edit page)", async () => {
@@ -1782,23 +1889,23 @@ describe("Recipes $id Route", () => {
       await screen.findByRole("heading", { name: "Scalable Recipe" });
       expect(screen.getByText("Servings:")).toBeInTheDocument();
 
-      // Initial scale should be 1x
+      // Initial scale should show scaled servings value.
       const scaleDisplay = screen.getByTestId("scale-display");
-      expect(scaleDisplay).toHaveTextContent("1×");
+      expect(scaleDisplay).toHaveTextContent("4");
 
       // Click the plus button to increase scale (step is 0.25)
       const plusButton = screen.getByTestId("scale-plus");
       await user.click(plusButton);
 
-      // Scale should now be 1.25x
-      expect(scaleDisplay).toHaveTextContent("1.25×");
+      // Scale should now show updated servings.
+      expect(scaleDisplay).toHaveTextContent("5");
 
       // Click the minus button to decrease scale
       const minusButton = screen.getByTestId("scale-minus");
       await user.click(minusButton);
 
-      // Scale should be back to 1x
-      expect(scaleDisplay).toHaveTextContent("1×");
+      // Scale should be back to original servings value.
+      expect(scaleDisplay).toHaveTextContent("4");
     });
 
     it("should clear ingredient and step-output progress when clicking Clear progress", async () => {

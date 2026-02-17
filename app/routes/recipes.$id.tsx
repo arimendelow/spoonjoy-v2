@@ -97,7 +97,44 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     .filter((cb) => cb.recipes.length > 0)
     .map((cb) => cb.id);
 
-  return { recipe, isOwner, cookbooks, savedInCookbookIds };
+  const recipeIngredientKeys = new Set(
+    recipe.steps.flatMap((step) =>
+      step.ingredients.map((ingredient) => `${ingredient.ingredientRefId}:${ingredient.unitId ?? "null"}`)
+    )
+  );
+  const recipeIngredientRefIds = Array.from(
+    new Set(recipe.steps.flatMap((step) => step.ingredients.map((ingredient) => ingredient.ingredientRefId)))
+  );
+
+  let hasIngredientsInShoppingList = false;
+  if (recipeIngredientKeys.size > 0 && recipeIngredientRefIds.length > 0) {
+    const shoppingList = await database.shoppingList.findUnique({
+      where: { authorId: userId },
+      select: {
+        items: {
+          where: {
+            deletedAt: null,
+            ingredientRefId: { in: recipeIngredientRefIds },
+          },
+          select: {
+            ingredientRefId: true,
+            unitId: true,
+          },
+        },
+      },
+    });
+
+    const shoppingListIngredientKeys = new Set(
+      (shoppingList?.items ?? []).map(
+        (item) => `${item.ingredientRefId}:${item.unitId ?? "null"}`
+      )
+    );
+    hasIngredientsInShoppingList = Array.from(recipeIngredientKeys).every((key) =>
+      shoppingListIngredientKeys.has(key)
+    );
+  }
+
+  return { recipe, isOwner, cookbooks, savedInCookbookIds, hasIngredientsInShoppingList };
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -223,6 +260,7 @@ export default function RecipeDetail() {
     isOwner,
     cookbooks = [],
     savedInCookbookIds = [],
+    hasIngredientsInShoppingList = false,
   } = useLoaderData<typeof loader>();
   const submit = useSubmit();
   const addToListFetcher = useFetcher();
@@ -245,6 +283,7 @@ export default function RecipeDetail() {
   const [savedCookbookIds, setSavedCookbookIds] = useState<Set<string>>(
     () => new Set(savedInCookbookIds)
   );
+  const [isAlreadyInList, setIsAlreadyInList] = useState(() => hasIngredientsInShoppingList);
 
   // Track view start time for engagement metrics
   const viewStartTime = useRef<number>(Date.now());
@@ -401,6 +440,7 @@ export default function RecipeDetail() {
     }
 
     lastHandledAddToListSubmissionCount.current = addToListSubmissionCount.current;
+    setIsAlreadyInList(true);
     showToast({
       message: `${ingredientCount} items added at ${scaleFactor}x`,
     });
@@ -415,6 +455,7 @@ export default function RecipeDetail() {
     recipeId: recipe.id,
     chefId: recipe.chef.id,
     isOwner,
+    isInShoppingList: isAlreadyInList,
     onSave: handleOpenSaveModal,
     onAddToList: handleAddToList,
     onShare: handleShare,
@@ -423,6 +464,10 @@ export default function RecipeDetail() {
   useEffect(() => {
     setAvailableCookbooks(cookbooks);
   }, [cookbooks]);
+
+  useEffect(() => {
+    setIsAlreadyInList(hasIngredientsInShoppingList);
+  }, [hasIngredientsInShoppingList]);
 
   useEffect(() => {
     if (
