@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
-import ShoppingList from "~/routes/shopping-list";
+import ShoppingList, { shouldDeleteOnSwipe } from "~/routes/shopping-list";
 import { getOrCreateUnit, getOrCreateIngredientRef, createTestUser } from "../utils";
 import { cleanupDatabase } from "../helpers/cleanup";
 
@@ -738,7 +738,7 @@ describe("Shopping List Routes", () => {
       expect(await screen.findByText("pepper")).toBeInTheDocument();
     });
 
-    it("should show remove button for each item", async () => {
+    it("should not show inline remove buttons for each item", async () => {
       const mockData = {
         shoppingList: {
           id: "list-1",
@@ -772,8 +772,43 @@ describe("Shopping List Routes", () => {
 
       render(<Stub initialEntries={["/shopping-list"]} />);
 
-      const removeButtons = await screen.findAllByRole("button", { name: "Remove" });
-      expect(removeButtons).toHaveLength(2);
+      expect(await screen.findByText("garlic")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Delete")).toBeInTheDocument();
+    });
+
+    it("should not render per-item category badge chips", async () => {
+      const mockData = {
+        shoppingList: {
+          id: "list-1",
+          items: [
+            {
+              id: "item-1",
+              quantity: 1,
+              checked: false,
+              unit: null,
+              ingredientRef: { name: "chicken thigh" },
+              categoryKey: "protein",
+              iconKey: "beef",
+            },
+          ],
+        },
+        recipes: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/shopping-list",
+          Component: ShoppingList,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/shopping-list"]} />);
+
+      expect(await screen.findByText("chicken thigh")).toBeInTheDocument();
+      expect(screen.queryByText("Protein")).toBeInTheDocument();
+      expect(screen.queryByText("Red meat")).not.toBeInTheDocument();
     });
 
     it("should have Home link", async () => {
@@ -1060,6 +1095,18 @@ describe("Shopping List Routes", () => {
       await waitFor(() => {
         expect(screen.queryByText("Start fresh?")).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe("swipe delete behavior", () => {
+    it("should delete on sufficiently large left swipe", () => {
+      expect(shouldDeleteOnSwipe(-72)).toBe(true);
+      expect(shouldDeleteOnSwipe(-120)).toBe(true);
+    });
+
+    it("should not delete on short or right swipe", () => {
+      expect(shouldDeleteOnSwipe(-71)).toBe(false);
+      expect(shouldDeleteOnSwipe(120)).toBe(false);
     });
   });
 });

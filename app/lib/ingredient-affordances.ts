@@ -1,9 +1,13 @@
 import {
   Apple,
   Beef,
+  Carrot,
+  Citrus,
   CookingPot,
   Droplets,
+  Drumstick,
   Egg,
+  Fish,
   Leaf,
   LucideIcon,
   Milk,
@@ -24,8 +28,12 @@ export type IngredientCategoryKey =
 
 export type IngredientIconKey =
   | "leaf"
+  | "carrot"
+  | "citrus"
   | "apple"
+  | "drumstick"
   | "beef"
+  | "fish"
   | "egg"
   | "milk"
   | "wheat"
@@ -53,33 +61,50 @@ const CATEGORY_LABELS: Record<IngredientCategoryKey, string> = {
 };
 
 const ICON_LABELS: Record<IngredientIconKey, string> = {
-  leaf: "Leaf",
-  apple: "Apple",
-  beef: "Meat",
+  leaf: "Leafy greens",
+  carrot: "Vegetable",
+  citrus: "Citrus",
+  apple: "Fruit",
+  drumstick: "Chicken",
+  beef: "Red meat",
+  fish: "Seafood",
   egg: "Egg",
-  milk: "Milk",
+  milk: "Dairy",
   wheat: "Grain",
   droplets: "Liquid",
   package: "Packaged",
-  pot: "Cooked",
-  sandwich: "Prepared",
+  pot: "Spice",
+  sandwich: "Bread",
 };
+
+const GENERIC_ICON_KEYS: IngredientIconKey[] = ["package"];
 
 const CATEGORY_KEYWORDS: Array<{
   includes: string[];
   categoryKey: IngredientCategoryKey;
   iconKey: IngredientIconKey;
 }> = [
-  { includes: ["basil", "cilantro", "lettuce", "spinach", "kale", "herb"], categoryKey: "produce", iconKey: "leaf" },
-  { includes: ["apple", "onion", "garlic", "tomato", "carrot", "potato", "pepper", "lemon"], categoryKey: "produce", iconKey: "apple" },
-  { includes: ["chicken", "beef", "pork", "salmon", "shrimp", "tofu", "turkey"], categoryKey: "protein", iconKey: "beef" },
+  { includes: ["basil", "cilantro", "parsley", "lettuce", "spinach", "kale", "arugula", "herb"], categoryKey: "produce", iconKey: "leaf" },
+  { includes: ["lime", "lemon", "orange", "grapefruit", "citrus"], categoryKey: "produce", iconKey: "citrus" },
+  { includes: ["carrot", "onion", "garlic", "tomato", "potato", "broccoli", "cauliflower", "zucchini", "cucumber", "celery"], categoryKey: "produce", iconKey: "carrot" },
+  { includes: ["apple", "banana", "berry", "avocado", "mango"], categoryKey: "produce", iconKey: "apple" },
+
+  { includes: ["chicken", "thigh", "drumstick", "wing"], categoryKey: "protein", iconKey: "drumstick" },
+  { includes: ["beef", "steak", "ground beef", "pork", "lamb", "sausage", "turkey"], categoryKey: "protein", iconKey: "beef" },
+  { includes: ["salmon", "tuna", "cod", "fish", "shrimp", "prawn"], categoryKey: "protein", iconKey: "fish" },
   { includes: ["egg"], categoryKey: "protein", iconKey: "egg" },
-  { includes: ["milk", "cream", "yogurt", "cheese", "butter"], categoryKey: "dairy", iconKey: "milk" },
-  { includes: ["flour", "rice", "oat", "pasta", "noodle", "quinoa"], categoryKey: "pantry", iconKey: "wheat" },
-  { includes: ["oil", "vinegar", "broth", "stock", "water", "sauce"], categoryKey: "pantry", iconKey: "droplets" },
-  { includes: ["bread", "bun", "tortilla"], categoryKey: "bakery", iconKey: "sandwich" },
+  { includes: ["tofu", "tempeh", "beans", "lentil", "chickpea"], categoryKey: "protein", iconKey: "package" },
+
+  { includes: ["coconut milk"], categoryKey: "pantry", iconKey: "package" },
+  { includes: ["flour", "rice", "oat", "pasta", "noodle", "quinoa", "sugar"], categoryKey: "pantry", iconKey: "wheat" },
+  { includes: ["oil", "vinegar", "broth", "stock", "water", "soy sauce", "tamari", "sauce"], categoryKey: "pantry", iconKey: "droplets" },
+  { includes: ["can", "canned", "jar", "coconut cream"], categoryKey: "pantry", iconKey: "package" },
+
+  { includes: ["milk", "cream", "yogurt", "cheese", "butter", "half and half"], categoryKey: "dairy", iconKey: "milk" },
+
+  { includes: ["bread", "bun", "tortilla", "bagel", "pita"], categoryKey: "bakery", iconKey: "sandwich" },
   { includes: ["frozen"], categoryKey: "frozen", iconKey: "package" },
-  { includes: ["salt", "pepper", "cumin", "paprika", "oregano", "spice"], categoryKey: "spices", iconKey: "pot" },
+  { includes: ["salt", "pepper", "cumin", "paprika", "oregano", "thyme", "spice", "seasoning"], categoryKey: "spices", iconKey: "pot" },
 ];
 
 export function inferIngredientAffordance(name: string): IngredientAffordance {
@@ -109,9 +134,10 @@ export function resolveIngredientAffordance(
   const safeCategory = (categoryKey && categoryKey in CATEGORY_LABELS
     ? categoryKey
     : inferred.categoryKey) as IngredientCategoryKey;
-  const safeIcon = (iconKey && iconKey in ICON_LABELS
-    ? iconKey
-    : inferred.iconKey) as IngredientIconKey;
+  const submittedIcon = (iconKey && iconKey in ICON_LABELS ? iconKey : null) as IngredientIconKey | null;
+  const safeIcon = submittedIcon && !GENERIC_ICON_KEYS.includes(submittedIcon)
+    ? submittedIcon
+    : inferred.iconKey;
 
   return {
     categoryKey: safeCategory,
@@ -123,8 +149,12 @@ export function resolveIngredientAffordance(
 
 export const INGREDIENT_ICON_COMPONENTS: Record<IngredientIconKey, LucideIcon> = {
   leaf: Leaf,
+  carrot: Carrot,
+  citrus: Citrus,
   apple: Apple,
+  drumstick: Drumstick,
   beef: Beef,
+  fish: Fish,
   egg: Egg,
   milk: Milk,
   wheat: Wheat,

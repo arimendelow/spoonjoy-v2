@@ -1,5 +1,5 @@
 import type { Route } from "./+types/shopping-list";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLoaderData, Form, data, useSubmit, useFetcher } from "react-router";
 import { getDb, db } from "~/lib/db.server";
@@ -282,7 +282,7 @@ export async function action({ request, context }: Route.ActionArgs) {
                   checkedAt: null,
                   deletedAt: null,
                   categoryKey: existingItem.categoryKey ?? affordance.categoryKey,
-                  iconKey: existingItem.iconKey ?? affordance.iconKey,
+                  iconKey: affordance.iconKey,
                 },
               });
             } else {
@@ -371,35 +371,61 @@ export async function action({ request, context }: Route.ActionArgs) {
   return null;
 }
 
+export function shouldDeleteOnSwipe(offsetX: number, threshold = 72) {
+  return offsetX <= -threshold;
+}
+
 export default function ShoppingList() {
   const { shoppingList, recipes } = useLoaderData<typeof loader>();
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [optimisticCheckedById, setOptimisticCheckedById] = useState<Record<string, boolean>>({});
+  const [optimisticRemovedById, setOptimisticRemovedById] = useState<Record<string, boolean>>({});
   const submit = useSubmit();
   const toggleFetcher = useFetcher();
+  const removeFetcher = useFetcher();
+
+  useEffect(() => {
+    const activeIds = new Set(shoppingList.items.map((item) => item.id));
+
+    setOptimisticCheckedById((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([itemId]) => activeIds.has(itemId))
+      );
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+
+    setOptimisticRemovedById((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([itemId]) => activeIds.has(itemId))
+      );
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+  }, [shoppingList.items]);
 
   const displayItems = useMemo(() => {
-    const withOptimistic = shoppingList.items.map((item) => {
-      const optimisticChecked = optimisticCheckedById[item.id];
-      const checked = optimisticChecked ?? Boolean(item.checkedAt ?? item.checked);
-      const affordance = resolveIngredientAffordance(
-        item.ingredientRef.name,
-        item.categoryKey,
-        item.iconKey
-      );
+    const withOptimistic = shoppingList.items
+      .filter((item) => !optimisticRemovedById[item.id])
+      .map((item) => {
+        const optimisticChecked = optimisticCheckedById[item.id];
+        const checked = optimisticChecked ?? Boolean(item.checkedAt ?? item.checked);
+        const affordance = resolveIngredientAffordance(
+          item.ingredientRef.name,
+          item.categoryKey,
+          null
+        );
 
-      return {
-        ...item,
-        checked,
-        categoryLabel: affordance.categoryLabel,
-        iconKey: affordance.iconKey,
-      };
-    });
+        return {
+          ...item,
+          checked,
+          categoryLabel: affordance.categoryLabel,
+          iconKey: affordance.iconKey,
+        };
+      });
 
     const unchecked = withOptimistic.filter((item) => !item.checked);
     const checked = withOptimistic.filter((item) => item.checked);
     return [...unchecked, ...checked];
-  }, [shoppingList.items, optimisticCheckedById]);
+  }, [shoppingList.items, optimisticCheckedById, optimisticRemovedById]);
 
   const checkedCount = displayItems.filter((item) => item.checked).length;
   const uncheckedCount = displayItems.length - checkedCount;
@@ -418,6 +444,18 @@ export default function ShoppingList() {
         intent: "toggleCheck",
         itemId: item.id,
         nextChecked: String(nextChecked),
+      },
+      { method: "post" }
+    );
+  };
+
+  const removeItem = (itemId: string) => {
+    setOptimisticRemovedById((current) => ({ ...current, [itemId]: true }));
+
+    removeFetcher.submit(
+      {
+        intent: "removeItem",
+        itemId,
       },
       { method: "post" }
     );
@@ -549,13 +587,13 @@ export default function ShoppingList() {
               const affordance = resolveIngredientAffordance(
                 item.ingredientRef.name,
                 item.categoryKey,
-                item.iconKey
+                null
               );
               const Icon = INGREDIENT_ICON_COMPONENTS[affordance.iconKey];
               const prev = index > 0 ? resolveIngredientAffordance(
                 displayItems[index - 1].ingredientRef.name,
                 displayItems[index - 1].categoryKey,
-                displayItems[index - 1].iconKey
+                null
               ) : null;
               const showCategoryHeader = !prev || prev.categoryLabel !== affordance.categoryLabel;
 
@@ -566,56 +604,62 @@ export default function ShoppingList() {
                       {affordance.categoryLabel}
                     </div>
                   )}
-                  <motion.div
-                  layout
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                  className={`
-                    rounded-lg border border-zinc-200 dark:border-zinc-700 p-4
-                    flex items-center justify-between gap-4
-                    bg-white dark:bg-zinc-800
-                    ${item.checked ? "opacity-60" : ""}
-                  `}
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleItem(item)}
-                    className="flex items-center gap-4 flex-1 text-left"
-                    aria-label={item.checked ? "Uncheck item" : "Check item"}
-                  >
-                    <span
+                  <div className="relative overflow-hidden rounded-lg">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center bg-red-600 px-4 text-xs font-semibold uppercase tracking-wide text-white">
+                      Delete
+                    </div>
+                    <motion.div
+                      layout
+                      drag="x"
+                      dragConstraints={{ left: -108, right: 0 }}
+                      dragElastic={{ left: 0.12, right: 0.02 }}
+                      dragDirectionLock
+                      onDragEnd={(_, info) => {
+                        if (shouldDeleteOnSwipe(info.offset.x)) {
+                          removeItem(item.id);
+                        }
+                      }}
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
                       className={`
-                        w-6 h-6 rounded border-2 flex items-center justify-center
-                        transition-colors cursor-pointer text-sm font-bold
-                        ${item.checked
-                          ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500"
-                          : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
+                        relative z-10 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2
+                        flex items-center bg-white dark:bg-zinc-800
+                        ${item.checked ? "opacity-60" : ""}
                       `}
                     >
-                      {item.checked && "✓"}
-                    </span>
-                    <span className={`text-lg ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
-                      {item.quantity && <strong>{item.quantity}</strong>}
-                      {item.quantity && item.unit && " "}
-                      {item.unit?.name && <span>{item.unit.name}</span>}
-                      {(item.quantity || item.unit) && " "}
-                      {item.ingredientRef.name}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
-                      <Icon className="h-3 w-3" aria-hidden="true" />
-                      <span>{affordance.categoryLabel}</span>
-                    </span>
-                  </button>
-                  <Form method="post" className="m-0" onClick={(e) => e.stopPropagation()}>
-                    <input type="hidden" name="intent" value="removeItem" />
-                    <input type="hidden" name="itemId" value={item.id} />
-                    <Button type="submit" color="red" className="text-sm">
-                      Remove
-                    </Button>
-                  </Form>
-                </motion.div>
+                      <button
+                        type="button"
+                        onClick={() => toggleItem(item)}
+                        className="flex min-w-0 items-center gap-2 text-left"
+                        aria-label={item.checked ? "Uncheck item" : "Check item"}
+                      >
+                        <span
+                          className={`
+                            h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center
+                            transition-colors cursor-pointer text-xs font-bold
+                            ${item.checked
+                              ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500"
+                              : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
+                          `}
+                        >
+                          {item.checked && "✓"}
+                        </span>
+                        <Icon
+                          className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400"
+                          aria-hidden="true"
+                        />
+                        <span className={`truncate text-base ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
+                          {item.quantity && <strong>{item.quantity}</strong>}
+                          {item.quantity && item.unit && " "}
+                          {item.unit?.name && <span>{item.unit.name}</span>}
+                          {(item.quantity || item.unit) && " "}
+                          {item.ingredientRef.name}
+                        </span>
+                      </button>
+                    </motion.div>
+                  </div>
                 </div>
               );
             })}
