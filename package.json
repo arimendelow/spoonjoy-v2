@@ -24,7 +24,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:storybook": "test-storybook",
     "db:migrate:local:option2": "wrangler d1 execute spoonjoy --local --file=./migrations/0003_shopping_list_item_option2.sql",
-    "dev:sync": "npm run prisma:generate && npm run db:migrate:local:option2 && npm run dev",
+    "db:migrate:local:option2:idempotent": "node ./scripts/migrate-option2-local-idempotent.mjs",
+    "dev:sync": "npm run prisma:generate && npm run db:migrate:local:option2:idempotent && npm run dev",
     "dev:refresh": "rm -rf node_modules/.prisma && npm run prisma:generate"
   },
   "keywords": [

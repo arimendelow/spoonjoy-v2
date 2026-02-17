@@ -74,6 +74,8 @@ For production, use `wrangler secret put` for sensitive values.
 | `npm run test:e2e` | Run Playwright e2e tests |
 | `npm run test:storybook` | Run Storybook interaction tests |
 | `npm run prisma:generate` | Regenerate Prisma client |
+| `npm run db:migrate:local:option2:idempotent` | Safely apply/skip local option2 migration (rerunnable) |
+| `npm run dev:sync` | Generate Prisma client, run idempotent local option2 migration, then start dev |
 | `npm run build` | Production build |
 | `npm run typecheck` | TypeScript validation |
 
