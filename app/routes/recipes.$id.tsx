@@ -388,11 +388,15 @@ export default function RecipeDetail() {
   }, [addToListFetcher.state, addToListFetcher.data]);
 
   // Register dock actions for this recipe detail page
+  const handleOpenSaveModal = useCallback(() => {
+    setIsSaveModalOpen(true);
+  }, []);
+
   useRecipeDetailActions({
     recipeId: recipe.id,
     chefId: recipe.chef.id,
     isOwner,
-    onSave: () => setIsSaveModalOpen(true),
+    onSave: handleOpenSaveModal,
     onAddToList: handleAddToList,
     onShare: handleShare,
   });

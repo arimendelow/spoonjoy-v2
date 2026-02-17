@@ -27,9 +27,13 @@ describe('Recipe Page Dock Integration', () => {
 
     expect(capturedActions?.find(a => a.id === 'edit')?.onAction).toBe('/recipes/recipe-1/edit')
 
-    capturedActions?.find(a => a.id === 'save')?.onAction?.()
-    capturedActions?.find(a => a.id === 'add-to-list')?.onAction?.()
-    capturedActions?.find(a => a.id === 'share')?.onAction?.()
+    const saveAction = capturedActions?.find(a => a.id === 'save')?.onAction
+    const addToListAction = capturedActions?.find(a => a.id === 'add-to-list')?.onAction
+    const shareAction = capturedActions?.find(a => a.id === 'share')?.onAction
+
+    if (typeof saveAction === 'function') saveAction()
+    if (typeof addToListAction === 'function') addToListAction()
+    if (typeof shareAction === 'function') shareAction()
 
     expect(onSave).toHaveBeenCalled()
     expect(onAddToList).toHaveBeenCalled()
@@ -45,13 +49,57 @@ describe('Recipe Page Dock Integration', () => {
     expect(capturedActions?.find(a => a.id === 'view-chef-profile')?.onAction).toBe('/users/chef-1')
   })
 
+  it('does not thrash dock context when callbacks are recreated across rerenders', () => {
+    function P({ tick }: { tick: number }) {
+      useRecipeDetailActions({
+        recipeId: 'recipe-1',
+        chefId: 'chef-1',
+        isOwner: true,
+        onSave: () => {
+          void tick
+        },
+      })
+      return null
+    }
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <DockContextProvider>
+          <ContextDisplay />
+          <P tick={0} />
+        </DockContextProvider>
+      </MemoryRouter>
+    )
+
+    rerender(
+      <MemoryRouter>
+        <DockContextProvider>
+          <ContextDisplay />
+          <P tick={1} />
+        </DockContextProvider>
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId('is-contextual')).toHaveTextContent('yes')
+    expect(screen.getByTestId('action-ids')).toHaveTextContent('edit,add-to-list,save,share')
+  })
+
   it('detail actions use no-op fallbacks', () => {
     function P() { useRecipeDetailActions({ recipeId: 'recipe-1', chefId: 'chef-1', isOwner: false }); return null }
     render(<MemoryRouter><DockContextProvider><ContextDisplay /><P /></DockContextProvider></MemoryRouter>)
 
-    expect(() => capturedActions?.find(a => a.id === 'save')?.onAction?.()).not.toThrow()
-    expect(() => capturedActions?.find(a => a.id === 'add-to-list')?.onAction?.()).not.toThrow()
-    expect(() => capturedActions?.find(a => a.id === 'share')?.onAction?.()).not.toThrow()
+    expect(() => {
+      const action = capturedActions?.find(a => a.id === 'save')?.onAction
+      if (typeof action === 'function') action()
+    }).not.toThrow()
+    expect(() => {
+      const action = capturedActions?.find(a => a.id === 'add-to-list')?.onAction
+      if (typeof action === 'function') action()
+    }).not.toThrow()
+    expect(() => {
+      const action = capturedActions?.find(a => a.id === 'share')?.onAction
+      if (typeof action === 'function') action()
+    }).not.toThrow()
   })
 
   it('edit page actions: cancel/save', () => {

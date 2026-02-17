@@ -7,7 +7,6 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
   type ReactNode,
   type ElementType,
 } from 'react'
@@ -127,22 +126,19 @@ export function useDockContext(): DockContextValue {
  */
 export function useDockActions(actions: DockAction[] | null): void {
   const { setActions } = useDockContext()
-  const actionsRef = useRef(actions)
-  
-  // Only update if action ids/labels actually changed
-  const actionsKey = actions ? actions.map(a => a.id).join(',') : ''
-  const prevKeyRef = useRef(actionsKey)
-  
+
+  // Only update registered actions when their identity key actually changes.
+  // This avoids effect churn and potential update loops from unstable callback refs.
+  const actionsKey = actions ? actions.map((action) => action.id).join(',') : ''
+
   useEffect(() => {
-    if (prevKeyRef.current !== actionsKey) {
-      prevKeyRef.current = actionsKey
-    }
     setActions(actions)
-    actionsRef.current = actions
-    
-    // Clear actions on unmount
+  }, [actionsKey, setActions])
+
+  // Clear actions only when the registering component unmounts.
+  useEffect(() => {
     return () => {
       setActions(null)
     }
-  }, [actionsKey, setActions])
+  }, [setActions])
 }
