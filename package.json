@@ -22,7 +22,10 @@
     "chromatic": "chromatic --exit-zero-on-changes",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:storybook": "test-storybook"
+    "test:storybook": "test-storybook",
+    "db:migrate:local:option2": "wrangler d1 execute spoonjoy --local --file=./migrations/0003_shopping_list_item_option2.sql",
+    "dev:sync": "npm run prisma:generate && npm run db:migrate:local:option2 && npm run dev",
+    "dev:refresh": "rm -rf node_modules/.prisma && npm run prisma:generate"
   },
   "keywords": [
     "recipes",
@@ -96,5 +99,9 @@
     "vite": "^7.3.1",
     "vitest": "^4.0.18",
     "wrangler": "^4.60.0"
+  },
+  "overrides": {
+    "blake3-wasm": "3.0.0",
+    "@c4312/blake3-internal": "3.0.0"
   }
 }
