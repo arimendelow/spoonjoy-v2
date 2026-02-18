@@ -19,7 +19,7 @@ const createIngredientList = (count: number = 3): ParsedIngredient[] => [
 
 describe('ParsedIngredientList', () => {
   describe('rendering', () => {
-    it('renders a list of parsed ingredients', () => {
+    it('renders a list of ingredients', () => {
       render(
         <ParsedIngredientList
           ingredients={createIngredientList(3)}
@@ -590,7 +590,7 @@ describe('ParsedIngredientList', () => {
         />
       )
 
-      expect(screen.getByRole('heading', { name: /parsed ingredients/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /ingredients/i })).toBeInTheDocument()
     })
 
     it('heading shows count of ingredients', () => {
@@ -603,7 +603,7 @@ describe('ParsedIngredientList', () => {
         />
       )
 
-      const heading = screen.getByRole('heading', { name: /parsed ingredients/i })
+      const heading = screen.getByRole('heading', { name: /ingredients/i })
       expect(heading.textContent).toMatch(/3/)
     })
   })
