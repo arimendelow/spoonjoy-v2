@@ -228,10 +228,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   // Filter to only valid step numbers and de-duplicate (extra safety)
   const usesSteps = [...new Set(parsedSteps.filter((n) => !isNaN(n) && n > 0 && n < nextStepNum))];
 
-  // Note: We allow creating empty steps (no ingredients or dependencies) during initial creation.
-  // Ingredients and dependencies can be added afterward via the step edit action.
-  // This was changed to support the workflow where users create a step first, then add ingredients later.
-  // Original validation required: if (usesSteps.length === 0 && ingredients.length === 0) { ... }
+  // Require at least 1 ingredient or 1 step output use
+  if (usesSteps.length === 0 && ingredients.length === 0) {
+    errors.usesSteps = STEP_CONTENT_REQUIREMENT_ERROR;
+    return data({ errors }, { status: 400 });
+  }
 
   try {
     const step = await database.recipeStep.create({
@@ -373,7 +374,7 @@ export default function NewStep() {
         <Form method="post" className="space-y-6">
           <Fieldset className="space-y-6">
             <Field>
-              <Label>Title (optional)</Label>
+              <Label>Step Title (optional)</Label>
               <Input
                 type="text"
                 name="stepTitle"
