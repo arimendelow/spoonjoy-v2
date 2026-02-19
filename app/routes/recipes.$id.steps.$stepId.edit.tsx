@@ -351,11 +351,6 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     },
   });
 
-  if (stepIngredientCount === 0 && usesSteps.length === 0) {
-    errors.usesSteps = STEP_CONTENT_REQUIREMENT_ERROR;
-    return data({ errors }, { status: 400 });
-  }
-
   try {
     await database.recipeStep.update({
       where: { id: stepId },
