@@ -195,6 +195,43 @@ describe("E2E: Edit Step Dependencies", () => {
     return result;
   }
 
+  // Helper to add ingredient manually via action
+  async function addIngredientManual(
+    recipeId: string,
+    stepId: string,
+    quantity: number,
+    unitName: string,
+    ingredientName: string
+  ): Promise<{ success?: boolean; errors?: any }> {
+    const formData = new UndiciFormData();
+    formData.append("intent", "addIngredient");
+    formData.append("quantity", quantity.toString());
+    formData.append("unitName", unitName);
+    formData.append("ingredientName", ingredientName);
+
+    const headers = new Headers();
+    headers.set("Cookie", cookieValue);
+
+    const request = new UndiciRequest(`http://localhost:3000/recipes/${recipeId}/steps/${stepId}/edit`, {
+      method: "POST",
+      body: formData,
+      headers,
+    });
+
+    const response = await editStepAction({
+      request,
+      context: { cloudflare: { env: null } },
+      params: { id: recipeId, stepId },
+    } as any);
+
+    // Check if response is successful
+    if (response instanceof Response && response.status === 302) {
+      return { success: true };
+    }
+
+    return { success: false, errors: response };
+  }
+
   describe("Edit existing dependencies", () => {
     it("should add a new dependency to an existing step", async () => {
       // Create recipe with 3 steps, step 3 initially depends on step 1 only
@@ -386,6 +423,10 @@ describe("E2E: Edit Step Dependencies", () => {
       await addStep(recipeId, "Second step", "Step 2");
       const step3Id = await addStep(recipeId, "Third step", "Step 3", [1, 2]);
 
+      // Add ingredient to step 3 so it has content (ingredient OR dependency)
+      const uniqueSuffix = faker.string.alphanumeric(6).toLowerCase();
+      await addIngredientManual(recipeId, step3Id, 2, "cup_" + uniqueSuffix, "flour_" + uniqueSuffix);
+
       // Verify initial state
       let stepOutputUses = await db.stepOutputUse.findMany({
         where: { recipeId, inputStepNum: 3 },
@@ -416,6 +457,10 @@ describe("E2E: Edit Step Dependencies", () => {
       await addStep(recipeId, "First step", "Step 1");
       const step2Id = await addStep(recipeId, "Second step", "Step 2", [1]);
 
+      // Add ingredient to step 2 so it has content (ingredient OR dependency)
+      const uniqueSuffix = faker.string.alphanumeric(6).toLowerCase();
+      await addIngredientManual(recipeId, step2Id, 1, "tsp_" + uniqueSuffix, "salt_" + uniqueSuffix);
+
       // Clear dependencies
       await updateStep(
         recipeId,
@@ -434,6 +479,10 @@ describe("E2E: Edit Step Dependencies", () => {
       const recipeId = await createRecipe("Clear Detail Test " + faker.string.alphanumeric(6));
       await addStep(recipeId, "First step", "Step 1");
       const step2Id = await addStep(recipeId, "Second step", "Step 2", [1]);
+
+      // Add ingredient to step 2 so it has content (ingredient OR dependency)
+      const uniqueSuffix = faker.string.alphanumeric(6).toLowerCase();
+      await addIngredientManual(recipeId, step2Id, 0.5, "cup_" + uniqueSuffix, "sugar_" + uniqueSuffix);
 
       // Clear dependencies
       await updateStep(
@@ -619,6 +668,10 @@ describe("E2E: Edit Step Dependencies", () => {
       await addStep(recipeId, "First step", "Step 1");
       const step2Id = await addStep(recipeId, "Second step", "Step 2", [1]);
 
+      // Add ingredient to step 2 so it has content (ingredient OR dependency)
+      const uniqueSuffix = faker.string.alphanumeric(6).toLowerCase();
+      await addIngredientManual(recipeId, step2Id, 2, "tbsp_" + uniqueSuffix, "butter_" + uniqueSuffix);
+
       // Clear dependencies
       await updateStep(
         recipeId,
@@ -715,11 +768,18 @@ describe("E2E: Edit Step Dependencies", () => {
       // Create two recipes with dependencies
       const recipe1Id = await createRecipe("Recipe 1 " + faker.string.alphanumeric(6));
       await addStep(recipe1Id, "R1 First step", "R1S1");
-      await addStep(recipe1Id, "R1 Second step", "R1S2", [1]);
+      const r1Step2Id = await addStep(recipe1Id, "R1 Second step", "R1S2", [1]);
 
       const recipe2Id = await createRecipe("Recipe 2 " + faker.string.alphanumeric(6));
       await addStep(recipe2Id, "R2 First step", "R2S1");
       const r2Step2Id = await addStep(recipe2Id, "R2 Second step", "R2S2", [1]);
+
+      // Add ingredients to both steps that will have dependencies cleared
+      const uniqueSuffix1 = faker.string.alphanumeric(6).toLowerCase();
+      await addIngredientManual(recipe1Id, r1Step2Id, 1, "tsp_" + uniqueSuffix1, "pepper_" + uniqueSuffix1);
+
+      const uniqueSuffix2 = faker.string.alphanumeric(6).toLowerCase();
+      await addIngredientManual(recipe2Id, r2Step2Id, 1, "tsp_" + uniqueSuffix2, "salt_" + uniqueSuffix2);
 
       // Edit recipe 2 step 2 to clear dependencies
       await updateStep(
@@ -847,6 +907,10 @@ describe("E2E: Edit Step Dependencies", () => {
       const recipeId = await createRecipe("Step 1 Edit Test " + faker.string.alphanumeric(6));
       const step1Id = await addStep(recipeId, "First step", "Step 1");
       await addStep(recipeId, "Second step", "Step 2", [1]);
+
+      // Add ingredient to step 1 so it has content (ingredient OR dependency)
+      const uniqueSuffix = faker.string.alphanumeric(6).toLowerCase();
+      await addIngredientManual(recipeId, step1Id, 1, "tsp_" + uniqueSuffix, "garlic_" + uniqueSuffix);
 
       // Edit step 1 (which cannot have dependencies)
       await updateStep(
