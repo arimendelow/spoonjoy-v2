@@ -100,32 +100,6 @@ jobs:
       - name: 🗄️ Apply D1 migrations
         run: pnpm exec wrangler d1 migrations apply DB --local
 
-      - name: 🚦 Fast web server boot check
-        run: |
-          set -euo pipefail
-          rm -f /tmp/spoonjoy-dev.log
-          pnpm dev > /tmp/spoonjoy-dev.log 2>&1 &
-          DEV_PID=$!
-
-          cleanup() {
-            kill "$DEV_PID" 2>/dev/null || true
-            wait "$DEV_PID" 2>/dev/null || true
-          }
-          trap cleanup EXIT
-
-          for i in {1..30}; do
-            if curl -fsS http://localhost:5173 >/dev/null; then
-              echo "✅ dev server responded on attempt $i"
-              exit 0
-            fi
-            sleep 2
-          done
-
-          echo "❌ dev server failed to boot within 60s"
-          echo "--- /tmp/spoonjoy-dev.log (tail) ---"
-          tail -n 200 /tmp/spoonjoy-dev.log || true
-          exit 1
-
       - name: 🎭 Run Playwright tests
         run: pnpm test:e2e
 
