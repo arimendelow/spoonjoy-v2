@@ -7,10 +7,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./test/setup.ts"],
     pool: "forks",
-    maxWorkers: 1,
-    fileParallelism: false,
+    fileParallelism: true,
     sequence: {
-      concurrent: false,
+      shuffle: false,
     },
     exclude: ["**/node_modules/**", "**/e2e/**"],
     coverage: {
