@@ -22,9 +22,9 @@ test.describe('Auth Flow', () => {
     await page.getByLabel('Password').first().fill('demo1234');
     await page.getByRole('button', { name: /log in/i }).first().click();
     
-    // Should redirect to recipes
-    await expect(page).toHaveURL('/recipes');
-    await expect(page.getByRole('heading', { name: /my recipes/i }).first()).toBeVisible();
+    // Should redirect to kitchen with recipes tab
+    await expect(page).toHaveURL('/?tab=recipes');
+    await expect(page.getByRole('heading', { name: /my kitchen/i }).first()).toBeVisible();
   });
 
   test('login with invalid credentials shows error', async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe('Auth Flow', () => {
     await page.getByLabel('Email').first().fill('demo@spoonjoy.com');
     await page.getByLabel('Password').first().fill('demo1234');
     await page.getByRole('button', { name: /log in/i }).first().click();
-    await expect(page).toHaveURL('/recipes');
+    await expect(page).toHaveURL('/?tab=recipes');
     
     // Click logout
     const logoutButton = page.getByRole('button', { name: /log\s*out/i }).first();

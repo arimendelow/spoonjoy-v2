@@ -100,6 +100,9 @@ jobs:
       - name: 🗄️ Apply D1 migrations
         run: pnpm exec wrangler d1 migrations apply DB --local
 
+      - name: 🌱 Seed local D1 database
+        run: pnpm db:seed
+
       - name: 🎭 Run Playwright tests
         run: pnpm test:e2e
 
