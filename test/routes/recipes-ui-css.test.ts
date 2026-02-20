@@ -25,9 +25,8 @@ const RECIPE_ROUTE_FILES = [
   "app/routes/recipes.$id.steps.$stepId.edit.tsx",
 ];
 
-// Files that should have UI component imports (excludes layout-only routes)
+// Files that should have UI component imports (excludes layout-only routes and redirects)
 const RECIPE_ROUTE_FILES_WITH_UI = [
-  "app/routes/recipes._index.tsx",
   "app/routes/recipes.new.tsx",
   "app/routes/recipes.$id.tsx",
   "app/routes/recipes.$id.edit.tsx",

@@ -506,9 +506,9 @@ export default function NewStep() {
             </Field>
 
             <div className="flex gap-4 justify-end pt-4">
-              <Button type="button" onClick={() => navigate(`/recipes/${recipe.id}/edit`)}>
+              <Link href={`/recipes/${recipe.id}/edit`}>
                 Cancel
-              </Button>
+              </Link>
               <Button type="submit">
                 Create
               </Button>

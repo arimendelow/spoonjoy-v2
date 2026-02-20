@@ -147,7 +147,7 @@ describe("HTML5 validation attributes", () => {
       ]);
 
       render(<Stub initialEntries={["/recipes/test-recipe-id/steps/new"]} />);
-      await screen.findByRole("heading", { name: /Add Step to/i });
+      await screen.findByRole("heading", { name: /Add Step/i });
     };
 
     it("stepTitle field has maxLength attribute", async () => {

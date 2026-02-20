@@ -10,6 +10,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Field, Label } from "~/components/ui/fieldset";
 import { Select } from "~/components/ui/select";
+import { Link } from "~/components/ui/link";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { INGREDIENT_ICON_COMPONENTS, resolveIngredientAffordance } from "~/lib/ingredient-affordances";
 import { IngredientParseError, parseIngredients } from "~/lib/ingredient-parse.server";
@@ -690,6 +691,7 @@ export default function ShoppingList() {
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/">Home</Link>
           {/* istanbul ignore next -- @preserve */ checkedCount > 0 && (
             <Form method="post">
               <input type="hidden" name="intent" value="clearCompleted" />
@@ -841,21 +843,18 @@ export default function ShoppingList() {
                     </div>
                   )}
                   <div className="relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
-                    <div
-                      className={`
-                        absolute inset-y-0 right-0 w-28 bg-red-600 text-white
-                        ${revealedItemId === item.id ? "pointer-events-auto" : "pointer-events-none"}
-                      `}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase tracking-wide"
-                        aria-label={`Delete ${item.ingredientRef.name}`}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    {revealedItemId === item.id && (
+                      <div className="absolute inset-y-0 right-0 w-28 bg-red-600 text-white pointer-events-auto">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.id)}
+                          className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase tracking-wide"
+                          aria-label={`Delete ${item.ingredientRef.name}`}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                     <motion.div
                       layout
                       drag="x"

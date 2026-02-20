@@ -545,7 +545,11 @@ describe("Recipes $id Steps New Route", () => {
       db.recipeStep.create = vi.fn().mockRejectedValue(new Error("Database connection failed"));
 
       try {
-        const request = await createFormRequest({ description: "Test step" }, testUserId);
+        // Provide ingredients to pass validation (now requires at least 1 ingredient or step use)
+        const ingredientsJson = JSON.stringify([
+          { quantity: 2, unit: "cups", ingredientName: "flour" },
+        ]);
+        const request = await createFormRequest({ description: "Test step", ingredientsJson }, testUserId);
 
         const response = await action({
           request,

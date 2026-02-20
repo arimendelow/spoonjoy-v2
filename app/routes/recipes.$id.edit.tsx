@@ -389,6 +389,9 @@ export default function EditRecipe() {
                         <p className="m-0 text-sm text-zinc-500">Step {step.stepNum}</p>
                         <h3 className="m-0 text-base font-semibold truncate">{title}</h3>
                         <p className="m-0 mt-1 text-sm text-zinc-600">
+                          {step.description}
+                        </p>
+                        <p className="m-0 mt-1 text-sm text-zinc-500">
                           {step.ingredients.length} ingredient{step.ingredients.length === 1 ? "" : "s"}
                         </p>
                       </div>

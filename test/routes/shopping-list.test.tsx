@@ -775,7 +775,8 @@ describe("Shopping List Routes", () => {
 
       expect(await screen.findByText("garlic")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
-      expect(screen.queryByText("Delete")).toBeInTheDocument();
+      // Delete button only appears on swipe, not rendered inline
+      expect(screen.queryByText("Delete")).not.toBeInTheDocument();
     });
 
     it("should not render per-item category badge chips", async () => {
