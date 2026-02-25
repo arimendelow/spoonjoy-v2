@@ -1,68 +1,64 @@
 import { describe, it, expect } from "vitest";
 import { Request as UndiciRequest } from "undici";
-import { loader } from "~/routes/$";
+import { render, screen } from "@testing-library/react";
+import { createTestRoutesStub } from "../utils";
+import { loader, meta } from "~/routes/$";
 import CatchAll from "~/routes/$";
 
 describe("Catch-all Route ($)", () => {
-  describe("loader", () => {
-    it("should throw 404 response for unknown routes", async () => {
-      const request = new UndiciRequest("http://localhost:3000/unknown-path");
+  describe("meta", () => {
+    it("returns 404 metadata", () => {
+      const result = meta({} as any);
 
-      try {
-        await loader({
-          request,
-          context: { cloudflare: { env: null } },
-          params: { "*": "unknown-path" },
-        } as any);
-        expect.fail("Should have thrown a 404 response");
-      } catch (response: any) {
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(404);
-        const text = await response.text();
-        expect(text).toBe("Not Found: /unknown-path");
-      }
+      expect(result).toEqual([
+        { title: "404 - Page not found | Spoonjoy" },
+        { name: "description", content: "The page you requested could not be found." },
+      ]);
     });
+  });
 
-    it("should return 204 for Chrome DevTools well-known request", async () => {
-      const request = new UndiciRequest(
-        "http://localhost:3000/.well-known/appspecific/com.chrome.devtools.json"
-      );
+  describe("loader", () => {
+    it("returns a 404 status response for unknown routes", async () => {
+      const request = new UndiciRequest("http://localhost:3000/unknown-path");
 
       const response = await loader({
         request,
         context: { cloudflare: { env: null } },
-        params: { "*": ".well-known/appspecific/com.chrome.devtools.json" },
+        params: { "*": "unknown-path" },
       } as any);
 
-      expect(response).toBeInstanceOf(Response);
-      expect(response.status).toBe(204);
+      expect(response).toHaveProperty("type", "DataWithResponseInit");
+      expect(response.init).toMatchObject({ status: 404 });
     });
 
-    it("should throw 404 for deeply nested unknown paths", async () => {
-      const request = new UndiciRequest(
-        "http://localhost:3000/some/deeply/nested/path"
-      );
+    it("returns a 404 status response for deeply nested unknown routes", async () => {
+      const request = new UndiciRequest("http://localhost:3000/some/deeply/nested/path");
 
-      try {
-        await loader({
-          request,
-          context: { cloudflare: { env: null } },
-          params: { "*": "some/deeply/nested/path" },
-        } as any);
-        expect.fail("Should have thrown a 404 response");
-      } catch (response: any) {
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(404);
-        const text = await response.text();
-        expect(text).toBe("Not Found: /some/deeply/nested/path");
-      }
+      const response = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { "*": "some/deeply/nested/path" },
+      } as any);
+
+      expect(response).toHaveProperty("type", "DataWithResponseInit");
+      expect(response.init).toMatchObject({ status: 404 });
     });
   });
 
   describe("component", () => {
-    it("should render null", () => {
-      const result = CatchAll();
-      expect(result).toBeNull();
+    it("renders a friendly not found message and home link", async () => {
+      const Stub = createTestRoutesStub([
+        {
+          path: "*",
+          Component: CatchAll,
+          loader,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/missing"]} />);
+
+      expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Go home" })).toHaveAttribute("href", "/");
     });
   });
 });
