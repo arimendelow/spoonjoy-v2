@@ -99,6 +99,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         title: title.trim(),
         description: description.trim() || null,
         servings: servings.trim() || null,
+        // Avoid schema default stock image when no image upload is provided.
+        imageUrl: "",
         chefId: userId,
         steps: {
           create: steps.map((step, index) => ({

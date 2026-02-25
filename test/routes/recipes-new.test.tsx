@@ -146,6 +146,7 @@ describe("Recipes New Route", () => {
       expect(recipes[0].title).toBe("My New Recipe");
       expect(recipes[0].description).toBe("A delicious recipe");
       expect(recipes[0].servings).toBe("4");
+      expect(recipes[0].imageUrl).toBe("");
     });
 
     it("should redirect when not logged in", async () => {
@@ -185,6 +186,7 @@ describe("Recipes New Route", () => {
       expect(recipes[0].title).toBe("Minimal Recipe");
       expect(recipes[0].description).toBeNull();
       expect(recipes[0].servings).toBeNull();
+      expect(recipes[0].imageUrl).toBe("");
     });
 
     it("should return validation error for whitespace-only title", async () => {

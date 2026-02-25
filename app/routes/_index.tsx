@@ -9,6 +9,7 @@ import { Heading, Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import { Avatar } from "~/components/ui/avatar";
 import { CookbookCard } from "~/components/pantry/CookbookCard";
+import { getDisplayRecipeImageUrl } from "~/lib/recipe-image";
 
 const DEFAULT_CHEF_AVATAR = "/images/chef-rj.png";
 
@@ -249,28 +250,31 @@ export default function Index() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {recipes.map((recipe) => (
-                  <Link
-                    key={recipe.id}
-                    href={`/recipes/${recipe.id}`}
-                    className="block overflow-hidden rounded-sm border border-zinc-300 bg-white no-underline transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                  >
-                    <div className="flex h-36 items-center justify-center border-b border-zinc-300 bg-stone-100 dark:border-zinc-700 dark:bg-zinc-800">
-                      {recipe.imageUrl ? (
-                        <img src={recipe.imageUrl} alt={recipe.title} className="h-full w-full object-cover" />
-                      ) : (
-                        <ChefHat className="size-8 text-zinc-400" aria-hidden="true" />
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <Subheading level={3} className="line-clamp-1">{recipe.title}</Subheading>
-                      {recipe.description ? (
-                        <Text className="mt-1 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-300">{recipe.description}</Text>
-                      ) : null}
-                      {recipe.servings ? <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Serves {recipe.servings}</Text> : null}
-                    </div>
-                  </Link>
-                ))}
+                {recipes.map((recipe) => {
+                  const displayImageUrl = getDisplayRecipeImageUrl(recipe.imageUrl);
+                  return (
+                    <Link
+                      key={recipe.id}
+                      href={`/recipes/${recipe.id}`}
+                      className="block overflow-hidden rounded-sm border border-zinc-300 bg-white no-underline transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                    >
+                      <div className="flex h-36 items-center justify-center border-b border-zinc-300 bg-stone-100 dark:border-zinc-700 dark:bg-zinc-800">
+                        {displayImageUrl ? (
+                          <img src={displayImageUrl} alt={recipe.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <ChefHat className="size-8 text-zinc-400" aria-hidden="true" />
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <Subheading level={3} className="line-clamp-1">{recipe.title}</Subheading>
+                        {recipe.description ? (
+                          <Text className="mt-1 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-300">{recipe.description}</Text>
+                        ) : null}
+                        {recipe.servings ? <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Serves {recipe.servings}</Text> : null}
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </section>

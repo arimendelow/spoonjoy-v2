@@ -1,8 +1,9 @@
-import { Bookmark, Share2 } from 'lucide-react'
+import { Bookmark, Share2, UtensilsCrossed } from 'lucide-react'
 import { Heading, Subheading } from '../ui/heading'
 import { Link } from '../ui/link'
 import { Text } from '../ui/text'
 import { Button } from '../ui/button'
+import { getDisplayRecipeImageUrl } from '~/lib/recipe-image'
 
 export interface PantryRecipeCard {
   id: string
@@ -57,6 +58,7 @@ export function RecipeGrid({
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {recipes.map((recipe) => {
           const href = recipe.href ?? `/recipes/${recipe.id}`
+          const displayImageUrl = getDisplayRecipeImageUrl(recipe.imageUrl)
 
           return (
             <article
@@ -65,15 +67,16 @@ export function RecipeGrid({
             >
               {/* Hero image — dominant, carries visual weight */}
               <div className="relative">
-                {recipe.imageUrl ? (
+                {displayImageUrl ? (
                   <img
-                    src={recipe.imageUrl}
+                    src={displayImageUrl}
                     alt={recipe.title}
                     className="aspect-[4/3] w-full object-cover"
                   />
                 ) : (
-                  <div className="flex aspect-[4/3] w-full items-center justify-center bg-zinc-100 text-xs tracking-wide text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
-                    No photo
+                  <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
+                    <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />
+                    <span className="text-xs tracking-wide">No photo</span>
                   </div>
                 )}
 

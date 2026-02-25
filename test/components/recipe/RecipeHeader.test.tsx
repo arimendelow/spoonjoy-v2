@@ -9,6 +9,9 @@ function renderWithRouter(ui: React.ReactElement) {
 }
 
 describe('RecipeHeader', () => {
+  const legacyDefaultImageUrl =
+    'https://res.cloudinary.com/dpjmyc4uz/image/upload/v1674541350/clbe7wr180009tkhggghtl1qd.png'
+
   const defaultProps = {
     title: 'Test Recipe',
     chefName: 'Test Chef',
@@ -80,6 +83,12 @@ describe('RecipeHeader', () => {
       renderWithRouter(<RecipeHeader {...defaultProps} />)
       expect(screen.getByTestId('recipe-image-placeholder')).toBeInTheDocument()
       expect(screen.getByText('No image available')).toBeInTheDocument()
+    })
+
+    it('renders placeholder for legacy default image URLs', () => {
+      renderWithRouter(<RecipeHeader {...defaultProps} imageUrl={legacyDefaultImageUrl} />)
+      expect(screen.getByTestId('recipe-image-placeholder')).toBeInTheDocument()
+      expect(screen.queryByTestId('recipe-image')).toBeNull()
     })
   })
 

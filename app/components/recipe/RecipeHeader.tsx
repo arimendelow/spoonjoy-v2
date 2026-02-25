@@ -5,6 +5,7 @@ import { Link } from '../ui/link'
 import { Avatar } from '../ui/avatar'
 import { ScaleSelector } from './ScaleSelector'
 import { scaleServingsText } from '~/lib/quantity'
+import { getDisplayRecipeImageUrl } from '~/lib/recipe-image'
 
 export interface RecipeHeaderProps {
   /** Recipe title */
@@ -52,17 +53,18 @@ export function RecipeHeader({
 }: RecipeHeaderProps) {
   // Scale the servings text based on the scale factor
   const scaledServings = servings ? scaleServingsText(servings, scaleFactor) : undefined
+  const displayImageUrl = getDisplayRecipeImageUrl(imageUrl)
 
   return (
     <header className="w-full">
       {/* Hero Image Section - PROMINENT and beautiful */}
-      {imageUrl ? (
+      {displayImageUrl ? (
         <div
           data-testid="recipe-image"
           className="relative w-full aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] overflow-hidden bg-zinc-100 dark:bg-zinc-800"
         >
           <img
-            src={imageUrl}
+            src={displayImageUrl}
             alt={`Photo of ${title}`}
             className="w-full h-full object-cover"
           />
