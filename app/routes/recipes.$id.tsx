@@ -7,7 +7,7 @@ import { getDb, db } from "~/lib/db.server";
 import { requireUserId } from "~/lib/session.server";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/components/ui/toast";
-import { Dialog, DialogBody, DialogTitle } from "~/components/ui/dialog";
+import { Dialog, DialogActions, DialogBody, DialogDescription, DialogTitle } from "~/components/ui/dialog";
 import { Field, Label } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
@@ -400,6 +400,7 @@ export default function RecipeDetail() {
 
   // State for Save modal (bottom sheet)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newCookbookTitle, setNewCookbookTitle] = useState("");
   const saveModalTitleRef = useRef<HTMLHeadingElement>(null);
 
@@ -534,6 +535,11 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleConfirmDelete = () => {
+    setIsDeleteDialogOpen(false);
+    submit({ intent: "delete" }, { method: "post" });
+  };
+
   /* istanbul ignore next -- @preserve browser scroll navigation */
   const handleStepReferenceClick = (stepNumber: number) => {
     // Scroll to the referenced step
@@ -582,10 +588,22 @@ export default function RecipeDetail() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
       <div className="px-4 sm:px-6 lg:px-8 pt-4 max-w-4xl mx-auto">
-        <Button href="/recipes" plain>
-          <ArrowLeft data-slot="icon" />
-          Back to recipes
-        </Button>
+        <div className="flex items-center justify-between gap-4">
+          <Button href="/recipes" plain>
+            <ArrowLeft data-slot="icon" />
+            Back to recipes
+          </Button>
+          {/* istanbul ignore next -- @preserve owner-only UI rendering */}
+          {isOwner && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
+              Delete Recipe
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Recipe Header with prominent image */}
@@ -686,6 +704,26 @@ export default function RecipeDetail() {
             </createCookbookFetcher.Form>
           </div>
         </div>
+      </Dialog>
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onClose={setIsDeleteDialogOpen}
+        size="sm"
+        role="alertdialog"
+      >
+        <DialogTitle>Delete Recipe</DialogTitle>
+        <DialogDescription>
+          Delete this recipe? This cannot be undone.
+        </DialogDescription>
+        <DialogActions>
+          <Button plain onClick={() => setIsDeleteDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleConfirmDelete}>
+            Delete Recipe
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Steps Section */}

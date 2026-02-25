@@ -1030,7 +1030,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("No steps added yet")).toBeInTheDocument();
       // Non-owner should not see edit/delete buttons
       expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Recipe" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Add Steps" })).not.toBeInTheDocument();
     });
 
@@ -1101,7 +1101,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getAllByText("Step 2").length).toBeGreaterThan(0);
     });
 
-    it("should not show edit/delete in header for owners (moved to dock/edit page)", async () => {
+    it("should show delete button in header for owners", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1127,7 +1127,7 @@ describe("Recipes $id Route", () => {
 
       await screen.findByRole("heading", { name: "My Recipe" });
       expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete Recipe" })).toBeInTheDocument();
     });
 
     it("should not render description when null", async () => {
@@ -1472,9 +1472,9 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("Step 1")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "The Only Step" })).toBeInTheDocument();
 
-      // Owner edit/delete buttons removed from header (available in dock/edit page)
+      // Owner edit button stays in dock/edit page, delete is now in the page header
       expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete Recipe" })).toBeInTheDocument();
 
       // Step output uses section should NOT appear (single step has no dependencies)
       expect(screen.queryByTestId("step-output-uses-section")).not.toBeInTheDocument();
@@ -1568,7 +1568,8 @@ describe("Recipes $id Route", () => {
       expect(stepReferencePosition).toBeLessThan(descriptionPosition);
     });
 
-    it("should not show delete dialog (delete removed from recipe detail header)", async () => {
+    it("should open delete confirmation dialog for owners", async () => {
+      const user = userEvent.setup();
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1593,9 +1594,12 @@ describe("Recipes $id Route", () => {
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
       await screen.findByRole("heading", { name: "Recipe to Delete" });
-      // Delete button and dialog are no longer in recipe detail (moved to edit page)
-      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
-      expect(screen.queryByText("Banish this recipe?")).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Delete Recipe" })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Delete Recipe" }));
+
+      expect(screen.getByRole("dialog", { name: "Delete Recipe" })).toBeInTheDocument();
+      expect(screen.getByText("Delete this recipe? This cannot be undone.")).toBeInTheDocument();
     });
 
     it("should not render Share button in header (moved to SpoonDock)", async () => {
@@ -1661,7 +1665,7 @@ describe("Recipes $id Route", () => {
       expect(screen.queryByRole("button", { name: /share/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete Recipe" })).not.toBeInTheDocument();
     });
 
     it("should not render Save button in header (moved to SpoonDock)", async () => {
