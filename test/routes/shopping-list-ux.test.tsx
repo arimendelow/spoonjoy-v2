@@ -9,6 +9,15 @@ vi.mock("framer-motion", () => {
     children,
     onDragEnd,
     animate,
+    layout: _layout,
+    drag: _drag,
+    dragConstraints: _dragConstraints,
+    dragElastic: _dragElastic,
+    dragMomentum: _dragMomentum,
+    dragDirectionLock: _dragDirectionLock,
+    initial: _initial,
+    exit: _exit,
+    transition: _transition,
     ...props
   }: {
     children: React.ReactNode;
@@ -71,6 +80,7 @@ describe("shopping list UX updates", () => {
         path: "/shopping-list",
         Component: ShoppingList,
         loader: () => singleItemData,
+        action: async () => ({ success: true }),
       },
     ]);
 
@@ -96,6 +106,7 @@ describe("shopping list UX updates", () => {
         path: "/shopping-list",
         Component: ShoppingList,
         loader: () => singleItemData,
+        action: async () => ({ success: true }),
       },
     ]);
 
@@ -158,11 +169,13 @@ describe("shopping list UX updates", () => {
           },
           recipes: [],
         }),
+        action: async () => ({ success: true }),
       },
     ]);
 
     const { container } = render(<Stub initialEntries={["/shopping-list"]} />);
 
+    expect(await screen.findByText("apples")).toBeInTheDocument();
     const seamContainer = container.querySelector(".relative.overflow-hidden.rounded-lg.border");
     const rowShell = container.querySelector(".relative.z-10.px-3.py-2");
     expect(seamContainer).toBeInTheDocument();

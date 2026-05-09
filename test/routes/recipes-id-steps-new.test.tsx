@@ -567,7 +567,7 @@ describe("Recipes $id Steps New Route", () => {
     });
 
     describe("step output uses", () => {
-      it("should return validation error when step has no ingredients and no step output uses", async () => {
+      it("should create an empty step when no ingredients and no step output uses are provided", async () => {
         // Create existing step
         await db.recipeStep.create({
           data: {
@@ -588,11 +588,20 @@ describe("Recipes $id Steps New Route", () => {
           params: { id: recipeId },
         } as any);
 
-        const { data, status } = extractResponseData(response);
-        expect(status).toBe(400);
-        expect(data.errors.usesSteps).toBe(
-          "Add at least 1 ingredient or 1 step output use before saving this step."
-        );
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        const createdStep = await db.recipeStep.findUnique({
+          where: { recipeId_stepNum: { recipeId, stepNum: 2 } },
+          include: { ingredients: true, usingSteps: true },
+        });
+        expect(createdStep).toMatchObject({
+          recipeId,
+          stepNum: 2,
+          description: "Step 2 description",
+        });
+        expect(createdStep?.ingredients).toHaveLength(0);
+        expect(createdStep?.usingSteps).toHaveLength(0);
       });
 
       it("should create step with single step output use", async () => {
@@ -703,7 +712,7 @@ describe("Recipes $id Steps New Route", () => {
         expect(data.errors.usesSteps).toBe("Can only reference previous steps");
       });
 
-      it("should return validation error for explicit empty usesSteps array", async () => {
+      it("should treat an explicit empty usesSteps array as empty step creation", async () => {
         // Create existing step
         await db.recipeStep.create({
           data: {
@@ -725,11 +734,20 @@ describe("Recipes $id Steps New Route", () => {
           params: { id: recipeId },
         } as any);
 
-        const { data, status } = extractResponseData(response);
-        expect(status).toBe(400);
-        expect(data.errors.usesSteps).toBe(
-          "Add at least 1 ingredient or 1 step output use before saving this step."
-        );
+        expect(response).toBeInstanceOf(Response);
+        expect(response.status).toBe(302);
+
+        const createdStep = await db.recipeStep.findUnique({
+          where: { recipeId_stepNum: { recipeId, stepNum: 2 } },
+          include: { ingredients: true, usingSteps: true },
+        });
+        expect(createdStep).toMatchObject({
+          recipeId,
+          stepNum: 2,
+          description: "Step 2",
+        });
+        expect(createdStep?.ingredients).toHaveLength(0);
+        expect(createdStep?.usingSteps).toHaveLength(0);
       });
 
       it("should return validation error when selecting current step (self-reference)", async () => {

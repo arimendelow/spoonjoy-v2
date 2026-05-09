@@ -1594,11 +1594,11 @@ describe("Recipes $id Route", () => {
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
       await screen.findByRole("heading", { name: "Recipe to Delete" });
-      expect(screen.queryByRole("dialog", { name: "Delete Recipe" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog", { name: "Delete Recipe" })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Delete Recipe" }));
 
-      expect(screen.getByRole("dialog", { name: "Delete Recipe" })).toBeInTheDocument();
+      expect(await screen.findByRole("alertdialog", { name: "Delete Recipe" })).toBeInTheDocument();
       expect(screen.getByText("Delete this recipe? This cannot be undone.")).toBeInTheDocument();
     });
 
