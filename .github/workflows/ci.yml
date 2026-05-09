@@ -23,7 +23,7 @@ jobs:
       - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: 📥 Install dependencies
@@ -58,6 +58,9 @@ jobs:
       - name: 🌱 Seed local D1 database
         run: pnpm db:seed
 
+      - name: 🔍 Typecheck
+        run: pnpm run typecheck
+
       - name: 🧪 Test & Coverage
         run: pnpm test:coverage
 
@@ -80,7 +83,7 @@ jobs:
       - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: 📥 Install dependencies
