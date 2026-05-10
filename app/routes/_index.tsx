@@ -314,11 +314,22 @@ export default function Index() {
             </div>
 
             {recipes.length === 0 ? (
-              <div className="rounded-sm border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
-                <Text className="text-zinc-600 dark:text-zinc-300">
-                  {isOwner ? "No recipes yet. Add your first recipe to start your kitchen." : "No public recipes yet."}
-                </Text>
-              </div>
+              isOwner ? (
+                <div className="rounded-sm border border-dashed border-amber-300 bg-white p-8 text-center dark:border-amber-800 dark:bg-zinc-900">
+                  <ChefHat className="mx-auto size-8 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                  <Subheading level={3} className="mt-3 font-serif text-xl/7">Start your recipe box</Subheading>
+                  <Text className="mx-auto mt-2 max-w-xl text-zinc-600 dark:text-zinc-300">
+                    Capture the dish you make most often, the family classic everyone asks about, or the weeknight save you never want to lose.
+                  </Text>
+                  <div className="mt-5">
+                    <Button href="/recipes/new">Create First Recipe</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-sm border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
+                  <Text className="text-zinc-600 dark:text-zinc-300">No public recipes yet.</Text>
+                </div>
+              )
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {recipes.map((recipe) => {
@@ -357,11 +368,22 @@ export default function Index() {
             </div>
 
             {cookbooks.length === 0 ? (
-              <div className="rounded-sm border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
-                <Text className="text-zinc-600 dark:text-zinc-300">
-                  {isOwner ? "No cookbooks yet. Create one to organize your recipes." : "No public cookbooks yet."}
-                </Text>
-              </div>
+              isOwner ? (
+                <div className="rounded-sm border border-dashed border-lime-300 bg-white p-8 text-center dark:border-lime-800 dark:bg-zinc-900">
+                  <BookOpen className="mx-auto size-8 text-lime-700 dark:text-lime-300" aria-hidden="true" />
+                  <Subheading level={3} className="mt-3 font-serif text-xl/7">Build your first cookbook</Subheading>
+                  <Text className="mx-auto mt-2 max-w-xl text-zinc-600 dark:text-zinc-300">
+                    Group recipes into a holiday menu, a weeknight rotation, or a family collection that grows with every good meal.
+                  </Text>
+                  <div className="mt-5">
+                    <Button href="/cookbooks/new">Create First Cookbook</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-sm border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
+                  <Text className="text-zinc-600 dark:text-zinc-300">No public cookbooks yet.</Text>
+                </div>
+              )
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {cookbooks.map((cookbook) => (
