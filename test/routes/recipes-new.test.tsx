@@ -6,6 +6,7 @@ import { redirect } from "react-router";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { loader, action } from "~/routes/recipes.new";
+import { action as shoppingListAction } from "~/routes/shopping-list";
 import NewRecipe from "~/routes/recipes.new";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
@@ -81,7 +82,8 @@ describe("Recipes New Route", () => {
     // Helper to create a request with form data and session cookie using undici
     async function createFormRequest(
       formFields: Record<string, string>,
-      userId?: string
+      userId?: string,
+      url = "http://localhost:3000/recipes/new"
     ): Promise<UndiciRequest> {
       const formData = new UndiciFormData();
       for (const [key, value] of Object.entries(formFields)) {
@@ -98,7 +100,7 @@ describe("Recipes New Route", () => {
         headers.set("Cookie", cookieValue);
       }
 
-      return new UndiciRequest("http://localhost:3000/recipes/new", {
+      return new UndiciRequest(url, {
         method: "POST",
         body: formData,
         headers,
@@ -260,9 +262,9 @@ describe("Recipes New Route", () => {
     });
 
     it("should return generic error for database errors", async () => {
-      // Mock db.recipe.create to throw a generic error
-      const originalCreate = db.recipe.create;
-      db.recipe.create = vi.fn().mockRejectedValue(new Error("Database connection failed"));
+      // Mock the transaction wrapper to throw a generic database error
+      const originalTransaction = db.$transaction;
+      db.$transaction = vi.fn().mockRejectedValue(new Error("Database connection failed"));
 
       try {
         const request = await createFormRequest({ title: "My Recipe" }, testUserId);
@@ -278,7 +280,7 @@ describe("Recipes New Route", () => {
         expect(data.errors.general).toBe("Failed to create recipe. Please try again.");
       } finally {
         // Restore original function
-        db.recipe.create = originalCreate;
+        db.$transaction = originalTransaction;
       }
     });
 
@@ -392,75 +394,17 @@ describe("Recipes New Route", () => {
     });
 
     it("should create recipe with valid steps JSON and redirect", async () => {
-      const originalCreate = db.recipe.create;
-      db.recipe.create = vi.fn().mockResolvedValue({ id: "mock-recipe-id" });
-
-      try {
-        const stepsData = [
-          { description: "Mix dry ingredients", stepTitle: "Prep", duration: 10, ingredients: [] },
-          { description: "Bake at 350°F for 25 minutes", ingredients: [] },
-        ];
-        const formData = new UndiciFormData();
-        formData.append("title", "Recipe With Steps");
-        formData.append("steps", JSON.stringify(stepsData));
-
-        const session = await sessionStorage.getSession();
-        session.set("userId", testUserId);
-        const setCookieHeader = await sessionStorage.commitSession(session);
-        const cookieValue = setCookieHeader.split(";")[0];
-        const headers = new Headers();
-        headers.set("Cookie", cookieValue);
-
-        const request = new UndiciRequest("http://localhost:3000/recipes/new", {
-          method: "POST",
-          body: formData,
-          headers,
-        });
-
-        const response = await action({
-          request,
-          context: { cloudflare: { env: null } },
-          params: {},
-        } as any);
-
-        expect(response).toBeInstanceOf(Response);
-        expect(response.status).toBe(302);
-        expect(response.headers.get("Location")).toBe("/recipes/mock-recipe-id");
-
-        // Verify the create was called with correct steps data
-        expect(db.recipe.create).toHaveBeenCalledWith({
-          data: expect.objectContaining({
-            title: "Recipe With Steps",
-            steps: {
-              create: [
-                { stepNum: 1, description: "Mix dry ingredients", stepTitle: "Prep", duration: 10 },
-                { stepNum: 2, description: "Bake at 350°F for 25 minutes", stepTitle: null, duration: null },
-              ],
-            },
-          }),
-        });
-      } finally {
-        db.recipe.create = originalCreate;
-      }
-    });
-
-    it("should handle invalid steps JSON gracefully", async () => {
-      const formData = new UndiciFormData();
-      formData.append("title", "Recipe With Bad Steps");
-      formData.append("steps", "not valid json{{{");
-
-      const session = await sessionStorage.getSession();
-      session.set("userId", testUserId);
-      const setCookieHeader = await sessionStorage.commitSession(session);
-      const cookieValue = setCookieHeader.split(";")[0];
-      const headers = new Headers();
-      headers.set("Cookie", cookieValue);
-
-      const request = new UndiciRequest("http://localhost:3000/recipes/new", {
-        method: "POST",
-        body: formData,
-        headers,
-      });
+      const stepsData = [
+        { description: "Mix dry ingredients", stepTitle: "Prep", duration: 10, ingredients: [] },
+        { description: "Bake at 350°F for 25 minutes", ingredients: [] },
+      ];
+      const request = await createFormRequest(
+        {
+          title: "Recipe With Steps",
+          steps: JSON.stringify(stepsData),
+        },
+        testUserId
+      );
 
       const response = await action({
         request,
@@ -468,17 +412,196 @@ describe("Recipes New Route", () => {
         params: {},
       } as any);
 
-      // Should still create recipe successfully, just with no steps
       expect(response).toBeInstanceOf(Response);
       expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toMatch(/\/recipes\/[\w-]+/);
+
+      const recipe = await db.recipe.findFirstOrThrow({
+        where: { chefId: testUserId, title: "Recipe With Steps" },
+        include: { steps: { orderBy: { stepNum: "asc" } } },
+      });
+      expect(recipe.steps).toHaveLength(2);
+      expect(recipe.steps[0]).toMatchObject({
+        stepNum: 1,
+        description: "Mix dry ingredients",
+        stepTitle: "Prep",
+        duration: 10,
+      });
+      expect(recipe.steps[1]).toMatchObject({
+        stepNum: 2,
+        description: "Bake at 350°F for 25 minutes",
+        stepTitle: null,
+        duration: null,
+      });
+    });
+
+    it("should return validation error for invalid steps JSON", async () => {
+      const request = await createFormRequest(
+        {
+          title: "Recipe With Bad Steps",
+          steps: "not valid json{{{",
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.steps).toBe("Recipe steps must be valid JSON");
 
       const recipe = await db.recipe.findFirst({
         where: { chefId: testUserId },
-        include: { steps: true },
       });
-      expect(recipe).not.toBeNull();
-      expect(recipe!.title).toBe("Recipe With Bad Steps");
-      expect(recipe!.steps).toHaveLength(0);
+      expect(recipe).toBeNull();
+    });
+
+    it("should return validation error for invalid submitted step fields", async () => {
+      const request = await createFormRequest(
+        {
+          title: "Recipe With Invalid Step",
+          steps: JSON.stringify([{ description: "" }]),
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.steps).toBe("Step 1: Step description is required");
+      await expect(db.recipe.count({ where: { chefId: testUserId } })).resolves.toBe(0);
+    });
+
+    it("should return validation error for invalid submitted ingredient fields", async () => {
+      const request = await createFormRequest(
+        {
+          title: "Recipe With Invalid Ingredient",
+          steps: JSON.stringify([
+            {
+              description: "Mix",
+              ingredients: [{ quantity: 0, unit: "cup", ingredientName: "flour" }],
+            },
+          ]),
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const { data, status } = extractResponseData(response);
+      expect(status).toBe(400);
+      expect(data.errors.steps).toBe("Step 1, ingredient 1: Quantity must be between 0.001 and 99,999");
+      await expect(db.recipe.count({ where: { chefId: testUserId } })).resolves.toBe(0);
+    });
+
+    it("should persist submitted step ingredients and make them available to the shopping list", async () => {
+      await db.unit.create({ data: { name: "cup" } });
+      await db.ingredientRef.create({ data: { name: "flour" } });
+
+      const request = await createFormRequest(
+        {
+          title: "Shopping List Pancakes",
+          steps: JSON.stringify([
+            {
+              stepTitle: "Prep",
+              description: "Mix dry ingredients",
+              duration: 8,
+              ingredients: [
+                { quantity: 2, unit: "Cup", ingredientName: "Flour" },
+                { quantity: 1, unit: "cup", ingredientName: "Milk" },
+              ],
+            },
+          ]),
+        },
+        testUserId
+      );
+
+      const response = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(302);
+
+      const recipe = await db.recipe.findFirstOrThrow({
+        where: { chefId: testUserId, title: "Shopping List Pancakes" },
+        include: {
+          steps: {
+            include: {
+              ingredients: {
+                include: { unit: true, ingredientRef: true },
+                orderBy: { ingredientRef: { name: "asc" } },
+              },
+            },
+          },
+        },
+      });
+
+      expect(recipe.steps[0]).toMatchObject({
+        stepNum: 1,
+        stepTitle: "Prep",
+        description: "Mix dry ingredients",
+        duration: 8,
+      });
+      expect(recipe.steps[0].ingredients.map((ingredient) => ({
+        quantity: ingredient.quantity,
+        unit: ingredient.unit.name,
+        name: ingredient.ingredientRef.name,
+      }))).toEqual([
+        { quantity: 2, unit: "cup", name: "flour" },
+        { quantity: 1, unit: "cup", name: "milk" },
+      ]);
+      await expect(db.unit.count({ where: { name: "cup" } })).resolves.toBe(1);
+      await expect(db.ingredientRef.count({ where: { name: "flour" } })).resolves.toBe(1);
+
+      const addToListRequest = await createFormRequest(
+        {
+          intent: "addFromRecipe",
+          recipeId: recipe.id,
+        },
+        testUserId,
+        "http://localhost:3000/shopping-list"
+      );
+
+      await shoppingListAction({
+        request: addToListRequest,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      const shoppingList = await db.shoppingList.findUniqueOrThrow({
+        where: { authorId: testUserId },
+        include: {
+          items: {
+            include: { unit: true, ingredientRef: true },
+            orderBy: { ingredientRef: { name: "asc" } },
+          },
+        },
+      });
+
+      expect(shoppingList.items.map((item) => ({
+        quantity: item.quantity,
+        unit: item.unit?.name,
+        name: item.ingredientRef.name,
+      }))).toEqual([
+        { quantity: 2, unit: "cup", name: "flour" },
+        { quantity: 1, unit: "cup", name: "milk" },
+      ]);
     });
 
     describe("field validation", () => {

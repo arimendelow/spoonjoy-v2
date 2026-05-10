@@ -53,6 +53,7 @@ export interface RecipeBuilderProps {
     description?: string
     servings?: string
     image?: string
+    steps?: string
     general?: string
   }
   showSteps?: boolean
@@ -241,6 +242,14 @@ export function RecipeBuilder({
       {showSteps && (
         <section aria-label="Recipe Steps" className="space-y-4">
           <h2 className="text-xl font-semibold">Recipe Steps</h2>
+          {errors?.steps && (
+            <div
+              role="alert"
+              className="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400"
+            >
+              {errors.steps}
+            </div>
+          )}
 
           <StepList
             steps={steps}

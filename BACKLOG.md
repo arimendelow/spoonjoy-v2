@@ -3,7 +3,7 @@
 Status: proposed canonical backlog
 Audit date: 2026-05-10
 Baseline: `main` at `3533955` (`Upgrade GitHub Actions to Node 24 runtime (#3)`)
-Verification anchor: `pnpm test:coverage` passed with 129 test files, 3363 tests, 16 skipped tests, and 100% statements/branches/functions/lines.
+Verification anchor: `pnpm test:coverage` passed with 135 test files, 3452 tests, 16 skipped tests, and 100% statements/branches/functions/lines.
 
 ## How To Use This Backlog
 
@@ -43,7 +43,7 @@ Status meanings:
 6. `SJ-006`: Remove or replace skipped tests so 100% coverage also means no hidden skipped assertions.
 7. `SJ-008`: Run the mobile RecipeBuilder/SpoonDock UX pass once core create/edit data paths are trustworthy.
 
-Completed in sequence: `SJ-001`, `SJ-002`.
+Completed in sequence: `SJ-001`, `SJ-002`, `SJ-003`.
 
 ## Backlog Items
 
@@ -107,7 +107,7 @@ Completion notes:
 
 Priority: `P0`
 Lane: `recipes`, `data-integrity`, `core-flow`
-Status: `proposed`
+Status: `done`
 
 Problem: The create-recipe UI can collect steps and ingredients, but the create action only persists step metadata and explicitly notes that ingredient handling is not implemented. This can silently discard ingredient data entered during the primary recipe creation flow.
 
@@ -126,6 +126,13 @@ Acceptance criteria:
 - Step order, duration, optional step titles, ingredient quantities, unit names, and ingredient names round-trip from RecipeBuilder to recipe detail.
 - Adding a newly created recipe to the shopping list includes the newly persisted ingredients.
 - Tests cover empty steps, invalid JSON, invalid step fields, invalid ingredient fields, duplicate unit/ref reuse, and successful full create.
+
+Completion notes:
+
+- Added a shared recipe-create helper that parses, validates, normalizes, and transactionally persists builder-submitted steps and ingredients.
+- Updated the create route to reject invalid step payloads instead of silently creating recipes with empty steps.
+- Persisted units, ingredient refs, recipe steps, and ingredient rows in the same transaction as recipe creation.
+- Added route and helper tests for empty steps, invalid JSON, invalid step/ingredient fields, duplicate unit/ref reuse, successful full create, and shopping-list inclusion.
 
 ### SJ-004 - Finish Recipe Image Upload And Storage
 
