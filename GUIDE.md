@@ -268,6 +268,8 @@ spoonjoy-v2/
 └── .wrangler/            # Local D1 database (auto-created)
 ```
 
+Generated build/test output such as `build/`, `coverage/`, `.react-router/`, `playwright-report/`, `test-results/`, and `storybook-static/` is local noise. These paths stay ignored, and the test suite includes a hygiene guard so they do not become tracked artifacts.
+
 ### The React Router Pattern
 
 Every route follows this pattern:

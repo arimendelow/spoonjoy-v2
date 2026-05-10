@@ -49,8 +49,9 @@ Status meanings:
 12. `SJ-007`: Split large route modules into testable server/domain modules.
 13. `SJ-024`: Add direct MCP shopping-list item controls for Ouroboros agents.
 14. `SJ-017`: Harden cookbook membership authorization and idempotency.
+15. `SJ-019`: Guard generated artifact hygiene.
 
-Completed in sequence: `SJ-001`, `SJ-002`, `SJ-003`, `SJ-004`, `SJ-005`, `SJ-006`, `SJ-008`, `SJ-009`, `SJ-013`, `SJ-015`, `SJ-023`, `SJ-007`, `SJ-024`, `SJ-017`.
+Completed in sequence: `SJ-001`, `SJ-002`, `SJ-003`, `SJ-004`, `SJ-005`, `SJ-006`, `SJ-008`, `SJ-009`, `SJ-013`, `SJ-015`, `SJ-023`, `SJ-007`, `SJ-024`, `SJ-017`, `SJ-019`.
 
 ## Backlog Items
 
@@ -554,7 +555,7 @@ Notes:
 
 Priority: `P3`
 Lane: `repo-hygiene`, `agent-trust`
-Status: `proposed`
+Status: `done`
 
 Problem: Local generated directories exist after builds/tests, and the ignore file covers them. This is not currently a tracked-artifact problem, but agents should know these directories are expected local noise and should not stage them.
 
@@ -569,6 +570,11 @@ Acceptance criteria:
 - Add a short contributor/agent note about ignored generated artifacts if docs are refreshed.
 - Do not stage generated local artifacts in future PRs.
 - Optionally add a lightweight cleanliness check that fails if known generated paths become tracked.
+
+Completion notes:
+
+- Added README and GUIDE notes naming local-only generated artifact paths that agents should not stage.
+- Added a repo-hygiene Vitest guard that fails if known generated artifact directories become tracked or stop being ignored.
 
 ### SJ-020 - Observability, Privacy, And Analytics Review
 
