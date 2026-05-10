@@ -65,6 +65,19 @@ function positiveNumber(value: unknown, key: string): number {
   return parsed;
 }
 
+function optionalQuantity(value: unknown, key: string): number | null {
+  if (value === undefined || value === null) return null;
+  const parsed = optionalPositiveNumber(value);
+  if (parsed === undefined) throw new Error(`${key} must be a positive number`);
+  return parsed;
+}
+
+function requiredBoolean(args: Record<string, unknown>, key: string): boolean {
+  const value = args[key];
+  if (typeof value !== "boolean") throw new Error(`${key} must be a boolean`);
+  return value;
+}
+
 function normalizeLimit(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_LIMIT;
   return Math.min(MAX_LIMIT, Math.max(1, Math.floor(value)));
@@ -262,6 +275,13 @@ async function getOrCreateShoppingList(db: Database, ownerId: string) {
   const existing = await db.shoppingList.findUnique({ where: { authorId: ownerId } });
   if (existing) return existing;
   return db.shoppingList.create({ data: { authorId: ownerId } });
+}
+
+async function reloadShoppingList(db: Database, shoppingListId: string): Promise<ShoppingListWithItems> {
+  return db.shoppingList.findUniqueOrThrow({
+    where: { id: shoppingListId },
+    include: { items: { include: { unit: true, ingredientRef: true } } },
+  });
 }
 
 const healthTool: SpoonjoyMcpTool = {
@@ -524,6 +544,164 @@ const addRecipeToShoppingListTool: SpoonjoyMcpTool = {
   },
 };
 
+const addShoppingListItemTool: SpoonjoyMcpTool = {
+  name: "add_shopping_list_item",
+  description: "Add or restore one manual item on the configured owner shopping list, merging matching items.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      ownerEmail: { type: "string" },
+      name: { type: "string" },
+      quantity: { type: "number", exclusiveMinimum: 0 },
+      unit: { type: "string" },
+      categoryKey: { type: "string" },
+      iconKey: { type: "string" },
+    },
+    required: ["name"],
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    const email = requireOwnerEmail(args, context);
+    const name = requiredString(args, "name");
+    const quantity = optionalQuantity(args.quantity, "quantity");
+    const unitName = optionalString(args.unit);
+    const categoryKey = optionalString(args.categoryKey) ?? null;
+    const iconKey = optionalString(args.iconKey) ?? null;
+
+    const result = await context.db.$transaction(async (tx) => {
+      const owner = await getOrCreateOwner(tx, email);
+      const shoppingList = await getOrCreateShoppingList(tx, owner.id);
+      const ingredientRef = await getOrCreateIngredientRef(tx, name);
+      const unit = unitName ? await getOrCreateUnit(tx, unitName) : null;
+      const existing = await tx.shoppingListItem.findFirst({
+        where: {
+          shoppingListId: shoppingList.id,
+          ingredientRefId: ingredientRef.id,
+          unitId: unit?.id ?? null,
+        },
+      });
+
+      if (existing) {
+        const shouldMoveToEnd = Boolean(existing.checked || existing.checkedAt || existing.deletedAt);
+        await tx.shoppingListItem.update({
+          where: { id: existing.id },
+          data: {
+            quantity: quantity === null ? existing.quantity : (existing.quantity ?? 0) + quantity,
+            checked: false,
+            checkedAt: null,
+            deletedAt: null,
+            sortIndex: shouldMoveToEnd ? await nextSortIndex(tx, shoppingList.id) : existing.sortIndex,
+            categoryKey: categoryKey ?? existing.categoryKey,
+            iconKey: iconKey ?? existing.iconKey,
+          },
+        });
+
+        return { created: 0, updated: 1, shoppingList: await reloadShoppingList(tx, shoppingList.id) };
+      }
+
+      await tx.shoppingListItem.create({
+        data: {
+          shoppingListId: shoppingList.id,
+          quantity,
+          unitId: unit?.id ?? null,
+          ingredientRefId: ingredientRef.id,
+          sortIndex: await nextSortIndex(tx, shoppingList.id),
+          categoryKey,
+          iconKey,
+        },
+      });
+
+      return { created: 1, updated: 0, shoppingList: await reloadShoppingList(tx, shoppingList.id) };
+    });
+
+    return json({
+      created: result.created,
+      updated: result.updated,
+      shoppingList: formatShoppingList(result.shoppingList),
+    });
+  },
+};
+
+const setShoppingListItemCheckedTool: SpoonjoyMcpTool = {
+  name: "set_shopping_list_item_checked",
+  description: "Set checked state for one active item on the configured owner shopping list.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      ownerEmail: { type: "string" },
+      itemId: { type: "string" },
+      checked: { type: "boolean" },
+    },
+    required: ["itemId", "checked"],
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    const email = requireOwnerEmail(args, context);
+    const itemId = requiredString(args, "itemId");
+    const checked = requiredBoolean(args, "checked");
+
+    const result = await context.db.$transaction(async (tx) => {
+      const owner = await getOrCreateOwner(tx, email);
+      const shoppingList = await getOrCreateShoppingList(tx, owner.id);
+      const item = await tx.shoppingListItem.findFirst({
+        where: { id: itemId, shoppingListId: shoppingList.id, deletedAt: null },
+      });
+      if (!item) throw new Error("Shopping list item not found");
+
+      await tx.shoppingListItem.update({
+        where: { id: item.id },
+        data: {
+          checked,
+          checkedAt: checked ? new Date() : null,
+          sortIndex: checked ? await nextSortIndex(tx, shoppingList.id) : item.sortIndex,
+        },
+      });
+
+      return reloadShoppingList(tx, shoppingList.id);
+    });
+
+    return json({ shoppingList: formatShoppingList(result) });
+  },
+};
+
+const removeShoppingListItemTool: SpoonjoyMcpTool = {
+  name: "remove_shopping_list_item",
+  description: "Soft-remove one item from the configured owner shopping list.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      ownerEmail: { type: "string" },
+      itemId: { type: "string" },
+    },
+    required: ["itemId"],
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    const email = requireOwnerEmail(args, context);
+    const itemId = requiredString(args, "itemId");
+
+    const result = await context.db.$transaction(async (tx) => {
+      const owner = await getOrCreateOwner(tx, email);
+      const shoppingList = await getOrCreateShoppingList(tx, owner.id);
+      const item = await tx.shoppingListItem.findFirst({
+        where: { id: itemId, shoppingListId: shoppingList.id },
+      });
+      if (!item) throw new Error("Shopping list item not found");
+
+      if (!item.deletedAt) {
+        await tx.shoppingListItem.update({
+          where: { id: item.id },
+          data: { deletedAt: new Date() },
+        });
+      }
+
+      return reloadShoppingList(tx, shoppingList.id);
+    });
+
+    return json({ shoppingList: formatShoppingList(result) });
+  },
+};
+
 const getShoppingListTool: SpoonjoyMcpTool = {
   name: "get_shopping_list",
   description: "Fetch the configured owner shopping list.",
@@ -538,10 +716,7 @@ const getShoppingListTool: SpoonjoyMcpTool = {
     const email = requireOwnerEmail(args, context);
     const owner = await getOrCreateOwner(context.db, email);
     const shoppingList = await getOrCreateShoppingList(context.db, owner.id);
-    const reloaded = await context.db.shoppingList.findUniqueOrThrow({
-      where: { id: shoppingList.id },
-      include: { items: { include: { unit: true, ingredientRef: true } } },
-    });
+    const reloaded = await reloadShoppingList(context.db, shoppingList.id);
 
     return json({ shoppingList: formatShoppingList(reloaded) });
   },
@@ -553,6 +728,9 @@ const tools: SpoonjoyMcpTool[] = [
   getRecipeTool,
   createRecipeTool,
   addRecipeToShoppingListTool,
+  addShoppingListItemTool,
+  setShoppingListItemCheckedTool,
+  removeShoppingListItemTool,
   getShoppingListTool,
 ];
 

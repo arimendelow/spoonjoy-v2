@@ -32,6 +32,9 @@ describe("spoonjoy MCP tools", () => {
       "get_recipe",
       "create_recipe",
       "add_recipe_to_shopping_list",
+      "add_shopping_list_item",
+      "set_shopping_list_item_checked",
+      "remove_shopping_list_item",
       "get_shopping_list",
     ]);
   });
@@ -194,6 +197,122 @@ describe("spoonjoy MCP tools", () => {
     expect(result.shoppingList.items[0]).toEqual(expect.objectContaining({ quantity: null, unit: null, sortIndex: 1 }));
   });
 
+  it("manages direct shopping-list item adds, checks, removes, and restores", async () => {
+    const first = parseJson(await callSpoonjoyMcpTool("add_shopping_list_item", {
+      name: "Milk",
+      quantity: 1,
+      unit: "Gallon",
+      categoryKey: "dairy",
+      iconKey: "milk",
+    }, context));
+    expect(first).toMatchObject({ created: 1, updated: 0 });
+    expect(first.shoppingList.items[0]).toMatchObject({
+      name: "milk",
+      quantity: 1,
+      unit: "gallon",
+      checked: false,
+      categoryKey: "dairy",
+      iconKey: "milk",
+    });
+
+    const itemId = first.shoppingList.items[0].id;
+    const merged = parseJson(await callSpoonjoyMcpTool("add_shopping_list_item", {
+      name: "Milk",
+      quantity: 2,
+      unit: "Gallon",
+    }, context));
+    expect(merged).toMatchObject({ created: 0, updated: 1 });
+    expect(merged.shoppingList.items[0]).toMatchObject({
+      id: itemId,
+      quantity: 3,
+      categoryKey: "dairy",
+      iconKey: "milk",
+    });
+
+    const unchangedQuantity = parseJson(await callSpoonjoyMcpTool("add_shopping_list_item", {
+      name: "Milk",
+      unit: "Gallon",
+    }, context));
+    expect(unchangedQuantity).toMatchObject({ created: 0, updated: 1 });
+    expect(unchangedQuantity.shoppingList.items[0]).toMatchObject({ id: itemId, quantity: 3 });
+
+    const checked = parseJson(await callSpoonjoyMcpTool("set_shopping_list_item_checked", {
+      itemId,
+      checked: true,
+    }, context));
+    expect(checked.shoppingList.items[0]).toMatchObject({ id: itemId, checked: true });
+
+    const unchecked = parseJson(await callSpoonjoyMcpTool("set_shopping_list_item_checked", {
+      itemId,
+      checked: false,
+    }, context));
+    expect(unchecked.shoppingList.items[0]).toMatchObject({ id: itemId, checked: false });
+
+    const removed = parseJson(await callSpoonjoyMcpTool("remove_shopping_list_item", { itemId }, context));
+    expect(removed.shoppingList.items).toEqual([]);
+
+    const removedAgain = parseJson(await callSpoonjoyMcpTool("remove_shopping_list_item", { itemId }, context));
+    expect(removedAgain.shoppingList.items).toEqual([]);
+
+    const restored = parseJson(await callSpoonjoyMcpTool("add_shopping_list_item", {
+      name: "Milk",
+      quantity: 1,
+      unit: "Gallon",
+    }, context));
+    expect(restored).toMatchObject({ created: 0, updated: 1 });
+    expect(restored.shoppingList.items[0]).toMatchObject({ id: itemId, quantity: 4, checked: false });
+  });
+
+  it("supports unitless direct shopping-list items", async () => {
+    const result = parseJson(await callSpoonjoyMcpTool("add_shopping_list_item", {
+      name: "Bananas",
+    }, context));
+
+    expect(result).toMatchObject({ created: 1, updated: 0 });
+    expect(result.shoppingList.items[0]).toMatchObject({
+      name: "bananas",
+      quantity: null,
+      unit: null,
+    });
+
+    const merged = parseJson(await callSpoonjoyMcpTool("add_shopping_list_item", {
+      name: "Bananas",
+      quantity: 6,
+    }, context));
+    expect(merged).toMatchObject({ created: 0, updated: 1 });
+    expect(merged.shoppingList.items[0]).toMatchObject({
+      name: "bananas",
+      quantity: 6,
+      unit: null,
+    });
+  });
+
+  it("scopes direct shopping-list item mutations to the owner", async () => {
+    const otherEmail = uniqueEmail("other-agent");
+    const added = parseJson(await callSpoonjoyMcpTool("add_shopping_list_item", {
+      name: "Apples",
+      quantity: 3,
+    }, context));
+    const itemId = added.shoppingList.items[0].id;
+
+    await expect(callSpoonjoyMcpTool("set_shopping_list_item_checked", {
+      ownerEmail: otherEmail,
+      itemId,
+      checked: true,
+    }, context)).rejects.toThrow("Shopping list item not found");
+    await expect(callSpoonjoyMcpTool("remove_shopping_list_item", {
+      ownerEmail: otherEmail,
+      itemId,
+    }, context)).rejects.toThrow("Shopping list item not found");
+
+    const unchanged = parseJson(await callSpoonjoyMcpTool("get_shopping_list", {}, context));
+    expect(unchanged.shoppingList.items[0]).toMatchObject({
+      id: itemId,
+      name: "apples",
+      checked: false,
+    });
+  });
+
   it("normalizes search limits", async () => {
     await callSpoonjoyMcpTool("create_recipe", { title: "Limit One" }, context);
     await callSpoonjoyMcpTool("create_recipe", { title: "Limit Two" }, context);
@@ -216,5 +335,11 @@ describe("spoonjoy MCP tools", () => {
     await expect(callSpoonjoyMcpTool("create_recipe", { title: "Bad unit", steps: [{ description: "x", ingredients: [{ name: "x", quantity: 1, unit: "" }] }] }, context)).rejects.toThrow("unit is required");
     await expect(callSpoonjoyMcpTool("missing", {}, context)).rejects.toThrow("Unknown Spoonjoy MCP tool");
     await expect(callSpoonjoyMcpTool("add_recipe_to_shopping_list", {}, context)).rejects.toThrow("recipeId is required");
+    await expect(callSpoonjoyMcpTool("add_shopping_list_item", { name: "No owner" }, { db: context.db })).rejects.toThrow("ownerEmail is required");
+    await expect(callSpoonjoyMcpTool("add_shopping_list_item", { name: "Bad quantity", quantity: 0 }, context)).rejects.toThrow("quantity must be a positive number");
+    await expect(callSpoonjoyMcpTool("add_shopping_list_item", { quantity: 1 }, context)).rejects.toThrow("name is required");
+    await expect(callSpoonjoyMcpTool("set_shopping_list_item_checked", { itemId: "item", checked: "yes" }, context)).rejects.toThrow("checked must be a boolean");
+    await expect(callSpoonjoyMcpTool("set_shopping_list_item_checked", { checked: true }, context)).rejects.toThrow("itemId is required");
+    await expect(callSpoonjoyMcpTool("remove_shopping_list_item", {}, context)).rejects.toThrow("itemId is required");
   });
 });

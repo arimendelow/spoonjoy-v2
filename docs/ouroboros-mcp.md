@@ -13,6 +13,9 @@ When registered under the server name `spoonjoy`, the harness exposes these firs
 | `get_recipe` | Fetch a recipe by id or title with ordered steps and ingredients. |
 | `create_recipe` | Create a recipe for the configured owner, including steps and ingredients. |
 | `add_recipe_to_shopping_list` | Add all recipe ingredients to the owner shopping list, merging duplicates. |
+| `add_shopping_list_item` | Add or restore one manual shopping-list item, merging matching owner/unit/ingredient rows. |
+| `set_shopping_list_item_checked` | Check or uncheck one active shopping-list item by id. |
+| `remove_shopping_list_item` | Soft-remove one shopping-list item by id. |
 | `get_shopping_list` | Fetch the owner shopping list. |
 
 ## Harness Config
