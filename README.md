@@ -87,6 +87,10 @@ For Ouroboros agent integration, see [`docs/ouroboros-mcp.md`](docs/ouroboros-mc
 | `pnpm typecheck` | TypeScript validation |
 | `pnpm deploy:preflight` | Verify Cloudflare bindings, secrets docs, scripts, and migrations before production deploy |
 
+## Generated Artifacts
+
+Builds and tests create local-only directories such as `build/`, `coverage/`, `.react-router/`, `playwright-report/`, `test-results/`, and `storybook-static/`. These paths are intentionally ignored and should not be staged; `pnpm test:coverage` includes a repo-hygiene test that fails if any of them become tracked.
+
 ## E2E Testing
 
 End-to-end tests use [Playwright](https://playwright.dev/) and live in the `e2e/` folder.
