@@ -980,6 +980,7 @@ describe("Recipes $id Route", () => {
       const createdCookbook = await screen.findByTestId("cookbook-item-cb-2");
       expect(createdCookbook).toBeInTheDocument();
       expect(createdCookbook).toHaveTextContent("✓");
+      expect(createdCookbook).toHaveAttribute("aria-pressed", "true");
     });
 
     it("optimistically toggles cookbook saves from the save modal", async () => {
@@ -1027,9 +1028,11 @@ describe("Recipes $id Route", () => {
 
       await user.click(screen.getByTestId("cookbook-item-cb-unsaved"));
       expect(screen.getByTestId("cookbook-item-cb-unsaved")).toHaveTextContent("✓");
+      expect(screen.getByTestId("cookbook-item-cb-unsaved")).toHaveAttribute("aria-pressed", "true");
 
       await user.click(screen.getByTestId("cookbook-item-cb-saved"));
       expect(screen.getByTestId("cookbook-item-cb-saved")).not.toHaveTextContent("✓");
+      expect(screen.getByTestId("cookbook-item-cb-saved")).toHaveAttribute("aria-pressed", "false");
 
       await waitFor(() => {
         expect(submittedIntents).toEqual([

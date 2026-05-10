@@ -7,6 +7,8 @@ export function Listbox<T, Multiple extends boolean = false>({
   placeholder,
   autoFocus,
   'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
   children: options,
   multiple,
   ...props
@@ -15,6 +17,8 @@ export function Listbox<T, Multiple extends boolean = false>({
   placeholder?: React.ReactNode
   autoFocus?: boolean
   'aria-label'?: string
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
   children?: React.ReactNode
   multiple?: Multiple
 } & Omit<Headless.ListboxProps<typeof Fragment, T, Multiple>, 'as' | 'multiple'>) {
@@ -24,6 +28,8 @@ export function Listbox<T, Multiple extends boolean = false>({
         autoFocus={autoFocus}
         data-slot="control"
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         className={clsx([
           className,
           // Basic layout

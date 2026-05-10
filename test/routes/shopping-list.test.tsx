@@ -672,8 +672,7 @@ describe("Shopping List Routes", () => {
 
       // Checked item should have checkmark
       expect(await screen.findByText("✓")).toBeInTheDocument();
-      // Button should have "Uncheck item" label
-      expect(screen.getByRole("button", { name: "Uncheck item" })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "sugar" })).toHaveAttribute("aria-checked", "true");
     });
 
     it("should render unchecked items without checkmark", async () => {
@@ -705,8 +704,7 @@ describe("Shopping List Routes", () => {
 
       // Unchecked item should not have checkmark
       expect(screen.queryByText("✓")).not.toBeInTheDocument();
-      // Button should have "Check item" label
-      expect(await screen.findByRole("button", { name: "Check item" })).toBeInTheDocument();
+      expect(await screen.findByRole("checkbox", { name: "butter" })).toHaveAttribute("aria-checked", "false");
     });
 
     it("should render item without quantity", async () => {
@@ -774,9 +772,8 @@ describe("Shopping List Routes", () => {
       render(<Stub initialEntries={["/shopping-list"]} />);
 
       expect(await screen.findByText("garlic")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
-      // Delete button only appears on swipe, not rendered inline
-      expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove garlic" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove onion" })).toBeInTheDocument();
     });
 
     it("should not render per-item category badge chips", async () => {
@@ -1004,9 +1001,7 @@ describe("Shopping List Routes", () => {
       // Wait for content to load
       await screen.findByText("eggs");
 
-      // Should have a toggle button with accessible label
-      // Button-style toggles with aria-label are acceptable
-      const toggleButton = screen.getByRole("button", { name: "Check item" });
+      const toggleButton = screen.getByRole("checkbox", { name: "eggs" });
       expect(toggleButton).toBeInTheDocument();
       expect(toggleButton).toHaveClass("min-h-11");
     });

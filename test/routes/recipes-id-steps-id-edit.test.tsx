@@ -2581,6 +2581,8 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       // Verify the stepTitle input has invalid attribute set (HeadlessUI boolean attr)
       const stepTitleInput = await screen.findByLabelText(/Step Title/i);
       expect(stepTitleInput).toHaveAttribute("data-invalid");
+      expect(stepTitleInput).toHaveAttribute("aria-invalid", "true");
+      expect(stepTitleInput).toHaveAccessibleDescription("Step title must be 200 characters or less");
     });
 
     it("should display description validation error and mark textarea as invalid", async () => {
@@ -2627,6 +2629,8 @@ describe("Recipes $id Steps $stepId Edit Route", () => {
       // Verify the description textarea has invalid attribute set (HeadlessUI boolean attr)
       const descriptionTextarea = await screen.findByLabelText(/Description/i);
       expect(descriptionTextarea).toHaveAttribute("data-invalid");
+      expect(descriptionTextarea).toHaveAttribute("aria-invalid", "true");
+      expect(descriptionTextarea).toHaveAccessibleDescription("Step description is required");
 
       // Verify the error message is displayed
       expect(screen.getByText("Step description is required")).toBeInTheDocument();

@@ -353,7 +353,7 @@ export default function ShoppingList() {
                       transition={{ type: "spring", stiffness: 520, damping: 42, mass: 0.5 }}
                       className={`
                         relative z-10 min-h-11 px-3 py-2
-                        flex items-center bg-white dark:bg-zinc-800
+                        flex items-center gap-2 bg-white dark:bg-zinc-800
                         ${item.checked ? "opacity-60" : ""}
                       `}
                     >
@@ -366,8 +366,10 @@ export default function ShoppingList() {
                           }
                           toggleItem(item);
                         }}
-                        className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
-                        aria-label={item.checked ? "Uncheck item" : "Check item"}
+                        className="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
+                        role="checkbox"
+                        aria-checked={item.checked}
+                        aria-label={item.ingredientRef.name}
                       >
                         <span
                           className={`
@@ -377,20 +379,29 @@ export default function ShoppingList() {
                               ? "bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500"
                               : "bg-white border-zinc-300 dark:bg-zinc-800 dark:border-zinc-600"}
                           `}
+                          aria-hidden="true"
                         >
                           {item.checked && "✓"}
                         </span>
-                        <Icon
-                          className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400"
-                          aria-hidden="true"
-                        />
-                        <span className={`truncate text-base ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
-                          {item.quantity && <strong>{item.quantity}</strong>}
-                          {item.quantity && item.unit && " "}
-                          {item.unit?.name && <span>{item.unit.name}</span>}
-                          {(item.quantity || item.unit) && " "}
-                          {item.ingredientRef.name}
-                        </span>
+                      </button>
+                      <Icon
+                        className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400"
+                        aria-hidden="true"
+                      />
+                      <span className={`min-w-0 flex-1 truncate text-base ${item.checked ? "line-through text-zinc-400 dark:text-zinc-500" : "text-zinc-900 dark:text-zinc-100"}`}>
+                        {item.quantity && <strong>{item.quantity}</strong>}
+                        {item.quantity && item.unit && " "}
+                        {item.unit?.name && <span>{item.unit.name}</span>}
+                        {(item.quantity || item.unit) && " "}
+                        {item.ingredientRef.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="min-h-11 shrink-0 rounded px-2 text-xs font-semibold uppercase tracking-wide text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 dark:text-red-400 dark:hover:bg-red-950/30"
+                        aria-label={`Remove ${item.ingredientRef.name}`}
+                      >
+                        Delete
                       </button>
                     </motion.div>
                   </div>

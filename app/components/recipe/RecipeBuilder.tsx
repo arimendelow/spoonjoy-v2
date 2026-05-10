@@ -199,6 +199,7 @@ export function RecipeBuilder({
               required
               disabled={isDisabled}
               data-invalid={errors?.title ? true : undefined}
+              aria-invalid={errors?.title ? true : undefined}
               aria-describedby={errors?.title ? titleErrorId : undefined}
             />
             {errors?.title && <ErrorMessage id={titleErrorId}>{errors.title}</ErrorMessage>}
@@ -214,6 +215,7 @@ export function RecipeBuilder({
               maxLength={DESCRIPTION_MAX_LENGTH}
               disabled={isDisabled}
               data-invalid={errors?.description ? true : undefined}
+              aria-invalid={errors?.description ? true : undefined}
               aria-describedby={errors?.description ? descriptionErrorId : undefined}
             />
             {errors?.description && <ErrorMessage id={descriptionErrorId}>{errors.description}</ErrorMessage>}
@@ -229,6 +231,7 @@ export function RecipeBuilder({
               maxLength={SERVINGS_MAX_LENGTH}
               disabled={isDisabled}
               data-invalid={errors?.servings ? true : undefined}
+              aria-invalid={errors?.servings ? true : undefined}
               aria-describedby={errors?.servings ? servingsErrorId : undefined}
             />
             {errors?.servings && <ErrorMessage id={servingsErrorId}>{errors.servings}</ErrorMessage>}

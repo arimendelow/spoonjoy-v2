@@ -10,6 +10,9 @@ export const Textarea = forwardRef(function Textarea(
   }: { className?: string; resizable?: boolean } & Omit<Headless.TextareaProps, 'as' | 'className'>,
   ref: React.ForwardedRef<HTMLTextAreaElement>
 ) {
+  const dataInvalid = (props as { 'data-invalid'?: boolean })['data-invalid']
+  const ariaInvalid = props['aria-invalid'] ?? props.invalid ?? dataInvalid
+
   return (
     <span
       data-slot="control"
@@ -30,6 +33,7 @@ export const Textarea = forwardRef(function Textarea(
       <Headless.Textarea
         ref={ref}
         {...props}
+        invalid={Boolean(ariaInvalid)}
         className={clsx([
           // Basic layout
           'relative block h-full w-full appearance-none rounded-lg px-[calc(--spacing(3.5)-1px)] py-[calc(--spacing(2.5)-1px)] sm:px-[calc(--spacing(3)-1px)] sm:py-[calc(--spacing(1.5)-1px)]',

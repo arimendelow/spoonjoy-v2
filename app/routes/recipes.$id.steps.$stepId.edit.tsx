@@ -7,7 +7,7 @@ import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
-import { Field, Label } from "~/components/ui/fieldset";
+import { ErrorMessage, Field, Label } from "~/components/ui/fieldset";
 import { Text } from "~/components/ui/text";
 import { Link } from "~/components/ui/link";
 import { ValidationError } from "~/components/ui/validation-error";
@@ -383,6 +383,9 @@ export default function EditStep() {
   );
 
   const stepDeletionError = actionData?.errors?.stepDeletion;
+  const stepTitleErrorId = "edit-step-title-error";
+  const usesStepsErrorId = "edit-step-uses-steps-error";
+  const descriptionErrorId = "edit-step-description-error";
 
   const stepDeletionErrorElement = stepDeletionError
     ? <ValidationError error={stepDeletionError} className="mb-4" />
@@ -460,19 +463,23 @@ export default function EditStep() {
         )}
 
         <Form method="post" className="flex flex-col gap-6">
-          <div>
-            <label htmlFor="stepTitle" className="block mb-2 font-bold">
+          <Field>
+            <Label>
               Step Title (optional)
-            </label>
+            </Label>
             <Input
               type="text"
-              id="stepTitle"
               name="stepTitle"
               maxLength={STEP_TITLE_MAX_LENGTH}
               defaultValue={step.stepTitle || ""}
               invalid={!!actionData?.errors?.stepTitle}
+              aria-invalid={actionData?.errors?.stepTitle ? true : undefined}
+              aria-describedby={actionData?.errors?.stepTitle ? stepTitleErrorId : undefined}
             />
-          </div>
+            {actionData?.errors?.stepTitle && (
+              <ErrorMessage id={stepTitleErrorId}>{actionData.errors.stepTitle}</ErrorMessage>
+            )}
+          </Field>
 
           {step.stepNum === 1 ? (
             <Field>
@@ -487,6 +494,8 @@ export default function EditStep() {
                 value={selectedSteps}
                 onChange={setSelectedSteps}
                 aria-label="Select previous steps"
+                aria-invalid={actionData?.errors?.usesSteps ? true : undefined}
+                aria-describedby={actionData?.errors?.usesSteps ? usesStepsErrorId : undefined}
                 placeholder="Select previous steps (optional)"
               >
                 {availableSteps.map((availableStep) => (
@@ -498,9 +507,9 @@ export default function EditStep() {
                 ))}
               </Listbox>
               {actionData?.errors?.usesSteps && (
-                <div className="text-red-600 text-sm mt-1">
+                <ErrorMessage id={usesStepsErrorId}>
                   {actionData.errors.usesSteps}
-                </div>
+                </ErrorMessage>
               )}
               {selectedSteps.map((stepNum) => (
                 <input key={stepNum} type="hidden" name="usesSteps" value={stepNum} />
@@ -508,25 +517,26 @@ export default function EditStep() {
             </Field>
           )}
 
-          <div>
-            <label htmlFor="description" className="block mb-2 font-bold">
+          <Field>
+            <Label>
               Description *
-            </label>
+            </Label>
             <Textarea
-              id="description"
               name="description"
               rows={6}
               required
               maxLength={STEP_DESCRIPTION_MAX_LENGTH}
               defaultValue={step.description}
               invalid={!!actionData?.errors?.description}
+              aria-invalid={actionData?.errors?.description ? true : undefined}
+              aria-describedby={actionData?.errors?.description ? descriptionErrorId : undefined}
             />
             {actionData?.errors?.description && (
-              <div className="text-red-600 text-sm mt-1">
+              <ErrorMessage id={descriptionErrorId}>
                 {actionData.errors.description}
-              </div>
+              </ErrorMessage>
             )}
-          </div>
+          </Field>
 
           <div className="flex gap-4 justify-end">
             <Button href={`/recipes/${recipe.id}/edit`}>

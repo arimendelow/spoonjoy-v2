@@ -182,6 +182,14 @@ describe("ConfirmationDialog", () => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
+    it("should use alertdialog role for destructive confirmations", async () => {
+      await act(async () => {
+        render(<ConfirmationDialog {...defaultProps} destructive />);
+      });
+
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    });
+
     it("should have proper dialog title", async () => {
       await act(async () => {
         render(<ConfirmationDialog {...defaultProps} />);

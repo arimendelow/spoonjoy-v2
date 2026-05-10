@@ -32,6 +32,9 @@ export const Input = forwardRef(function Input(
   } & Omit<Headless.InputProps, 'as' | 'className'>,
   ref: React.ForwardedRef<HTMLInputElement>
 ) {
+  const dataInvalid = (props as { 'data-invalid'?: boolean })['data-invalid']
+  const ariaInvalid = props['aria-invalid'] ?? props.invalid ?? dataInvalid
+
   return (
     <span
       data-slot="control"
@@ -52,6 +55,7 @@ export const Input = forwardRef(function Input(
       <Headless.Input
         ref={ref}
         {...props}
+        invalid={Boolean(ariaInvalid)}
         className={clsx([
           // Date classes
           props.type &&

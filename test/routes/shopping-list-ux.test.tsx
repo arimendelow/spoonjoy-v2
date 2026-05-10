@@ -145,18 +145,19 @@ describe("shopping list UX updates", () => {
     const itemLabel = await screen.findByText("chicken thigh");
     const row = itemLabel.closest("[data-motion-x]");
     expect(row).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove chicken thigh" })).toBeInTheDocument();
 
     swipeRow(row!, -80);
     await waitFor(() => expect(row).toHaveAttribute("data-motion-x", "-104"));
     expect(screen.getByRole("button", { name: "Delete chicken thigh" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Check item" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "chicken thigh" })).toBeInTheDocument();
 
     swipeRow(row!, -30);
     await waitFor(() => expect(row).toHaveAttribute("data-motion-x", "-104"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Check item" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "chicken thigh" }));
     await waitFor(() => expect(row).toHaveAttribute("data-motion-x", "0"));
-    expect(screen.getByRole("button", { name: "Check item" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "chicken thigh" })).toBeInTheDocument();
 
     swipeRow(row!, -80);
     await waitFor(() => expect(row).toHaveAttribute("data-motion-x", "-104"));
@@ -201,6 +202,37 @@ describe("shopping list UX updates", () => {
     swipeRow(row!, -80);
     await waitFor(() => expect(row).toHaveAttribute("data-motion-x", "-104"));
     fireEvent.click(screen.getByRole("button", { name: "Delete chicken thigh" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("chicken thigh")).not.toBeInTheDocument();
+    });
+  });
+
+  it("deletes a row when the accessible remove button is clicked", async () => {
+    const mutableData = {
+      shoppingList: {
+        ...singleItemData.shoppingList,
+        items: [...singleItemData.shoppingList.items],
+      },
+      recipes: [],
+    };
+
+    const Stub = createTestRoutesStub([
+      {
+        path: "/shopping-list",
+        Component: ShoppingList,
+        loader: () => mutableData,
+        action: async () => {
+          mutableData.shoppingList.items = [];
+          return { success: true };
+        },
+      },
+    ]);
+
+    render(<Stub initialEntries={["/shopping-list"]} />);
+
+    expect(await screen.findByText("chicken thigh")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove chicken thigh" }));
 
     await waitFor(() => {
       expect(screen.queryByText("chicken thigh")).not.toBeInTheDocument();
@@ -282,7 +314,7 @@ describe("shopping list UX updates", () => {
     await waitFor(() => expect(bananasRow).toHaveAttribute("data-motion-x", "-104"));
 
     const applesRow = screen.getByText("apples").closest("[data-motion-x]");
-    const applesCheck = within(applesRow!).getByRole("button", { name: "Check item" });
+    const applesCheck = within(applesRow!).getByRole("checkbox", { name: "apples" });
     fireEvent.click(applesCheck);
 
     await waitFor(() => expect(bananasRow).toHaveAttribute("data-motion-x", "0"));
