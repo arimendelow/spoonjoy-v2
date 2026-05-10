@@ -63,6 +63,7 @@ function renderContextualItem(action: DockAction) {
         key={action.id}
         icon={action.icon}
         label={action.label}
+        ariaLabel={action.ariaLabel}
         iconClassName={action.iconClassName}
         labelClassName={action.labelClassName}
         href={action.onAction}
@@ -75,6 +76,7 @@ function renderContextualItem(action: DockAction) {
       key={action.id}
       icon={action.icon}
       label={action.label}
+      ariaLabel={action.ariaLabel}
       iconClassName={action.iconClassName}
       labelClassName={action.labelClassName}
       onClick={action.onAction}

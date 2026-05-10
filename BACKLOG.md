@@ -609,7 +609,7 @@ Completion notes:
 
 Priority: `P2`
 Lane: `accessibility`, `ux`, `quality`
-Status: `proposed`
+Status: `done`
 
 Problem: The codebase has a solid accessibility testing baseline, but several high-interaction surfaces should get an integrated pass: confirmation dialogs, bottom-sheet save modal, mobile dock actions, RecipeBuilder, and shopping-list swipe actions.
 
@@ -627,6 +627,16 @@ Acceptance criteria:
 - Validation errors are announced and linked to controls.
 - Mobile touch targets meet the chosen accessibility threshold.
 - Add Storybook/a11y or Playwright assertions where component tests cannot observe layout.
+
+Completion notes:
+
+- Converted shopping-list item toggles to checkbox semantics with item-specific accessible names and checked state.
+- Added an always keyboard-reachable row remove action while preserving the swipe-to-delete reveal path.
+- Added `aria-current` for active mobile dock links and accessible intent labels for recipe-detail shopping-list dock actions.
+- Switched destructive confirmation dialogs to `alertdialog`.
+- Added `aria-pressed` for save-to-cookbook modal rows.
+- Linked recipe/step form validation errors with `aria-invalid` and accessible descriptions through Headless UI controls.
+- Added focused component/route coverage for the updated accessibility semantics while preserving the mobile Playwright audit.
 
 
 ### SJ-022 - Make Spoonjoy The Ouroboros Recipe MCP App

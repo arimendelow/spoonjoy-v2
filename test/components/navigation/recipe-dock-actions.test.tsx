@@ -75,12 +75,18 @@ describe('Recipe Dock Actions', () => {
       render(<MemoryRouter><DockContextProvider><ContextDisplay /><RecipeDetailPage recipeId="123" chefId="chef-1" isOwner={true} isInShoppingList={true} onAddToList={onAddToList} /></DockContextProvider></MemoryRouter>)
       const addToList = capturedActions?.find(a => a.id === 'add-to-list')
       expect(addToList?.label).toBe('List')
+      expect(addToList?.ariaLabel).toBe('Ingredients already in shopping list')
       expect(addToList?.iconClassName).toContain('fill-white/70')
       expect(addToList?.labelClassName).toContain('text-white/40')
       expect(addToList?.icon).not.toBeUndefined()
 
       addToList?.onAction?.()
       expect(onAddToList).toHaveBeenCalledOnce()
+    })
+
+    it('labels the shopping-list action by intent before ingredients are added', () => {
+      render(<MemoryRouter><DockContextProvider><ContextDisplay /><RecipeDetailPage recipeId="123" chefId="chef-1" isOwner={true} isInShoppingList={false} /></DockContextProvider></MemoryRouter>)
+      expect(capturedActions?.find(a => a.id === 'add-to-list')?.ariaLabel).toBe('Add ingredients to shopping list')
     })
 
     it('renders the added-to-list icon badge component', () => {

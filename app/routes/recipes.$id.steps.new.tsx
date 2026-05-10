@@ -307,6 +307,9 @@ export default function NewStep() {
   const [ingredients, setIngredients] = useState<ParsedIngredient[]>([]);
   const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
   const navigate = useNavigate();
+  const stepTitleErrorId = "new-step-title-error";
+  const usesStepsErrorId = "new-step-uses-steps-error";
+  const descriptionErrorId = "new-step-description-error";
 
   const handleModeChange = (mode: IngredientInputMode) => {
     setIngredientInputMode(mode);
@@ -374,9 +377,11 @@ export default function NewStep() {
                 maxLength={STEP_TITLE_MAX_LENGTH}
                 placeholder="e.g., Prepare the dough"
                 data-invalid={actionData?.errors?.stepTitle ? true : undefined}
+                aria-invalid={actionData?.errors?.stepTitle ? true : undefined}
+                aria-describedby={actionData?.errors?.stepTitle ? stepTitleErrorId : undefined}
               />
               {actionData?.errors?.stepTitle && (
-                <ErrorMessage>
+                <ErrorMessage id={stepTitleErrorId}>
                   {actionData.errors.stepTitle}
                 </ErrorMessage>
               )}
@@ -392,11 +397,13 @@ export default function NewStep() {
                 <Label>Uses Output From (optional)</Label>
                 <Listbox
                   multiple
-                  value={selectedSteps}
-                  onChange={setSelectedSteps}
-                  aria-label="Select previous steps"
-                  placeholder="Select previous steps (optional)"
-                >
+                value={selectedSteps}
+                onChange={setSelectedSteps}
+                aria-label="Select previous steps"
+                aria-invalid={actionData?.errors?.usesSteps ? true : undefined}
+                aria-describedby={actionData?.errors?.usesSteps ? usesStepsErrorId : undefined}
+                placeholder="Select previous steps (optional)"
+              >
                   {availableSteps.map((step) => (
                     <ListboxOption key={step.stepNum} value={step.stepNum}>
                       <ListboxLabel>
@@ -406,7 +413,7 @@ export default function NewStep() {
                   ))}
                 </Listbox>
                 {actionData?.errors?.usesSteps && (
-                  <ErrorMessage>
+                  <ErrorMessage id={usesStepsErrorId}>
                     {actionData.errors.usesSteps}
                   </ErrorMessage>
                 )}
@@ -425,9 +432,11 @@ export default function NewStep() {
                 maxLength={STEP_DESCRIPTION_MAX_LENGTH}
                 placeholder="Describe what to do in this step..."
                 data-invalid={actionData?.errors?.description ? true : undefined}
+                aria-invalid={actionData?.errors?.description ? true : undefined}
+                aria-describedby={actionData?.errors?.description ? descriptionErrorId : undefined}
               />
               {actionData?.errors?.description && (
-                <ErrorMessage>
+                <ErrorMessage id={descriptionErrorId}>
                   {actionData.errors.description}
                 </ErrorMessage>
               )}

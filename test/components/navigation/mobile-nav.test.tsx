@@ -166,6 +166,7 @@ describe('MobileNav', () => {
 
       const newItem = screen.getByRole('link', { name: /new/i })
       expect(newItem.className).toContain('dock-item-active')
+      expect(newItem).toHaveAttribute('aria-current', 'page')
     })
 
     it('marks List as active on /shopping-list', () => {
@@ -177,6 +178,7 @@ describe('MobileNav', () => {
 
       const listItem = screen.getByRole('link', { name: /list/i })
       expect(listItem.className).toContain('dock-item-active')
+      expect(listItem).toHaveAttribute('aria-current', 'page')
     })
 
     it('has no active item on home (/)', () => {

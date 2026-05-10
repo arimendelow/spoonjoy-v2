@@ -42,10 +42,14 @@ test.describe('Shopping List Flow', () => {
     
     // If there are items with checkboxes
     if (await checkbox.isVisible({ timeout: 3000 }).catch(() => false)) {
-      const initialState = await checkbox.isChecked();
-      await checkbox.click();
-      const newState = await checkbox.isChecked();
-      expect(newState).not.toBe(initialState);
+      const itemName = await checkbox.getAttribute('aria-label');
+      expect(itemName).toBeTruthy();
+
+      const itemCheckbox = page.getByRole('checkbox', { name: itemName! });
+      const initialState = await itemCheckbox.isChecked();
+      await itemCheckbox.click();
+
+      await expect.poll(() => itemCheckbox.isChecked()).toBe(!initialState);
     }
   });
 

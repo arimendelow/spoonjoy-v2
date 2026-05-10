@@ -1340,6 +1340,10 @@ describe("Recipes $id Steps New Route", () => {
         expect(screen.getByText("Unit name is required")).toBeInTheDocument();
         expect(screen.getByText("Ingredient name is required")).toBeInTheDocument();
       });
+      expect(screen.getByLabelText(/Step Title/i)).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByLabelText(/Step Title/i)).toHaveAccessibleDescription("Step title must be 200 characters or less");
+      expect(screen.getByLabelText(/Description/i)).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByLabelText(/Description/i)).toHaveAccessibleDescription("Step description is required");
     });
 
     it("should omit uses output section when later step has no available previous steps", async () => {

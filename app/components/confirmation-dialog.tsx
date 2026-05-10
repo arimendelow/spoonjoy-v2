@@ -39,7 +39,7 @@ export function ConfirmationDialog({
   destructive = false,
 }: ConfirmationDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} size="sm">
+    <Dialog open={open} onClose={onClose} size="sm" role={destructive ? "alertdialog" : "dialog"}>
       <DialogTitle>{title}</DialogTitle>
       <DialogDescription>{description}</DialogDescription>
       <DialogActions>

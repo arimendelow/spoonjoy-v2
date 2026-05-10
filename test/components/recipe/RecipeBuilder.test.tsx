@@ -869,7 +869,9 @@ describe("RecipeBuilder", () => {
 
       // Verify the servings input has error styling
       const servingsInput = screen.getByLabelText(/servings/i);
-      expect(servingsInput).toHaveAttribute("data-invalid", "true");
+      expect(servingsInput).toHaveAttribute("data-invalid");
+      expect(servingsInput).toHaveAttribute("aria-invalid", "true");
+      expect(servingsInput).toHaveAccessibleDescription("Servings cannot exceed 100 characters");
     });
 
     it("displays steps validation error when errors prop contains steps error", () => {

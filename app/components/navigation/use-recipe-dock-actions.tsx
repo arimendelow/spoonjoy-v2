@@ -37,6 +37,7 @@ export function useRecipeDetailActions({
       id: 'add-to-list',
       icon: isInShoppingList ? AddedListIcon : ShoppingCart,
       label: 'List',
+      ariaLabel: isInShoppingList ? 'Ingredients already in shopping list' : 'Add ingredients to shopping list',
       iconClassName: isInShoppingList ? 'fill-white/70 text-white/70' : undefined,
       labelClassName: isInShoppingList ? 'text-white/40 tracking-[0.14em]' : undefined,
       onAction: onAddToList || (() => {}),

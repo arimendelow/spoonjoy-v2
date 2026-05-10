@@ -438,6 +438,7 @@ export default function RecipeDetail() {
                     <button
                       key={cookbook.id}
                       onClick={() => handleToggleCookbookSave(cookbook.id)}
+                      aria-pressed={isSaved}
                       className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                         isSaved
                           ? "bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50"
@@ -447,7 +448,7 @@ export default function RecipeDetail() {
                     >
                       <Text className="flex items-center justify-between">
                         <span>{cookbook.title}</span>
-                        {isSaved && <span className="text-blue-500">✓</span>}
+                        {isSaved && <span className="text-blue-500" aria-hidden="true">✓</span>}
                       </Text>
                     </button>
                   );

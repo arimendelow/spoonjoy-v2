@@ -5,6 +5,7 @@ import { Link } from '~/components/ui/link'
 export interface DockItemProps {
   icon: ElementType
   label: string
+  ariaLabel?: string
   href?: string
   active?: boolean
   className?: string
@@ -16,6 +17,7 @@ export interface DockItemProps {
 export function DockItem({
   icon: Icon,
   label,
+  ariaLabel,
   href,
   active = false,
   className,
@@ -63,14 +65,20 @@ export function DockItem({
 
   if (href) {
     return (
-      <Link href={href} onClick={onClick} className={baseClassName}>
+      <Link
+        href={href}
+        onClick={onClick}
+        className={baseClassName}
+        aria-current={active ? 'page' : undefined}
+        aria-label={ariaLabel}
+      >
         {content}
       </Link>
     )
   }
 
   return (
-    <button type="button" onClick={onClick} className={baseClassName}>
+    <button type="button" onClick={onClick} className={baseClassName} aria-label={ariaLabel}>
       {content}
     </button>
   )

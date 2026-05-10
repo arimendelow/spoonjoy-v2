@@ -43,6 +43,8 @@ export interface DockAction {
   icon: ElementType
   /** Label text */
   label: string
+  /** Optional accessible label when the visible dock label is intentionally short */
+  ariaLabel?: string
   /** Optional icon class overrides */
   iconClassName?: string
   /** Optional label class overrides */
