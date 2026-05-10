@@ -47,8 +47,9 @@ Status meanings:
 10. `SJ-015`: Add Cloudflare deployment preflight checks and production deployment docs.
 11. `SJ-023`: Remove production build sourcemap warnings so the zero-warning contract covers deploy builds.
 12. `SJ-007`: Split large route modules into testable server/domain modules.
+13. `SJ-024`: Add direct MCP shopping-list item controls for Ouroboros agents.
 
-Completed in sequence: `SJ-001`, `SJ-002`, `SJ-003`, `SJ-004`, `SJ-005`, `SJ-006`, `SJ-008`, `SJ-009`, `SJ-013`, `SJ-015`, `SJ-023`, `SJ-007`.
+Completed in sequence: `SJ-001`, `SJ-002`, `SJ-003`, `SJ-004`, `SJ-005`, `SJ-006`, `SJ-008`, `SJ-009`, `SJ-013`, `SJ-015`, `SJ-023`, `SJ-007`, `SJ-024`.
 
 ## Backlog Items
 
@@ -647,6 +648,34 @@ Completion notes:
 - Added `test/build-output-hygiene.test.ts` so top-level client directives cannot return unnoticed.
 - Verified `pnpm build` output no longer contains sourcemap/directive diagnostics.
 - Verified focused build-hygiene test, `pnpm typecheck`, full `pnpm test:coverage`, and `pnpm test:e2e`.
+
+### SJ-024 - Add Direct MCP Shopping-List Item Controls
+
+Priority: `P1`
+Lane: `mcp`, `ouroboros`, `shopping-list`, `agent-trust`
+Status: `done`
+
+Problem: `SJ-022` made Spoonjoy available to the Ouroboros harness, but the MCP tool surface can only add a whole recipe to a shopping list and fetch the list. For Spoonjoy to act as the official agent recipe/shopping substrate, agents need direct manual item lifecycle tools.
+
+Evidence:
+
+- `app/lib/mcp/spoonjoy-tools.server.ts` exposes `add_recipe_to_shopping_list` and `get_shopping_list`, but no direct add/check/remove item operations.
+- The app route already supports manual shopping-list add/toggle/remove, so the missing MCP surface is a harness integration gap rather than a new product concept.
+
+Acceptance criteria:
+
+- Add MCP tools for direct manual shopping-list item add, checked-state update, and soft remove.
+- Reuse owner scoping through `SPOONJOY_MCP_USER_EMAIL` / `ownerEmail`.
+- Manual item adds are idempotent for matching owner, ingredient, and unit, including checked/deleted row restoration.
+- Checked/remove operations cannot mutate another owner's items.
+- Tests cover tool metadata, add, merge/restore, check/uncheck, remove, missing owner, invalid quantities, and cross-owner isolation.
+
+Completion notes:
+
+- Added `add_shopping_list_item`, `set_shopping_list_item_checked`, and `remove_shopping_list_item` MCP tools.
+- Direct item adds now merge matching owner/unit/ingredient rows, preserve metadata when omitted, restore checked/deleted rows, and handle unitless items.
+- Checked/remove operations are scoped to the configured owner and reject cross-owner item ids.
+- Updated Ouroboros MCP docs and added tool coverage for metadata, direct add/merge/restore, check/uncheck, remove/idempotent remove, unitless quantity merges, invalid inputs, missing owner config, and cross-owner isolation.
 
 ## Parking Lot
 
