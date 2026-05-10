@@ -12,6 +12,7 @@ import {
 import { useEffect } from "react";
 import { usePostHog } from "@posthog/react";
 import { getUserId } from "~/lib/session.server";
+import { toAnalyticsPageUrl } from "~/lib/analytics";
 import { applyStorageSchemaMigration } from "~/lib/client-storage-schema";
 import { ThemeProvider } from "~/components/ui/theme-provider";
 import { ToastProvider } from "~/components/ui/toast";
@@ -215,7 +216,7 @@ export default function App() {
   useEffect(() => {
     if (posthog) {
       posthog.capture("$pageview", {
-        $current_url: window.location.href,
+        $current_url: toAnalyticsPageUrl(window.location),
       });
     }
   }, [location.pathname, posthog]);

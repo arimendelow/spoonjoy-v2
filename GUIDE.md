@@ -80,6 +80,7 @@ This creates:
 - Password: `demo1234`
 
 > **Note:** No `.env` file needed for basic local development. Session secrets and other config have sensible defaults.
+> Optional PostHog analytics is disabled unless `VITE_POSTHOG_KEY` is configured. See `docs/analytics-privacy.md` for the full privacy posture and the `VITE_POSTHOG_DISABLED` hard-disable switch.
 
 ---
 
