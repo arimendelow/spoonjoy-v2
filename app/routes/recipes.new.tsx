@@ -10,6 +10,7 @@ import {
   validateDescription,
   validateServings,
 } from "~/lib/validation";
+import { createRecipeDraft, parseRecipeStepsJson } from "~/lib/recipe-create.server";
 import { useRef } from "react";
 
 interface ActionData {
@@ -18,6 +19,7 @@ interface ActionData {
     description?: string;
     servings?: string;
     image?: string;
+    steps?: string;
     general?: string;
   };
 }
@@ -65,6 +67,12 @@ export async function action({ request, context }: Route.ActionArgs) {
     }
   }
 
+  const stepsResult = parseRecipeStepsJson(stepsJson);
+  const recipeSteps = stepsResult.valid ? stepsResult.steps : [];
+  if (!stepsResult.valid) {
+    errors.steps = stepsResult.error;
+  }
+
   if (Object.keys(errors).length > 0) {
     return data({ errors }, { status: 400 });
   }
@@ -72,43 +80,15 @@ export async function action({ request, context }: Route.ActionArgs) {
   const database = await getRequestDb(context);
 
   try {
-    // Parse steps data
-    let steps: Array<{
-      description: string;
-      stepTitle?: string;
-      duration?: number;
-      ingredients: Array<{
-        quantity: number;
-        unit: string;
-        ingredientName: string;
-      }>;
-    }> = [];
-    try {
-      steps = JSON.parse(stepsJson);
-    } catch {
-      // Invalid JSON, use empty array
-    }
-
     // TODO: In production, upload imageFile to R2/storage and get URL
-    // Create recipe with steps in a transaction
-    const recipe = await database.recipe.create({
-      data: {
-        title: title.trim(),
-        description: description.trim() || null,
-        servings: servings.trim() || null,
-        // Avoid schema default stock image when no image upload is provided.
-        imageUrl: "",
-        chefId: userId,
-        steps: {
-          create: steps.map((step, index) => ({
-            stepNum: index + 1,
-            description: step.description,
-            stepTitle: step.stepTitle || null,
-            duration: step.duration || null,
-            // Note: Ingredients would need additional handling for ingredientRef lookup
-          })),
-        },
-      },
+    const recipe = await createRecipeDraft(database, {
+      title: title.trim(),
+      description: description.trim() || null,
+      servings: servings.trim() || null,
+      // Avoid schema default stock image when no image upload is provided.
+      imageUrl: "",
+      chefId: userId,
+      steps: recipeSteps,
     });
 
     return redirect(`/recipes/${recipe.id}`);

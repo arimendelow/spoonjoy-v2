@@ -819,5 +819,14 @@ describe("RecipeBuilder", () => {
       const servingsInput = screen.getByLabelText(/servings/i);
       expect(servingsInput).toHaveAttribute("data-invalid", "true");
     });
+
+    it("displays steps validation error when errors prop contains steps error", () => {
+      const Wrapper = createTestWrapper({
+        errors: { steps: "Step 1: Step description is required" },
+      });
+      render(<Wrapper initialEntries={["/recipes/new"]} />);
+
+      expect(screen.getByRole("alert")).toHaveTextContent("Step 1: Step description is required");
+    });
   });
 });
