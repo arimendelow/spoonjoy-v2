@@ -326,8 +326,12 @@ describe("Kitchen Index Route", () => {
       render(<Stub initialEntries={["/"]} />);
 
       expect(await screen.findByText("0 recipes and 0 cookbooks")).toBeInTheDocument();
-      expect(screen.getByText("No recipes yet. Add your first recipe to start your kitchen.")).toBeInTheDocument();
-      expect(screen.getByText("No cookbooks yet. Create one to organize your recipes.")).toBeInTheDocument();
+      expect(screen.getByText("Start your recipe box")).toBeInTheDocument();
+      expect(screen.getByText(/the family classic everyone asks about/i)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Create First Recipe" })).toHaveAttribute("href", "/recipes/new");
+      expect(screen.getByText("Build your first cookbook")).toBeInTheDocument();
+      expect(screen.getByText(/a family collection that grows/i)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Create First Cookbook", hidden: true })).toHaveAttribute("href", "/cookbooks/new");
     });
 
     it("renders recipe images when recipes have displayable image URLs", async () => {
@@ -383,7 +387,10 @@ describe("Kitchen Index Route", () => {
       expect(screen.queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Logout" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "New Recipe" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Create First Recipe" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Create First Cookbook", hidden: true })).not.toBeInTheDocument();
       expect(screen.getByText("No public recipes yet.")).toBeInTheDocument();
+      expect(screen.getByText("No public cookbooks yet.")).toBeInTheDocument();
     });
 
     it("renders cookbooks tab content and hides recipe panel when selected", async () => {
