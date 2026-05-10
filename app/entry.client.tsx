@@ -3,14 +3,14 @@ import { hydrateRoot } from "react-dom/client";
 import { HydratedRouter } from "react-router/dom";
 import posthog from "posthog-js";
 import { PostHogProvider } from "@posthog/react";
+import { resolvePostHogConfig } from "~/lib/analytics";
 
 // Initialize PostHog on the client
-const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
-const posthogHost = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
+const posthogConfig = resolvePostHogConfig(import.meta.env);
 
-if (posthogKey) {
-  posthog.init(posthogKey, {
-    api_host: posthogHost,
+if (posthogConfig.enabled) {
+  posthog.init(posthogConfig.key, {
+    api_host: posthogConfig.host,
     capture_pageview: false, // We'll capture manually via React Router
     capture_pageleave: true,
     session_recording: {

@@ -7,6 +7,7 @@ Recipe management platform rebuilt with React Router v7 on Cloudflare.
 - **Storybook**: https://spoonjoy-storybook.pages.dev/
 - **Getting Started Guide**: [GUIDE.md](./GUIDE.md) — comprehensive walkthrough from clone to delighted
 - **Cloudflare Deployment Checklist**: [docs/deployment.md](./docs/deployment.md)
+- **Analytics & Privacy**: [docs/analytics-privacy.md](./docs/analytics-privacy.md)
 
 ## Tech Stack
 
@@ -66,6 +67,8 @@ APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 ```
 
 For production, use `wrangler secret put` for sensitive values.
+
+For optional PostHog analytics, see [`docs/analytics-privacy.md`](docs/analytics-privacy.md). Analytics stays disabled when `VITE_POSTHOG_KEY` is absent or `VITE_POSTHOG_DISABLED` is true-ish.
 
 For Ouroboros agent integration, see [`docs/ouroboros-mcp.md`](docs/ouroboros-mcp.md).
 

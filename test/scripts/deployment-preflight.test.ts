@@ -19,7 +19,7 @@ function validInputs(): DeploymentPreflightInputs {
         "deploy:preflight": "tsx scripts/deployment-preflight.ts",
         typecheck: "react-router typegen && tsc",
         "test:coverage": "vitest run --coverage",
-        "test:e2e": "playwright test",
+        "test:e2e": "env -u FORCE_COLOR -u NO_COLOR playwright test",
         "db:seed": "pnpm exec tsx prisma/seed.ts",
       },
     },

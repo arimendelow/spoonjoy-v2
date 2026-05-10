@@ -35,7 +35,7 @@
 pnpm test:e2e
 
 # Run the mobile audit only
-env -u FORCE_COLOR -u NO_COLOR pnpm test:e2e e2e/flows/mobile-recipebuilder-spoondock.spec.ts
+pnpm test:e2e e2e/flows/mobile-recipebuilder-spoondock.spec.ts
 
 # Run with UI for debugging
 pnpm test:e2e:ui

@@ -93,7 +93,6 @@ export default function RecipeDetail() {
     if (posthog) {
       posthog.capture("recipe_viewed", {
         recipe_id: recipe.id,
-        recipe_title: recipe.title,
         chef_id: recipe.chef.id,
         step_count: recipe.steps.length,
         is_owner: isOwner,
@@ -111,7 +110,7 @@ export default function RecipeDetail() {
         });
       }
     };
-  }, [recipe.id, recipe.title, recipe.chef.id, recipe.steps.length, isOwner, posthog]);
+  }, [recipe.id, recipe.chef.id, recipe.steps.length, isOwner, posthog]);
 
   // PostHog: Track scale changes
   const handleScaleChange = (newScale: number) => {
@@ -326,7 +325,6 @@ export default function RecipeDetail() {
     if (posthog) {
       posthog.capture("cookbook_created_from_recipe", {
         recipe_id: recipe.id,
-        cookbook_title: title,
       });
     }
   };

@@ -580,7 +580,7 @@ Completion notes:
 
 Priority: `P3`
 Lane: `analytics`, `privacy`, `ops`
-Status: `proposed`
+Status: `done`
 
 Problem: PostHog instrumentation exists for page views and recipe interactions, but there is no documented analytics/privacy posture yet. This should be reviewed before broader user testing.
 
@@ -596,6 +596,14 @@ Acceptance criteria:
 - Review event payloads for personally identifiable information.
 - Add opt-out or environment-based disabling if desired.
 - Tests cover safe behavior when PostHog env vars are missing.
+
+Completion notes:
+
+- Added a testable analytics config module for optional PostHog initialization.
+- Added `VITE_POSTHOG_DISABLED` as an explicit true-ish hard-disable switch.
+- Sanitized pageview URLs to origin + pathname so query strings and hashes are not sent.
+- Removed user-entered recipe/cookbook titles from analytics event payloads.
+- Documented analytics environment variables, local disabled behavior, session-recording masking, and the current payload privacy posture.
 
 ### SJ-021 - Accessibility Pass For Dialogs, Dock, And Recipe Forms
 
