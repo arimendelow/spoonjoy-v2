@@ -565,24 +565,24 @@ function makeIO(): { io: CliIO; logs: string[]; errors: string[]; exits: number[
 }
 
 describe("main (CLI entrypoint)", () => {
-  it("prints PASS lines, no exit, and a passed-with-warnings summary when only warnings are present", async () => {
+  it("prints WARN line and a passed-with-warnings summary when wrangler reports an auth-keyed soft failure", async () => {
     const { io, logs, errors, exits } = makeIO();
-    const originalSkip = process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
-    process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = "1";
-    try {
-      await main({ io });
-      expect(exits).toEqual([]);
-      expect(errors).toEqual([]);
-      expect(logs.some((line) => line.startsWith("PASS"))).toBe(true);
-      expect(logs.some((line) => line.startsWith("WARN"))).toBe(true);
-      expect(logs[logs.length - 1]).toMatch(/Deployment preflight passed( with \d+ warning\(s\))?\.$/);
-    } finally {
-      if (originalSkip === undefined) {
-        delete process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
-      } else {
-        process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = originalSkip;
-      }
-    }
+
+    await main({
+      io,
+      runWrangler: async () => ({
+        stdout: "",
+        stderr: "Authentication error: please run wrangler login",
+        exitCode: 1,
+      }),
+      env: { SPOONJOY_PREFLIGHT_SKIP_REMOTE: "0" },
+    });
+
+    expect(exits).toEqual([]);
+    expect(errors).toEqual([]);
+    expect(logs.some((line) => line.startsWith("PASS"))).toBe(true);
+    expect(logs.some((line) => line.startsWith("WARN"))).toBe(true);
+    expect(logs[logs.length - 1]).toBe("Deployment preflight passed with 1 warning(s).");
   });
 
   it("prints a passed summary without warning suffix when everything is OK", async () => {
@@ -659,8 +659,8 @@ describe("isCliEntry", () => {
   });
 
   it("returns true when argv1 resolves to the same path as moduleUrl", () => {
-    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
-    const resolved = new URL(url).pathname;
+    const resolved = "/tmp/fake-preflight-cli-entry.ts";
+    const url = `file://${resolved}`;
     expect(isCliEntry(resolved, url)).toBe(true);
   });
 });
@@ -681,8 +681,8 @@ describe("runCliIfEntry", () => {
   });
 
   it("returns true and invokes runMain when argv1 matches the moduleUrl", async () => {
-    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
-    const resolved = new URL(url).pathname;
+    const resolved = "/tmp/fake-preflight-cli-entry.ts";
+    const url = `file://${resolved}`;
     let resolveMain!: () => void;
     const ran = new Promise<void>((res) => {
       resolveMain = res;
@@ -701,8 +701,8 @@ describe("runCliIfEntry", () => {
   });
 
   it("routes runMain errors through onError", async () => {
-    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
-    const resolved = new URL(url).pathname;
+    const resolved = "/tmp/fake-preflight-cli-entry.ts";
+    const url = `file://${resolved}`;
     const runMain = vi.fn(async () => {
       throw new Error("kaboom");
     });
@@ -731,8 +731,8 @@ describe("runCliIfEntry", () => {
   });
 
   it("uses default onError that prints and calls process.exit(1) when runMain rejects with an Error", async () => {
-    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
-    const resolved = new URL(url).pathname;
+    const resolved = "/tmp/fake-preflight-cli-entry.ts";
+    const url = `file://${resolved}`;
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
       // swallow; test asserts on call below
@@ -757,8 +757,8 @@ describe("runCliIfEntry", () => {
   });
 
   it("uses default onError that stringifies non-Error rejections", async () => {
-    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
-    const resolved = new URL(url).pathname;
+    const resolved = "/tmp/fake-preflight-cli-entry.ts";
+    const url = `file://${resolved}`;
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
       return undefined as never;
@@ -790,8 +790,8 @@ describe("runCliIfEntry", () => {
     }) as never);
 
     try {
-      const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
-      const resolved = new URL(url).pathname;
+      const resolved = "/tmp/fake-preflight-cli-entry.ts";
+      const url = `file://${resolved}`;
       const result = runCliIfEntry({ argv1: resolved, moduleUrl: url });
       // Let async main() resolve.
       await new Promise((r) => setTimeout(r, 30));

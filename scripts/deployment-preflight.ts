@@ -311,33 +311,78 @@ export async function runDeploymentPreflight(
   };
 }
 
-function formatCheck(item: PreflightCheck): string {
+export function formatCheck(item: PreflightCheck): string {
   const prefix = item.ok ? "PASS" : item.severity === "warning" ? "WARN" : "FAIL";
   return `${prefix} ${item.name}: ${item.message}`;
 }
 
-async function main() {
-  const result = await runDeploymentPreflight();
+export interface CliIO {
+  log: (message: string) => void;
+  error: (message: string) => void;
+  exit: (code: number) => void;
+}
+
+export interface MainDeps extends RunDeploymentPreflightDeps {
+  io?: CliIO;
+}
+
+export async function main(deps: MainDeps = {}): Promise<void> {
+  const io: CliIO = deps.io ?? {
+    log: (message) => {
+      console.log(message);
+    },
+    error: (message) => {
+      console.error(message);
+    },
+    exit: (code) => {
+      process.exit(code);
+    },
+  };
+
+  const result = await runDeploymentPreflight(process.cwd(), {
+    runWrangler: deps.runWrangler,
+    env: deps.env,
+  });
   for (const item of result.checks) {
-    console.log(formatCheck(item));
+    io.log(formatCheck(item));
   }
 
   if (result.errors.length > 0) {
-    console.error(`Deployment preflight failed with ${result.errors.length} error(s).`);
-    process.exit(1);
+    io.error(`Deployment preflight failed with ${result.errors.length} error(s).`);
+    io.exit(1);
+    return;
   }
 
   const warningSuffix = result.warnings.length > 0 ? ` with ${result.warnings.length} warning(s)` : "";
-  console.log(`Deployment preflight passed${warningSuffix}.`);
+  io.log(`Deployment preflight passed${warningSuffix}.`);
 }
 
-const executedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
-const currentPath = fileURLToPath(import.meta.url);
-
-if (executedPath === currentPath) {
-  main().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Deployment preflight failed: ${message}`);
-    process.exit(1);
-  });
+export function isCliEntry(argv1: string | undefined, moduleUrl: string): boolean {
+  if (!argv1) return false;
+  return path.resolve(argv1) === fileURLToPath(moduleUrl);
 }
+
+export interface RunCliIfEntryDeps {
+  argv1?: string;
+  moduleUrl: string;
+  runMain?: () => Promise<void>;
+  onError?: (error: unknown) => void;
+}
+
+export function runCliIfEntry(deps: RunCliIfEntryDeps): boolean {
+  if (!isCliEntry(deps.argv1, deps.moduleUrl)) {
+    return false;
+  }
+  const runMain = deps.runMain ?? main;
+  const onError =
+    deps.onError ??
+    ((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Deployment preflight failed: ${message}`);
+      process.exit(1);
+    });
+  runMain().catch(onError);
+  return true;
+}
+
+runCliIfEntry({ argv1: process.argv[1], moduleUrl: import.meta.url });
