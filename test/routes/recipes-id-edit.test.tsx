@@ -1325,7 +1325,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: "A delicious dish",
           servings: "4",
-          imageUrl: "https://example.com/recipe.jpg",
+          coverImageUrl: "https://example.com/recipe.jpg",
           steps: [],
         },
         formattedSteps: [],
@@ -1359,7 +1359,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [],
         },
         formattedSteps: [],
@@ -1405,7 +1405,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             {
               id: "step-1",
@@ -1454,7 +1454,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             {
               id: "step-1",
@@ -1499,7 +1499,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             {
               id: "step-1",
@@ -1549,7 +1549,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             { id: "step-1", stepNum: 1, stepTitle: null, description: "First step", ingredients: [] },
             { id: "step-2", stepNum: 2, stepTitle: null, description: "Second step", ingredients: [] },
@@ -1593,7 +1593,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [],
         },
         formattedSteps: [],
@@ -1624,7 +1624,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [],
         },
         formattedSteps: [],
@@ -1651,7 +1651,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             {
               id: "step-abc",
@@ -1699,7 +1699,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             {
               id: "step-delete",
@@ -1759,7 +1759,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             {
               id: "step-escape",
@@ -1810,7 +1810,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [
             {
               id: "step-blocked",
@@ -1866,7 +1866,7 @@ describe("Recipes $id Edit Route", () => {
               title: "Original Title",
               description: "Original description",
               servings: "4",
-              imageUrl: "",
+              coverImageUrl: "",
               steps: [],
             },
             formattedSteps: [],
@@ -1924,7 +1924,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Original Title",
           description: "Original description",
           servings: "4",
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [],
         },
         formattedSteps: [],
@@ -1994,7 +1994,7 @@ describe("Recipes $id Edit Route", () => {
               title: "Test Recipe",
               description: null,
               servings: null,
-              imageUrl: "",
+              coverImageUrl: "",
               steps: [],
             },
             formattedSteps: [],
@@ -2042,7 +2042,7 @@ describe("Recipes $id Edit Route", () => {
               title: "Test Recipe",
               description: null,
               servings: null,
-              imageUrl: "",
+              coverImageUrl: "",
               steps: [],
             },
             formattedSteps: [],
@@ -2078,7 +2078,7 @@ describe("Recipes $id Edit Route", () => {
               title: "Test Recipe",
               description: null,
               servings: null,
-              imageUrl: "https://example.com/existing.jpg",
+              coverImageUrl: "https://example.com/existing.jpg",
               steps: [],
             },
             formattedSteps: [],
@@ -2118,7 +2118,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [],
         },
         formattedSteps: [],
@@ -2154,7 +2154,7 @@ describe("Recipes $id Edit Route", () => {
           title: "Test Recipe",
           description: null,
           servings: null,
-          imageUrl: "",
+          coverImageUrl: "",
           steps: [],
         },
         formattedSteps: [],
