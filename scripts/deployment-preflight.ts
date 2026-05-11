@@ -1,3 +1,4 @@
+import { execFile as nodeExecFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -166,6 +167,36 @@ export type RunWrangler = (args: string[]) => Promise<WranglerRunResult>;
 export interface RemoteMigrationCheckDeps {
   runWrangler: RunWrangler;
   env?: NodeJS.ProcessEnv;
+}
+
+type ExecFileLike = (
+  command: string,
+  args: readonly string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv },
+  callback: (
+    error: (Error & { code?: number | string }) | null,
+    stdout: string,
+    stderr: string,
+  ) => void,
+) => unknown;
+
+export function createWranglerRunner(
+  execFileImpl: ExecFileLike = nodeExecFile as unknown as ExecFileLike,
+): RunWrangler {
+  return (args) =>
+    new Promise<WranglerRunResult>((resolve, reject) => {
+      execFileImpl("pnpm", ["exec", "wrangler", ...args], {}, (error, stdout, stderr) => {
+        if (error) {
+          if (typeof error.code === "number") {
+            resolve({ stdout, stderr, exitCode: error.code });
+            return;
+          }
+          reject(error);
+          return;
+        }
+        resolve({ stdout, stderr, exitCode: 0 });
+      });
+    });
 }
 
 const RemoteMigrationListSchema = z.array(z.object({ Name: z.string() }));
