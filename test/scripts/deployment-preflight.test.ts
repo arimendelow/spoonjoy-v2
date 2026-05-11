@@ -354,6 +354,30 @@ describe("checkRemoteMigrations", () => {
   });
 });
 
+describe("package.json deploy scripts", () => {
+  it("deploy chains preflight then build then wrangler deploy via pnpm exec", async () => {
+    const pkgRaw = await import("node:fs/promises").then((mod) =>
+      mod.readFile(`${process.cwd()}/package.json`, "utf8"),
+    );
+    const pkg = JSON.parse(pkgRaw) as { scripts: Record<string, string> };
+
+    expect(pkg.scripts.deploy).toBe(
+      "pnpm deploy:preflight && pnpm build && pnpm exec wrangler deploy",
+    );
+  });
+
+  it("deploy:auto chains preflight then build then migrate then deploy via pnpm exec in that order", async () => {
+    const pkgRaw = await import("node:fs/promises").then((mod) =>
+      mod.readFile(`${process.cwd()}/package.json`, "utf8"),
+    );
+    const pkg = JSON.parse(pkgRaw) as { scripts: Record<string, string> };
+
+    expect(pkg.scripts["deploy:auto"]).toBe(
+      "pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy",
+    );
+  });
+});
+
 describe("createWranglerRunner", () => {
   type Captured = {
     cmd: string;
