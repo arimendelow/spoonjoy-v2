@@ -2,8 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   checkRemoteMigrations,
   createWranglerRunner,
+  formatCheck,
+  isCliEntry,
+  main,
+  runCliIfEntry,
   runDeploymentPreflight,
   validateDeploymentConfig,
+  type CliIO,
   type DeploymentPreflightInputs,
 } from "../../scripts/deployment-preflight";
 
@@ -518,5 +523,292 @@ describe("createWranglerRunner", () => {
   it("exposes a default factory that uses node:child_process execFile", () => {
     const runner = createWranglerRunner();
     expect(typeof runner).toBe("function");
+  });
+});
+
+describe("formatCheck", () => {
+  it("prefixes passing checks with PASS", () => {
+    expect(
+      formatCheck({ name: "x", ok: true, severity: "error", message: "ok" }),
+    ).toBe("PASS x: ok");
+  });
+
+  it("prefixes warning checks with WARN", () => {
+    expect(
+      formatCheck({ name: "x", ok: false, severity: "warning", message: "soft" }),
+    ).toBe("WARN x: soft");
+  });
+
+  it("prefixes failing error checks with FAIL", () => {
+    expect(
+      formatCheck({ name: "x", ok: false, severity: "error", message: "bad" }),
+    ).toBe("FAIL x: bad");
+  });
+});
+
+function makeIO(): { io: CliIO; logs: string[]; errors: string[]; exits: number[] } {
+  const logs: string[] = [];
+  const errors: string[] = [];
+  const exits: number[] = [];
+  const io: CliIO = {
+    log: (m) => {
+      logs.push(m);
+    },
+    error: (m) => {
+      errors.push(m);
+    },
+    exit: (code) => {
+      exits.push(code);
+    },
+  };
+  return { io, logs, errors, exits };
+}
+
+describe("main (CLI entrypoint)", () => {
+  it("prints PASS lines, no exit, and a passed-with-warnings summary when only warnings are present", async () => {
+    const { io, logs, errors, exits } = makeIO();
+    const originalSkip = process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+    process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = "1";
+    try {
+      await main({ io });
+      expect(exits).toEqual([]);
+      expect(errors).toEqual([]);
+      expect(logs.some((line) => line.startsWith("PASS"))).toBe(true);
+      expect(logs.some((line) => line.startsWith("WARN"))).toBe(true);
+      expect(logs[logs.length - 1]).toMatch(/Deployment preflight passed( with \d+ warning\(s\))?\.$/);
+    } finally {
+      if (originalSkip === undefined) {
+        delete process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+      } else {
+        process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = originalSkip;
+      }
+    }
+  });
+
+  it("prints a passed summary without warning suffix when everything is OK", async () => {
+    const { io, logs, exits, errors } = makeIO();
+
+    await main({
+      io,
+      runWrangler: async () => ({ stdout: "[]", stderr: "", exitCode: 0 }),
+      env: { SPOONJOY_PREFLIGHT_SKIP_REMOTE: "0" },
+    });
+
+    expect(exits).toEqual([]);
+    expect(errors).toEqual([]);
+    expect(logs[logs.length - 1]).toBe("Deployment preflight passed.");
+  });
+
+  it("calls io.error and io.exit(1) when there is a hard failure", async () => {
+    const { io, errors, exits, logs } = makeIO();
+
+    await main({
+      io,
+      runWrangler: async () => ({
+        stdout: '[{"Name":"0007.sql"}]',
+        stderr: "",
+        exitCode: 0,
+      }),
+      env: { SPOONJOY_PREFLIGHT_SKIP_REMOTE: "0" },
+    });
+
+    expect(exits).toEqual([1]);
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toMatch(/Deployment preflight failed with \d+ error\(s\)\./);
+    expect(logs.some((line) => line.startsWith("FAIL"))).toBe(true);
+  });
+
+  it("uses real console.log/console.error/process.exit when io is not injected", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`__exit__:${code ?? 0}`);
+    }) as never);
+
+    try {
+      // Trigger a failure path so we hit error + exit defaults.
+      await expect(
+        main({
+          runWrangler: async () => ({
+            stdout: '[{"Name":"x.sql"}]',
+            stderr: "",
+            exitCode: 0,
+          }),
+          env: { SPOONJOY_PREFLIGHT_SKIP_REMOTE: "0" },
+        }),
+      ).rejects.toThrow("__exit__:1");
+
+      expect(logSpy).toHaveBeenCalled();
+      expect(errSpy).toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    } finally {
+      logSpy.mockRestore();
+      errSpy.mockRestore();
+      exitSpy.mockRestore();
+    }
+  });
+});
+
+describe("isCliEntry", () => {
+  it("returns false when argv1 is undefined", () => {
+    expect(isCliEntry(undefined, "file:///x.ts")).toBe(false);
+  });
+
+  it("returns false when argv1 does not resolve to the module url", () => {
+    expect(isCliEntry("/some/other/script.ts", "file:///not/the/same.ts")).toBe(false);
+  });
+
+  it("returns true when argv1 resolves to the same path as moduleUrl", () => {
+    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
+    const resolved = new URL(url).pathname;
+    expect(isCliEntry(resolved, url)).toBe(true);
+  });
+});
+
+describe("runCliIfEntry", () => {
+  it("returns false and does not invoke runMain when argv1 is not the module", () => {
+    const runMain = vi.fn(async () => {});
+    const onError = vi.fn();
+    const result = runCliIfEntry({
+      argv1: "/totally/different.ts",
+      moduleUrl: "file:///somewhere/else.ts",
+      runMain,
+      onError,
+    });
+    expect(result).toBe(false);
+    expect(runMain).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("returns true and invokes runMain when argv1 matches the moduleUrl", async () => {
+    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
+    const resolved = new URL(url).pathname;
+    let resolveMain!: () => void;
+    const ran = new Promise<void>((res) => {
+      resolveMain = res;
+    });
+    const runMain = vi.fn(async () => {
+      resolveMain();
+    });
+    const onError = vi.fn();
+
+    const result = runCliIfEntry({ argv1: resolved, moduleUrl: url, runMain, onError });
+    await ran;
+
+    expect(result).toBe(true);
+    expect(runMain).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("routes runMain errors through onError", async () => {
+    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
+    const resolved = new URL(url).pathname;
+    const runMain = vi.fn(async () => {
+      throw new Error("kaboom");
+    });
+    let captured: unknown = null;
+    const seen = new Promise<void>((resolve) => {
+      // onError will receive the error; resolve when invoked
+      // and capture for assertion.
+      (globalThis as Record<string, unknown>).__captureOnce = (err: unknown) => {
+        captured = err;
+        resolve();
+      };
+    });
+    const onError = (err: unknown) => {
+      (
+        (globalThis as Record<string, unknown>).__captureOnce as (e: unknown) => void
+      )(err);
+    };
+
+    const result = runCliIfEntry({ argv1: resolved, moduleUrl: url, runMain, onError });
+    await seen;
+
+    expect(result).toBe(true);
+    expect(runMain).toHaveBeenCalledTimes(1);
+    expect((captured as Error).message).toBe("kaboom");
+    delete (globalThis as Record<string, unknown>).__captureOnce;
+  });
+
+  it("uses default onError that prints and calls process.exit(1) when runMain rejects with an Error", async () => {
+    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
+    const resolved = new URL(url).pathname;
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
+      // swallow; test asserts on call below
+      return undefined as never;
+    }) as never);
+
+    try {
+      const runMain = async () => {
+        throw new Error("crash");
+      };
+      const result = runCliIfEntry({ argv1: resolved, moduleUrl: url, runMain });
+      // Wait one microtask cycle for the .catch handler to run
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(result).toBe(true);
+      expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("crash"));
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    } finally {
+      errSpy.mockRestore();
+      exitSpy.mockRestore();
+    }
+  });
+
+  it("uses default onError that stringifies non-Error rejections", async () => {
+    const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
+    const resolved = new URL(url).pathname;
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
+      return undefined as never;
+    }) as never);
+
+    try {
+      const runMain = async () => {
+        throw "string-failure";
+      };
+      runCliIfEntry({ argv1: resolved, moduleUrl: url, runMain });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("string-failure"));
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    } finally {
+      errSpy.mockRestore();
+      exitSpy.mockRestore();
+    }
+  });
+
+  it("uses default main when runMain is not provided", async () => {
+    // Override env so the default main() can run quickly and safely.
+    const originalSkip = process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+    process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = "1";
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
+      return undefined as never;
+    }) as never);
+
+    try {
+      const url = new URL("../../scripts/deployment-preflight.ts", import.meta.url).href;
+      const resolved = new URL(url).pathname;
+      const result = runCliIfEntry({ argv1: resolved, moduleUrl: url });
+      // Let async main() resolve.
+      await new Promise((r) => setTimeout(r, 30));
+      expect(result).toBe(true);
+      expect(logSpy).toHaveBeenCalled();
+      // Should NOT have exited (skip flag → all PASS/WARN, no failure).
+      expect(errSpy).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+      errSpy.mockRestore();
+      exitSpy.mockRestore();
+      if (originalSkip === undefined) {
+        delete process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+      } else {
+        process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = originalSkip;
+      }
+    }
   });
 });
