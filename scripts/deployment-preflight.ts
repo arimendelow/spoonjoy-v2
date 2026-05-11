@@ -42,6 +42,7 @@ const REQUIRED_SECRET_NAMES = [
 const REQUIRED_PACKAGE_SCRIPTS = [
   "build",
   "deploy",
+  "deploy:auto",
   "deploy:preflight",
   "typecheck",
   "test:coverage",
@@ -272,7 +273,15 @@ async function readJsonFile(filePath: string): Promise<Record<string, unknown>> 
   return JSON.parse(await readFile(filePath, "utf8")) as Record<string, unknown>;
 }
 
-export async function runDeploymentPreflight(rootDir = process.cwd()): Promise<DeploymentPreflightResult> {
+export interface RunDeploymentPreflightDeps {
+  runWrangler?: RunWrangler;
+  env?: NodeJS.ProcessEnv;
+}
+
+export async function runDeploymentPreflight(
+  rootDir = process.cwd(),
+  deps: RunDeploymentPreflightDeps = {},
+): Promise<DeploymentPreflightResult> {
   const [wrangler, packageJson, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
     readJsonFile(path.join(rootDir, "wrangler.json")),
     readJsonFile(path.join(rootDir, "package.json")),
@@ -282,7 +291,7 @@ export async function runDeploymentPreflight(rootDir = process.cwd()): Promise<D
     readdir(path.join(rootDir, "migrations")),
   ]);
 
-  return validateDeploymentConfig({
+  const baseResult = validateDeploymentConfig({
     wrangler,
     packageJson,
     cloudflareEnvDts,
@@ -290,6 +299,16 @@ export async function runDeploymentPreflight(rootDir = process.cwd()): Promise<D
     deploymentDoc,
     migrationFiles,
   });
+
+  const runWrangler = deps.runWrangler ?? createWranglerRunner();
+  const remoteCheck = await checkRemoteMigrations({ runWrangler, env: deps.env });
+
+  const checks = [...baseResult.checks, remoteCheck];
+  return {
+    checks,
+    errors: checks.filter((item) => !item.ok && item.severity === "error"),
+    warnings: checks.filter((item) => !item.ok && item.severity === "warning"),
+  };
 }
 
 function formatCheck(item: PreflightCheck): string {
