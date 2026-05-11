@@ -50,6 +50,8 @@ describe("spoonjoy MCP tools", () => {
       "create_spoon",
       "update_spoon",
       "delete_spoon",
+      "list_spoons_for_recipe",
+      "list_spoons_by_chef",
     ]);
   });
 

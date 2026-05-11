@@ -55,13 +55,15 @@ describe("spoonjoy-api spoon operations", () => {
   });
 
   describe("operation registry", () => {
-    it("lists the create/update/delete spoon operations", () => {
+    it("lists the five new spoon operations", () => {
       const names = listSpoonjoyApiOperations().map((op) => op.name);
       expect(names).toEqual(
         expect.arrayContaining([
           "create_spoon",
           "update_spoon",
           "delete_spoon",
+          "list_spoons_for_recipe",
+          "list_spoons_by_chef",
         ]),
       );
     });
@@ -538,6 +540,258 @@ describe("spoonjoy-api spoon operations", () => {
       await expect(
         callSpoonjoyApiOperation("update_spoon", { note: "x" }, context),
       ).rejects.toMatchObject({ message: expect.stringMatching(/spoonId/i) });
+    });
+  });
+
+  describe("list_spoons_for_recipe", () => {
+    it("returns spoons with chef relation and derived coverImageUrl per row", async () => {
+      const { principal: chef } = await makeUser(db);
+      const { principal: cook } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      await db.recipeSpoon.create({
+        data: { chefId: cook.id, recipeId: recipe.id, note: "hi" },
+      });
+      const context: SpoonjoyApiContext = { db, principal: cook };
+      const result = (await callSpoonjoyApiOperation(
+        "list_spoons_for_recipe",
+        { recipeId: recipe.id },
+        context,
+      )) as { spoons: Array<{ chef: { username: string }; coverImageUrl: string }> };
+      expect(result.spoons).toHaveLength(1);
+      expect(result.spoons[0].chef.username).toBe(cook.username);
+      expect(typeof result.spoons[0].coverImageUrl).toBe("string");
+    });
+
+    it("respects limit/offset", async () => {
+      const { principal: chef } = await makeUser(db);
+      const { principal: cook1 } = await makeUser(db);
+      const { principal: cook2 } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      await db.recipeSpoon.create({
+        data: {
+          chefId: cook1.id,
+          recipeId: recipe.id,
+          note: "first",
+          cookedAt: new Date("2025-01-01T00:00:00Z"),
+        },
+      });
+      await db.recipeSpoon.create({
+        data: {
+          chefId: cook2.id,
+          recipeId: recipe.id,
+          note: "second",
+          cookedAt: new Date("2025-02-01T00:00:00Z"),
+        },
+      });
+      const context: SpoonjoyApiContext = { db, principal: cook1 };
+      const limited = (await callSpoonjoyApiOperation(
+        "list_spoons_for_recipe",
+        { recipeId: recipe.id, limit: 1 },
+        context,
+      )) as { spoons: Array<{ note: string }> };
+      expect(limited.spoons).toHaveLength(1);
+      expect(limited.spoons[0].note).toBe("second");
+
+      const offset = (await callSpoonjoyApiOperation(
+        "list_spoons_for_recipe",
+        { recipeId: recipe.id, limit: 1, offset: 1 },
+        context,
+      )) as { spoons: Array<{ note: string }> };
+      expect(offset.spoons[0].note).toBe("first");
+    });
+
+    it("rejects ownerEmail", async () => {
+      const { principal: chef } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      await expect(
+        callSpoonjoyApiOperation(
+          "list_spoons_for_recipe",
+          { recipeId: recipe.id, ownerEmail: "x" },
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 400 });
+    });
+
+    it("requires recipeId", async () => {
+      const { principal: chef } = await makeUser(db);
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      await expect(
+        callSpoonjoyApiOperation("list_spoons_for_recipe", {}, context),
+      ).rejects.toMatchObject({ message: expect.stringMatching(/recipeId/i) });
+    });
+
+    it("excludes soft-deleted spoons", async () => {
+      const { principal: chef } = await makeUser(db);
+      const { principal: cook } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      await db.recipeSpoon.create({
+        data: {
+          chefId: cook.id,
+          recipeId: recipe.id,
+          note: "first",
+          deletedAt: new Date(),
+        },
+      });
+      const context: SpoonjoyApiContext = { db, principal: cook };
+      const result = (await callSpoonjoyApiOperation(
+        "list_spoons_for_recipe",
+        { recipeId: recipe.id },
+        context,
+      )) as { spoons: unknown[] };
+      expect(result.spoons).toHaveLength(0);
+    });
+
+    it("requires authentication", async () => {
+      const { principal: chef } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      const context: SpoonjoyApiContext = { db, principal: null };
+      await expect(
+        callSpoonjoyApiOperation(
+          "list_spoons_for_recipe",
+          { recipeId: recipe.id },
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 401 });
+    });
+  });
+
+  describe("list_spoons_by_chef", () => {
+    it("returns spoons by chef id with recipe + coverImageUrl preloaded", async () => {
+      const { principal: chef } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      await db.recipeSpoon.create({
+        data: {
+          chefId: chef.id,
+          recipeId: recipe.id,
+          photoUrl: "/photos/x.png",
+          cookedAt: new Date("2025-01-01T00:00:00Z"),
+        },
+      });
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      const result = (await callSpoonjoyApiOperation(
+        "list_spoons_by_chef",
+        { chefIdOrUsername: chef.id },
+        context,
+      )) as { spoons: Array<{ recipe: { id: string; title: string }; coverImageUrl: string }> };
+      expect(result.spoons).toHaveLength(1);
+      expect(result.spoons[0].recipe.id).toBe(recipe.id);
+      expect(result.spoons[0].recipe.title).toBe(recipe.title);
+      expect(typeof result.spoons[0].coverImageUrl).toBe("string");
+    });
+
+    it("resolves by username", async () => {
+      const { user, principal: chef } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      await db.recipeSpoon.create({
+        data: { chefId: chef.id, recipeId: recipe.id, photoUrl: "/x" },
+      });
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      const result = (await callSpoonjoyApiOperation(
+        "list_spoons_by_chef",
+        { chefIdOrUsername: user.username },
+        context,
+      )) as { spoons: unknown[] };
+      expect(result.spoons).toHaveLength(1);
+    });
+
+    it("returns 404 when chef is not found", async () => {
+      const { principal: chef } = await makeUser(db);
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      await expect(
+        callSpoonjoyApiOperation(
+          "list_spoons_by_chef",
+          { chefIdOrUsername: "missing-user-zzz" },
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+
+    it("rejects ownerEmail", async () => {
+      const { principal: chef } = await makeUser(db);
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      await expect(
+        callSpoonjoyApiOperation(
+          "list_spoons_by_chef",
+          { chefIdOrUsername: chef.id, ownerEmail: "x" },
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 400 });
+    });
+
+    it("requires chefIdOrUsername", async () => {
+      const { principal: chef } = await makeUser(db);
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      await expect(
+        callSpoonjoyApiOperation("list_spoons_by_chef", {}, context),
+      ).rejects.toMatchObject({ message: expect.stringMatching(/chefIdOrUsername/i) });
+    });
+
+    it("excludes soft-deleted by default", async () => {
+      const { principal: chef } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      await db.recipeSpoon.create({
+        data: {
+          chefId: chef.id,
+          recipeId: recipe.id,
+          photoUrl: "/x",
+          deletedAt: new Date(),
+        },
+      });
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      const result = (await callSpoonjoyApiOperation(
+        "list_spoons_by_chef",
+        { chefIdOrUsername: chef.id },
+        context,
+      )) as { spoons: unknown[] };
+      expect(result.spoons).toHaveLength(0);
+    });
+
+    it("requires authentication", async () => {
+      const context: SpoonjoyApiContext = { db, principal: null };
+      await expect(
+        callSpoonjoyApiOperation(
+          "list_spoons_by_chef",
+          { chefIdOrUsername: "x" },
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 401 });
+    });
+
+    it("respects limit/offset", async () => {
+      const { principal: chef } = await makeUser(db);
+      const r1 = await makeRecipe(db, chef.id);
+      const r2 = await makeRecipe(db, chef.id);
+      await db.recipeSpoon.create({
+        data: {
+          chefId: chef.id,
+          recipeId: r1.id,
+          photoUrl: "/p1",
+          cookedAt: new Date("2025-01-01T00:00:00Z"),
+        },
+      });
+      await db.recipeSpoon.create({
+        data: {
+          chefId: chef.id,
+          recipeId: r2.id,
+          photoUrl: "/p2",
+          cookedAt: new Date("2025-02-01T00:00:00Z"),
+        },
+      });
+      const context: SpoonjoyApiContext = { db, principal: chef };
+      const limited = (await callSpoonjoyApiOperation(
+        "list_spoons_by_chef",
+        { chefIdOrUsername: chef.id, limit: 1 },
+        context,
+      )) as { spoons: Array<{ recipe: { id: string } }> };
+      expect(limited.spoons).toHaveLength(1);
+      expect(limited.spoons[0].recipe.id).toBe(r2.id);
+      const offset = (await callSpoonjoyApiOperation(
+        "list_spoons_by_chef",
+        { chefIdOrUsername: chef.id, limit: 1, offset: 1 },
+        context,
+      )) as { spoons: Array<{ recipe: { id: string } }> };
+      expect(offset.spoons[0].recipe.id).toBe(r1.id);
     });
   });
 
