@@ -73,6 +73,11 @@ describe("RecipeProvenance", () => {
     expect(screen.getByText("not a real url")).toBeInTheDocument();
   });
 
+  it("falls back to the raw string when the URL parses but has an empty hostname", () => {
+    renderWithRouter(<RecipeProvenance sourceUrl="data:text/plain,hello" />);
+    expect(screen.getByRole("link", { name: /data:text\/plain,hello/i })).toBeInTheDocument();
+  });
+
   it("truncates a very long forked title with a title attribute holding the full text", () => {
     const longTitle = "A".repeat(120);
     renderWithRouter(
