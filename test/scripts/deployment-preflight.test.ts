@@ -46,6 +46,52 @@ describe("deployment preflight", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.checks.every((item) => item.ok || item.severity === "warning")).toBe(true);
+    expect(result.checks.map((item) => item.name)).toContain("remote D1 migrations");
+  });
+
+  it("surfaces remote-migration failures as errors", async () => {
+    const result = await runDeploymentPreflight(process.cwd(), {
+      runWrangler: async () => ({
+        stdout: '[{"Name":"0007_api_credentials.sql"}]',
+        stderr: "",
+        exitCode: 0,
+      }),
+    });
+
+    expect(result.errors.map((item) => item.name)).toContain("remote D1 migrations");
+  });
+
+  it("surfaces remote-migration auth errors as warnings only", async () => {
+    const result = await runDeploymentPreflight(process.cwd(), {
+      runWrangler: async () => ({
+        stdout: "",
+        stderr: "Authentication error [code: 10000] please run wrangler login",
+        exitCode: 1,
+      }),
+    });
+
+    const errorNames = result.errors.map((item) => item.name);
+    const warningNames = result.warnings.map((item) => item.name);
+    expect(errorNames).not.toContain("remote D1 migrations");
+    expect(warningNames).toContain("remote D1 migrations");
+  });
+
+  it("uses createWranglerRunner by default when no runWrangler dep is provided", async () => {
+    const originalSkip = process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+    process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = "1";
+    try {
+      const result = await runDeploymentPreflight(process.cwd());
+      const remoteCheck = result.checks.find((item) => item.name === "remote D1 migrations");
+      expect(remoteCheck).toBeDefined();
+      expect(remoteCheck!.ok).toBe(true);
+      expect(remoteCheck!.severity).toBe("warning");
+    } finally {
+      if (originalSkip === undefined) {
+        delete process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+      } else {
+        process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = originalSkip;
+      }
+    }
   });
 
   it("flags missing production-critical bindings and docs", () => {
@@ -60,6 +106,15 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).toEqual(
       expect.arrayContaining(["R2 photos binding", "Cloudflare Env typing", "secret documentation", "deployment commands"])
     );
+  });
+
+  it("requires deploy:auto in REQUIRED_PACKAGE_SCRIPTS", () => {
+    const inputs = validInputs();
+    delete (inputs.packageJson.scripts as Record<string, string>)["deploy:auto"];
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("package scripts");
   });
 
   it("reports NODE_ENV as a warning instead of a hard failure", () => {
