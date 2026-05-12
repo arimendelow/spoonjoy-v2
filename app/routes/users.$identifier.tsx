@@ -11,8 +11,23 @@ import { Link } from "~/components/ui/link";
 import { RecipeGrid } from "~/components/pantry/RecipeGrid";
 import { CookbookCard } from "~/components/pantry/CookbookCard";
 import { getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import { listSpoonsByChef } from "~/lib/recipe-spoon.server";
+import { SpoonsStrip } from "~/components/recipe/SpoonsStrip";
 
 const DEFAULT_CHEF_AVATAR = "/images/chef-rj.png";
+
+type RecentSpoonItem = {
+  id: string;
+  cookedAt: string;
+  photoUrl: string | null;
+  note: string | null;
+  nextTime: string | null;
+  chef: { id: string; username: string; photoUrl: string | null };
+  recipe: { id: string; title: string; chefId: string };
+  coverImageUrl: string;
+};
+
+const EMPTY_SPOONS: RecentSpoonItem[] = [];
 
 function joinedLabel(createdAt: Date) {
   return `Joined ${createdAt.toLocaleDateString("en-US", {
@@ -66,7 +81,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     return redirect(`/users/${profileUser.username}`);
   }
 
-  const [recipes, cookbooks] = await Promise.all([
+  const [recipes, cookbooks, recentSpoonsRaw] = await Promise.all([
     database.recipe.findMany({
       where: {
         chefId: profileUser.id,
@@ -106,6 +121,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
         },
       },
     }),
+    listSpoonsByChef(database, profileUser.id, { limit: 10 }),
   ]);
 
   const recipesWithCover = recipes.map(({ covers, ...rest }) => ({
@@ -127,6 +143,28 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     })),
   }));
 
+  const recentSpoons = recentSpoonsRaw.map((spoon) => ({
+    id: spoon.id,
+    cookedAt: spoon.cookedAt.toISOString(),
+    photoUrl: spoon.photoUrl,
+    note: spoon.note,
+    nextTime: spoon.nextTime,
+    chef: {
+      id: spoon.chef.id,
+      username: spoon.chef.username,
+      photoUrl: spoon.chef.photoUrl,
+    },
+    recipe: {
+      id: spoon.recipe.id,
+      title: spoon.recipe.title,
+      chefId: spoon.recipe.chefId,
+    },
+    coverImageUrl: getRecipeCoverImageUrl(
+      { id: spoon.recipe.id, title: spoon.recipe.title },
+      spoon.recipe.covers,
+    ),
+  }));
+
   return {
     profile: {
       id: profileUser.id,
@@ -137,11 +175,12 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     isOwner: currentUserId === profileUser.id,
     recipes: recipesWithCover,
     cookbooks: cookbooksWithCover,
+    recentSpoons,
   };
 }
 
 export default function UserProfile() {
-  const { profile, isOwner, recipes, cookbooks } = useLoaderData<typeof loader>();
+  const { profile, isOwner, recipes, cookbooks, recentSpoons = EMPTY_SPOONS } = useLoaderData<typeof loader>();
   const profileHref = `/users/${profile.username}`;
 
   return (
@@ -229,6 +268,13 @@ export default function UserProfile() {
             )}
           </aside>
         </div>
+
+        <section className="mt-8 border-t border-[var(--sj-border)] pt-6">
+          <Subheading level={2} className="text-2xl/8">Recent cooks</Subheading>
+          <div className="mt-4">
+            <SpoonsStrip spoons={recentSpoons} showRecipe />
+          </div>
+        </section>
 
         <div className="mt-8 border-t border-[var(--sj-border)] pt-4 text-sm">
           <Link href={profileHref} className="sj-link text-[var(--sj-ink-soft)]">

@@ -2,17 +2,17 @@ import type { PrismaClient } from "@prisma/client";
 import OpenAI from "openai";
 import {
   createOpenAIImageRunner,
-  generatePlaceholderImage,
+  stylizeSpoonPhoto,
   type ImageGenRunner,
 } from "~/lib/image-gen.server";
 import { tryConsumeImageGenQuota } from "~/lib/image-gen-ledger.server";
 
-export interface SchedulePlaceholderInput {
+export interface ScheduleSpoonStylizationInput {
   db: PrismaClient;
   userId: string;
   coverId: string;
-  title: string;
-  description: string | null;
+  rawPhotoUrl: string;
+  recipeTitle: string;
   env?: { OPENAI_API_KEY?: string } | null;
   bucket?: R2Bucket;
   runner?: ImageGenRunner;
@@ -25,10 +25,6 @@ function createDefaultRunner(
   env: { OPENAI_API_KEY?: string } | null | undefined,
 ): ImageGenRunner | null {
   if (!env?.OPENAI_API_KEY) return null;
-  // Cloudflare Workers and other workerd-like runtimes are detected as browser
-  // environments by the OpenAI SDK. The dangerouslyAllowBrowser flag is required
-  // because the key never reaches the browser — it is read from a Worker secret
-  // binding (Cloudflare env), so the "browser" warning does not apply here.
   const client = new OpenAI({
     apiKey: env.OPENAI_API_KEY,
     dangerouslyAllowBrowser: true,
@@ -37,19 +33,20 @@ function createDefaultRunner(
 }
 
 /**
- * Background task: spends a per-user image-gen quota unit, generates the AI placeholder
- * cover for `coverId`, and replaces its `imageUrl` with the resulting R2 URL. Failures
- * leave the SVG fallback in place and are logged. This function never throws.
+ * Background task: consumes one stylization quota unit, runs gpt-image-1 (with DALL-E
+ * 3 fallback) against `rawPhotoUrl`, and writes the resulting URL to the cover row's
+ * `stylizedImageUrl`. Failures leave `stylizedImageUrl` null and are logged. This
+ * function never throws.
  */
-export async function scheduleAiPlaceholderCover(
-  input: SchedulePlaceholderInput,
+export async function scheduleSpoonCoverStylization(
+  input: ScheduleSpoonStylizationInput,
 ): Promise<void> {
   const logger = input.logger ?? console;
   try {
     const consumed = await tryConsumeImageGenQuota(
       input.db,
       input.userId,
-      "placeholder",
+      "stylization",
       input.now ? { now: () => new Date(input.now!()) } : {},
     );
     if (!consumed) return;
@@ -57,7 +54,7 @@ export async function scheduleAiPlaceholderCover(
     const runner = input.runner ?? createDefaultRunner(input.env);
     if (!runner) return;
 
-    const url = await generatePlaceholderImage(input.title, input.description, {
+    const result = await stylizeSpoonPhoto(input.rawPhotoUrl, input.recipeTitle, {
       env: input.env ?? {},
       runner,
       fetchImpl: input.fetchImpl,
@@ -67,9 +64,9 @@ export async function scheduleAiPlaceholderCover(
 
     await input.db.recipeCover.update({
       where: { id: input.coverId },
-      data: { imageUrl: url },
+      data: { stylizedImageUrl: result.url },
     });
   } catch (error) {
-    logger.error("ai-placeholder cover generation failed", error);
+    logger.error("spoon cover stylization failed", error);
   }
 }
