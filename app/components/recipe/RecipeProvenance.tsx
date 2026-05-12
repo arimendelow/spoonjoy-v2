@@ -3,7 +3,11 @@ import { Link } from "react-router";
 export interface RecipeProvenanceSourceRecipe {
   id: string;
   title: string;
-  chefId: string;
+  /**
+   * Present on full-recipe Prisma payloads but not on the loader-projected
+   * `sourceRecipe` shape; optional here so both call sites typecheck.
+   */
+  chefId?: string;
   chef: { username: string };
   /**
    * When non-null, the source recipe has been soft-deleted; the provenance line

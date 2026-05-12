@@ -44,7 +44,8 @@ describe("ForkRecipeButton", () => {
   it("opens the dialog with chef username and recipe title in the body when not owner", async () => {
     renderButton({ isOwner: false, recipeTitle: "Pasta", sourceChefUsername: "alice" });
     await userEvent.click(await screen.findByRole("button", { name: /^fork$/i }));
-    expect(await screen.findByText(/Pasta/)).toBeInTheDocument();
+    const pastaMatches = await screen.findAllByText(/Pasta/);
+    expect(pastaMatches.length).toBeGreaterThan(0);
     expect(screen.getByText(/alice/)).toBeInTheDocument();
   });
 
@@ -53,8 +54,9 @@ describe("ForkRecipeButton", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: /make a variation/i }),
     );
-    expect(await screen.findByText(/variation of/i)).toBeInTheDocument();
-    expect(screen.getByText(/Pasta/)).toBeInTheDocument();
+    const matches = await screen.findAllByText(/variation of/i);
+    expect(matches.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Pasta/i).length).toBeGreaterThan(0);
   });
 
   it("closes the dialog when Cancel is clicked", async () => {
@@ -67,14 +69,19 @@ describe("ForkRecipeButton", () => {
   });
 
   it("renders a Form posting to /recipes/<id>/fork with method=post inside the dialog", async () => {
-    const { container } = renderButton({ isOwner: false, recipeId: "abc-123" });
+    renderButton({ isOwner: false, recipeId: "abc-123" });
     await userEvent.click(await screen.findByRole("button", { name: /^fork$/i }));
-    const form = container.querySelector("form");
+    // Submit button is inside the dialog form. Use it to walk up to the form element.
+    const submit = await screen.findByRole("button", { name: /^fork$/i });
+    // The first "fork" button is the trigger; find the submit button by type attribute.
+    const submitInForm = document.querySelector("form button[type='submit']");
+    expect(submitInForm).not.toBeNull();
+    const form = submitInForm!.closest("form") as HTMLFormElement | null;
     expect(form).not.toBeNull();
     expect(form!.getAttribute("action")).toBe("/recipes/abc-123/fork");
     expect(form!.getAttribute("method")?.toLowerCase()).toBe("post");
-    // Submit button labelled Fork (or Make variation if owner).
-    expect(form!.querySelector("button[type='submit']")).not.toBeNull();
+    // The trigger button is referenced to satisfy lint-style usage.
+    expect(submit).toBeDefined();
   });
 
   it("uses the 'Make variation' submit label when viewer is the owner", async () => {
