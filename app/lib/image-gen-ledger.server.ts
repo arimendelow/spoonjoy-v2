@@ -2,8 +2,9 @@ import type { PrismaClient } from "@prisma/client";
 
 export const PLACEHOLDER_DAILY_CAP = 30;
 export const STYLIZATION_DAILY_CAP = 50;
+export const IMPORT_DAILY_CAP = 50;
 
-export type ImageGenKind = "placeholder" | "stylization";
+export type ImageGenKind = "placeholder" | "stylization" | "import";
 
 export interface ConsumeQuotaDeps {
   now?: () => Date;
@@ -16,7 +17,14 @@ export function startOfUtcDay(date: Date): Date {
 }
 
 function capFor(kind: ImageGenKind): number {
-  return kind === "placeholder" ? PLACEHOLDER_DAILY_CAP : STYLIZATION_DAILY_CAP;
+  switch (kind) {
+    case "placeholder":
+      return PLACEHOLDER_DAILY_CAP;
+    case "stylization":
+      return STYLIZATION_DAILY_CAP;
+    case "import":
+      return IMPORT_DAILY_CAP;
+  }
 }
 
 /**
