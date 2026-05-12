@@ -40,6 +40,13 @@ import {
   generatePlaceholderImage,
   type ImageGenRunner,
 } from "~/lib/image-gen.server";
+import {
+  detectImportSource,
+  extractVideoRecipe,
+  fetchOEmbedMetadata,
+  OEmbedError,
+  type OEmbedMetadata,
+} from "~/lib/recipe-import-video.server";
 
 type Database = PrismaClient | Prisma.TransactionClient;
 
@@ -53,7 +60,9 @@ export type ImportRecipeCode =
   | "no-content"
   | "llm-failed"
   | "rate-limited"
-  | "title-conflict";
+  | "title-conflict"
+  | "oembed-failed"
+  | "video-unavailable";
 
 export class ImportRecipeError extends Error {
   readonly code: ImportRecipeCode;
@@ -101,7 +110,11 @@ export interface ImportRecipeDeps {
 }
 
 export type ImportRecipeConfidence = "high" | "medium" | "low";
-export type ImportRecipeSource = "json-ld" | "llm" | "mixed";
+export type ImportRecipeSource =
+  | "json-ld"
+  | "llm"
+  | "mixed"
+  | "video-oembed-llm";
 
 export interface ImportRecipeDraftView {
   title: string;
@@ -157,6 +170,10 @@ function jsonLdPartial(draft: JsonLdRecipeDraft): boolean {
 function mapSafeFetchError(err: SafeFetchError): ImportRecipeError {
   const mapped = SAFE_FETCH_TO_IMPORT[err.code];
   return new ImportRecipeError(mapped.code, mapped.status, err.message);
+}
+
+function mapOEmbedError(err: OEmbedError): ImportRecipeError {
+  return new ImportRecipeError(err.code, err.status, err.message);
 }
 
 interface ExtractionOutput {
@@ -256,6 +273,61 @@ async function runLlm(
     }
     throw err;
   }
+}
+
+async function runVideoExtraction(
+  parsedUrl: URL,
+  sourceKind: "youtube" | "tiktok",
+  deps: ImportRecipeDeps,
+): Promise<ExtractionOutput> {
+  if (!deps.llmRunner) {
+    throw new ImportRecipeError(
+      "llm-failed",
+      502,
+      "LLM runner is not configured",
+    );
+  }
+  let metadata: OEmbedMetadata;
+  try {
+    metadata = await fetchOEmbedMetadata(parsedUrl.toString(), sourceKind, {
+      fetchImpl: deps.fetchImpl,
+    });
+  } catch (err) {
+    // fetchOEmbedMetadata only throws OEmbedError (it wraps every internal
+    // failure mode itself), so the cast is safe.
+    throw mapOEmbedError(err as OEmbedError);
+  }
+  let extracted;
+  try {
+    extracted = await extractVideoRecipe(metadata, {
+      llmRunner: deps.llmRunner,
+    });
+  } catch (err) {
+    if (err instanceof RecipeLlmError) {
+      throw new ImportRecipeError("llm-failed", 502, err.message);
+    }
+    throw err;
+  }
+  if (!extracted.title || !extracted.title.trim()) {
+    throw new ImportRecipeError(
+      "no-content",
+      422,
+      "Could not extract a recipe from the video metadata",
+    );
+  }
+  return {
+    draft: {
+      title: extracted.title,
+      description: extracted.description,
+      servings: extracted.servings,
+      ingredients: extracted.ingredients,
+      steps: extracted.steps,
+      imageUrl: metadata.thumbnailUrl,
+      sourceUrl: parsedUrl.toString(),
+    },
+    source: "video-oembed-llm",
+    confidence: "low",
+  };
 }
 
 async function findExistingRecipeId(
@@ -466,6 +538,15 @@ export async function importRecipeFromUrl(
   const { url, chefId, dryRun = false } = options;
   const now = deps.now;
 
+  // 0. Parse URL up front so malformed URLs fail BEFORE quota consume.
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new ImportRecipeError("bad-url", 400, `Cannot parse URL: ${url}`);
+  }
+  const sourceKind = detectImportSource(parsedUrl);
+
   // 1. Quota (skip on dry-run).
   if (!dryRun) {
     const ok = await tryConsumeImageGenQuota(deps.db, chefId, "import", {
@@ -480,24 +561,27 @@ export async function importRecipeFromUrl(
     }
   }
 
-  // 2. Fetch.
-  let fetched;
-  try {
-    fetched = await fetchRecipeHtml(url, { fetchImpl: deps.fetchImpl });
-  } catch (err) {
-    if (err instanceof SafeFetchError) {
-      throw mapSafeFetchError(err);
+  // 2. Fetch + extract — web vs. video pipeline by hostname.
+  let extraction: ExtractionOutput;
+  if (sourceKind === "web") {
+    let fetched;
+    try {
+      fetched = await fetchRecipeHtml(url, { fetchImpl: deps.fetchImpl });
+    } catch (err) {
+      if (err instanceof SafeFetchError) {
+        throw mapSafeFetchError(err);
+      }
+      throw err;
     }
-    throw err;
+    extraction = await runExtraction(
+      url,
+      fetched.html,
+      fetched.ogImageUrl,
+      deps,
+    );
+  } else {
+    extraction = await runVideoExtraction(parsedUrl, sourceKind, deps);
   }
-
-  // 3. Extract.
-  const extraction = await runExtraction(
-    url,
-    fetched.html,
-    fetched.ogImageUrl,
-    deps,
-  );
 
   // 4. Existing-URL hint.
   const existingRecipeId = await findExistingRecipeId(deps.db, chefId, url);
