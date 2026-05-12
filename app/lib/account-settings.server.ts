@@ -11,6 +11,20 @@ import {
   validateImageFile,
 } from "~/lib/image-storage.server";
 
+export interface NotificationPreferenceFlags {
+  notifySpoonOnMyRecipe: boolean;
+  notifyForkOfMyRecipe: boolean;
+  notifyCookbookSaveOfMine: boolean;
+  notifyFellowChefOriginCook: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferenceFlags = {
+  notifySpoonOnMyRecipe: true,
+  notifyForkOfMyRecipe: true,
+  notifyCookbookSaveOfMine: true,
+  notifyFellowChefOriginCook: true,
+};
+
 export interface AccountSettingsLoaderData {
   user: {
     id: string;
@@ -25,6 +39,7 @@ export interface AccountSettingsLoaderData {
   };
   notifications: {
     pushSubscribed: boolean;
+    preferences: NotificationPreferenceFlags;
   };
   oauthError?: string;
 }
@@ -110,6 +125,17 @@ export async function loadAccountSettings({
   }
 
   const pushCount = await database.pushSubscription.count({ where: { userId } });
+  const prefRow = await database.notificationPreference.findUnique({
+    where: { userId },
+  });
+  const preferences: NotificationPreferenceFlags = prefRow
+    ? {
+        notifySpoonOnMyRecipe: prefRow.notifySpoonOnMyRecipe,
+        notifyForkOfMyRecipe: prefRow.notifyForkOfMyRecipe,
+        notifyCookbookSaveOfMine: prefRow.notifyCookbookSaveOfMine,
+        notifyFellowChefOriginCook: prefRow.notifyFellowChefOriginCook,
+      }
+    : DEFAULT_NOTIFICATION_PREFERENCES;
 
   return {
     user: {
@@ -122,6 +148,7 @@ export async function loadAccountSettings({
     },
     notifications: {
       pushSubscribed: pushCount > 0,
+      preferences,
     },
     oauthError,
   };

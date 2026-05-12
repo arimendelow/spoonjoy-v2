@@ -3,14 +3,39 @@ import { Subheading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { useToast } from "~/components/ui/toast";
+import { Switch, SwitchField, SwitchGroup } from "~/components/ui/switch";
+import { Label } from "~/components/ui/fieldset";
+import {
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogDescription,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import {
   isPushSupported,
+  isIosNonStandalone,
   subscribeToPush,
   unsubscribeFromPush,
 } from "~/lib/push-client";
 
+export interface NotificationPreferenceFlags {
+  notifySpoonOnMyRecipe: boolean;
+  notifyForkOfMyRecipe: boolean;
+  notifyCookbookSaveOfMine: boolean;
+  notifyFellowChefOriginCook: boolean;
+}
+
+const DEFAULT_PREFS: NotificationPreferenceFlags = {
+  notifySpoonOnMyRecipe: true,
+  notifyForkOfMyRecipe: true,
+  notifyCookbookSaveOfMine: true,
+  notifyFellowChefOriginCook: true,
+};
+
 export interface NotificationsSectionProps {
   initiallySubscribed: boolean;
+  initialPreferences?: NotificationPreferenceFlags;
 }
 
 const FAILURE_COPY: Record<string, string> = {
@@ -21,10 +46,27 @@ const FAILURE_COPY: Record<string, string> = {
   server_error: "Unable to enable notifications right now (server error). Please try again.",
 };
 
-export function NotificationsSection({ initiallySubscribed }: NotificationsSectionProps) {
+const PREF_LABELS: Array<{
+  key: keyof NotificationPreferenceFlags;
+  label: string;
+}> = [
+  { key: "notifySpoonOnMyRecipe", label: "Spoons on my recipes" },
+  { key: "notifyForkOfMyRecipe", label: "Forks of my recipes" },
+  { key: "notifyCookbookSaveOfMine", label: "Saves to cookbooks" },
+  { key: "notifyFellowChefOriginCook", label: "Origin cooks by fellow chefs" },
+];
+
+export function NotificationsSection({
+  initiallySubscribed,
+  initialPreferences,
+}: NotificationsSectionProps) {
   const support = isPushSupported();
   const [subscribed, setSubscribed] = useState(initiallySubscribed);
   const [busy, setBusy] = useState(false);
+  const [prefs, setPrefs] = useState<NotificationPreferenceFlags>(
+    initialPreferences ?? DEFAULT_PREFS,
+  );
+  const [iosDialogOpen, setIosDialogOpen] = useState(false);
   const { showToast } = useToast();
 
   if (!support.supported) {
@@ -39,6 +81,10 @@ export function NotificationsSection({ initiallySubscribed }: NotificationsSecti
   }
 
   async function onEnable() {
+    if (isIosNonStandalone()) {
+      setIosDialogOpen(true);
+      return;
+    }
     setBusy(true);
     try {
       const result = await subscribeToPush();
@@ -69,6 +115,30 @@ export function NotificationsSection({ initiallySubscribed }: NotificationsSecti
     }
   }
 
+  async function onTogglePreference(
+    key: keyof NotificationPreferenceFlags,
+    nextValue: boolean,
+  ) {
+    const previous = prefs[key];
+    setPrefs((p) => ({ ...p, [key]: nextValue }));
+    try {
+      const res = await fetch("/api/push/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: nextValue }),
+      });
+      if (!res.ok) {
+        throw new Error(`status ${res.status}`);
+      }
+    } catch {
+      // Rollback on failure.
+      setPrefs((p) => ({ ...p, [key]: previous }));
+      showToast({
+        message: "Unable to update notification preferences. Please try again.",
+      });
+    }
+  }
+
   return (
     <section className="sj-panel mt-8 rounded-[2rem] p-6">
       <Subheading className="text-2xl/8">Notifications</Subheading>
@@ -87,6 +157,36 @@ export function NotificationsSection({ initiallySubscribed }: NotificationsSecti
           </Button>
         </div>
       )}
+
+      <div className="mt-6">
+        <Text className="text-sm font-medium">What to notify me about</Text>
+        <SwitchGroup className="mt-3">
+          {PREF_LABELS.map(({ key, label }) => (
+            <SwitchField key={key}>
+              <Label>{label}</Label>
+              <Switch
+                aria-label={label}
+                checked={prefs[key]}
+                disabled={!subscribed}
+                onChange={(next) => onTogglePreference(key, next)}
+              />
+            </SwitchField>
+          ))}
+        </SwitchGroup>
+      </div>
+
+      <Dialog open={iosDialogOpen} onClose={setIosDialogOpen}>
+        <DialogTitle>Add Spoonjoy to your Home Screen first</DialogTitle>
+        <DialogDescription>
+          Tap Share → Add to Home Screen, then open Spoonjoy from your Home Screen and try again.
+        </DialogDescription>
+        <DialogBody />
+        <DialogActions>
+          <Button type="button" onClick={() => setIosDialogOpen(false)}>
+            Got it
+          </Button>
+        </DialogActions>
+      </Dialog>
     </section>
   );
 }

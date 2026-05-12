@@ -440,7 +440,10 @@ export default function AccountSettings() {
         </div>
       </section>
 
-      <NotificationsSection initiallySubscribed={notifications.pushSubscribed} />
+      <NotificationsSection
+        initiallySubscribed={notifications.pushSubscribed}
+        initialPreferences={notifications.preferences}
+      />
       </div>
     </div>
   );
