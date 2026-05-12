@@ -14,6 +14,7 @@ import {
 import { scheduleSpoonCoverStylization } from "~/lib/spoon-cover-stylization.server";
 import { requireUserId } from "~/lib/session.server";
 import { notifySpoonOnMyRecipe } from "~/lib/notification-triggers.server";
+import { fanoutFellowChefOriginCook } from "~/lib/notification-fanout.server";
 import { getVapidConfig, type VapidEnv } from "~/lib/env.server";
 
 interface CloudflareContextLike {
@@ -282,6 +283,39 @@ async function handleCreateSpoon(
       waitUntil(task);
     } else {
       await task;
+    }
+  }
+
+  // Fan-out fellow_chef_origin_cook to every chef the spooner has previously
+  // engaged with — runs only when the spoon was an origin cook for the chef.
+  if (result.isOriginCook) {
+    try {
+      const recipeMeta = await database.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { id: true, title: true },
+      });
+      const spooner = await database.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { id: true, username: true },
+      });
+      const vapid = getVapidConfig(vapidEnv);
+      const fanoutTask = fanoutFellowChefOriginCook(
+        database,
+        {
+          spoonerId: userId,
+          recipeId: recipeMeta.id,
+          recipeTitle: recipeMeta.title,
+          spoonerUsername: spooner.username,
+        },
+        { vapid, waitUntil },
+      );
+      if (waitUntil) {
+        waitUntil(fanoutTask);
+      } else {
+        await fanoutTask;
+      }
+    } catch {
+      // VAPID not configured locally — skip silently.
     }
   }
 

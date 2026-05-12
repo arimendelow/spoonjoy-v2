@@ -450,6 +450,78 @@ describe("spoonjoy-api spoon operations", () => {
       const events = await db.notificationEvent.count();
       expect(events).toBe(0);
     });
+
+    it("fans out fellow_chef_origin_cook to each fellow chef on an origin-cook spoon", async () => {
+      // spooner has previously cooked recipes owned by fellowA + fellowB.
+      const { principal: spooner } = await makeUser(db);
+      const { principal: fellowA } = await makeUser(db);
+      const { principal: fellowB } = await makeUser(db);
+      const recipeA = await makeRecipe(db, fellowA.id);
+      const recipeB = await makeRecipe(db, fellowB.id);
+      await db.recipeSpoon.create({
+        data: { chefId: spooner.id, recipeId: recipeA.id, note: "y" },
+      });
+      await db.recipeSpoon.create({
+        data: { chefId: spooner.id, recipeId: recipeB.id, note: "y" },
+      });
+      // Spooner's own new recipe (no prior spoons => origin-cook candidate).
+      const ownRecipe = await makeRecipe(db, spooner.id);
+
+      const captured: Promise<unknown>[] = [];
+      await callSpoonjoyApiOperation(
+        "create_spoon",
+        { recipeId: ownRecipe.id, photoUrl: "https://stub.test/p.png" },
+        {
+          db,
+          principal: spooner,
+          waitUntil: (p) => captured.push(p),
+          env: {
+            VAPID_PUBLIC_KEY: "pub",
+            VAPID_PRIVATE_KEY: "priv",
+            VAPID_SUBJECT: "mailto:test@example.com",
+          },
+        },
+      );
+      await Promise.all(captured);
+
+      const events = await db.notificationEvent.findMany({
+        where: { kind: "fellow_chef_origin_cook" },
+      });
+      expect(events).toHaveLength(2);
+      const recipients = new Set(events.map((e) => e.recipientId));
+      expect(recipients.has(fellowA.id)).toBe(true);
+      expect(recipients.has(fellowB.id)).toBe(true);
+    });
+
+    it("does NOT fan out fellow_chef_origin_cook on a non-origin spoon", async () => {
+      const { principal: chef } = await makeUser(db);
+      const { principal: cook } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      // Pre-seed a non-deleted spoon for the cook so this isn't an origin cook by the cook's perspective.
+      await db.recipeSpoon.create({
+        data: { chefId: cook.id, recipeId: recipe.id, note: "prior" },
+      });
+      const captured: Promise<unknown>[] = [];
+      await callSpoonjoyApiOperation(
+        "create_spoon",
+        { recipeId: recipe.id, note: "second" },
+        {
+          db,
+          principal: cook,
+          waitUntil: (p) => captured.push(p),
+          env: {
+            VAPID_PUBLIC_KEY: "pub",
+            VAPID_PRIVATE_KEY: "priv",
+            VAPID_SUBJECT: "mailto:test@example.com",
+          },
+        },
+      );
+      await Promise.all(captured);
+      const fanoutEvents = await db.notificationEvent.count({
+        where: { kind: "fellow_chef_origin_cook" },
+      });
+      expect(fanoutEvents).toBe(0);
+    });
   });
 
   describe("update_spoon", () => {
