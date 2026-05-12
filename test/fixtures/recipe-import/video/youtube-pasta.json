@@ -1,0 +1,13 @@
+{
+  "title": "One-Pot Pasta Recipe",
+  "author_name": "Joe's Kitchen",
+  "author_url": "https://www.youtube.com/@joeskitchen",
+  "thumbnail_url": "https://i.ytimg.com/vi/abc123/hqdefault.jpg",
+  "html": "<iframe src=\"https://www.youtube.com/embed/abc123\"></iframe>",
+  "type": "video",
+  "version": "1.0",
+  "provider_name": "YouTube",
+  "provider_url": "https://www.youtube.com/",
+  "width": 480,
+  "height": 270
+}
