@@ -325,4 +325,100 @@ describe("extractRecipeJsonLd — @graph and multi-Recipe", () => {
     const result = extractRecipeJsonLd(html);
     expect(result.draft).toBeNull();
   });
+
+  it("returns null draft when @type is Recipe but name field is non-string", () => {
+    const html = ldScript({ "@type": "Recipe", name: 42 });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft).toBeNull();
+  });
+
+  it("returns null draft when @type is Recipe but name is missing entirely", () => {
+    const html = ldScript({ "@type": "Recipe", description: "no name" });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft).toBeNull();
+  });
+
+  it("ignores non-record entries inside @graph", () => {
+    const html = ldScript({
+      "@graph": [
+        "a string entry",
+        42,
+        { "@type": "Recipe", name: "Soup" },
+      ],
+    });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft?.title).toBe("Soup");
+  });
+
+  it("ignores non-record entries inside recipeInstructions array", () => {
+    const html = ldScript({
+      "@type": "Recipe",
+      name: "Pasta",
+      recipeInstructions: ["just a string", 42, { "@type": "HowToStep", text: "OK" }],
+    });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft?.steps).toEqual(["OK"]);
+  });
+
+  it("handles HowToSection with non-array itemListElement", () => {
+    const html = ldScript({
+      "@type": "Recipe",
+      name: "Pasta",
+      recipeInstructions: [
+        { "@type": "HowToSection", itemListElement: "not an array" },
+      ],
+    });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft?.steps).toEqual([]);
+  });
+
+  it("filters out non-record entries inside HowToSection itemListElement", () => {
+    const html = ldScript({
+      "@type": "Recipe",
+      name: "Pasta",
+      recipeInstructions: [
+        {
+          "@type": "HowToSection",
+          itemListElement: ["just a string", 99, { "@type": "HowToStep", text: "OK" }],
+        },
+      ],
+    });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft?.steps).toEqual(["OK"]);
+  });
+
+  it("filters out empty-text HowToStep entries inside HowToSection", () => {
+    const html = ldScript({
+      "@type": "Recipe",
+      name: "Pasta",
+      recipeInstructions: [
+        {
+          "@type": "HowToSection",
+          itemListElement: [
+            { "@type": "HowToStep", text: "" },
+            { "@type": "HowToStep", text: "Visible" },
+          ],
+        },
+      ],
+    });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft?.steps).toEqual(["Visible"]);
+  });
+
+  it("returns imageUrl=null when image object has non-string url", () => {
+    const html = ldScript({
+      "@type": "Recipe",
+      name: "Pasta",
+      image: { "@type": "ImageObject", url: 42 },
+    });
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft?.imageUrl).toBeNull();
+  });
+
+  it("skips empty script content blocks", () => {
+    const html =
+      '<html><head><script type="application/ld+json">   </script></head></html>';
+    const result = extractRecipeJsonLd(html);
+    expect(result.draft).toBeNull();
+  });
 });
