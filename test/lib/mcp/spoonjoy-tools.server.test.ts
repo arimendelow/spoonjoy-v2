@@ -37,6 +37,7 @@ describe("spoonjoy MCP tools", () => {
       "search_shopping_list",
       "get_recipe",
       "create_recipe",
+      "import_recipe_from_url",
       "add_recipe_to_shopping_list",
       "list_cookbooks",
       "get_cookbook",
