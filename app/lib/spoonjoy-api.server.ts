@@ -22,6 +22,7 @@ import {
 } from "~/lib/recipe-spoon.server";
 import { scheduleSpoonCoverStylization } from "~/lib/spoon-cover-stylization.server";
 import type { ImageGenRunner } from "~/lib/image-gen.server";
+import * as recipeImport from "~/lib/recipe-import.server";
 
 export interface SpoonjoyApiContext {
   db: PrismaClientType;
@@ -1530,6 +1531,62 @@ const deleteSpoonTool: SpoonjoyApiOperation = {
   },
 };
 
+const importRecipeFromUrlTool: SpoonjoyApiOperation = {
+  name: "import_recipe_from_url",
+  description:
+    "Import a recipe from a public web URL into the authenticated principal's library.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      url: { type: "string" },
+      dryRun: { type: "boolean", default: false },
+    },
+    required: ["url"],
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    rejectOwnerEmail(args);
+    const url = requiredString(args, "url");
+    const dryRun = args.dryRun === true;
+    const chefId = await resolveImportChefId(context);
+    const result = await recipeImport.importRecipeFromUrl(
+      { url, chefId, dryRun },
+      {
+        db: context.db,
+        env: context.env ?? undefined,
+        bucket: context.bucket,
+        waitUntil: context.waitUntil,
+        imageGenRunner: context.imageGenRunner,
+        logger: context.logger,
+      },
+    );
+    return json({
+      recipe: result.recipe,
+      recipeId: result.recipeId,
+      confidence: result.confidence,
+      source: result.source,
+      existingRecipeId: result.existingRecipeId,
+      coverPending: result.coverPending,
+    });
+  },
+};
+
+async function resolveImportChefId(context: SpoonjoyApiContext): Promise<string> {
+  if (context.principal) return context.principal.id;
+  const email = context.defaultOwnerEmail?.toLowerCase();
+  if (!email) {
+    throw new ApiAuthError("Authentication required for import_recipe_from_url", 401);
+  }
+  const user = await context.db.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new ApiAuthError(
+      "Authentication required: defaultOwnerEmail does not match any user",
+      401,
+    );
+  }
+  return user.id;
+}
+
 const tools: SpoonjoyApiOperation[] = [
   healthTool,
   createApiTokenTool,
@@ -1540,6 +1597,7 @@ const tools: SpoonjoyApiOperation[] = [
   searchShoppingListTool,
   getRecipeTool,
   createRecipeTool,
+  importRecipeFromUrlTool,
   addRecipeToShoppingListTool,
   listCookbooksTool,
   getCookbookTool,
