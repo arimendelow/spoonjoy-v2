@@ -233,5 +233,78 @@ describe("spoonjoy-api fork_recipe", () => {
 
       expect(result.recipe.title).toBe("My Fork (variation 2)");
     });
+
+    it("writes a NotificationEvent for the source-chef when another user forks (with VAPID env)", async () => {
+      const { principal: chef } = await makeUser(db);
+      const { principal: forker } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id, { title: "Notify Fork" });
+      const captured: Promise<unknown>[] = [];
+      const context: SpoonjoyApiContext = {
+        db,
+        principal: forker,
+        waitUntil: (p) => captured.push(p),
+        env: {
+          VAPID_PUBLIC_KEY: "pub",
+          VAPID_PRIVATE_KEY: "priv",
+          VAPID_SUBJECT: "mailto:test@example.com",
+        },
+      };
+      await callSpoonjoyApiOperation(
+        "fork_recipe",
+        { sourceRecipeId: recipe.id },
+        context,
+      );
+      await Promise.all(captured);
+      const events = await db.notificationEvent.findMany({
+        where: { recipientId: chef.id, kind: "fork_of_my_recipe" },
+      });
+      expect(events).toHaveLength(1);
+      const payload = JSON.parse(events[0].payload);
+      expect(payload.sourceRecipeId).toBe(recipe.id);
+      expect(payload.recipeTitle).toBe("Notify Fork");
+      expect(payload.forkerUsername).toBe(forker.username);
+    });
+
+    it("does NOT enqueue when the forker IS the source-chef", async () => {
+      const { principal: chef } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id, { title: "Self Fork" });
+      const captured: Promise<unknown>[] = [];
+      await callSpoonjoyApiOperation(
+        "fork_recipe",
+        { sourceRecipeId: recipe.id },
+        {
+          db,
+          principal: chef,
+          waitUntil: (p) => captured.push(p),
+          env: {
+            VAPID_PUBLIC_KEY: "pub",
+            VAPID_PRIVATE_KEY: "priv",
+            VAPID_SUBJECT: "mailto:test@example.com",
+          },
+        },
+      );
+      await Promise.all(captured);
+      expect(await db.notificationEvent.count()).toBe(0);
+    });
+
+    it("does not break the fork response when VAPID env is missing", async () => {
+      const { principal: chef } = await makeUser(db);
+      const { principal: forker } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id, { title: "No-VAPID Fork" });
+      const captured: Promise<unknown>[] = [];
+      const result = (await callSpoonjoyApiOperation(
+        "fork_recipe",
+        { sourceRecipeId: recipe.id },
+        {
+          db,
+          principal: forker,
+          waitUntil: (p) => captured.push(p),
+          env: null,
+        },
+      )) as { recipe: { id: string } };
+      await Promise.all(captured);
+      expect(result.recipe.id).toBeDefined();
+      expect(await db.notificationEvent.count()).toBe(0);
+    });
   });
 });
