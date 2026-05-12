@@ -52,6 +52,7 @@ export function links() {
     },
     { rel: "icon", href: "/logos/sj_black.svg", type: "image/svg+xml" },
     { rel: "apple-touch-icon", href: "/logos/sj_black.svg" },
+    { rel: "manifest", href: "/manifest.webmanifest" },
   ];
 }
 
@@ -258,6 +259,9 @@ export default function App() {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#f6e9cf" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <Meta />
         <Links />
         {/* Prevent flash of wrong theme */}
