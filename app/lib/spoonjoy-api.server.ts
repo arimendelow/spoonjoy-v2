@@ -28,7 +28,12 @@ import {
   ForkSourceNotFoundError,
   ForkTitleExhaustedError,
 } from "~/lib/recipe-fork.server";
-import { notifySpoonOnMyRecipe } from "~/lib/notification-triggers.server";
+import {
+  notifySpoonOnMyRecipe,
+  notifyForkOfMyRecipe,
+  notifyCookbookSaveOfMine,
+} from "~/lib/notification-triggers.server";
+import { fanoutFellowChefOriginCook } from "~/lib/notification-fanout.server";
 import { getVapidConfig, type VapidEnv } from "~/lib/env.server";
 
 export interface SpoonjoyApiContext {
@@ -1063,6 +1068,7 @@ const addRecipeToCookbookTool: SpoonjoyApiOperation = {
       if (existing) {
         return {
           added: false,
+          ownerId: owner.id,
           cookbook: await reloadOwnerCookbook(tx, owner.id, cookbook.id),
         };
       }
@@ -1077,9 +1083,26 @@ const addRecipeToCookbookTool: SpoonjoyApiOperation = {
 
       return {
         added: true,
+        ownerId: owner.id,
         cookbook: await reloadOwnerCookbook(tx, owner.id, cookbook.id),
       };
     });
+
+    // Fire-and-forget: notify the recipe owner when someone else saved their
+    // recipe. Only on first add (idempotent re-adds set `added=false`).
+    if (result.added) {
+      try {
+        const vapid = getVapidConfig((context.env ?? {}) as VapidEnv);
+        const notifyTask = notifyCookbookSaveOfMine(
+          context.db,
+          { recipeId, actorId: result.ownerId },
+          { vapid, waitUntil: context.waitUntil },
+        );
+        await runOrSchedule(context, notifyTask);
+      } catch {
+        // VAPID not configured — skip silently.
+      }
+    }
 
     return json({ added: result.added, cookbook: formatCookbook(result.cookbook) });
   },
@@ -1378,6 +1401,31 @@ const createSpoonTool: SpoonjoyApiOperation = {
       await runOrSchedule(context, task);
     }
 
+    // Fan-out fellow_chef_origin_cook to every chef the spooner has previously
+    // engaged with — runs only when the spoon was an origin cook.
+    if (result.isOriginCook) {
+      try {
+        const vapid = getVapidConfig((context.env ?? {}) as VapidEnv);
+        const recipeMeta = await context.db.recipe.findUniqueOrThrow({
+          where: { id: recipeId },
+          select: { id: true, title: true },
+        });
+        const fanoutTask = fanoutFellowChefOriginCook(
+          context.db,
+          {
+            spoonerId: principal.id,
+            recipeId: recipeMeta.id,
+            recipeTitle: recipeMeta.title,
+            spoonerUsername: principal.username,
+          },
+          { vapid, waitUntil: context.waitUntil },
+        );
+        await runOrSchedule(context, fanoutTask);
+      } catch {
+        // VAPID not configured — skip silently.
+      }
+    }
+
     return json({
       spoon: formatSpoon(result.spoon),
       isOriginCook: result.isOriginCook,
@@ -1637,6 +1685,26 @@ const forkRecipeTool: SpoonjoyApiOperation = {
         viewerId: principal.id,
         titleOverride,
       });
+
+      // Fire-and-forget: notify the source chef when someone else forked.
+      try {
+        const vapid = getVapidConfig((context.env ?? {}) as VapidEnv);
+        const notifyTask = notifyForkOfMyRecipe(
+          context.db,
+          {
+            forkedRecipeId: result.recipe.id,
+            sourceRecipeId: result.attribution.sourceRecipeId,
+            forkerId: principal.id,
+            sourceChefId: result.attribution.sourceChef.id,
+            appliedTitle: result.appliedTitle,
+          },
+          { vapid, waitUntil: context.waitUntil },
+        );
+        await runOrSchedule(context, notifyTask);
+      } catch {
+        // VAPID not configured — skip silently.
+      }
+
       return json({
         recipeId: result.recipe.id,
         recipe: formatRecipe(result.recipe),

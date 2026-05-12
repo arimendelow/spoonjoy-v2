@@ -151,24 +151,40 @@ describe("fanoutFellowChefOriginCook", () => {
     expect(events[0].recipientId).toBe(fellow.id);
   });
 
-  it("caps fan-out at 100 recipients", async () => {
+  it("caps fan-out at 100 recipients (passes limit:100 to listFellowChefs)", async () => {
     // Verifies the limit param is wired. We assert via a stubbed listFellowChefs.
     const spooner = await createUser();
+    const fellow1 = await createUser();
+    const fellow2 = await createUser();
+    const fellow3 = await createUser();
     const db = await getLocalDb();
     const recipe = await db.recipe.create({
       data: { title: "Limited", chefId: spooner.id },
     });
-    const fakeIds = await Promise.all(
-      Array.from({ length: 3 }, () => createUser().then((u) => u.id)),
-    );
     const listMock = vi.fn(async () => ({
-      rows: fakeIds.map((id) => ({
-        chefId: id,
-        username: "u",
-        photoUrl: null,
-        interactionCounts: { spoons: 1, forks: 0, cookbookSaves: 0 },
-        latestInteractionAt: new Date(),
-      })),
+      rows: [
+        {
+          chefId: fellow1.id,
+          username: fellow1.username,
+          photoUrl: null,
+          interactionCounts: { spoons: 1, forks: 0, cookbookSaves: 0 },
+          latestInteractionAt: new Date(),
+        },
+        {
+          chefId: fellow2.id,
+          username: fellow2.username,
+          photoUrl: null,
+          interactionCounts: { spoons: 1, forks: 0, cookbookSaves: 0 },
+          latestInteractionAt: new Date(),
+        },
+        {
+          chefId: fellow3.id,
+          username: fellow3.username,
+          photoUrl: null,
+          interactionCounts: { spoons: 1, forks: 0, cookbookSaves: 0 },
+          latestInteractionAt: new Date(),
+        },
+      ],
       total: 3,
     }));
     const result = await fanoutFellowChefOriginCook(
@@ -181,7 +197,10 @@ describe("fanoutFellowChefOriginCook", () => {
       },
       makeDeps({ listFellowChefs: listMock }),
     );
-    expect(listMock).toHaveBeenCalledWith(db, spooner.id, { limit: 100 });
+    expect(listMock).toHaveBeenCalledTimes(1);
+    const call = listMock.mock.calls[0];
+    expect(call[1]).toBe(spooner.id);
+    expect(call[2]).toEqual({ limit: 100 });
     expect(result.recipientsNotified).toBe(3);
   });
 });

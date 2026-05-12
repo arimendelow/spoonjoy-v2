@@ -59,3 +59,90 @@ export async function notifySpoonOnMyRecipe(
     // Notifications must never break the originating action.
   }
 }
+
+export type NotifyForkOfMyRecipeDeps = NotificationDispatchDeps;
+
+export interface NotifyForkOfMyRecipeInput {
+  forkedRecipeId: string;
+  sourceRecipeId: string;
+  forkerId: string;
+  sourceChefId: string;
+  appliedTitle: string;
+}
+
+export async function notifyForkOfMyRecipe(
+  db: PrismaClient,
+  input: NotifyForkOfMyRecipeInput,
+  deps: NotifyForkOfMyRecipeDeps,
+): Promise<void> {
+  try {
+    if (input.forkerId === input.sourceChefId) return;
+    const forker = await db.user.findUnique({
+      where: { id: input.forkerId },
+      select: { id: true, username: true },
+    });
+    if (!forker) return;
+    await enqueueNotification(
+      db,
+      {
+        actorId: forker.id,
+        recipientId: input.sourceChefId,
+        kind: "fork_of_my_recipe",
+        payload: {
+          forkedRecipeId: input.forkedRecipeId,
+          sourceRecipeId: input.sourceRecipeId,
+          recipeId: input.forkedRecipeId,
+          recipeTitle: input.appliedTitle,
+          forkerUsername: forker.username,
+        },
+      },
+      deps,
+    );
+  } catch {
+    // Notifications must never break the originating action.
+  }
+}
+
+export type NotifyCookbookSaveOfMineDeps = NotificationDispatchDeps;
+
+export interface NotifyCookbookSaveOfMineInput {
+  recipeId: string;
+  actorId: string;
+}
+
+export async function notifyCookbookSaveOfMine(
+  db: PrismaClient,
+  input: NotifyCookbookSaveOfMineInput,
+  deps: NotifyCookbookSaveOfMineDeps,
+): Promise<void> {
+  try {
+    const [recipe, actor] = await Promise.all([
+      db.recipe.findUnique({
+        where: { id: input.recipeId },
+        select: { id: true, title: true, chefId: true },
+      }),
+      db.user.findUnique({
+        where: { id: input.actorId },
+        select: { id: true, username: true },
+      }),
+    ]);
+    if (!recipe || !actor) return;
+    if (recipe.chefId === actor.id) return;
+    await enqueueNotification(
+      db,
+      {
+        actorId: actor.id,
+        recipientId: recipe.chefId,
+        kind: "cookbook_save_of_mine",
+        payload: {
+          recipeId: recipe.id,
+          recipeTitle: recipe.title,
+          actorUsername: actor.username,
+        },
+      },
+      deps,
+    );
+  } catch {
+    // Notifications must never break the originating action.
+  }
+}

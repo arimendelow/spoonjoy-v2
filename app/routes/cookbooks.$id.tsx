@@ -1,9 +1,34 @@
 import type { Route } from "./+types/cookbooks.$id";
-import { redirect, useLoaderData, Form, data, useSubmit } from "react-router";
+import { redirect, useLoaderData, Form, data, useSubmit, type AppLoadContext } from "react-router";
 import { getRequestDb } from "~/lib/route-platform.server";
 import { getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
 import { requireUserId } from "~/lib/session.server";
+import { notifyCookbookSaveOfMine } from "~/lib/notification-triggers.server";
+import { getVapidConfig, type VapidEnv } from "~/lib/env.server";
 import { useState, useRef } from "react";
+
+interface CloudflareContextLike {
+  cloudflare?: {
+    env?: VapidEnv | null;
+    ctx?: { waitUntil?: (promise: Promise<unknown>) => void };
+  };
+}
+
+function getNotificationCtx(context: AppLoadContext): {
+  vapidEnv: VapidEnv;
+  waitUntil?: (promise: Promise<unknown>) => void;
+} {
+  const cf = (context as unknown as CloudflareContextLike).cloudflare;
+  const envSource = cf?.env ?? null;
+  return {
+    vapidEnv: {
+      VAPID_PUBLIC_KEY: envSource?.VAPID_PUBLIC_KEY,
+      VAPID_PRIVATE_KEY: envSource?.VAPID_PRIVATE_KEY,
+      VAPID_SUBJECT: envSource?.VAPID_SUBJECT,
+    },
+    waitUntil: cf?.ctx?.waitUntil ? cf.ctx.waitUntil.bind(cf.ctx) : undefined,
+  };
+}
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { Button } from "~/components/ui/button";
 import { Heading, Subheading } from "~/components/ui/heading";
@@ -164,9 +189,29 @@ export async function action({ request, params, context }: Route.ActionArgs) {
             addedById: userId,
           },
         });
+
+        // Fire-and-forget: notify the recipe owner when someone else saved their recipe.
+        try {
+          const { vapidEnv, waitUntil } = getNotificationCtx(context);
+          const vapid = getVapidConfig(vapidEnv);
+          const notifyTask = notifyCookbookSaveOfMine(
+            database,
+            { recipeId, actorId: userId },
+            { vapid, waitUntil },
+          );
+          if (waitUntil) {
+            waitUntil(notifyTask);
+          } else {
+            await notifyTask;
+          }
+        } catch {
+          // VAPID not configured locally — skip silently.
+        }
+
         return data({ success: true });
       } catch (error: any) {
         if (error.code === "P2002") {
+          // Idempotent re-add — do NOT enqueue a second notification.
           return data({ success: true });
         }
         throw error;
