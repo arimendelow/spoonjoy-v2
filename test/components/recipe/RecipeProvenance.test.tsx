@@ -78,6 +78,59 @@ describe("RecipeProvenance", () => {
     expect(screen.getByRole("link", { name: /data:text\/plain,hello/i })).toBeInTheDocument();
   });
 
+  it("renders '[deleted recipe]' plain text when sourceRecipe.deletedAt is a Date", () => {
+    renderWithRouter(
+      <RecipeProvenance
+        sourceRecipe={{
+          id: "recipe-deleted",
+          title: "Original Title",
+          chefId: "chef-x",
+          chef: { username: "ghost" },
+          deletedAt: new Date("2026-04-01T00:00:00Z"),
+        }}
+      />,
+    );
+    expect(screen.getByText(/forked from/i)).toBeInTheDocument();
+    expect(screen.getByText(/\[deleted recipe\]/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /ghost/i })).toBeNull();
+    expect(screen.queryByText("Original Title")).toBeNull();
+  });
+
+  it("renders '[deleted recipe]' plain text when sourceRecipe.deletedAt is an ISO string (loader-serialized)", () => {
+    renderWithRouter(
+      <RecipeProvenance
+        sourceRecipe={{
+          id: "recipe-deleted-iso",
+          title: "Original Title",
+          chefId: "chef-x",
+          chef: { username: "ghost" },
+          deletedAt: "2026-04-01T00:00:00.000Z",
+        }}
+      />,
+    );
+    expect(screen.getByText(/forked from/i)).toBeInTheDocument();
+    expect(screen.getByText(/\[deleted recipe\]/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /ghost/i })).toBeNull();
+  });
+
+  it("renders both sourceUrl link and 'forked from' link when source is live (deletedAt: null)", () => {
+    renderWithRouter(
+      <RecipeProvenance
+        sourceUrl="https://nyt.com/recipes/123"
+        sourceRecipe={{
+          id: "recipe-live",
+          title: "Original Title",
+          chefId: "chef-x",
+          chef: { username: "alice" },
+          deletedAt: null,
+        }}
+      />,
+    );
+    expect(screen.getByText(/originally from/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /nyt\.com/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /alice/i })).toBeInTheDocument();
+  });
+
   it("truncates a very long forked title with a title attribute holding the full text", () => {
     const longTitle = "A".repeat(120);
     renderWithRouter(

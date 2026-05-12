@@ -16,6 +16,7 @@ import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { RecipeHeader } from "~/components/recipe/RecipeHeader";
 import { RecipeProvenance } from "~/components/recipe/RecipeProvenance";
+import { ForkRecipeButton } from "~/components/recipe/ForkRecipeButton";
 import { SpoonDialog } from "~/components/recipe/SpoonDialog";
 import { SpoonsStrip } from "~/components/recipe/SpoonsStrip";
 import { StepCard } from "~/components/recipe/StepCard";
@@ -435,11 +436,18 @@ export default function RecipeDetail() {
       <div className="mx-auto max-w-4xl px-4 pt-4 sm:px-6 lg:px-8 space-y-4">
         <RecipeProvenance
           sourceUrl={recipe.sourceUrl ?? undefined}
+          sourceRecipe={recipe.sourceRecipe ?? undefined}
         />
-        <div>
+        <div className="flex flex-wrap gap-3">
           <Button type="button" onClick={() => setIsSpoonDialogOpen(true)}>
             Log a cook
           </Button>
+          <ForkRecipeButton
+            recipeId={recipe.id}
+            recipeTitle={recipe.title}
+            sourceChefUsername={recipe.chef.username}
+            isOwner={isOwner}
+          />
         </div>
       </div>
 
