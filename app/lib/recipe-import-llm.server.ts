@@ -162,7 +162,10 @@ function defaultClientFactory(config: {
   apiKey: string;
   timeout: number;
 }): OpenAIRecipeLlmClient {
-  return new OpenAI({ apiKey: config.apiKey, timeout: config.timeout });
+  return new OpenAI({
+    apiKey: config.apiKey,
+    timeout: config.timeout,
+  }) as unknown as OpenAIRecipeLlmClient;
 }
 
 export function createOpenAIRecipeLlmRunner(
