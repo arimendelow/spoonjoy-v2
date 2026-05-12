@@ -45,6 +45,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@block65/webcrypto-web-push": "^1.0.2",
     "@cloudflare/vite-plugin": "^1.22.1",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
