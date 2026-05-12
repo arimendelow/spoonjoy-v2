@@ -121,6 +121,30 @@ describe("recipes.$id action — spoon_on_my_recipe trigger wiring", () => {
     expect(events).toBe(0);
   });
 
+  it("awaits the notification task inline when no waitUntil is provided", async () => {
+    const cookie = await sessionCookie(cookId);
+    const fd = new UndiciFormData();
+    fd.append("intent", "createSpoon");
+    fd.append("note", "inline");
+
+    await handleRecipeDetailAction({
+      request: new UndiciRequest(`http://localhost/recipes/${recipeId}`, {
+        method: "POST",
+        headers: { cookie },
+        body: fd,
+      }) as unknown as Request,
+      params: { id: recipeId },
+      context: {
+        cloudflare: { env: VAPID_ENV },
+      } as any,
+    });
+
+    const events = await db.notificationEvent.findMany({
+      where: { recipientId: chefId },
+    });
+    expect(events).toHaveLength(1);
+  });
+
   it("does not break the spoon response when VAPID env is missing", async () => {
     const cookie = await sessionCookie(cookId);
     const fd = new UndiciFormData();

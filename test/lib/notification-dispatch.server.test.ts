@@ -384,6 +384,195 @@ describe("enqueueNotification", () => {
     expect(event.pushDeliveredAt).not.toBeNull();
   });
 
+  it("builds correct body strings for every NotificationKind (cookbook + fellow chef)", async () => {
+    const db = await getLocalDb();
+    const actor = await createUser();
+    const recipient = await createUser();
+    await createSubscription(recipient.id, "k");
+
+    const captured: Array<{ title: string; body: string; url: string }> = [];
+    const sendPushMock = vi.fn(
+      async (_sub: unknown, payload: { title: string; body: string; url: string }) => {
+        captured.push(payload);
+        return {
+          status: "delivered" as const,
+          httpStatus: 201,
+          providerEndpoint: "x",
+        };
+      },
+    );
+    const tasks: Promise<unknown>[] = [];
+    const d = {
+      vapid: VAPID,
+      waitUntil: (p: Promise<unknown>) => {
+        tasks.push(p);
+      },
+      sendPush: sendPushMock as unknown as NotificationDispatchDeps["sendPush"],
+    };
+
+    await enqueueNotification(
+      db,
+      {
+        actorId: actor.id,
+        recipientId: recipient.id,
+        kind: "cookbook_save_of_mine",
+        payload: { recipeId: "r1", recipeTitle: "Pie", actorUsername: "alice" },
+      },
+      d,
+    );
+
+    await enqueueNotification(
+      db,
+      {
+        actorId: actor.id,
+        recipientId: recipient.id,
+        kind: "fellow_chef_origin_cook",
+        payload: { recipeId: "r2", recipeTitle: "Tart", spoonerUsername: "bob" },
+      },
+      d,
+    );
+
+    await Promise.all(tasks);
+
+    expect(captured.find((c) => c.body.includes("saved"))).toBeDefined();
+    expect(captured.find((c) => c.body.includes("just cooked their new recipe"))).toBeDefined();
+  });
+
+  it("falls back to '/' URL when payload contains no recipeId or forkedRecipeId", async () => {
+    const db = await getLocalDb();
+    const actor = await createUser();
+    const recipient = await createUser();
+    await createSubscription(recipient.id, "u");
+
+    const captured: Array<{ url: string }> = [];
+    const sendPushMock = vi.fn(
+      async (_sub: unknown, payload: { url: string }) => {
+        captured.push(payload);
+        return {
+          status: "delivered" as const,
+          httpStatus: 201,
+          providerEndpoint: "x",
+        };
+      },
+    );
+    const tasks: Promise<unknown>[] = [];
+    await enqueueNotification(
+      db,
+      {
+        actorId: actor.id,
+        recipientId: recipient.id,
+        kind: "spoon_on_my_recipe",
+        payload: {},
+      },
+      {
+        vapid: VAPID,
+        waitUntil: (p: Promise<unknown>) => tasks.push(p),
+        sendPush: sendPushMock as unknown as NotificationDispatchDeps["sendPush"],
+      },
+    );
+    await Promise.all(tasks);
+    expect(captured[0]?.url).toBe("/");
+  });
+
+  it("uses forkedRecipeId for the URL when only forkedRecipeId is provided", async () => {
+    const db = await getLocalDb();
+    const actor = await createUser();
+    const recipient = await createUser();
+    await createSubscription(recipient.id, "f");
+
+    const captured: Array<{ url: string }> = [];
+    const tasks: Promise<unknown>[] = [];
+    await enqueueNotification(
+      db,
+      {
+        actorId: actor.id,
+        recipientId: recipient.id,
+        kind: "fork_of_my_recipe",
+        payload: { forkedRecipeId: "fr1" },
+      },
+      {
+        vapid: VAPID,
+        waitUntil: (p: Promise<unknown>) => tasks.push(p),
+        sendPush: vi.fn(async (_sub, payload) => {
+          captured.push(payload);
+          return {
+            status: "delivered" as const,
+            httpStatus: 201,
+            providerEndpoint: "x",
+          };
+        }) as unknown as NotificationDispatchDeps["sendPush"],
+      },
+    );
+    await Promise.all(tasks);
+    expect(captured[0]?.url).toBe("/recipes/fr1");
+  });
+
+  it("swallows the error if pruning an expired subscription throws (concurrent delete)", async () => {
+    const db = await getLocalDb();
+    const actor = await createUser();
+    const recipient = await createUser();
+    await createSubscription(recipient.id, "race");
+
+    // Force the delete to throw.
+    const origDelete = db.pushSubscription.delete;
+    db.pushSubscription.delete = vi.fn(async () => {
+      throw new Error("already gone");
+    }) as unknown as typeof db.pushSubscription.delete;
+
+    const tasks: Promise<unknown>[] = [];
+    try {
+      await enqueueNotification(
+        db,
+        {
+          actorId: actor.id,
+          recipientId: recipient.id,
+          kind: "spoon_on_my_recipe",
+          payload: {},
+        },
+        {
+          vapid: VAPID,
+          waitUntil: (p) => tasks.push(p),
+          sendPush: vi.fn(async (sub: { endpoint: string }) => ({
+            status: "expired" as const,
+            httpStatus: 410,
+            providerEndpoint: sub.endpoint,
+          })),
+        },
+      );
+      await expect(Promise.all(tasks)).resolves.toBeDefined();
+    } finally {
+      db.pushSubscription.delete = origDelete;
+    }
+  });
+
+  it("uses the real sendPush import when no deps.sendPush is supplied (default branch)", async () => {
+    const db = await getLocalDb();
+    const actor = await createUser();
+    const recipient = await createUser();
+    await createSubscription(recipient.id, "real-fallback");
+    const tasks: Promise<unknown>[] = [];
+
+    const result = await enqueueNotification(
+      db,
+      {
+        actorId: actor.id,
+        recipientId: recipient.id,
+        kind: "spoon_on_my_recipe",
+        payload: { recipeId: "r1" },
+      },
+      {
+        vapid: VAPID,
+        waitUntil: (p) => tasks.push(p),
+        // no sendPush — exercises realSendPush fallback.
+      },
+    );
+
+    expect(result.queuedSends).toBe(1);
+    // Per-subscription failure is isolated (we pass fake VAPID keys so the
+    // real adapter will fail, but enqueueNotification itself returns cleanly).
+    await Promise.all(tasks);
+  });
+
   it("respects each kind's specific preference flag", async () => {
     const db = await getLocalDb();
     const actor = await createUser();

@@ -214,4 +214,64 @@ describe("sendPush", () => {
     expect(result.httpStatus).toBe(0);
     expect(result.error).toBeDefined();
   });
+
+  it("stringifies non-Error rejections from fetch", async () => {
+    const vapid = await getVapid();
+    const result = await sendPush(
+      makeFixtureSubscription(),
+      { title: "x", body: "y", url: "/" },
+      vapid,
+      {
+        // eslint-disable-next-line @typescript-eslint/no-throw-literal
+        fetch: vi.fn(async () => {
+          // eslint-disable-next-line @typescript-eslint/no-throw-literal
+          throw "string error";
+        }),
+      },
+    );
+    expect(result.status).toBe("failed");
+    expect(result.error).toBe("string error");
+  });
+
+  it("stringifies non-Error rejections from buildPushPayload (invalid endpoint shape)", async () => {
+    const vapid = await getVapid();
+    // The library validates endpoint; if it isn't a string this triggers a non-Error path.
+    // We can't easily force buildPushPayload to throw a non-Error without intercepting,
+    // so we use a malformed keys structure and assert the error message is a string.
+    const result = await sendPush(
+      {
+        endpoint: "https://push.example.test/x",
+        keys: { p256dh: "bad", auth: "bad" },
+      },
+      { title: "x", body: "y", url: "/" },
+      vapid,
+      { fetch: vi.fn(async () => okResponse(201)) },
+    );
+    expect(result.status).toBe("failed");
+    expect(typeof result.error).toBe("string");
+  });
+});
+
+describe("sendPush — buildPushPayload non-Error rejection (mocked)", () => {
+  it("returns String(err) when buildPushPayload throws a non-Error value", async () => {
+    vi.resetModules();
+    vi.doMock("@block65/webcrypto-web-push", () => ({
+      buildPushPayload: async () => {
+        // eslint-disable-next-line @typescript-eslint/no-throw-literal
+        throw 42;
+      },
+    }));
+    const mod = await import("~/lib/web-push.server");
+    const vapid = await getVapid();
+    const result = await mod.sendPush(
+      { endpoint: "https://push.example/x", keys: { p256dh: "p", auth: "a" } },
+      { title: "x", body: "y", url: "/" },
+      vapid,
+      { fetch: vi.fn(async () => okResponse(201)) },
+    );
+    expect(result.status).toBe("failed");
+    expect(result.error).toBe("42");
+    vi.doUnmock("@block65/webcrypto-web-push");
+    vi.resetModules();
+  });
 });

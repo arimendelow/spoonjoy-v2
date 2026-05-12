@@ -135,6 +135,15 @@ describe("isIosNonStandalone", () => {
     expect(isIosNonStandalone()).toBe(false);
   });
 
+  it("returns false on iOS UA when navigator.userAgent is undefined", () => {
+    setGlobals({
+      navigator: {
+        // no userAgent property
+      },
+    });
+    expect(isIosNonStandalone()).toBe(false);
+  });
+
   it("treats missing standalone property as non-standalone iOS", () => {
     setGlobals({
       navigator: {
@@ -168,6 +177,20 @@ describe("registerServiceWorker", () => {
     });
     await registerServiceWorker();
     expect(register).toHaveBeenCalledWith("/sw.js", { scope: "/" });
+  });
+
+  it("registers when getRegistration is not available on the navigator", async () => {
+    const register = vi.fn(async () => ({ scope: "/" }));
+    setGlobals({
+      navigator: {
+        serviceWorker: {
+          register,
+          // no getRegistration
+        },
+      },
+    });
+    await registerServiceWorker();
+    expect(register).toHaveBeenCalled();
   });
 
   it("is idempotent — does not re-register when registration already exists", async () => {
@@ -279,6 +302,13 @@ describe("subscribeToPush", () => {
     expect(result).toEqual({ ok: false, reason: "unsupported" });
   });
 
+  it("returns public_key_unavailable when the public-key response has no key field", async () => {
+    setupPushable("granted");
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })) as unknown as typeof fetch;
+    const result = await subscribeToPush();
+    expect(result).toEqual({ ok: false, reason: "public_key_unavailable" });
+  });
+
   it("returns failed when the public-key fetch is non-200", async () => {
     setupPushable("granted");
     globalThis.fetch = vi.fn(async () => new Response("nope", { status: 500 })) as unknown as typeof fetch;
@@ -349,5 +379,189 @@ describe("unsubscribeFromPush", () => {
     setGlobals({ navigator: {} });
     const result = await unsubscribeFromPush();
     expect(result).toEqual({ ok: false, reason: "unsupported" });
+  });
+
+  it("skips sub.unsubscribe() when the subscription object lacks an unsubscribe method", async () => {
+    const sub = { endpoint: "https://push.example/no-unsub" }; // no unsubscribe()
+    const ready = Promise.resolve({
+      pushManager: { getSubscription: vi.fn(async () => sub) },
+    });
+    setGlobals({
+      navigator: {
+        serviceWorker: {
+          ready,
+          register: vi.fn(),
+          getRegistration: vi.fn(async () => ({})),
+        },
+      },
+    });
+    globalThis.fetch = vi.fn(async () => new Response(null, { status: 204 })) as unknown as typeof fetch;
+    const result = await unsubscribeFromPush();
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("returns server_error when DELETE response is non-2xx and not 404", async () => {
+    const sub = {
+      endpoint: "https://push.example/x",
+      unsubscribe: vi.fn(async () => true),
+    };
+    const ready = Promise.resolve({
+      pushManager: { getSubscription: vi.fn(async () => sub) },
+    });
+    setGlobals({
+      navigator: {
+        serviceWorker: {
+          ready,
+          register: vi.fn(),
+          getRegistration: vi.fn(async () => ({})),
+        },
+      },
+    });
+    globalThis.fetch = vi.fn(async () => new Response("err", { status: 500 })) as unknown as typeof fetch;
+    const result = await unsubscribeFromPush();
+    expect(result).toEqual({ ok: false, reason: "server_error" });
+  });
+
+  it("treats 404 DELETE response as success (idempotent unsubscribe)", async () => {
+    const sub = {
+      endpoint: "https://push.example/x",
+      unsubscribe: vi.fn(async () => true),
+    };
+    const ready = Promise.resolve({
+      pushManager: { getSubscription: vi.fn(async () => sub) },
+    });
+    setGlobals({
+      navigator: {
+        serviceWorker: {
+          ready,
+          register: vi.fn(),
+          getRegistration: vi.fn(async () => ({})),
+        },
+      },
+    });
+    globalThis.fetch = vi.fn(async () => new Response(null, { status: 404 })) as unknown as typeof fetch;
+    const result = await unsubscribeFromPush();
+    expect(result).toEqual({ ok: true });
+  });
+});
+
+describe("subscriptionToBody fallback (toJSON missing or empty keys)", () => {
+  it("falls back to getKey when toJSON is undefined", async () => {
+    const subWithoutToJSON = {
+      endpoint: "https://push.example/no-tojson",
+      getKey: (name: string) => {
+        const bytes = name === "p256dh"
+          ? new Uint8Array([1, 2, 3, 4])
+          : new Uint8Array([5, 6, 7]);
+        return bytes.buffer;
+      },
+    };
+    const ready = Promise.resolve({
+      pushManager: {
+        subscribe: vi.fn(async () => subWithoutToJSON),
+        getSubscription: vi.fn(async () => null),
+      },
+    });
+    setGlobals({
+      navigator: {
+        serviceWorker: {
+          ready,
+          register: vi.fn(),
+          getRegistration: vi.fn(async () => ({})),
+        },
+      },
+      isSecureContext: true,
+    });
+    (globalThis as unknown as { PushManager?: unknown }).PushManager = function () {};
+    (globalThis as unknown as { Notification?: unknown }).Notification = {
+      requestPermission: vi.fn(async () => "granted"),
+    };
+
+    let postedBody: string | undefined;
+    globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (typeof init?.body === "string") postedBody = init.body;
+      return new Response(null, { status: 201 });
+    }) as unknown as typeof fetch;
+
+    const result = await subscribeToPush("BHpzJ01VsKtS08clJYyuN-WasvuNNaWOtg_nkE60YRoy0Ez9X2F-ITgDKWbh8EzAMLpx9rskKADfMbadO3yo5rQ");
+    expect(result).toEqual({ ok: true });
+    expect(postedBody).toBeDefined();
+    const parsed = JSON.parse(postedBody!);
+    expect(parsed.keys.p256dh).toBeTruthy(); // bytes were base64url-encoded
+    expect(parsed.keys.auth).toBeTruthy();
+  });
+
+  it("falls back to getKey when toJSON returns incomplete keys", async () => {
+    const subBadJSON = {
+      endpoint: "https://push.example/bad-json",
+      toJSON: () => ({ endpoint: "https://push.example/bad-json", keys: { p256dh: "", auth: "a" } }),
+      getKey: (name: string) =>
+        name === "p256dh"
+          ? new Uint8Array([0xff]).buffer
+          : new Uint8Array([0xaa]).buffer,
+    };
+    const ready = Promise.resolve({
+      pushManager: {
+        subscribe: vi.fn(async () => subBadJSON),
+        getSubscription: vi.fn(async () => null),
+      },
+    });
+    setGlobals({
+      navigator: {
+        serviceWorker: {
+          ready,
+          register: vi.fn(),
+          getRegistration: vi.fn(async () => ({})),
+        },
+      },
+      isSecureContext: true,
+    });
+    (globalThis as unknown as { PushManager?: unknown }).PushManager = function () {};
+    (globalThis as unknown as { Notification?: unknown }).Notification = {
+      requestPermission: vi.fn(async () => "granted"),
+    };
+
+    globalThis.fetch = vi.fn(async () => new Response(null, { status: 201 })) as unknown as typeof fetch;
+    const result = await subscribeToPush("BHpzJ01VsKtS08clJYyuN-WasvuNNaWOtg_nkE60YRoy0Ez9X2F-ITgDKWbh8EzAMLpx9rskKADfMbadO3yo5rQ");
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("emits empty key strings when getKey is missing entirely", async () => {
+    const subEmpty = {
+      endpoint: "https://push.example/empty",
+      // no getKey, no toJSON
+    };
+    const ready = Promise.resolve({
+      pushManager: {
+        subscribe: vi.fn(async () => subEmpty),
+        getSubscription: vi.fn(async () => null),
+      },
+    });
+    setGlobals({
+      navigator: {
+        serviceWorker: {
+          ready,
+          register: vi.fn(),
+          getRegistration: vi.fn(async () => ({})),
+        },
+      },
+      isSecureContext: true,
+    });
+    (globalThis as unknown as { PushManager?: unknown }).PushManager = function () {};
+    (globalThis as unknown as { Notification?: unknown }).Notification = {
+      requestPermission: vi.fn(async () => "granted"),
+    };
+
+    let postedBody: string | undefined;
+    globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (typeof init?.body === "string") postedBody = init.body;
+      return new Response(null, { status: 201 });
+    }) as unknown as typeof fetch;
+
+    await subscribeToPush("BHpzJ01VsKtS08clJYyuN-WasvuNNaWOtg_nkE60YRoy0Ez9X2F-ITgDKWbh8EzAMLpx9rskKADfMbadO3yo5rQ");
+    expect(postedBody).toBeDefined();
+    const parsed = JSON.parse(postedBody!);
+    expect(parsed.keys.p256dh).toBe("");
+    expect(parsed.keys.auth).toBe("");
   });
 });

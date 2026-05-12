@@ -96,6 +96,19 @@ describe("NotificationsSection", () => {
     );
   });
 
+  it("falls back to the generic 'Unable to enable notifications' copy when reason is unknown", async () => {
+    (isPushSupported as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ supported: true });
+    (subscribeToPush as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      reason: "weird_new_reason_not_in_table",
+    });
+    renderWithToast({ initiallySubscribed: false });
+    fireEvent.click(screen.getByRole("button", { name: /enable notifications/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/unable to enable notifications/i)).toBeInTheDocument(),
+    );
+  });
+
   it("clicking Disable on server error keeps the user marked as enabled and surfaces an error toast", async () => {
     (isPushSupported as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ supported: true });
     (unsubscribeFromPush as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
