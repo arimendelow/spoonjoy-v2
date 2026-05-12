@@ -127,7 +127,8 @@ async function stripUploadMetadata(file: File): Promise<File> {
     return file;
   }
 
-  return new File([stripped], file.name, {
+  const strippedFileBytes = Uint8Array.from(stripped);
+  return new File([strippedFileBytes], file.name, {
     type: file.type,
     lastModified: file.lastModified,
   });
