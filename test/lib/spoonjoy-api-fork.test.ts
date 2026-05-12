@@ -175,6 +175,49 @@ describe("spoonjoy-api fork_recipe", () => {
       expect(result.attribution.sourceChef.username).toBe(chef.username);
     });
 
+    it("returns 409 when the title cannot be resolved (variation cap exhausted)", async () => {
+      const { principal: chef } = await makeUser(db);
+      const { principal: forker } = await makeUser(db);
+      // Pre-create titles X and X (variation 2..100) for the forker so resolveTitle exhausts.
+      await makeRecipe(db, forker.id, { title: "X" });
+      for (let n = 2; n <= 100; n++) {
+        await makeRecipe(db, forker.id, { title: `X (variation ${n})` });
+      }
+      const recipe = await makeRecipe(db, chef.id, { title: "X" });
+      const context: SpoonjoyApiContext = { db, principal: forker };
+
+      await expect(
+        callSpoonjoyApiOperation(
+          "fork_recipe",
+          { sourceRecipeId: recipe.id },
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it("propagates unexpected (non-fork) errors unchanged", async () => {
+      const { principal } = await makeUser(db);
+      const recipe = await makeRecipe(db, principal.id);
+      // Pass a context whose db.recipe.findUnique throws an unrelated Error.
+      const broken = {
+        ...db,
+        recipe: {
+          ...db.recipe,
+          findUnique: async () => {
+            throw new Error("boom-unexpected");
+          },
+        },
+      } as unknown as Database;
+      const context: SpoonjoyApiContext = { db: broken, principal };
+      await expect(
+        callSpoonjoyApiOperation(
+          "fork_recipe",
+          { sourceRecipeId: recipe.id },
+          context,
+        ),
+      ).rejects.toThrow(/boom-unexpected/);
+    });
+
     it("respects an explicit title override and applies collision suffix", async () => {
       const { principal: chef } = await makeUser(db);
       const { principal: forker } = await makeUser(db);
