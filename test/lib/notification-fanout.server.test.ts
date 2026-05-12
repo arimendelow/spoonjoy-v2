@@ -151,6 +151,29 @@ describe("fanoutFellowChefOriginCook", () => {
     expect(events[0].recipientId).toBe(fellow.id);
   });
 
+  it("returns recipientsNotified=0 when listFellowChefs throws (errors isolated)", async () => {
+    const spooner = await createUser();
+    const db = await getLocalDb();
+    const recipe = await db.recipe.create({
+      data: { title: "Boom", chefId: spooner.id },
+    });
+    const listMock = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const result = await fanoutFellowChefOriginCook(
+      db,
+      {
+        spoonerId: spooner.id,
+        recipeId: recipe.id,
+        recipeTitle: "Boom",
+        spoonerUsername: "spooner",
+      },
+      makeDeps({ listFellowChefs: listMock }),
+    );
+    expect(result.recipientsNotified).toBe(0);
+    expect(await db.notificationEvent.count()).toBe(0);
+  });
+
   it("caps fan-out at 100 recipients (passes limit:100 to listFellowChefs)", async () => {
     // Verifies the limit param is wired. We assert via a stubbed listFellowChefs.
     const spooner = await createUser();

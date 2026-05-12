@@ -116,6 +116,36 @@ describe("recipes.$id action — fellow_chef_origin_cook fan-out wiring (route)"
     expect(recipients.has(fellowBId)).toBe(true);
   });
 
+  it("awaits the fan-out inline when no waitUntil is provided (still notifies all fellows)", async () => {
+    const cookie = await sessionCookie(spoonerId);
+    const fd = new UndiciFormData();
+    fd.append("intent", "createSpoon");
+    const photo = new Blob([Uint8Array.from([0xff, 0xd8, 0xff, 0xe0])], {
+      type: "image/jpeg",
+    });
+    fd.append("photo", photo, "spoon.jpg");
+
+    await handleRecipeDetailAction({
+      request: new UndiciRequest(`http://localhost/recipes/${spoonerRecipeId}`, {
+        method: "POST",
+        headers: { cookie },
+        body: fd,
+      }) as unknown as Request,
+      params: { id: spoonerRecipeId },
+      context: {
+        cloudflare: {
+          env: VAPID_ENV,
+          // No ctx.waitUntil — forces inline await of fanoutTask.
+        },
+      } as any,
+    });
+
+    const events = await db.notificationEvent.findMany({
+      where: { kind: "fellow_chef_origin_cook" },
+    });
+    expect(events).toHaveLength(2);
+  });
+
   it("does NOT fan out when the spoon is not an origin cook (no fellow notifications)", async () => {
     // Pre-seed a non-deleted spoon so this isn't an origin cook for spooner.
     await db.recipeSpoon.create({
