@@ -1045,48 +1045,44 @@ const addRecipeToCookbookTool: SpoonjoyApiOperation = {
     const email = requireOwnerEmail(args, context);
     const recipeId = requiredString(args, "recipeId");
 
-    const result = await context.db.$transaction(async (tx) => {
-      const owner = await getOrCreateOwner(tx, email);
-      const cookbook = await findOwnerCookbook(tx, owner.id, args);
-      if (!cookbook) throw new Error("Cookbook not found");
+    // Cloudflare D1 does not support Prisma's interactive
+    // `$transaction(async (tx) => ...)` form, so keep this path on top-level
+    // sequential writes like recipe creation and forking.
+    const owner = await getOrCreateOwner(context.db, email);
+    const cookbook = await findOwnerCookbook(context.db, owner.id, args);
+    if (!cookbook) throw new Error("Cookbook not found");
 
-      const recipe = await tx.recipe.findFirst({
-        where: { id: recipeId, deletedAt: null },
-        select: { id: true },
-      });
-      if (!recipe) throw new Error("Recipe not found");
+    const recipe = await context.db.recipe.findFirst({
+      where: { id: recipeId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!recipe) throw new Error("Recipe not found");
 
-      const existing = await tx.recipeInCookbook.findUnique({
-        where: {
-          cookbookId_recipeId: {
-            cookbookId: cookbook.id,
-            recipeId,
-          },
+    const existing = await context.db.recipeInCookbook.findUnique({
+      where: {
+        cookbookId_recipeId: {
+          cookbookId: cookbook.id,
+          recipeId,
         },
-      });
+      },
+    });
 
-      if (existing) {
-        return {
-          added: false,
-          ownerId: owner.id,
-          cookbook: await reloadOwnerCookbook(tx, owner.id, cookbook.id),
-        };
-      }
-
-      await tx.recipeInCookbook.create({
+    const added = !existing;
+    if (added) {
+      await context.db.recipeInCookbook.create({
         data: {
           cookbookId: cookbook.id,
           recipeId,
           addedById: owner.id,
         },
       });
+    }
 
-      return {
-        added: true,
-        ownerId: owner.id,
-        cookbook: await reloadOwnerCookbook(tx, owner.id, cookbook.id),
-      };
-    });
+    const result = {
+      added,
+      ownerId: owner.id,
+      cookbook: await reloadOwnerCookbook(context.db, owner.id, cookbook.id),
+    };
 
     // Fire-and-forget: notify the recipe owner when someone else saved their
     // recipe. Only on first add (idempotent re-adds set `added=false`).

@@ -14,6 +14,25 @@ function uniqueEmail(prefix = "chef") {
   return `${prefix}-${faker.string.alphanumeric(8).toLowerCase()}@example.com`;
 }
 
+function withD1TransactionGuard(db: SpoonjoyMcpContext["db"]): SpoonjoyMcpContext["db"] {
+  return new Proxy(db, {
+    get(target, property, receiver) {
+      if (property !== "$transaction") {
+        return Reflect.get(target, property, receiver);
+      }
+
+      return (input: unknown, ...rest: unknown[]) => {
+        if (typeof input === "function") {
+          throw new Error("D1 interactive transactions are not supported");
+        }
+
+        const transaction = Reflect.get(target, property, receiver) as (...args: unknown[]) => unknown;
+        return transaction.apply(target, [input, ...rest]);
+      };
+    },
+  });
+}
+
 describe("spoonjoy MCP tools", () => {
   let context: SpoonjoyMcpContext;
 
@@ -366,6 +385,34 @@ describe("spoonjoy MCP tools", () => {
     expect(removedAgain).toMatchObject({
       removed: false,
       cookbook: { recipeCount: 0, recipes: [] },
+    });
+  });
+
+  it("adds recipes to cookbooks without callback-style transactions", async () => {
+    const cookbook = parseJson(await callSpoonjoyMcpTool("create_cookbook", {
+      title: "D1 Safe Menus",
+    }, context));
+    const recipe = parseJson(await callSpoonjoyMcpTool("create_recipe", {
+      title: "D1 Safe Soup",
+      description: "Soup for D1 runtime parity",
+    }, context));
+    const guardedContext = {
+      ...context,
+      db: withD1TransactionGuard(context.db),
+    };
+
+    const added = parseJson(await callSpoonjoyMcpTool("add_recipe_to_cookbook", {
+      cookbookId: cookbook.cookbook.id,
+      recipeId: recipe.recipe.id,
+    }, guardedContext));
+
+    expect(added).toMatchObject({
+      added: true,
+      cookbook: {
+        id: cookbook.cookbook.id,
+        recipeCount: 1,
+        recipes: [{ recipe: { id: recipe.recipe.id, title: "D1 Safe Soup" } }],
+      },
     });
   });
 
