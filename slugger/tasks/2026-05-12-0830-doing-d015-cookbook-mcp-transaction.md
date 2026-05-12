@@ -50,7 +50,7 @@ Fix the deployed-worker failure in the MCP/API `add_recipe_to_cookbook` operatio
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0: Setup/Research
+### ✅ Unit 0: Setup/Research
 **What**: Confirm the current `addRecipeToCookbookTool` transaction shape, existing cookbook tests, notification tests, and D1-compatible sequential-write patterns.
 **Output**: Verified target files and regression strategy.
 **Acceptance**: Relevant paths and operation behavior are identified before test edits.
@@ -81,3 +81,4 @@ Fix the deployed-worker failure in the MCP/API `add_recipe_to_cookbook` operatio
 
 ## Progress Log
 - 2026-05-12 08:30 Created from planning doc.
+- 2026-05-12 08:30 Unit 0 complete: confirmed `addRecipeToCookbookTool` uses callback-style `$transaction`, existing MCP cookbook and notification tests cover behavior, and recipe create/fork modules show the D1-compatible sequential-write pattern.
