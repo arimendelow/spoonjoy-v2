@@ -3,9 +3,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   detectImportSource,
+  extractVideoRecipe,
   fetchOEmbedMetadata,
   OEmbedError,
+  type OEmbedMetadata,
 } from "~/lib/recipe-import-video.server";
+import {
+  RecipeLlmError,
+  type RecipeLlmRunner,
+} from "~/lib/recipe-import-llm.server";
 
 const FIXTURES_DIR = path.resolve(
   process.cwd(),
@@ -543,6 +549,131 @@ describe("fetchOEmbedMetadata — edge cases", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+function recordingRunner(
+  payload: Partial<{
+    title: string;
+    description: string | null;
+    servings: string | null;
+    ingredients: string[];
+    steps: string[];
+  }> = {},
+): { runner: RecipeLlmRunner; calls: string[] } {
+  const calls: string[] = [];
+  const runner: RecipeLlmRunner = {
+    async extract(text: string) {
+      calls.push(text);
+      return {
+        title: payload.title ?? "Mock Title",
+        description: payload.description ?? null,
+        servings: payload.servings ?? null,
+        ingredients: payload.ingredients ?? [],
+        steps: payload.steps ?? [],
+      };
+    },
+  };
+  return { runner, calls };
+}
+
+function metadata(over: Partial<OEmbedMetadata> = {}): OEmbedMetadata {
+  return {
+    title: "One-Pot Pasta",
+    authorName: "Joe's Kitchen",
+    description: "A quick pasta recipe.",
+    thumbnailUrl: "https://i.ytimg.com/vi/abc/hqdefault.jpg",
+    source: "youtube",
+    sourceUrl: "https://www.youtube.com/watch?v=abc",
+    ...over,
+  };
+}
+
+describe("extractVideoRecipe", () => {
+  it("calls llmRunner.extract with a message containing the title", async () => {
+    const { runner, calls } = recordingRunner();
+    await extractVideoRecipe(metadata({ title: "Signature Tomato Soup" }), {
+      llmRunner: runner,
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("Signature Tomato Soup");
+  });
+
+  it("includes the author_name when present", async () => {
+    const { runner, calls } = recordingRunner();
+    await extractVideoRecipe(metadata({ authorName: "Joe's Kitchen" }), {
+      llmRunner: runner,
+    });
+    expect(calls[0]).toContain("Joe's Kitchen");
+  });
+
+  it("uses 'unknown' author placeholder when authorName is null", async () => {
+    const { runner, calls } = recordingRunner();
+    await extractVideoRecipe(metadata({ authorName: null }), {
+      llmRunner: runner,
+    });
+    expect(calls[0]).toContain("Author: unknown");
+  });
+
+  it("includes description when present", async () => {
+    const { runner, calls } = recordingRunner();
+    await extractVideoRecipe(metadata({ description: "Tomatoes, basil." }), {
+      llmRunner: runner,
+    });
+    expect(calls[0]).toContain("Tomatoes, basil.");
+  });
+
+  it("uses '(none)' description placeholder when description is null", async () => {
+    const { runner, calls } = recordingRunner();
+    await extractVideoRecipe(metadata({ description: null }), {
+      llmRunner: runner,
+    });
+    expect(calls[0]).toContain("Description: (none)");
+  });
+
+  it("includes 'Source: youtube' tag for source=youtube", async () => {
+    const { runner, calls } = recordingRunner();
+    await extractVideoRecipe(metadata({ source: "youtube" }), {
+      llmRunner: runner,
+    });
+    expect(calls[0]).toContain("Source: youtube");
+  });
+
+  it("includes 'Source: tiktok' tag for source=tiktok", async () => {
+    const { runner, calls } = recordingRunner();
+    await extractVideoRecipe(metadata({ source: "tiktok" }), {
+      llmRunner: runner,
+    });
+    expect(calls[0]).toContain("Source: tiktok");
+  });
+
+  it("returns the LLM-extracted shape on success", async () => {
+    const { runner } = recordingRunner({
+      title: "Pasta",
+      description: "Tasty",
+      servings: "4",
+      ingredients: ["1 lb pasta"],
+      steps: ["Boil water"],
+    });
+    const result = await extractVideoRecipe(metadata(), { llmRunner: runner });
+    expect(result).toEqual({
+      title: "Pasta",
+      description: "Tasty",
+      servings: "4",
+      ingredients: ["1 lb pasta"],
+      steps: ["Boil water"],
+    });
+  });
+
+  it("surfaces RecipeLlmError unchanged (caller maps to ImportRecipeError)", async () => {
+    const runner: RecipeLlmRunner = {
+      async extract() {
+        throw new RecipeLlmError("LLM down");
+      },
+    };
+    await expect(
+      extractVideoRecipe(metadata(), { llmRunner: runner }),
+    ).rejects.toBeInstanceOf(RecipeLlmError);
   });
 });
 
