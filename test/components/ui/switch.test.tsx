@@ -51,10 +51,11 @@ describe('Switch', () => {
       expect(switchEl?.className).toContain('custom-class')
     })
 
-    it('applies default color styles (dark/zinc)', () => {
+    it('applies default neutral token styles', () => {
       const { container } = render(<Switch aria-label="Test switch" />)
       const switchEl = container.querySelector('[data-slot="control"]')
-      expect(switchEl?.className).toContain('[--switch-bg:var(--color-zinc-900)]')
+      expect(switchEl?.className).toContain('[--switch-bg:var(--sj-charcoal)]')
+      expect(switchEl?.className).toContain('[--switch:var(--sj-paper)]')
     })
 
     it('renders with different color variants', () => {

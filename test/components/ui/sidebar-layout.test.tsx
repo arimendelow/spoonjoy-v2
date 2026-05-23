@@ -349,27 +349,27 @@ describe('SidebarLayout', () => {
     })
   })
 
-  describe('dark mode classes', () => {
-    it('root container has dark mode background classes', () => {
+  describe('palette classes', () => {
+    it('root container uses Spoonjoy page and flour tokens', () => {
       const { container } = render(
         <SidebarLayout navbar={<div>Navbar</div>} sidebar={<nav>Sidebar</nav>}>
           <div>Content</div>
         </SidebarLayout>
       )
       const root = container.firstChild as HTMLElement
-      expect(root.className).toContain('dark:bg-zinc-900')
-      expect(root.className).toContain('dark:lg:bg-zinc-950')
+      expect(root.className).toContain('bg-[var(--sj-page)]')
+      expect(root.className).toContain('lg:bg-[var(--sj-flour)]')
     })
 
-    it('content area has dark mode styling classes', () => {
+    it('content area uses Spoonjoy panel tokens', () => {
       const { container } = render(
         <SidebarLayout navbar={<div>Navbar</div>} sidebar={<nav>Sidebar</nav>}>
           <div>Content</div>
         </SidebarLayout>
       )
       const contentWrapper = container.querySelector('.grow')
-      expect(contentWrapper?.className).toContain('dark:lg:bg-zinc-900')
-      expect(contentWrapper?.className).toContain('dark:lg:ring-white/10')
+      expect(contentWrapper?.className).toContain('lg:bg-[var(--sj-panel-solid)]')
+      expect(contentWrapper?.className).toContain('lg:ring-[var(--sj-border)]')
     })
   })
 

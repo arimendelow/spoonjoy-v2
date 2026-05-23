@@ -40,10 +40,10 @@ const RESULT_LABELS: Record<SearchEntityType, string> = {
 };
 
 const RESULT_TONES: Record<SearchEntityType, string> = {
-  recipe: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/35 dark:text-amber-100",
-  cookbook: "border-lime-300 bg-lime-50 text-lime-900 dark:border-lime-800 dark:bg-lime-950/30 dark:text-lime-100",
-  chef: "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100",
-  "shopping-list-item": "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100",
+  recipe: "sj-result-tone-recipe",
+  cookbook: "sj-result-tone-cookbook",
+  chef: "sj-result-tone-chef",
+  "shopping-list-item": "sj-result-tone-shopping-list-item",
 };
 
 const RESULT_ICONS = {

@@ -8,23 +8,36 @@
   --font-sj-body: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-sj-ui: "IBM Plex Sans Condensed", "Avenir Next Condensed", "Gill Sans", sans-serif;
 
-  --sj-ink: #2f2117;
-  --sj-ink-soft: #6d5948;
-  --sj-paper: #fff8ea;
-  --sj-page: #fbf1dd;
-  --sj-panel: rgba(255, 252, 243, 0.86);
-  --sj-panel-solid: #fffaf0;
-  --sj-field: rgba(255, 255, 250, 0.94);
-  --sj-flour: #f7ead1;
-  --sj-border: rgba(88, 61, 38, 0.18);
-  --sj-border-strong: rgba(88, 61, 38, 0.28);
-  --sj-brass: #b16a22;
-  --sj-tomato: #bb3f24;
-  --sj-herb: #567c2f;
-  --sj-mint: #d7e8be;
-  --sj-rose: #f2c6af;
-  --sj-shadow: 0 24px 80px rgba(62, 40, 20, 0.14);
-  --sj-shadow-soft: 0 12px 36px rgba(62, 40, 20, 0.10);
+  /* Cookbook palette: bone and charcoal are the system anchors; accents are sparse and role-bound. */
+  --sj-bone: #f4eee1;
+  --sj-bone-lift: #fbf7ef;
+  --sj-vellum: #eadfcd;
+  --sj-charcoal: #28231d;
+  --sj-charcoal-soft: #625a50;
+  --sj-brass: #9b6834;
+  --sj-tomato: #9f432f;
+  --sj-herb: #5f6d49;
+  --sj-ink: var(--sj-charcoal);
+  --sj-ink-soft: var(--sj-charcoal-soft);
+  --sj-paper: var(--sj-bone);
+  --sj-page: var(--sj-bone);
+  --sj-panel: color-mix(in srgb, var(--sj-bone-lift) 88%, transparent);
+  --sj-panel-solid: var(--sj-bone-lift);
+  --sj-field: color-mix(in srgb, var(--sj-bone-lift) 94%, var(--sj-vellum));
+  --sj-flour: var(--sj-vellum);
+  --sj-border: color-mix(in srgb, var(--sj-charcoal) 16%, transparent);
+  --sj-border-strong: color-mix(in srgb, var(--sj-charcoal) 28%, transparent);
+  --sj-on-photo: var(--sj-bone);
+  --sj-on-photo-muted: color-mix(in srgb, var(--sj-bone) 76%, transparent);
+  --sj-on-photo-soft: color-mix(in srgb, var(--sj-bone) 62%, transparent);
+  --sj-on-photo-warm: color-mix(in srgb, var(--sj-bone) 78%, var(--sj-brass));
+  --sj-photo-charcoal: #211d18;
+  --sj-photo-shade: color-mix(in srgb, var(--sj-photo-charcoal) 82%, transparent);
+  --sj-photo-shade-soft: color-mix(in srgb, var(--sj-photo-charcoal) 42%, transparent);
+  --sj-photo-glass: color-mix(in srgb, var(--sj-bone) 10%, transparent);
+  --sj-photo-line: color-mix(in srgb, var(--sj-bone) 24%, transparent);
+  --sj-shadow: 0 24px 80px color-mix(in srgb, var(--sj-charcoal) 14%, transparent);
+  --sj-shadow-soft: 0 12px 36px color-mix(in srgb, var(--sj-charcoal) 10%, transparent);
   --sj-radius-control: 999px;
   --sj-radius-small: 0.875rem;
   --sj-radius-surface: 1.25rem;
@@ -34,23 +47,35 @@
 
 .dark {
   color-scheme: dark;
-  --sj-ink: #fff4df;
-  --sj-ink-soft: #d5c1a8;
-  --sj-paper: #1e1813;
-  --sj-page: #15110d;
-  --sj-panel: rgba(39, 29, 21, 0.84);
-  --sj-panel-solid: #241a13;
-  --sj-field: rgba(22, 18, 14, 0.82);
-  --sj-flour: #37281a;
-  --sj-border: rgba(255, 226, 186, 0.16);
-  --sj-border-strong: rgba(255, 226, 186, 0.28);
-  --sj-brass: #efb15c;
-  --sj-tomato: #f0704d;
-  --sj-herb: #b9d982;
-  --sj-mint: #314528;
-  --sj-rose: #5b2b20;
-  --sj-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
-  --sj-shadow-soft: 0 16px 44px rgba(0, 0, 0, 0.34);
+  --sj-bone: #efe3cf;
+  --sj-bone-lift: #302923;
+  --sj-vellum: #3b332b;
+  --sj-charcoal: #221e19;
+  --sj-charcoal-soft: #cdbda8;
+  --sj-brass: #c99858;
+  --sj-tomato: #d76d50;
+  --sj-herb: #aabb78;
+  --sj-ink: var(--sj-bone);
+  --sj-ink-soft: var(--sj-charcoal-soft);
+  --sj-paper: var(--sj-charcoal);
+  --sj-page: #1f1b17;
+  --sj-panel: color-mix(in srgb, var(--sj-bone-lift) 84%, transparent);
+  --sj-panel-solid: var(--sj-bone-lift);
+  --sj-field: color-mix(in srgb, var(--sj-charcoal) 82%, var(--sj-vellum));
+  --sj-flour: var(--sj-vellum);
+  --sj-border: color-mix(in srgb, var(--sj-bone) 16%, transparent);
+  --sj-border-strong: color-mix(in srgb, var(--sj-bone) 28%, transparent);
+  --sj-on-photo: #f1e6d3;
+  --sj-on-photo-muted: color-mix(in srgb, var(--sj-on-photo) 76%, transparent);
+  --sj-on-photo-soft: color-mix(in srgb, var(--sj-on-photo) 62%, transparent);
+  --sj-on-photo-warm: color-mix(in srgb, var(--sj-on-photo) 78%, var(--sj-brass));
+  --sj-photo-charcoal: #1d1915;
+  --sj-photo-shade: color-mix(in srgb, var(--sj-photo-charcoal) 84%, transparent);
+  --sj-photo-shade-soft: color-mix(in srgb, var(--sj-photo-charcoal) 46%, transparent);
+  --sj-photo-glass: color-mix(in srgb, var(--sj-on-photo) 10%, transparent);
+  --sj-photo-line: color-mix(in srgb, var(--sj-on-photo) 22%, transparent);
+  --sj-shadow: 0 28px 90px color-mix(in srgb, var(--sj-photo-charcoal) 56%, transparent);
+  --sj-shadow-soft: 0 16px 44px color-mix(in srgb, var(--sj-photo-charcoal) 42%, transparent);
 }
 
 html {
@@ -153,12 +178,10 @@ html *:where(input, textarea, select, button) {
 }
 
 .sj-dark-canvas {
-  --sj-on-dark: #fff7e8;
-  --sj-on-dark-soft: rgba(255, 247, 232, 0.72);
   background:
-    linear-gradient(180deg, rgba(22, 18, 15, 0.28), rgba(22, 18, 15, 0.82)),
-    #16120f;
-  color: var(--sj-on-dark);
+    linear-gradient(180deg, var(--sj-photo-shade-soft), var(--sj-photo-shade)),
+    var(--sj-photo-charcoal);
+  color: var(--sj-on-photo);
 }
 
 .sj-dark-canvas :where(h1, h2, h3, p, span, dt, dd) {
@@ -166,14 +189,14 @@ html *:where(input, textarea, select, button) {
 }
 
 .sj-dark-muted {
-  color: rgba(255, 247, 232, 0.72);
+  color: var(--sj-on-photo-muted);
 }
 
 .sj-food-photo {
   position: relative;
   overflow: hidden;
-  background: #16120f;
-  box-shadow: 0 24px 90px rgba(28, 18, 11, 0.26);
+  background: var(--sj-photo-charcoal);
+  box-shadow: 0 24px 90px color-mix(in srgb, var(--sj-photo-charcoal) 26%, transparent);
 }
 
 .sj-food-photo > img {
@@ -188,18 +211,18 @@ html *:where(input, textarea, select, button) {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 34%, rgba(0, 0, 0, 0.78)),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.42), transparent 56%);
+    linear-gradient(180deg, color-mix(in srgb, var(--sj-photo-charcoal) 8%, transparent), transparent 34%, var(--sj-photo-shade)),
+    linear-gradient(90deg, var(--sj-photo-shade-soft), transparent 56%);
 }
 
 .sj-kicker-dark {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  border: 1px solid rgba(255, 247, 232, 0.24);
+  border: 1px solid var(--sj-photo-line);
   border-radius: 999px;
-  background: rgba(255, 247, 232, 0.10);
-  color: #fff7e8;
+  background: var(--sj-photo-glass);
+  color: var(--sj-on-photo);
   font-family: var(--font-sj-ui);
   font-size: 0.7rem;
   font-weight: 700;
@@ -213,7 +236,7 @@ html *:where(input, textarea, select, button) {
   position: relative;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--sj-border) 82%, transparent);
-  background: #17120f;
+  background: var(--sj-photo-charcoal);
   box-shadow: var(--sj-shadow-soft);
 }
 
@@ -233,7 +256,47 @@ html *:where(input, textarea, select, button) {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent 34%, rgba(0, 0, 0, 0.80));
+  background: linear-gradient(180deg, transparent 34%, var(--sj-photo-shade));
+}
+
+.sj-on-photo {
+  color: var(--sj-on-photo);
+}
+
+.sj-on-photo-muted {
+  color: var(--sj-on-photo-muted);
+}
+
+.sj-on-photo-soft {
+  color: var(--sj-on-photo-soft);
+}
+
+.sj-on-photo-warm {
+  color: var(--sj-on-photo-warm);
+}
+
+.sj-result-tone-recipe {
+  border-color: color-mix(in srgb, var(--sj-brass) 46%, var(--sj-border));
+  background: color-mix(in srgb, var(--sj-brass) 10%, var(--sj-panel-solid));
+  color: var(--sj-ink);
+}
+
+.sj-result-tone-cookbook {
+  border-color: color-mix(in srgb, var(--sj-herb) 48%, var(--sj-border));
+  background: color-mix(in srgb, var(--sj-herb) 10%, var(--sj-panel-solid));
+  color: var(--sj-ink);
+}
+
+.sj-result-tone-chef {
+  border-color: var(--sj-border-strong);
+  background: color-mix(in srgb, var(--sj-charcoal) 6%, var(--sj-panel-solid));
+  color: var(--sj-ink);
+}
+
+.sj-result-tone-shopping-list-item {
+  border-color: color-mix(in srgb, var(--sj-tomato) 42%, var(--sj-border));
+  background: color-mix(in srgb, var(--sj-tomato) 9%, var(--sj-panel-solid));
+  color: var(--sj-ink);
 }
 
 .sj-receipt {

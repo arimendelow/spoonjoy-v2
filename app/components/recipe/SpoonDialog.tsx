@@ -91,12 +91,12 @@ export function SpoonDialog({
         >
           <input type="hidden" name="intent" value="createSpoon" />
           {requiresPhoto ? (
-            <p className="text-sm text-amber-700 dark:text-amber-300">
+            <p className="text-sm text-[var(--sj-brass)]">
               Photo required for your own cook.
             </p>
           ) : null}
           {errorMessage ? (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-[var(--sj-tomato)]">
               {errorMessage}
             </p>
           ) : null}
@@ -112,7 +112,7 @@ export function SpoonDialog({
               className="block w-full text-sm"
             />
             {photoError ? (
-              <p role="alert" className="mt-1 text-sm text-red-600">
+              <p role="alert" className="mt-1 text-sm text-[var(--sj-tomato)]">
                 {photoError}
               </p>
             ) : null}

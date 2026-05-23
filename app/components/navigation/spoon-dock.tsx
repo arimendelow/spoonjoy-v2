@@ -12,7 +12,7 @@ import clsx from 'clsx'
  * - Width: max-w-md centered, inset from screen edges
  * - Height: ~64px (generous for center logo breathing room)
  * - Shape: Pill/rounded-full
- * - Glass morphism: bg-black/60 backdrop-blur-xl border-white/10
+ * - Glass morphism: charcoal glass with a bone highlight line
  * - Safe area: mb-[max(1rem,env(safe-area-inset-bottom))]
  * - Hidden on desktop: lg:hidden
  * - 3-column grid with fixed-width slots
@@ -56,9 +56,9 @@ export function SpoonDock({
         'rounded-full',
         
         // Glass morphism styling
-        'bg-black/60',
+        'bg-[color-mix(in_srgb,var(--sj-charcoal)_82%,transparent)]',
         'backdrop-blur-xl',
-        'border border-white/10',
+        'border border-[var(--sj-photo-line)]',
         
         // Responsive - hidden on desktop
         'lg:hidden',

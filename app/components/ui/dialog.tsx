@@ -29,7 +29,7 @@ export function Dialog({
       <Headless.DialogBackdrop
         transition
         data-slot="dialog-backdrop"
-        className="fixed inset-0 z-[60] flex w-screen justify-center overflow-y-auto bg-zinc-950/35 px-2 py-2 backdrop-blur-sm transition data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in data-closed:opacity-0 data-enter:data-closed:opacity-0 motion-reduce:transition-none focus:outline-0 sm:px-6 sm:py-8 lg:px-8 lg:py-16"
+        className="fixed inset-0 z-[60] flex w-screen justify-center overflow-y-auto bg-[color-mix(in_srgb,var(--sj-charcoal)_38%,transparent)] px-2 py-2 backdrop-blur-sm transition data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in data-closed:opacity-0 data-enter:data-closed:opacity-0 motion-reduce:transition-none focus:outline-0 sm:px-6 sm:py-8 lg:px-8 lg:py-16"
       />
 
       <div className="fixed inset-0 z-[60] w-screen overflow-y-auto pt-6 sm:pt-0">

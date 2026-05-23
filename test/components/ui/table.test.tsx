@@ -151,7 +151,7 @@ describe('Table', () => {
         </table>
       )
       const thead = screen.getByTestId('thead')
-      expect(thead.className).toContain('text-zinc-500')
+      expect(thead.className).toContain('text-[var(--sj-ink-soft)]')
     })
 
     it('passes additional props to thead element', () => {
@@ -283,7 +283,7 @@ describe('Table', () => {
         </Table>
       )
       const tr1 = screen.getByTestId('tr1')
-      expect(tr1.className).toContain('even:bg-zinc-950/2.5')
+      expect(tr1.className).toContain('even:bg-[color-mix(in_srgb,var(--sj-charcoal)_3%,transparent)]')
     })
 
     it('applies hover styling when href is provided', () => {
@@ -298,7 +298,7 @@ describe('Table', () => {
         { wrapper: TestWrapper }
       )
       const tr = screen.getByTestId('tr')
-      expect(tr.className).toContain('hover:bg-zinc-950/2.5')
+      expect(tr.className).toContain('hover:bg-[color-mix(in_srgb,var(--sj-charcoal)_4%,transparent)]')
     })
 
     it('applies hover styling for striped rows with href', () => {
@@ -313,7 +313,7 @@ describe('Table', () => {
         { wrapper: TestWrapper }
       )
       const tr = screen.getByTestId('tr')
-      expect(tr.className).toContain('hover:bg-zinc-950/5')
+      expect(tr.className).toContain('hover:bg-[color-mix(in_srgb,var(--sj-charcoal)_6%,transparent)]')
     })
   })
 
@@ -513,7 +513,7 @@ describe('Table', () => {
         </Table>
       )
       const td = screen.getByTestId('td')
-      expect(td.className).not.toContain('border-b border-zinc-950/5')
+      expect(td.className).not.toContain('border-b border-[var(--sj-border)]')
     })
 
     it('applies bottom border when striped is false', () => {
@@ -760,7 +760,7 @@ describe('Table', () => {
 
       // Check striped styling
       const tr1 = screen.getByTestId('tr1')
-      expect(tr1.className).toContain('even:bg-zinc-950/2.5')
+      expect(tr1.className).toContain('even:bg-[color-mix(in_srgb,var(--sj-charcoal)_3%,transparent)]')
     })
 
     it('renders a table with clickable rows', () => {

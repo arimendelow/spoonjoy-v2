@@ -5,9 +5,9 @@ import type { ParsedIngredient } from '~/lib/ingredient-parse.server'
 
 // Button styles extracted from ~/components/ui/button.tsx for native button compatibility
 const buttonBaseStyles = [
-  'relative isolate inline-flex items-center justify-center gap-x-2 rounded-lg border text-base/6 font-semibold',
+  'relative isolate inline-flex items-center justify-center gap-x-2 rounded-[var(--sj-radius-control)] border text-base/6 font-semibold',
   'px-[calc(--spacing(3.5)-1px)] py-[calc(--spacing(2.5)-1px)] sm:px-[calc(--spacing(3)-1px)] sm:py-[calc(--spacing(1.5)-1px)] sm:text-sm/6',
-  'focus:outline-2 focus:outline-offset-2 focus:outline-blue-500',
+  'focus:outline-2 focus:outline-offset-2 focus:outline-[var(--sj-brass)]',
   'disabled:opacity-50 disabled:cursor-not-allowed',
 ]
 
@@ -17,17 +17,17 @@ const buttonSolidStyles = [
   'before:absolute before:inset-0 before:-z-10 before:rounded-[calc(var(--radius-lg)-1px)] before:bg-(--btn-bg)',
   'before:shadow-sm',
   'dark:before:hidden',
-  'dark:border-white/5',
+  'dark:border-[var(--sj-border)]',
   'after:absolute after:inset-0 after:-z-10 after:rounded-[calc(var(--radius-lg)-1px)]',
-  'after:shadow-[inset_0_1px_--theme(--color-white/15%)]',
+  'after:shadow-[inset_0_1px_color-mix(in_srgb,var(--sj-bone)_18%,transparent)]',
   'hover:after:bg-(--btn-hover-overlay)',
   'dark:after:-inset-px dark:after:rounded-lg',
   'disabled:before:shadow-none disabled:after:shadow-none',
 ]
 
 const buttonGreenStyles = [
-  'text-white [--btn-hover-overlay:var(--color-white)]/10 [--btn-bg:var(--color-green-600)] [--btn-border:var(--color-green-700)]/90',
-  '[--btn-icon:var(--color-white)]/60 hover:[--btn-icon:var(--color-white)]/80',
+  'text-[var(--sj-paper)] [--btn-hover-overlay:color-mix(in_srgb,var(--sj-bone)_12%,transparent)] [--btn-bg:var(--sj-herb)] [--btn-border:var(--sj-herb)]',
+  '[--btn-icon:var(--sj-paper)] hover:[--btn-icon:var(--sj-paper)]',
 ]
 
 export interface ParsedIngredientListProps {
@@ -64,7 +64,7 @@ export function ParsedIngredientList({
   if (ingredients.length === 0) {
     return (
       <div className="py-4" aria-live="polite">
-        <p className="text-zinc-500 dark:text-zinc-400 text-center">No ingredients parsed yet</p>
+        <p className="text-center text-[var(--sj-ink-soft)]">No ingredients parsed yet</p>
       </div>
     )
   }
@@ -74,7 +74,7 @@ export function ParsedIngredientList({
       <h3 className="text-lg font-semibold mb-3">
         Ingredients ({ingredients.length})
       </h3>
-      <ul className="list-none p-0 m-0 divide-y divide-zinc-200 dark:divide-zinc-700" role="list">
+      <ul className="m-0 list-none divide-y divide-[var(--sj-border)] p-0" role="list">
         {ingredients.map((ingredient, index) => (
           <ParsedIngredientRow
             key={index}

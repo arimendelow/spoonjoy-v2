@@ -87,7 +87,7 @@ describe('SpoonDock', () => {
     it('has semi-transparent background', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      expect(nav.className).toMatch(/bg-.*\/\d+/)
+      expect(nav.className).toContain('bg-[color-mix(in_srgb,var(--sj-charcoal)_82%,transparent)]')
     })
 
     it('has subtle border for glass edge', () => {

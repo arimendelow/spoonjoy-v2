@@ -17,7 +17,7 @@ function AddedListIcon({ className }: { className?: string }) {
   return (
     <span className="relative">
       <ShoppingCart className={className} />
-      <Check className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-black/65 p-[1px] text-white/85" />
+      <Check className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-[color-mix(in_srgb,var(--sj-charcoal)_78%,transparent)] p-[1px] text-[var(--sj-on-photo-muted)]" />
     </span>
   )
 }
@@ -38,8 +38,8 @@ export function useRecipeDetailActions({
       icon: isInShoppingList ? AddedListIcon : ShoppingCart,
       label: 'List',
       ariaLabel: isInShoppingList ? 'Ingredients already in shopping list' : 'Add ingredients to shopping list',
-      iconClassName: isInShoppingList ? 'fill-white/70 text-white/70' : undefined,
-      labelClassName: isInShoppingList ? 'text-white/40 tracking-[0.14em]' : undefined,
+      iconClassName: isInShoppingList ? 'fill-[var(--sj-on-photo-muted)] text-[var(--sj-on-photo-muted)]' : undefined,
+      labelClassName: isInShoppingList ? 'text-[var(--sj-on-photo-soft)] tracking-[0.14em]' : undefined,
       onAction: onAddToList || (() => {}),
       position: 'left',
     }

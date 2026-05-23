@@ -82,7 +82,7 @@ export function ScaleSelector({
       {/* Scale display */}
       <span
         data-testid="scale-display"
-        className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums text-zinc-900 dark:text-white"
+        className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums text-[var(--sj-ink)]"
       >
         {displayValue ?? formatDisplayValue(value)}
       </span>

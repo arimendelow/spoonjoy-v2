@@ -156,7 +156,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
   return (
     <div>
       {steps.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">No steps yet. Add your first step below.</p>
+        <p className="mb-4 text-sm text-[var(--sj-ink-soft)]">No steps yet. Add your first step below.</p>
       ) : (
         <Reorder.Group
           axis="y"
@@ -188,7 +188,7 @@ export function StepList({ steps, recipeId, onChange, disabled = false }: StepLi
                     type="button"
                     aria-label="Drag to reorder"
                     onKeyDown={(e) => handleKeyDown(e, index)}
-                    className="hidden sm:inline-flex cursor-grab active:cursor-grabbing p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                    className="hidden cursor-grab rounded-[var(--sj-radius-small)] p-1 text-[var(--sj-ink-soft)] hover:text-[var(--sj-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--sj-brass)] active:cursor-grabbing sm:inline-flex"
                   >
                     <GripVertical className="h-5 w-5" />
                   </button>

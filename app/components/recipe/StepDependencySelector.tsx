@@ -76,7 +76,7 @@ export function StepDependencySelector({
   // No previous steps available for step 1
   if (previousSteps.length === 0) {
     return (
-      <div className="text-sm text-zinc-500 dark:text-zinc-400">
+      <div className="text-sm text-[var(--sj-ink-soft)]">
         <span>Uses output from:</span>
         <span className="ml-2 italic">No previous steps</span>
       </div>

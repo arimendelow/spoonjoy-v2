@@ -51,10 +51,11 @@ describe('Checkbox', () => {
       expect(checkbox?.className).toContain('custom-class')
     })
 
-    it('applies default color styles (dark/zinc)', () => {
+    it('applies default attention token styles', () => {
       const { container } = render(<Checkbox aria-label="Test checkbox" />)
       const innerSpan = container.querySelector('span > span')
-      expect(innerSpan?.className).toContain('[--checkbox-check:var(--color-white)]')
+      expect(innerSpan?.className).toContain('[--checkbox-check:var(--sj-paper)]')
+      expect(innerSpan?.className).toContain('[--checkbox-checked-bg:var(--sj-brass)]')
     })
 
     it('renders with different color variants', () => {

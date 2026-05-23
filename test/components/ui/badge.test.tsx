@@ -22,11 +22,11 @@ describe('Badge', () => {
       expect(badge).toHaveTextContent('Label')
     })
 
-    it('applies default zinc color when no color prop provided', () => {
+    it('applies default neutral token color when no color prop provided', () => {
       const { container } = render(<Badge>Default</Badge>)
       const badge = container.querySelector('span')
-      expect(badge?.className).toContain('bg-zinc-600/10')
-      expect(badge?.className).toContain('text-zinc-700')
+      expect(badge?.className).toContain('var(--sj-charcoal)')
+      expect(badge?.className).toContain('text-[var(--sj-ink)]')
     })
 
     it('applies custom className', () => {
@@ -77,25 +77,25 @@ describe('Badge', () => {
       })
     })
 
-    it('applies correct color classes for red variant', () => {
+    it('applies action token classes for red variant', () => {
       const { container } = render(<Badge color="red">Error</Badge>)
       const badge = container.querySelector('span')
-      expect(badge?.className).toContain('bg-red-500/15')
-      expect(badge?.className).toContain('text-red-700')
+      expect(badge?.className).toContain('var(--sj-tomato)')
+      expect(badge?.className).toContain('text-[var(--sj-tomato)]')
     })
 
-    it('applies correct color classes for green variant', () => {
+    it('applies growth token classes for green variant', () => {
       const { container } = render(<Badge color="green">Success</Badge>)
       const badge = container.querySelector('span')
-      expect(badge?.className).toContain('bg-green-500/15')
-      expect(badge?.className).toContain('text-green-700')
+      expect(badge?.className).toContain('var(--sj-herb)')
+      expect(badge?.className).toContain('text-[var(--sj-herb)]')
     })
 
-    it('applies correct color classes for blue variant', () => {
+    it('maps blue variant to neutral token classes', () => {
       const { container } = render(<Badge color="blue">Info</Badge>)
       const badge = container.querySelector('span')
-      expect(badge?.className).toContain('bg-blue-500/15')
-      expect(badge?.className).toContain('text-blue-700')
+      expect(badge?.className).toContain('var(--sj-charcoal)')
+      expect(badge?.className).toContain('text-[var(--sj-ink)]')
     })
   })
 
@@ -117,7 +117,7 @@ describe('Badge', () => {
     it('applies default zinc color', () => {
       render(<BadgeButton>Default</BadgeButton>)
       const badge = screen.getByText('Default')
-      expect(badge.className).toContain('bg-zinc-600/10')
+      expect(badge.className).toContain('var(--sj-charcoal)')
     })
 
     it('applies custom className', () => {
@@ -129,8 +129,8 @@ describe('Badge', () => {
     it('applies color to inner Badge', () => {
       render(<BadgeButton color="red">Error</BadgeButton>)
       const badge = screen.getByText('Error')
-      expect(badge.className).toContain('bg-red-500/15')
-      expect(badge.className).toContain('text-red-700')
+      expect(badge.className).toContain('var(--sj-tomato)')
+      expect(badge.className).toContain('text-[var(--sj-tomato)]')
     })
 
     it('renders with different color variants', () => {

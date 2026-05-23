@@ -263,7 +263,7 @@ describe('Pagination components', () => {
         { wrapper: TestWrapper }
       )
       const link = container.querySelector('a')
-      expect(link?.className).toContain('before:bg-zinc-950/5')
+      expect(link?.className).toContain('before:bg-[color-mix(in_srgb,var(--sj-charcoal)_7%,transparent)]')
     })
 
     it('applies min-w-9 class for consistent sizing', () => {

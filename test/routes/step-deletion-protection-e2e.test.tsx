@@ -348,7 +348,7 @@ describe("E2E: Step Deletion Protection", () => {
       await screen.findByRole("heading", { name: /Edit Step/i });
 
       const errorElement = await screen.findByRole("alert");
-      expect(errorElement).toHaveClass("bg-red-50");
+      expect(errorElement).toHaveClass("bg-[color-mix(in_srgb,var(--sj-tomato)_10%,var(--sj-panel-solid))]");
     });
 
     it("should not show deletion error when no error exists", async () => {
