@@ -100,7 +100,7 @@ describe('AuthLayout', () => {
       )
       const authCard = container.querySelector('main > div > section')
       expect(authCard).toHaveClass('sj-panel')
-      expect(authCard).toHaveClass('rounded-[2rem]')
+      expect(authCard).toHaveClass('rounded-[var(--sj-radius-hero)]')
       expect(authCard).toHaveClass('p-6')
       expect(authCard).toHaveClass('sm:p-8')
       expect(authCard).toHaveClass('overflow-hidden')

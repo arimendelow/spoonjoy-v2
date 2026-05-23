@@ -65,7 +65,7 @@ export function DockCenter({
         'rounded-full',
         
         // Background - subtle glass distinction
-        'bg-white/10',
+        'bg-[var(--sj-photo-glass)]',
         
         // Custom class
         className
@@ -84,8 +84,8 @@ export function DockCenter({
       >
         <SpoonjoyLogo
           size={32}
-          variant="white"
-          className="text-white"
+          variant="current"
+          className="text-[var(--sj-on-photo)]"
         />
       </Link>
     </motion.div>

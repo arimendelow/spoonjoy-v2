@@ -263,7 +263,7 @@ describe('StepOutputUseCallout', () => {
       )
 
       // Should have strikethrough or muted styling
-      const mutedElements = document.querySelectorAll('.line-through, .text-zinc-500')
+      const mutedElements = document.querySelectorAll('.line-through')
       expect(mutedElements.length).toBeGreaterThan(0)
     })
 

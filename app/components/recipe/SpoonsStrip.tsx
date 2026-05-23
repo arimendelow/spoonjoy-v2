@@ -54,7 +54,7 @@ function NoteBlock({ note }: { note: string }) {
       </p>
       <button
         type="button"
-        className="text-xs underline text-stone-600 dark:text-stone-400"
+        className="text-xs underline text-[var(--sj-ink-soft)] hover:text-[var(--sj-ink)]"
         onClick={() => setExpanded((value) => !value)}
       >
         {expanded ? "Show less" : "Show more"}
@@ -66,7 +66,7 @@ function NoteBlock({ note }: { note: string }) {
 export function SpoonsStrip({ spoons, showRecipe = false }: SpoonsStripProps) {
   if (spoons.length === 0) {
     return (
-      <p className="text-sm text-stone-600 dark:text-stone-400">
+      <p className="text-sm text-[var(--sj-ink-soft)]">
         No cooks yet — be the first.
       </p>
     );
@@ -82,11 +82,11 @@ export function SpoonsStrip({ spoons, showRecipe = false }: SpoonsStripProps) {
           <div className="flex items-center justify-between text-sm">
             <Link
               to={`/users/${spoon.chef.username}`}
-              className="font-medium underline hover:text-stone-900 dark:hover:text-stone-100"
+              className="font-medium underline hover:text-[var(--sj-tomato)]"
             >
               {spoon.chef.username}
             </Link>
-            <span className="text-stone-500 dark:text-stone-400">
+            <span className="text-[var(--sj-ink-soft)]">
               {relativeTime(spoon.cookedAt)}
             </span>
           </div>

@@ -127,8 +127,7 @@ describe('DockItem', () => {
       )
       
       const label = screen.getByText('Home')
-      // Should have text shadow for glow or specific glow class
-      expect(label.className).toMatch(/text-white|glow|shadow/)
+      expect(label.className).toContain('text-[var(--sj-on-photo)]')
     })
 
     it('inactive label has reduced opacity', () => {
@@ -139,8 +138,7 @@ describe('DockItem', () => {
       )
       
       const label = screen.getByText('Home')
-      // Should have reduced opacity class
-      expect(label.className).toMatch(/text-white\/\d+|opacity-/)
+      expect(label.className).toContain('text-[var(--sj-on-photo-soft)]')
     })
   })
 

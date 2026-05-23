@@ -71,7 +71,7 @@ export function RecipeHeader({
             />
             <div className="absolute inset-x-0 bottom-0 z-10 p-5 sm:p-8 lg:p-10">
               <p className="sj-kicker-dark">Recipe</p>
-              <h1 className="font-sj-display mt-4 max-w-5xl break-words text-5xl/12 font-bold tracking-[-0.04em] text-[#fff7e8] sm:text-7xl/18 lg:text-8xl/20">
+              <h1 className="font-sj-display sj-on-photo mt-4 max-w-5xl break-words text-5xl/12 font-bold tracking-[-0.04em] sm:text-7xl/18 lg:text-8xl/20">
                 {title}
               </h1>
               <div className="mt-4 flex items-center gap-2">
@@ -80,22 +80,22 @@ export function RecipeHeader({
                     src={chefPhotoUrl}
                     initials={chefName.charAt(0).toUpperCase()}
                     alt={chefName}
-                    className="size-9 border border-white/30"
+                    className="size-9 border border-[var(--sj-photo-line)]"
                   />
                 </span>
-                <p className="font-sj-ui text-sm font-semibold text-white/82">
+                <p className="font-sj-ui sj-on-photo-muted text-sm font-semibold">
                   By{' '}
                   {resolvedChefHref ? (
-                    <Link href={resolvedChefHref} className="text-[#fff7e8] underline decoration-white/30 underline-offset-4 hover:text-[#ffe0b0]">
+                    <Link href={resolvedChefHref} className="sj-on-photo underline decoration-[var(--sj-photo-line)] underline-offset-4 hover:text-[var(--sj-on-photo-warm)]">
                       <strong>{chefName}</strong>
                     </Link>
                   ) : (
-                    <strong className="text-[#fff7e8]">{chefName}</strong>
+                    <strong className="sj-on-photo">{chefName}</strong>
                   )}
                 </p>
               </div>
               {description && (
-                <p className="mt-5 max-w-2xl text-base/7 text-white/78 sm:text-lg/8">{description}</p>
+                <p className="sj-on-photo-muted mt-5 max-w-2xl text-base/7 sm:text-lg/8">{description}</p>
               )}
             </div>
           </div>
@@ -104,15 +104,15 @@ export function RecipeHeader({
             data-testid="recipe-image-placeholder"
             className="sj-dark-canvas relative mx-auto flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-[var(--sj-radius-hero)] border border-[var(--sj-border)] sm:aspect-[16/9] lg:aspect-[2.18/1]"
           >
-            <div className="relative flex flex-col items-center gap-3 text-[#fff7e8]">
-              <div className="rounded-[var(--sj-radius-control)] border border-white/15 bg-white/10 p-5">
+            <div className="sj-on-photo relative flex flex-col items-center gap-3">
+              <div className="rounded-[var(--sj-radius-control)] border border-[var(--sj-photo-line)] bg-[var(--sj-photo-glass)] p-5">
                 <ImageOff className="size-12 sm:size-16" aria-hidden="true" />
               </div>
               <span className="font-sj-ui text-sm font-semibold uppercase tracking-[0.16em]">No image available</span>
             </div>
             <div className="absolute inset-x-0 bottom-0 z-10 p-5 sm:p-8 lg:p-10">
               <p className="sj-kicker-dark">Recipe</p>
-              <h1 className="font-sj-display mt-4 max-w-5xl break-words text-5xl/12 font-bold tracking-[-0.04em] text-[#fff7e8] sm:text-7xl/18 lg:text-8xl/20">
+              <h1 className="font-sj-display sj-on-photo mt-4 max-w-5xl break-words text-5xl/12 font-bold tracking-[-0.04em] sm:text-7xl/18 lg:text-8xl/20">
                 {title}
               </h1>
               <div className="mt-4 flex items-center gap-2">
@@ -121,22 +121,22 @@ export function RecipeHeader({
                     src={chefPhotoUrl}
                     initials={chefName.charAt(0).toUpperCase()}
                     alt={chefName}
-                    className="size-9 border border-white/30"
+                    className="size-9 border border-[var(--sj-photo-line)]"
                   />
                 </span>
-                <p className="font-sj-ui text-sm font-semibold text-white/82">
+                <p className="font-sj-ui sj-on-photo-muted text-sm font-semibold">
                   By{' '}
                   {resolvedChefHref ? (
-                    <Link href={resolvedChefHref} className="text-[#fff7e8] underline decoration-white/30 underline-offset-4 hover:text-[#ffe0b0]">
+                    <Link href={resolvedChefHref} className="sj-on-photo underline decoration-[var(--sj-photo-line)] underline-offset-4 hover:text-[var(--sj-on-photo-warm)]">
                       <strong>{chefName}</strong>
                     </Link>
                   ) : (
-                    <strong className="text-[#fff7e8]">{chefName}</strong>
+                    <strong className="sj-on-photo">{chefName}</strong>
                   )}
                 </p>
               </div>
               {description && (
-                <p className="mt-5 max-w-2xl text-base/7 text-white/78 sm:text-lg/8">{description}</p>
+                <p className="sj-on-photo-muted mt-5 max-w-2xl text-base/7 sm:text-lg/8">{description}</p>
               )}
             </div>
           </div>

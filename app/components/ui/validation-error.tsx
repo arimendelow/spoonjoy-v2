@@ -26,8 +26,7 @@ export function ValidationError({ error, className }: ValidationErrorProps) {
       role="alert"
       data-slot="validation-error"
       className={clsx(
-        'rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700',
-        'dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400',
+        'rounded-[var(--sj-radius-small)] border border-[var(--sj-tomato)] bg-[color-mix(in_srgb,var(--sj-tomato)_10%,var(--sj-panel-solid))] p-3 text-sm text-[var(--sj-tomato)]',
         className
       )}
     >

@@ -247,7 +247,7 @@ export default function Index() {
                 <img src={LANDING_FOOD_PHOTOS[0].src} alt={LANDING_FOOD_PHOTOS[0].alt} />
                 <figcaption className="absolute inset-x-0 bottom-0 z-10 p-5 sm:p-7">
                   <p className="sj-kicker-dark">Phone to editorial</p>
-                  <h2 className="font-sj-display mt-4 max-w-xl text-4xl/10 font-semibold tracking-[-0.03em] text-[#fff7e8] sm:text-6xl/15">
+                  <h2 className="font-sj-display sj-on-photo mt-4 max-w-xl text-4xl/10 font-semibold tracking-[-0.03em] sm:text-6xl/15">
                     Classic Margherita Pizza
                   </h2>
                   <p className="sj-dark-muted mt-3 max-w-lg text-base/7">
@@ -259,7 +259,7 @@ export default function Index() {
               <figure className="sj-photo-tile col-span-3 rounded-[var(--sj-radius-photo)]">
                 <img src={LANDING_FOOD_PHOTOS[1].src} alt={LANDING_FOOD_PHOTOS[1].alt} />
                 <figcaption className="absolute inset-x-0 bottom-0 z-10 p-4">
-                  <p className="font-sj-ui text-xs font-semibold uppercase tracking-[0.14em] text-[#fff7e8]">Cookbooks</p>
+                  <p className="font-sj-ui sj-on-photo text-xs font-semibold uppercase tracking-[0.14em]">Cookbooks</p>
                   <p className="sj-dark-muted mt-1 text-sm/5">Collections with memory.</p>
                 </figcaption>
               </figure>
@@ -267,7 +267,7 @@ export default function Index() {
               <figure className="sj-photo-tile col-span-3 rounded-[var(--sj-radius-photo)]">
                 <img src={LANDING_FOOD_PHOTOS[2].src} alt={LANDING_FOOD_PHOTOS[2].alt} />
                 <figcaption className="absolute inset-x-0 bottom-0 z-10 p-4">
-                  <p className="font-sj-ui text-xs font-semibold uppercase tracking-[0.14em] text-[#fff7e8]">Personal kitchens</p>
+                  <p className="font-sj-ui sj-on-photo text-xs font-semibold uppercase tracking-[0.14em]">Personal kitchens</p>
                   <p className="sj-dark-muted mt-1 text-sm/5">A home for every chef.</p>
                 </figcaption>
               </figure>
@@ -385,14 +385,14 @@ export default function Index() {
                         {displayImageUrl ? (
                           <img src={displayImageUrl} alt={recipe.title} className="h-full w-full object-cover" />
                         ) : (
-                          <ChefHat className="size-8 text-[#fff7e8]" aria-hidden="true" />
+                          <ChefHat className="sj-on-photo size-8" aria-hidden="true" />
                         )}
                         <div className="absolute inset-x-0 bottom-0 z-10 p-4">
-                          <h3 className="font-sj-display line-clamp-2 text-2xl/8 font-semibold tracking-[-0.02em] text-[#fff7e8] transition group-hover:text-[#ffe0b0]">{recipe.title}</h3>
+                          <h3 className="font-sj-display sj-on-photo line-clamp-2 text-2xl/8 font-semibold tracking-[-0.02em] transition group-hover:text-[var(--sj-on-photo-warm)]">{recipe.title}</h3>
                           {recipe.description ? (
-                            <p className="mt-2 line-clamp-2 text-sm/5 text-white/72">{recipe.description}</p>
+                            <p className="sj-on-photo-muted mt-2 line-clamp-2 text-sm/5">{recipe.description}</p>
                           ) : null}
-                          {recipe.servings ? <p className="font-sj-ui mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">Serves {recipe.servings}</p> : null}
+                          {recipe.servings ? <p className="font-sj-ui sj-on-photo-soft mt-3 text-xs font-semibold uppercase tracking-[0.14em]">Serves {recipe.servings}</p> : null}
                         </div>
                       </div>
                     </Link>

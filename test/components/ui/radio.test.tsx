@@ -87,7 +87,7 @@ describe('Radio', () => {
       expect(radio.className).toContain('custom-class')
     })
 
-    it('applies default color styles (dark/zinc)', () => {
+    it('applies default neutral token styles', () => {
       const { container } = render(
         <RadioGroup value="test">
           <Radio value="test" aria-label="Test radio" />
@@ -95,7 +95,8 @@ describe('Radio', () => {
       )
       // The color styles are on the inner span (first child of the Radio)
       const innerSpan = container.querySelector('[role="radio"] > span')
-      expect(innerSpan?.className).toContain('[--radio-checked-indicator:var(--color-white)]')
+      expect(innerSpan?.className).toContain('[--radio-checked-indicator:var(--sj-paper)]')
+      expect(innerSpan?.className).toContain('[--radio-checked-bg:var(--sj-charcoal)]')
     })
 
     it('renders with different color variants', () => {

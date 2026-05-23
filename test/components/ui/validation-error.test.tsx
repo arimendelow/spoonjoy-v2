@@ -87,22 +87,22 @@ describe('ValidationError', () => {
   })
 
   describe('styling', () => {
-    it('applies red text color', () => {
+    it('applies tomato text color', () => {
       render(<ValidationError error="Error message" />)
       const alert = screen.getByRole('alert')
-      expect(alert.className).toContain('text-red')
+      expect(alert.className).toContain('text-[var(--sj-tomato)]')
     })
 
-    it('applies red border', () => {
+    it('applies tomato border', () => {
       render(<ValidationError error="Error message" />)
       const alert = screen.getByRole('alert')
-      expect(alert.className).toContain('border-red')
+      expect(alert.className).toContain('border-[var(--sj-tomato)]')
     })
 
-    it('applies red background', () => {
+    it('applies tomato background', () => {
       render(<ValidationError error="Error message" />)
       const alert = screen.getByRole('alert')
-      expect(alert.className).toContain('bg-red')
+      expect(alert.className).toContain('bg-[color-mix(in_srgb,var(--sj-tomato)_10%,var(--sj-panel-solid))]')
     })
 
     it('applies rounded corners', () => {

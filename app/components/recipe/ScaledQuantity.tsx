@@ -53,7 +53,7 @@ export function ScaledQuantity({
   return (
     <span
       data-testid="scaled-quantity"
-      className="text-zinc-900 dark:text-white"
+      className="text-[var(--sj-ink)]"
     >
       {parts.join(' ')}
     </span>

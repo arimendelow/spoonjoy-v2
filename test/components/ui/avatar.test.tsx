@@ -168,7 +168,7 @@ describe('Avatar', () => {
       const { container } = render(<AvatarButton initials="AB" />)
       const button = container.querySelector('button')
       expect(button?.className).toContain('data-focus:outline-2')
-      expect(button?.className).toContain('data-focus:outline-blue-500')
+      expect(button?.className).toContain('data-focus:outline-[var(--sj-brass)]')
     })
   })
 })

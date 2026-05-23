@@ -54,7 +54,7 @@ export function RecipeProvenance({ sourceUrl, sourceRecipe }: RecipeProvenancePr
   const displayTitle = truncate(title);
 
   return (
-    <div className="text-sm text-stone-600 dark:text-stone-400 space-y-1">
+    <div className="space-y-1 text-sm text-[var(--sj-ink-soft)]">
       {hasUrl ? (
         <p>
           <span>originally from </span>
@@ -62,7 +62,7 @@ export function RecipeProvenance({ sourceUrl, sourceRecipe }: RecipeProvenancePr
             href={sourceUrl!}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-stone-900 dark:hover:text-stone-100"
+            className="underline hover:text-[var(--sj-tomato)]"
           >
             {hostname ?? sourceUrl}
           </a>
@@ -79,7 +79,7 @@ export function RecipeProvenance({ sourceUrl, sourceRecipe }: RecipeProvenancePr
             <span>forked from </span>
             <Link
               to={`/recipes/${sourceRecipe!.id}`}
-              className="underline hover:text-stone-900 dark:hover:text-stone-100"
+              className="underline hover:text-[var(--sj-tomato)]"
             >
               <span>{sourceRecipe!.chef.username}</span>
               <span aria-hidden> · </span>

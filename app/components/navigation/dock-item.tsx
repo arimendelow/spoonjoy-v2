@@ -42,7 +42,7 @@ export function DockItem({
         className={clsx(
           'h-5 w-5',
           'transition-colors duration-150',
-          active ? 'text-white' : 'text-white/60',
+          active ? 'text-[var(--sj-on-photo)]' : 'text-[var(--sj-on-photo-soft)]',
           iconClassName
         )}
       />
@@ -53,10 +53,10 @@ export function DockItem({
           'uppercase',
           'font-medium',
           'transition-all duration-150',
-          active ? 'text-white' : 'text-white/60',
+          active ? 'text-[var(--sj-on-photo)]' : 'text-[var(--sj-on-photo-soft)]',
           labelClassName
         )}
-        style={active ? { textShadow: '0 0 8px rgba(255, 255, 255, 0.4)' } : undefined}
+        style={active ? { textShadow: '0 0 8px color-mix(in srgb, var(--sj-on-photo) 40%, transparent)' } : undefined}
       >
         {label}
       </span>

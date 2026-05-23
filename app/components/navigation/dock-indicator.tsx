@@ -58,7 +58,7 @@ export function DockIndicator({
         'rounded-full',
         
         // Background - subtle glass effect
-        'bg-white/10',
+        'bg-[var(--sj-photo-glass)]',
         
         // Custom class
         className

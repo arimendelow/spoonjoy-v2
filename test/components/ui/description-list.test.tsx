@@ -77,7 +77,7 @@ describe('DescriptionList', () => {
       const dt = screen.getByTestId('dt')
       expect(dt.className).toContain('col-start-1')
       expect(dt.className).toContain('border-t')
-      expect(dt.className).toContain('text-zinc-500')
+      expect(dt.className).toContain('text-[var(--sj-ink-soft)]')
     })
 
     it('passes additional props to dt element', () => {
@@ -118,7 +118,7 @@ describe('DescriptionList', () => {
       const dd = screen.getByTestId('dd')
       expect(dd.className).toContain('pt-1')
       expect(dd.className).toContain('pb-3')
-      expect(dd.className).toContain('text-zinc-950')
+      expect(dd.className).toContain('text-[var(--sj-ink)]')
     })
 
     it('passes additional props to dd element', () => {

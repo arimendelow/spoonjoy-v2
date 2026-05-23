@@ -76,7 +76,7 @@ export function RecipeGrid({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-[#17120f] text-[#fff7e8]">
+                  <div className="sj-on-photo flex h-full w-full flex-col items-center justify-center gap-1 bg-[var(--sj-photo-charcoal)]">
                     <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />
                     <span className="font-sj-ui text-xs uppercase tracking-[0.16em]">No photo</span>
                   </div>
@@ -108,14 +108,14 @@ export function RecipeGrid({
                 ) : null}
 
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4">
-                  <h3 className="font-sj-display text-2xl/8 font-semibold tracking-[-0.02em] text-[#fff7e8] transition group-hover:text-[#ffe0b0]">
+                  <h3 className="font-sj-display sj-on-photo text-2xl/8 font-semibold tracking-[-0.02em] transition group-hover:text-[var(--sj-on-photo-warm)]">
                     {recipe.title}
                   </h3>
                   {recipe.description ? (
-                    <p className="mt-2 line-clamp-2 text-sm/5 text-white/72">{recipe.description}</p>
+                    <p className="sj-on-photo-muted mt-2 line-clamp-2 text-sm/5">{recipe.description}</p>
                   ) : null}
                 {(recipe.servings || recipe.chefName) && (
-                  <p className="font-sj-ui mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
+                  <p className="font-sj-ui sj-on-photo-soft mt-3 text-xs font-semibold uppercase tracking-[0.14em]">
                     {recipe.servings && <span>Serves {recipe.servings}</span>}
                     {recipe.servings && recipe.chefName && <span className="mx-1">•</span>}
                     {recipe.chefName && <span>{recipe.chefName}</span>}

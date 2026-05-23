@@ -57,7 +57,7 @@ describe('SpoonjoyLogo', () => {
     })
 
     it('sets fill color for black variant', () => {
-      // The black variant should use #000
+      // The legacy black variant maps to the cookbook charcoal token.
       // This covers the 'variant === black' branch
       render(<SpoonjoyLogo data-testid="logo" variant="black" />)
 
@@ -66,7 +66,7 @@ describe('SpoonjoyLogo', () => {
     })
 
     it('sets fill color for white variant', () => {
-      // The white variant should use #fff
+      // The legacy white variant maps to the cookbook bone token.
       // This covers the else branch (neither current nor black)
       render(<SpoonjoyLogo data-testid="logo" variant="white" />)
 

@@ -18,13 +18,14 @@ export function SpoonjoyLogo({
   size = 24, 
   variant = 'current',
   className,
-  ...props 
+  style,
+  ...props
 }: SpoonjoyLogoProps) {
-  const fillColor = variant === 'current' 
-    ? 'currentColor' 
-    : variant === 'black' 
-      ? '#000' 
-      : '#fff'
+  const fillColor = variant === 'current'
+    ? 'currentColor'
+    : variant === 'black'
+      ? 'var(--sj-charcoal)'
+      : 'var(--sj-bone)'
 
   return (
     <svg
@@ -36,6 +37,7 @@ export function SpoonjoyLogo({
       // This logo uses fill (not stroke) unlike lucide icons
       className={clsx('shrink-0 fill-current!', className)}
       data-slot="icon"
+      style={variant === 'current' ? style : { ...style, color: fillColor }}
       {...props}
     >
       <g fillRule="evenodd" stroke="none" strokeWidth="1">

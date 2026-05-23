@@ -18,13 +18,13 @@ describe('Divider', () => {
   it('applies non-soft border styles by default', () => {
     const { container } = render(<Divider />)
     const hr = container.querySelector('hr')
-    expect(hr).toHaveClass('border-zinc-950/10')
+    expect(hr).toHaveClass('border-[var(--sj-border)]')
   })
 
   it('applies soft border styles when soft prop is true', () => {
     const { container } = render(<Divider soft />)
     const hr = container.querySelector('hr')
-    expect(hr).toHaveClass('border-zinc-950/5')
+    expect(hr).toHaveClass('border-[color-mix(in_srgb,var(--sj-charcoal)_7%,transparent)]')
   })
 
   it('applies custom className', () => {

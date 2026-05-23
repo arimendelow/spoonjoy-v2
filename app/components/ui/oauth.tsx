@@ -39,9 +39,9 @@ export function OAuthDivider({ className }: OAuthDividerProps) {
       data-testid="oauth-separator"
       className={clsx('flex items-center', className)}
     >
-      <div className="flex-1 border-t border-zinc-950/10 dark:border-white/10" />
-      <span className="px-4 text-sm text-zinc-500 dark:text-zinc-400">or</span>
-      <div className="flex-1 border-t border-zinc-950/10 dark:border-white/10" />
+      <div className="flex-1 border-t border-[var(--sj-border)]" />
+      <span className="px-4 text-sm text-[var(--sj-ink-soft)]">or</span>
+      <div className="flex-1 border-t border-[var(--sj-border)]" />
     </div>
   )
 }
@@ -86,8 +86,7 @@ export function OAuthError({ error, className }: OAuthErrorProps) {
     <div
       role="alert"
       className={clsx(
-        'rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700',
-        'dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400',
+        'rounded-[var(--sj-radius-small)] border border-[var(--sj-tomato)] bg-[color-mix(in_srgb,var(--sj-tomato)_10%,var(--sj-panel-solid))] p-3 text-sm text-[var(--sj-tomato)]',
         className
       )}
     >

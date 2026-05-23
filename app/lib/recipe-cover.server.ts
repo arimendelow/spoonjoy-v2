@@ -90,8 +90,8 @@ export function makeFallbackPlaceholderSvg(title: string): {
   const safeTitle = xmlEscape(title);
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid slice">` +
-    `<rect width="1024" height="1024" fill="#f5ecd9"/>` +
-    `<text x="512" y="540" text-anchor="middle" font-family="Georgia, serif" font-size="64" font-style="italic" fill="#b86138">${safeTitle}</text>` +
+    `<rect width="1024" height="1024" fill="#f4eee1"/>` +
+    `<text x="512" y="540" text-anchor="middle" font-family="Georgia, serif" font-size="64" font-style="italic" fill="#9b6834">${safeTitle}</text>` +
     `</svg>`;
   const bytes = new TextEncoder().encode(svg);
   const base64 = Buffer.from(bytes).toString("base64");

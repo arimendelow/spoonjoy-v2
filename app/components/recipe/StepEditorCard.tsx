@@ -46,19 +46,19 @@ const buttonSolidStyles = [
   'dark:before:hidden',
   'dark:border-[var(--sj-border)]',
   'after:absolute after:inset-0 after:-z-10 after:rounded-[calc(var(--radius-lg)-1px)]',
-  'after:shadow-[inset_0_1px_--theme(--color-white/15%)]',
+  'after:shadow-[inset_0_1px_color-mix(in_srgb,var(--sj-bone)_18%,transparent)]',
   'hover:after:bg-(--btn-hover-overlay)',
   'dark:after:-inset-px dark:after:rounded-lg',
   'disabled:before:shadow-none disabled:after:shadow-none',
 ]
 
 const buttonGreenStyles = [
-  'text-[var(--sj-paper)] [--btn-hover-overlay:var(--color-white)]/10 [--btn-bg:var(--sj-herb)] [--btn-border:var(--sj-herb)]',
+  'text-[var(--sj-paper)] [--btn-hover-overlay:color-mix(in_srgb,var(--sj-bone)_12%,transparent)] [--btn-bg:var(--sj-herb)] [--btn-border:var(--sj-herb)]',
   '[--btn-icon:var(--sj-paper)]',
 ]
 
 const buttonRedStyles = [
-  'text-[var(--sj-paper)] [--btn-hover-overlay:var(--color-white)]/10 [--btn-bg:var(--sj-tomato)] [--btn-border:var(--sj-tomato)]',
+  'text-[var(--sj-paper)] [--btn-hover-overlay:color-mix(in_srgb,var(--sj-bone)_12%,transparent)] [--btn-bg:var(--sj-tomato)] [--btn-border:var(--sj-tomato)]',
   '[--btn-icon:var(--sj-paper)]',
 ]
 

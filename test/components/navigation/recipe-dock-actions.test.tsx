@@ -76,8 +76,8 @@ describe('Recipe Dock Actions', () => {
       const addToList = capturedActions?.find(a => a.id === 'add-to-list')
       expect(addToList?.label).toBe('List')
       expect(addToList?.ariaLabel).toBe('Ingredients already in shopping list')
-      expect(addToList?.iconClassName).toContain('fill-white/70')
-      expect(addToList?.labelClassName).toContain('text-white/40')
+      expect(addToList?.iconClassName).toContain('fill-[var(--sj-on-photo-muted)]')
+      expect(addToList?.labelClassName).toContain('text-[var(--sj-on-photo-soft)]')
       expect(addToList?.icon).not.toBeUndefined()
 
       addToList?.onAction?.()

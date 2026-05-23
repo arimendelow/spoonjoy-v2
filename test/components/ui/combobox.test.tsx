@@ -601,13 +601,13 @@ describe('Combobox', () => {
       expect(descContainer?.className).toContain('custom-desc')
     })
 
-    it('applies text-zinc-500 class for muted styling', () => {
+    it('applies muted ink token styling', () => {
       // Test ComboboxDescription component directly for styling
       const { container } = render(
         <ComboboxDescription>Description text</ComboboxDescription>
       )
       const descContainer = container.querySelector('span')
-      expect(descContainer?.className).toContain('text-zinc-500')
+      expect(descContainer?.className).toContain('text-[var(--sj-ink-soft)]')
     })
   })
 
