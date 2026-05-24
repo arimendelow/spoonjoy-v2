@@ -45,18 +45,6 @@ async function expectTouchTarget(locator: Locator, label: string) {
   expect(box!.height, `${label} touch target height`).toBeGreaterThanOrEqual(44);
 }
 
-async function expectWithinDock(locator: Locator, dock: Locator, label: string) {
-  const [box, dockBox] = await Promise.all([locator.boundingBox(), dock.boundingBox()]);
-
-  expect(box, `${label} should have a bounding box`).not.toBeNull();
-  expect(dockBox, 'dock should have a bounding box').not.toBeNull();
-  expect(box!.x, `${label} should not overflow the dock left edge`).toBeGreaterThanOrEqual(dockBox!.x - 1);
-  expect(
-    box!.x + box!.width,
-    `${label} should not overflow the dock right edge`,
-  ).toBeLessThanOrEqual(dockBox!.x + dockBox!.width + 1);
-}
-
 async function expectAboveDock(locator: Locator, dock: Locator, label: string) {
   await locator.scrollIntoViewIfNeeded();
 
@@ -114,22 +102,22 @@ test.describe('Mobile RecipeBuilder and SpoonDock audit', () => {
     await expect(page.getByRole('heading', { name: updatedTitle })).toBeVisible();
   });
 
-  test('recipe detail contextual dock actions fit', async ({ page }) => {
+  test('recipe detail masthead actions fit without the fixed dock', async ({ page }) => {
     const recipeHref = await getFirstRecipeHref(page);
     await page.goto(recipeHref);
 
     await expect(page.getByRole('heading').first()).toBeVisible();
-    const dock = await getDock(page);
+    await expect(page.getByRole('navigation', { name: 'Spoonjoy navigation' })).toHaveCount(0);
+
     const actions = [
-      dock.getByRole('link', { name: /Back recipes/i }),
-      dock.getByRole('link', { name: 'Cook' }),
-      dock.getByRole('link', { name: 'Edit' }),
-      dock.getByRole('button', { name: 'List' }),
+      page.getByRole('link', { name: 'Recipes' }),
+      page.getByRole('link', { name: 'Cook mode' }),
+      page.getByRole('button', { name: /add to list|in list/i }),
+      page.getByRole('button', { name: 'Log cook' }),
     ];
 
     for (const [index, action] of actions.entries()) {
-      await expectTouchTarget(action, `recipe detail dock action ${index + 1}`);
-      await expectWithinDock(action, dock, `recipe detail dock action ${index + 1}`);
+      await expectTouchTarget(action, `recipe detail masthead action ${index + 1}`);
     }
   });
 

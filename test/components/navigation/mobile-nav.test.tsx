@@ -82,12 +82,12 @@ describe("MobileNav", () => {
       unmount();
 
       render(
-        <MemoryRouter initialEntries={["/recipes/123"]}>
+        <MemoryRouter initialEntries={["/shopping-list"]}>
           <MobileNav />
         </MemoryRouter>,
       );
 
-      expect(screen.getByRole("link", { name: /kitchen home/i })).not.toHaveAttribute("aria-current");
+      expect(screen.getByRole("link", { name: /kitchen/i })).not.toHaveAttribute("aria-current");
     });
   });
 
@@ -103,6 +103,14 @@ describe("MobileNav", () => {
 
       rerender(
         <MemoryRouter initialEntries={["/cookbooks/new"]}>
+          <MobileNav />
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByRole("navigation", { name: "Spoonjoy navigation" })).not.toBeInTheDocument();
+
+      rerender(
+        <MemoryRouter initialEntries={["/recipes/recipe-1"]}>
           <MobileNav />
         </MemoryRouter>,
       );
@@ -151,7 +159,7 @@ describe("MobileNav", () => {
         </MemoryRouter>,
       );
 
-      expect(screen.getByRole("navigation", { name: "Spoonjoy navigation" })).toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Spoonjoy navigation" })).not.toBeInTheDocument();
     });
 
     it("turns search into the place slot on search routes", () => {
@@ -234,7 +242,7 @@ describe("MobileNav", () => {
       ];
 
       render(
-        <MemoryRouter initialEntries={["/recipes/123"]}>
+        <MemoryRouter initialEntries={["/users/ari"]}>
           <DockContext.Provider value={{ actions, setActions: () => {}, config: null, setConfig: () => {}, isContextual: true }}>
             <MobileNav />
           </DockContext.Provider>
@@ -256,7 +264,7 @@ describe("MobileNav", () => {
       ];
 
       render(
-        <MemoryRouter initialEntries={["/recipes/123"]}>
+        <MemoryRouter initialEntries={["/users/ari"]}>
           <DockContext.Provider value={{ actions, setActions: () => {}, config: null, setConfig: () => {}, isContextual: true }}>
             <MobileNav />
           </DockContext.Provider>
@@ -276,7 +284,7 @@ describe("MobileNav", () => {
       ];
 
       const { rerender } = render(
-        <MemoryRouter initialEntries={["/recipes/123"]}>
+        <MemoryRouter initialEntries={["/users/ari"]}>
           <DockContext.Provider value={{ actions, setActions: () => {}, config: null, setConfig: () => {}, isContextual: true }}>
             <MobileNav />
           </DockContext.Provider>
@@ -286,7 +294,7 @@ describe("MobileNav", () => {
       expect(screen.getByRole("link", { name: /back back/i })).toBeInTheDocument();
 
       rerender(
-        <MemoryRouter initialEntries={["/recipes/123"]}>
+        <MemoryRouter initialEntries={["/users/ari"]}>
           <DockContext.Provider value={{ actions: null, setActions: () => {}, config: null, setConfig: () => {}, isContextual: false }}>
             <MobileNav />
           </DockContext.Provider>
@@ -300,7 +308,7 @@ describe("MobileNav", () => {
 
     it("renders the center slot even when a contextual caller has no actions", () => {
       render(
-        <MemoryRouter initialEntries={["/recipes/123"]}>
+        <MemoryRouter initialEntries={["/users/ari"]}>
           <DockContext.Provider value={{ actions: null, setActions: () => {}, config: null, setConfig: () => {}, isContextual: true }}>
             <MobileNav />
           </DockContext.Provider>

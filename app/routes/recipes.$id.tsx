@@ -13,6 +13,7 @@ import { Dialog, DialogActions, DialogBody, DialogDescription, DialogTitle } fro
 import { Field, Label } from "~/components/ui/fieldset";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
+import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { RecipeHeader } from "~/components/recipe/RecipeHeader";
 import { RecipeProvenance } from "~/components/recipe/RecipeProvenance";
@@ -46,6 +47,15 @@ type SpoonListItem = {
   chef: { id: string; username: string; photoUrl: string | null };
 };
 const EMPTY_SPOONS: SpoonListItem[] = [];
+
+const recipeMastheadLinkClass =
+  "inline-flex min-h-11 items-center gap-2 font-sj-ui text-xs font-bold uppercase tracking-[0.16em] text-[var(--sj-ink-soft)] no-underline transition hover:text-[var(--sj-ink)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sj-brass)]";
+
+const recipeMastheadActionClass =
+  "inline-flex min-h-12 items-center justify-center px-2 font-sj-ui text-xs font-bold uppercase tracking-[0.16em] text-[var(--sj-ink-soft)] transition hover:text-[var(--sj-ink)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sj-brass)] sm:min-h-11 sm:px-0";
+
+const recipeMastheadPrimaryActionClass =
+  "text-[var(--sj-action)] hover:text-[var(--sj-tomato)]";
 
 export function applyCreatedCookbookState(
   currentCookbooks: CookbookListItem[],
@@ -230,11 +240,62 @@ export default function RecipeDetail() {
     if (posthog) {
       posthog.capture("recipe_added_to_shopping_list", {
         recipe_id: recipe.id,
-        source: "recipe_detail_dock",
+        source: "recipe_detail_header",
         scale_factor: scaleFactor,
       });
     }
   }, [addToListFetcher, recipe.id, scaleFactor, posthog]);
+
+  const addToListLabel = addToListFetcher.state !== "idle"
+    ? "Adding"
+    : isAlreadyInList
+      ? "In list"
+      : "Add to list";
+
+  const headerProvenance = recipe.sourceUrl || recipe.sourceRecipe ? (
+    <RecipeProvenance
+      sourceUrl={recipe.sourceUrl ?? undefined}
+      sourceRecipe={recipe.sourceRecipe ?? undefined}
+    />
+  ) : null;
+
+  const headerMasthead = (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <Link href="/recipes" className={recipeMastheadLinkClass}>
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Recipes
+      </Link>
+      <div
+        className="grid grid-cols-3 border-y border-[var(--sj-border)] sm:flex sm:items-center sm:gap-6 sm:border-y-0"
+        data-testid="recipe-header-actions"
+      >
+        <Link
+          href="#steps"
+          className={`${recipeMastheadActionClass} ${recipeMastheadPrimaryActionClass} border-r border-[var(--sj-border)] sm:border-r-0`}
+          data-testid="recipe-header-cook-action"
+        >
+          Cook mode
+        </Link>
+        <button
+          type="button"
+          onClick={handleAddToList}
+          aria-pressed={isAlreadyInList}
+          className={`${recipeMastheadActionClass} border-r border-[var(--sj-border)] bg-transparent sm:border-r-0`}
+          data-testid="recipe-header-list-action"
+        >
+          {addToListLabel}
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsSpoonDialogOpen(true)}
+          className={`${recipeMastheadActionClass} bg-transparent`}
+          data-testid="recipe-header-log-cook-action"
+        >
+          Log cook
+        </button>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     const wasSuccessful =
@@ -411,22 +472,13 @@ export default function RecipeDetail() {
         scaleFactor={scaleFactor}
         onScaleChange={handleScaleChange}
         onClearProgress={handleClearProgress}
+        masthead={headerMasthead}
+        provenance={headerProvenance}
       />
 
-      {/* Provenance + log-a-cook action */}
-      <div className="mx-auto max-w-4xl space-y-4 px-4 pt-4 sm:px-6 lg:px-8">
-        <RecipeProvenance
-          sourceUrl={recipe.sourceUrl ?? undefined}
-          sourceRecipe={recipe.sourceRecipe ?? undefined}
-        />
+      {/* Secondary recipe actions */}
+      <div className="mx-auto max-w-4xl px-4 pt-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap gap-3">
-          <Button href="/recipes" plain>
-            <ArrowLeft data-slot="icon" />
-            Back to recipes
-          </Button>
-          <Button type="button" onClick={() => setIsSpoonDialogOpen(true)}>
-            Log a cook
-          </Button>
           <ForkRecipeButton
             recipeId={recipe.id}
             recipeTitle={recipe.title}

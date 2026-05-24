@@ -33,8 +33,7 @@ function shouldHideDock(pathname: string, isAuthenticated: boolean) {
     return true;
   }
 
-  return pathname.startsWith("/recipes/")
-    && (pathname.endsWith("/edit") || pathname.endsWith("/steps/new") || (pathname.includes("/steps/") && pathname.endsWith("/edit")));
+  return pathname.startsWith("/recipes/");
 }
 
 function rootConfig(pathname: string, isAuthenticated: boolean): DockConfig {
