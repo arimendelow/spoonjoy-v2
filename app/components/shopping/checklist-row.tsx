@@ -7,6 +7,8 @@ export function ChecklistRow({
   quantity,
   note,
   onToggle,
+  onPress,
+  pressAriaLabel,
   action,
   quantityTestId,
 }: {
@@ -15,10 +17,20 @@ export function ChecklistRow({
   quantity?: string | null;
   note?: string | null;
   onToggle?: () => void;
+  onPress?: () => void;
+  pressAriaLabel?: string;
   action?: ReactNode;
   quantityTestId?: string;
 }) {
   const displayedQuantity = quantity && quantity.trim() ? quantity : "\u00A0";
+  const strike = checked ? (
+    <span
+      aria-hidden="true"
+      data-testid="checklist-row-strike"
+      className="pointer-events-none absolute left-0 right-0 top-[0.78rem] h-px bg-[color-mix(in_srgb,var(--sj-ink-soft)_72%,transparent)]"
+    />
+  ) : null;
+
   const check = (
     <span
       aria-hidden="true"
@@ -38,7 +50,7 @@ export function ChecklistRow({
       <span
         className={clsx(
           "block truncate font-sj-ui text-base text-[var(--sj-ink)]",
-          checked && "line-through text-[var(--sj-ink-soft)]",
+          checked && "text-[var(--sj-ink-soft)]",
         )}
       >
         {name}
@@ -52,21 +64,28 @@ export function ChecklistRow({
       data-testid={quantityTestId}
       className={clsx(
         "whitespace-nowrap text-right font-sj-ui text-sm tabular-nums text-[var(--sj-ink)]",
-        checked && "line-through text-[var(--sj-ink-soft)]",
+        checked && "text-[var(--sj-ink-soft)]",
       )}
     >
       {displayedQuantity}
     </span>
   );
 
+  const contentGroup = (includeAction: boolean) => (
+    <span className="relative grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+      {labelContent}
+      <span className="flex items-start gap-2">
+        {quantityContent}
+        {includeAction ? action : null}
+      </span>
+      {strike}
+    </span>
+  );
+
   const rowContent = (
     <>
       {check}
-      {labelContent}
-      <span className="flex items-center gap-2">
-        {quantityContent}
-        {action}
-      </span>
+      {contentGroup(true)}
     </>
   );
 
@@ -74,7 +93,7 @@ export function ChecklistRow({
     "grid min-h-11 min-h-14 items-center gap-3 py-2",
     checked && "opacity-72",
   );
-  const rowClassName = clsx(rowBaseClassName, "grid-cols-[2rem_minmax(0,1fr)_auto]");
+  const rowClassName = clsx(rowBaseClassName, "grid-cols-[2rem_minmax(0,1fr)]");
 
   if (onToggle) {
     if (action) {
@@ -83,14 +102,13 @@ export function ChecklistRow({
           <button
             type="button"
             onClick={onToggle}
-            className="grid min-h-11 min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 text-left"
+            className="grid min-h-11 min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 text-left"
             role="checkbox"
             aria-checked={checked}
             aria-label={name}
           >
             {check}
-            {labelContent}
-            {quantityContent}
+            {contentGroup(false)}
           </button>
           {action}
         </div>
@@ -105,6 +123,19 @@ export function ChecklistRow({
         role="checkbox"
         aria-checked={checked}
         aria-label={name}
+      >
+        {rowContent}
+      </button>
+    );
+  }
+
+  if (onPress) {
+    return (
+      <button
+        type="button"
+        onClick={onPress}
+        className={clsx(rowClassName, "w-full text-left")}
+        aria-label={pressAriaLabel ?? name}
       >
         {rowContent}
       </button>

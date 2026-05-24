@@ -1,6 +1,4 @@
-import { ArrowUp } from 'lucide-react'
-import { Checkbox, CheckboxField } from '../ui/checkbox'
-import { Label } from '../ui/fieldset'
+import { ChecklistRow } from '~/components/shopping/checklist-row'
 
 export interface StepReference {
   /** Unique identifier */
@@ -25,11 +23,11 @@ export interface StepOutputUseCalloutProps {
 }
 
 /**
- * A visually distinctive callout showing step output references.
+ * A quiet checklist treatment showing step output references.
  *
  * Features:
- * - Colored left border for visual distinction
- * - Arrow icon indicating reference direction
+ * - Shares the ingredient-row visual grammar
+ * - Labels step outputs as prep work without introducing a separate callout design
  * - Shows step title when available, falls back to step number
  * - Returns null for empty references (no render)
  * - Optional click handler for navigation
@@ -50,80 +48,38 @@ export function StepOutputUseCallout({
   return (
     <div
       data-testid="step-output-callout"
-      className="my-3 rounded-r-[1.25rem] border-l-2 border-[var(--sj-brass)] bg-[color-mix(in_srgb,var(--sj-flour)_52%,transparent)] px-4 py-3"
+      className="my-3 border-y border-[var(--sj-border)] py-2"
     >
-      <div className="flex items-start gap-2">
-        <ArrowUp
-          className="mt-0.5 h-4 w-4 shrink-0 text-[var(--sj-brass)]"
-          aria-hidden="true"
-        />
-        <div className="flex-1 min-w-0">
-          <span className="font-sj-ui text-sm font-semibold text-[var(--sj-ink)]">
-            Using output from:
-          </span>
-          <ul className="mt-1 space-y-1">
-            {references.map((ref) => {
-              const isChecked = checkedIds.has(ref.id)
-              const shouldShowCheckbox = showCheckboxes && onToggle
+      <span className="font-sj-ui text-xs font-semibold uppercase tracking-[0.18em] text-[var(--sj-ink-soft)]">
+        Using output from:
+      </span>
+      <ul className="mt-2 divide-y divide-[var(--sj-border)]">
+        {references.map((ref) => {
+          const isChecked = checkedIds.has(ref.id)
+          const shouldShowCheckbox = showCheckboxes && onToggle
+          const name = formatStepReferenceName(ref)
 
-              if (shouldShowCheckbox) {
-                return (
-                  <li key={ref.id}>
-                    <CheckboxField>
-                      <Checkbox
-                        checked={isChecked}
-                        onChange={() => onToggle(ref.id)}
-                        aria-label={`Mark Step ${ref.stepNumber}${ref.stepTitle ? `: ${ref.stepTitle}` : ''} as used`}
-                      />
-                      <Label
-                        className={`cursor-pointer text-sm ${
-                          isChecked
-                            ? 'line-through text-[var(--sj-ink-soft)] opacity-60'
-                            : 'text-[var(--sj-ink-soft)]'
-                        }`}
-                      >
-                        <StepReferenceText reference={ref} />
-                      </Label>
-                    </CheckboxField>
-                  </li>
-                )
-              }
-
-              return (
-                <li key={ref.id}>
-                  {onStepClick ? (
-                    <button
-                      type="button"
-                      onClick={() => onStepClick(ref.stepNumber)}
-                      className="text-sm text-[var(--sj-ink-soft)] hover:text-[var(--sj-tomato)] hover:underline focus:outline-none focus:underline"
-                    >
-                      <StepReferenceText reference={ref} />
-                    </button>
-                  ) : (
-                    <span className="text-sm text-[var(--sj-ink-soft)]">
-                      <StepReferenceText reference={ref} />
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      </div>
+          return (
+            <li key={ref.id}>
+              <ChecklistRow
+                checked={isChecked}
+                name={name}
+                note={isChecked ? 'used' : 'step output'}
+                onToggle={shouldShowCheckbox ? () => onToggle(ref.id) : undefined}
+                onPress={!shouldShowCheckbox && onStepClick ? () => onStepClick(ref.stepNumber) : undefined}
+              />
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
 
-function StepReferenceText({ reference }: { reference: StepReference }) {
+function formatStepReferenceName(reference: StepReference) {
   if (reference.stepTitle) {
-    return (
-      <>
-        <span className="font-medium">Step {reference.stepNumber}</span>
-        {': '}
-        {reference.stepTitle}
-      </>
-    )
+    return `Step ${reference.stepNumber}: ${reference.stepTitle}`
   }
 
-  return <span className="font-medium">Step {reference.stepNumber}</span>
+  return `Step ${reference.stepNumber}`
 }
