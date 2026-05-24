@@ -56,6 +56,7 @@ describe("spoonjoy MCP tools", () => {
       "search_shopping_list",
       "get_recipe",
       "create_recipe",
+      "update_recipe",
       "import_recipe_from_url",
       "fork_recipe",
       "add_recipe_to_shopping_list",
@@ -209,6 +210,147 @@ describe("spoonjoy MCP tools", () => {
     expect(recipe.recipe.steps).toEqual([]);
     await expect(callSpoonjoyMcpTool("get_recipe", {}, context)).rejects.toThrow("id or title is required");
     expect(parseJson(await callSpoonjoyMcpTool("get_recipe", { id: "missing" }, context))).toEqual({ recipe: null });
+  });
+
+  it("updates owner recipes with replacement steps and ingredients without interactive transactions", async () => {
+    const created = parseJson(await callSpoonjoyMcpTool("create_recipe", {
+      title: "Draft Agent Pancakes",
+      description: "Early breakfast notes",
+      servings: "2",
+      sourceUrl: "https://spoonjoy.app/draft-agent-pancakes",
+      steps: [
+        {
+          title: "Mix",
+          description: "Mix the batter",
+          duration: 5,
+          ingredients: [
+            { name: "Flour", quantity: 2, unit: "Cup" },
+            { name: "Milk", quantity: 1, unit: "Cup" },
+          ],
+        },
+        { description: "Cook", ingredients: [{ name: "Butter", quantity: 1, unit: "Tbsp" }] },
+      ],
+    }, context));
+
+    await context.db.stepOutputUse.create({
+      data: {
+        recipeId: created.recipe.id,
+        outputStepNum: 1,
+        inputStepNum: 2,
+      },
+    });
+
+    const guardedContext = {
+      ...context,
+      db: withD1TransactionGuard(context.db),
+    };
+
+    const updated = parseJson(await callSpoonjoyMcpTool("update_recipe", {
+      id: created.recipe.id,
+      title: "Finished Agent Pancakes",
+      description: "Breakfast fit for a full MCP pass",
+      servings: null,
+      sourceUrl: null,
+      steps: [
+        {
+          title: "Whisk",
+          description: "Whisk until glossy",
+          duration: 6,
+          ingredients: [{ name: "Egg", quantity: 2, unit: "Whole" }],
+        },
+        { description: "Serve warm", ingredients: [] },
+      ],
+    }, guardedContext));
+
+    expect(updated.recipe).toMatchObject({
+      id: created.recipe.id,
+      title: "Finished Agent Pancakes",
+      description: "Breakfast fit for a full MCP pass",
+      servings: null,
+      sourceUrl: null,
+      ingredientCount: 1,
+      steps: [
+        { stepNum: 1, title: "Whisk", description: "Whisk until glossy", duration: 6 },
+        { stepNum: 2, title: null, description: "Serve warm", duration: null, ingredients: [] },
+      ],
+    });
+    expect(updated.recipe.steps[0].ingredients).toEqual([
+      expect.objectContaining({ name: "egg", quantity: 2, unit: "whole" }),
+    ]);
+    await expect(context.db.stepOutputUse.count({ where: { recipeId: created.recipe.id } })).resolves.toBe(0);
+    await expect(context.db.ingredient.count({ where: { recipeId: created.recipe.id } })).resolves.toBe(1);
+  });
+
+  it("keeps untouched fields when updating only part of a recipe", async () => {
+    const created = parseJson(await callSpoonjoyMcpTool("create_recipe", {
+      title: "Partial Update Soup",
+      description: "Keep this description",
+      servings: "4",
+      sourceUrl: "https://spoonjoy.app/partial-update-soup",
+      steps: [{ description: "Simmer", ingredients: [{ name: "Beans", quantity: 1, unit: "Can" }] }],
+    }, context));
+
+    const updated = parseJson(await callSpoonjoyMcpTool("update_recipe", {
+      id: created.recipe.id,
+      title: "Partial Update Stew",
+    }, context));
+
+    expect(updated.recipe).toMatchObject({
+      id: created.recipe.id,
+      title: "Partial Update Stew",
+      description: "Keep this description",
+      servings: "4",
+      sourceUrl: "https://spoonjoy.app/partial-update-soup",
+      ingredientCount: 1,
+      steps: [{ description: "Simmer" }],
+    });
+
+    const cleared = parseJson(await callSpoonjoyMcpTool("update_recipe", {
+      id: created.recipe.id,
+      description: "",
+    }, context));
+    expect(cleared.recipe).toMatchObject({
+      title: "Partial Update Stew",
+      description: null,
+      servings: "4",
+    });
+
+    const stepsOnly = parseJson(await callSpoonjoyMcpTool("update_recipe", {
+      id: created.recipe.id,
+      steps: [{ description: "Finish with herbs", ingredients: [] }],
+    }, context));
+    expect(stepsOnly.recipe).toMatchObject({
+      title: "Partial Update Stew",
+      description: null,
+      ingredientCount: 0,
+      steps: [{ stepNum: 1, description: "Finish with herbs", ingredients: [] }],
+    });
+  });
+
+  it("rejects invalid or unauthorized recipe updates", async () => {
+    const first = parseJson(await callSpoonjoyMcpTool("create_recipe", { title: "Update Owner Recipe" }, context));
+    await callSpoonjoyMcpTool("create_recipe", { title: "Update Duplicate Recipe" }, context);
+
+    await expect(callSpoonjoyMcpTool("update_recipe", {}, context)).rejects.toThrow("id is required");
+    await expect(callSpoonjoyMcpTool("update_recipe", { id: first.recipe.id, title: "" }, context)).rejects.toThrow("title is required");
+    await expect(callSpoonjoyMcpTool("update_recipe", {
+      id: first.recipe.id,
+      title: "Update Duplicate Recipe",
+    }, context)).rejects.toThrow(ACTIVE_RECIPE_TITLE_CONFLICT_ERROR);
+    await expect(callSpoonjoyMcpTool("update_recipe", {
+      ownerEmail: uniqueEmail("other-owner"),
+      id: first.recipe.id,
+      title: "Stolen Update",
+    }, context)).rejects.toThrow("Recipe not found");
+    await expect(callSpoonjoyMcpTool("update_recipe", {
+      id: first.recipe.id,
+      steps: {},
+    }, context)).rejects.toThrow("steps must be an array");
+    await expect(callSpoonjoyMcpTool("update_recipe", {
+      id: first.recipe.id,
+      description: 42,
+    }, context)).rejects.toThrow("description must be a string or null");
+    await expect(callSpoonjoyMcpTool("update_recipe", { id: "missing-recipe", title: "Missing" }, context)).rejects.toThrow("Recipe not found");
   });
 
   it("handles unusual owner emails and ingredient-free steps", async () => {
@@ -749,6 +891,7 @@ describe("spoonjoy MCP tools", () => {
     await expect(callSpoonjoyMcpTool("create_recipe", { title: "Bad ingredient", steps: [{ description: "x", ingredients: [null] }] }, context)).rejects.toThrow("steps.ingredients[0] must be an object");
     await expect(callSpoonjoyMcpTool("create_recipe", { title: "Bad quantity", steps: [{ description: "x", ingredients: [{ name: "x", quantity: 0, unit: "cup" }] }] }, context)).rejects.toThrow("quantity must be a positive number");
     await expect(callSpoonjoyMcpTool("create_recipe", { title: "Bad unit", steps: [{ description: "x", ingredients: [{ name: "x", quantity: 1, unit: "" }] }] }, context)).rejects.toThrow("unit is required");
+    await expect(callSpoonjoyMcpTool("update_recipe", { id: "recipe", title: "No owner" }, { db: context.db })).rejects.toThrow("ownerEmail is required");
     await expect(callSpoonjoyMcpTool("missing", {}, context)).rejects.toThrow("Unknown Spoonjoy operation");
     await expect(callSpoonjoyMcpTool("add_recipe_to_shopping_list", {}, context)).rejects.toThrow("recipeId is required");
     await expect(callSpoonjoyMcpTool("create_cookbook", { title: "No owner" }, { db: context.db })).rejects.toThrow("ownerEmail is required");
