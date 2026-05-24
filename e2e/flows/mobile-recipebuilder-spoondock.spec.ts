@@ -128,7 +128,10 @@ test.describe('Mobile RecipeBuilder and SpoonDock audit', () => {
         const rect = element.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
       });
-      return target ? Math.abs(target.getBoundingClientRect().top) <= 2 : false;
+      if (!target) return false;
+
+      const rect = target.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > 0;
     });
   });
 

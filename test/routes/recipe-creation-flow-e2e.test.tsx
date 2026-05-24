@@ -473,51 +473,54 @@ describe("E2E: Complete Recipe Creation Flow", () => {
       const recipeId = await createRecipe("AI Parse Test " + faker.string.alphanumeric(6));
       const stepId = await addStep(recipeId, "Mix ingredients");
 
-      // Mock the OpenAI API call
-      const mockOpenAI = vi.fn().mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                ingredients: [
-                  { quantity: 2, unit: "cup", ingredientName: "flour" },
-                  { quantity: 1, unit: "tsp", ingredientName: "salt" },
-                ],
-              }),
-            },
-          },
-        ],
-      });
-
-      // Mock the openai module
-      vi.doMock("openai", () => ({
-        default: class MockOpenAI {
-          chat = {
-            completions: {
-              create: mockOpenAI,
-            },
-          };
-        },
-      }));
-
-      // Since the action uses the actual OpenAI client, we need to set the API key
-      // to trigger the actual flow (without a key, it throws IngredientParseError immediately)
+      const parsedIngredients = [
+        { quantity: 2, unit: "cup", ingredientName: "flour" },
+        { quantity: 1, unit: "tsp", ingredientName: "salt" },
+      ];
+      const originalKey = process.env.OPENAI_API_KEY;
+      const originalFetch = globalThis.fetch;
       process.env.OPENAI_API_KEY = "test-api-key";
+      globalThis.fetch = vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            id: "chatcmpl-test",
+            object: "chat.completion",
+            created: 0,
+            model: "gpt-4o-mini",
+            choices: [
+              {
+                index: 0,
+                finish_reason: "stop",
+                message: {
+                  role: "assistant",
+                  content: JSON.stringify({ ingredients: parsedIngredients }),
+                  refusal: null,
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      ) as unknown as typeof fetch;
 
-      // Call the parse action
-      const result = await parseIngredientsAction(
-        recipeId,
-        stepId,
-        "2 cups flour\n1 tsp salt"
-      );
+      try {
+        const result = await parseIngredientsAction(
+          recipeId,
+          stepId,
+          "2 cups flour\n1 tsp salt"
+        );
 
-      // Without mocking OpenAI properly (it's imported at module level),
-      // we expect an error because the API key is fake
-      // The important thing is testing the error path works correctly
-      expect(result.errors?.parse).toBeDefined();
-
-      // Clean up
-      delete process.env.OPENAI_API_KEY;
+        expect(result.errors?.parse).toBeUndefined();
+        expect(result.parsedIngredients).toEqual(parsedIngredients);
+        expect(globalThis.fetch).toHaveBeenCalled();
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (originalKey) {
+          process.env.OPENAI_API_KEY = originalKey;
+        } else {
+          delete process.env.OPENAI_API_KEY;
+        }
+      }
     });
 
     it("should return parse error when API key is missing", async () => {
@@ -773,12 +776,25 @@ describe("E2E: Complete Recipe Creation Flow", () => {
       const recipeId = await createRecipe("API Failure Test " + faker.string.alphanumeric(6));
       const stepId = await addStep(recipeId, "Mix ingredients");
 
-      // Set a fake API key to trigger actual API call (which will fail)
+      // Set a fake API key and stub fetch to trigger the API-failure branch
+      // without reaching the real OpenAI service.
       const originalKey = process.env.OPENAI_API_KEY;
+      const originalFetch = globalThis.fetch;
       process.env.OPENAI_API_KEY = "fake-key-that-will-fail";
+      globalThis.fetch = vi.fn(async () =>
+        new Response(JSON.stringify({ error: { message: "stubbed OpenAI failure" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        })
+      ) as unknown as typeof fetch;
 
-      // Attempt AI parse - should fail with API error
-      const parseResult = await parseIngredientsAction(recipeId, stepId, "2 cups flour");
+      let parseResult: Awaited<ReturnType<typeof parseIngredientsAction>>;
+      try {
+        // Attempt AI parse - should fail with API error
+        parseResult = await parseIngredientsAction(recipeId, stepId, "2 cups flour");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
 
       // Should get a parse error (could be various types of API errors)
       expect(parseResult.errors?.parse).toBeDefined();
