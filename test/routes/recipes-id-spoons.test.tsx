@@ -164,6 +164,49 @@ describe("Recipes $id route — spoons + provenance", () => {
     ).toHaveAttribute("href", "https://nyt.com/recipes/spoon-detail");
   });
 
+  it("renders RecipeProvenance in the header when sourceRecipe is set without sourceUrl", async () => {
+    const mockData = {
+      recipe: {
+        id: "r1",
+        title: "Mock Fork",
+        description: null,
+        servings: null,
+        sourceUrl: null,
+        sourceRecipe: {
+          id: "source-1",
+          title: "Original Stew",
+          deletedAt: null,
+          chef: { username: "originchef" },
+        },
+        chef: { id: "c1", username: "testchef", photoUrl: null },
+        steps: [],
+      },
+      coverImageUrl: "/p.png",
+      isOwner: false,
+      cookbooks: [],
+      savedInCookbookIds: [],
+      hasIngredientsInShoppingList: false,
+      spoons: [],
+      isOriginCookCandidate: false,
+    };
+    const Stub = createTestRoutesStub([
+      {
+        path: "/recipes/:id",
+        Component: () => (
+          <ToastProvider>
+            <RecipeDetail />
+          </ToastProvider>
+        ),
+        loader: () => mockData,
+      },
+    ]);
+    render(<Stub initialEntries={["/recipes/r1"]} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("recipe-header-provenance")).toHaveTextContent("forked from");
+    });
+    expect(screen.getByRole("link", { name: /originchef/i })).toHaveAttribute("href", "/recipes/source-1");
+  });
+
   it("renders SpoonsStrip with non-deleted spoons from the loader", async () => {
     const mockData = {
       recipe: {
@@ -209,7 +252,7 @@ describe("Recipes $id route — spoons + provenance", () => {
     });
   });
 
-  it("clicking 'Log a cook' opens then closes the SpoonDialog via Cancel", async () => {
+  it("clicking 'Log cook' opens then closes the SpoonDialog via Cancel", async () => {
     const mockData = {
       recipe: {
         id: "r1",
@@ -240,7 +283,7 @@ describe("Recipes $id route — spoons + provenance", () => {
       },
     ]);
     render(<Stub initialEntries={["/recipes/r1"]} />);
-    const open = await screen.findByRole("button", { name: /log a cook/i });
+    const open = await screen.findByRole("button", { name: /log cook/i });
     await userEvent.click(open);
     expect(await screen.findByRole("heading", { name: /log a cook/i })).toBeInTheDocument();
     const cancel = screen.getByRole("button", { name: /cancel/i });
@@ -250,7 +293,7 @@ describe("Recipes $id route — spoons + provenance", () => {
     });
   });
 
-  it("clicking 'Log a cook' opens the SpoonDialog", async () => {
+  it("clicking 'Log cook' opens the SpoonDialog", async () => {
     const mockData = {
       recipe: {
         id: "r1",
@@ -281,7 +324,7 @@ describe("Recipes $id route — spoons + provenance", () => {
       },
     ]);
     render(<Stub initialEntries={["/recipes/r1"]} />);
-    const open = await screen.findByRole("button", { name: /log a cook/i });
+    const open = await screen.findByRole("button", { name: /log cook/i });
     await userEvent.click(open);
     expect(await screen.findByRole("heading", { name: /log a cook/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/^note/i)).toBeInTheDocument();

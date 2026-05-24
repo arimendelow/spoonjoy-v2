@@ -17,7 +17,7 @@ test.describe('Spoon a recipe flow', () => {
     await expect(page).toHaveURL(/\/recipes\/[^/]+$/, { timeout: 10_000 });
 
     // Open the spoon dialog.
-    const logCookButton = page.getByRole('button', { name: /log a cook/i }).first();
+    const logCookButton = page.getByRole('button', { name: /log cook/i }).first();
     await expect(logCookButton).toBeVisible({ timeout: 5000 });
     await logCookButton.click();
 

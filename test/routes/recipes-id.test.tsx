@@ -1124,7 +1124,7 @@ describe("Recipes $id Route", () => {
       );
     });
 
-    it("shows add-to-list toast from dock action", async () => {
+    it("shows add-to-list toast from the recipe header action", async () => {
       let submittedScaleFactor: string | null = null;
       const mockData = {
         recipe: {
@@ -1188,9 +1188,7 @@ describe("Recipes $id Route", () => {
       );
       await screen.findByRole("heading", { name: "Dock Add Recipe" });
       await user.click(screen.getByRole("button", { name: "Increase scale" }));
-
-      const dockActionRegistration = vi.mocked(useRecipeDetailActions).mock.calls.at(-1)?.[0];
-      dockActionRegistration?.onAddToList?.();
+      await user.click(screen.getByTestId("recipe-header-list-action"));
 
       expect(await screen.findByText("2 items added at 1.25x")).toBeInTheDocument();
       expect(submittedScaleFactor).toBe("1.25");
@@ -1229,7 +1227,12 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("4")).toBeInTheDocument();
       expect(screen.getByText("No steps added yet")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Add Steps" })).toHaveAttribute("href", "/recipes/recipe-1/edit");
-      expect(screen.getByRole("link", { name: "Back to recipes" })).toHaveAttribute("href", "/recipes");
+      expect(screen.getByTestId("recipe-masthead")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Recipes" })).toHaveAttribute("href", "/recipes");
+      expect(screen.getByTestId("recipe-header-actions")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Cook mode" })).toHaveAttribute("href", "/recipes/recipe-1#steps");
+      expect(screen.getByRole("button", { name: "Add to list" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Log cook" })).toBeInTheDocument();
     });
 
     it("should render recipe with no steps (empty state) as non-owner", async () => {
@@ -1331,7 +1334,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getAllByText("Step 2").length).toBeGreaterThan(0);
     });
 
-    it("should show delete button in header for owners", async () => {
+    it("should show delete button for owners", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1702,7 +1705,7 @@ describe("Recipes $id Route", () => {
       expect(screen.getByText("Step 1")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "The Only Step" })).toBeInTheDocument();
 
-      // Owner edit button stays in dock/edit page, delete is now in the page header
+      // Owner edit button stays out of the recipe page, delete remains visible.
       expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Delete Recipe" })).toBeInTheDocument();
 
@@ -1912,7 +1915,7 @@ describe("Recipes $id Route", () => {
       });
     });
 
-    it("should not render Share button in header (moved to SpoonDock)", async () => {
+    it("should not render a visible share button on the recipe page", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1938,13 +1941,12 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Share button should NOT be in header (moved to SpoonDock)
       await screen.findByRole("heading", { name: "Owner Recipe" });
       expect(screen.queryByRole("button", { name: "Share recipe" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /share/i })).not.toBeInTheDocument();
     });
 
-    it("should not render action buttons in header for non-owner (moved to SpoonDock)", async () => {
+    it("should not render owner-only or save/share controls for non-owner", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -1970,7 +1972,6 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // No action buttons should be in header (all moved to SpoonDock)
       await screen.findByRole("heading", { name: "Someone Elses Recipe" });
       expect(screen.queryByRole("button", { name: /share/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
@@ -1978,7 +1979,7 @@ describe("Recipes $id Route", () => {
       expect(screen.queryByRole("button", { name: "Delete Recipe" })).not.toBeInTheDocument();
     });
 
-    it("should not render Save button in header (moved to SpoonDock)", async () => {
+    it("should not render a visible save button on the recipe page", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -2007,7 +2008,6 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Save button should NOT be in header (moved to SpoonDock)
       await screen.findByRole("heading", { name: "Recipe to Save" });
       expect(screen.queryByRole("button", { name: "Save to cookbook" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
@@ -2294,7 +2294,7 @@ describe("Recipes $id Route", () => {
       expect(checkboxes[1]).not.toBeChecked();
     });
 
-    it("should not render Save button in page (Save moved to SpoonDock)", async () => {
+    it("should keep cookbook-save controls out of the recipe page", async () => {
       const mockData = {
         recipe: {
           id: "recipe-1",
@@ -2323,8 +2323,7 @@ describe("Recipes $id Route", () => {
 
       render(<Stub initialEntries={["/recipes/recipe-1"]} />);
 
-      // Save button should NOT be in header/page (moved to SpoonDock)
-      // Note: Save functionality is tested in dock action tests
+      // Save functionality is tested through the registered recipe actions.
       await screen.findByRole("heading", { name: "Recipe to Save to Cookbook" });
       expect(screen.queryByRole("button", { name: "Save to cookbook" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();

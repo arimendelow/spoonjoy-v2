@@ -74,6 +74,24 @@ describe('RecipeHeader', () => {
       renderWithRouter(<RecipeHeader {...defaultProps} />)
       expect(screen.queryByText(/delicious/)).toBeNull()
     })
+
+    it('does not render generic cookbook-view or origin labels without real context', () => {
+      renderWithRouter(<RecipeHeader {...defaultProps} />)
+      expect(screen.queryByText('Cookbook view')).toBeNull()
+      expect(screen.queryByText('Origin recipe')).toBeNull()
+    })
+
+    it('renders masthead and provenance slots when provided', () => {
+      renderWithRouter(
+        <RecipeHeader
+          {...defaultProps}
+          masthead={<span>Recipe actions</span>}
+          provenance={<span>originally from example.com</span>}
+        />
+      )
+      expect(screen.getByTestId('recipe-masthead')).toHaveTextContent('Recipe actions')
+      expect(screen.getByTestId('recipe-header-provenance')).toHaveTextContent('originally from example.com')
+    })
   })
 
   describe('recipe image', () => {

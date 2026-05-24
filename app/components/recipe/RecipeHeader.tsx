@@ -1,4 +1,5 @@
 import { ImageOff } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { Link } from '../ui/link'
 import { Avatar } from '../ui/avatar'
 import { ScaleSelector } from './ScaleSelector'
@@ -28,6 +29,10 @@ export interface RecipeHeaderProps {
   onScaleChange: (value: number) => void
   /** Reset checked ingredients/steps progress */
   onClearProgress?: () => void
+  /** Contextual recipe navigation and primary actions */
+  masthead?: ReactNode
+  /** Source/import/fork attribution when this recipe has one */
+  provenance?: ReactNode
 }
 
 /**
@@ -37,7 +42,7 @@ export interface RecipeHeaderProps {
  * - PROMINENT hero-style recipe image (or placeholder)
  * - Mobile-first design for kitchen use
  * - Integrated ScaleSelector with scaled servings text
- * - Purely presentational — all actions are in SpoonDock
+ * - Optional masthead actions for desktop and first-viewport clarity
  */
 export function RecipeHeader({
   title,
@@ -51,6 +56,8 @@ export function RecipeHeader({
   scaleFactor,
   onScaleChange,
   onClearProgress,
+  masthead,
+  provenance,
 }: RecipeHeaderProps) {
   // Scale the servings text based on the scale factor
   const scaledServings = servings ? scaleServingsText(servings, scaleFactor) : undefined
@@ -110,20 +117,22 @@ export function RecipeHeader({
         )}
 
         <div className="flex min-h-[70svh] flex-col px-5 py-8 sm:px-8 lg:min-h-[calc(100svh-4.75rem)] lg:px-12 lg:py-10">
-          <div className="flex items-center justify-between border-b border-[var(--sj-border)] pb-4">
-            <div className="inline-flex items-center gap-3 font-sj-ui text-sm font-bold">
-              <span className="sj-nav-mark" aria-hidden="true">SJ</span>
-              <span>Recipe</span>
+          {masthead ? (
+            <div className="border-b border-[var(--sj-border)] pb-4" data-testid="recipe-masthead">
+              {masthead}
             </div>
-            <span className="font-sj-ui text-xs font-bold uppercase tracking-[0.18em] text-[var(--sj-ink-soft)]">Cookbook view</span>
-          </div>
+          ) : null}
 
           <div className="mt-10">
-            <p className="sj-eyebrow">Origin recipe</p>
-            <h1 className="font-sj-display mt-8 max-w-4xl break-words text-6xl/14 font-extrabold text-[var(--sj-ink)] sm:text-7xl/16 lg:text-8xl/18">
+            <h1 className="font-sj-display max-w-4xl break-words text-6xl/14 font-extrabold text-[var(--sj-ink)] sm:text-7xl/16 lg:text-8xl/18">
               {title}
             </h1>
             {chefLine}
+            {provenance ? (
+              <div className="mt-4 max-w-2xl border-t border-[var(--sj-border)] pt-4" data-testid="recipe-header-provenance">
+                {provenance}
+              </div>
+            ) : null}
             {description && (
               <p className="mt-6 max-w-2xl border-l-[3px] border-[var(--sj-brass)] pl-5 text-lg/8 text-[var(--sj-ink-soft)] sm:text-xl/8">
                 {description}

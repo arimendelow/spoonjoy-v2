@@ -16,7 +16,7 @@ test.describe('Fellow chefs + Kitchen visitors flow', () => {
     await recipeLink.click();
     await expect(page).toHaveURL(/\/recipes\/[^/]+$/, { timeout: 10_000 });
 
-    const logCookButton = page.getByRole('button', { name: /log a cook/i }).first();
+    const logCookButton = page.getByRole('button', { name: /log cook/i }).first();
     await expect(logCookButton).toBeVisible({ timeout: 5_000 });
     await logCookButton.click();
     const noteField = page.getByLabel(/^note/i);
