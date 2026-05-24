@@ -19,9 +19,10 @@ test.describe('Spoon a recipe flow', () => {
     // Open the spoon dialog.
     const logCookButton = page.getByRole('button', { name: /log cook/i }).first();
     await expect(logCookButton).toBeVisible({ timeout: 5000 });
+    await expect(logCookButton).toBeEnabled();
+    await logCookButton.scrollIntoViewIfNeeded();
     await logCookButton.click();
 
-    // Dialog headings are rendered as headings by the Dialog primitive.
     await expect(page.getByRole('heading', { name: /log a cook/i })).toBeVisible();
 
     // Demo viewer is not the recipe owner here, so a note alone satisfies
