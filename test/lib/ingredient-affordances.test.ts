@@ -16,6 +16,19 @@ describe("ingredient affordance mapping", () => {
     expect(affordance.iconKey).toBe("package");
   });
 
+  it.each([
+    ["fresh mozzarella", "dairy", "milk"],
+    ["pistachios", "pantry", "package"],
+    ["miso paste", "pantry", "package"],
+    ["dill", "produce", "leaf"],
+    ["tomato paste", "pantry", "package"],
+  ] as const)("maps realistic cookbook ingredient %s", (name, categoryKey, iconKey) => {
+    const affordance = inferIngredientAffordance(name);
+
+    expect(affordance.categoryKey).toBe(categoryKey);
+    expect(affordance.iconKey).toBe(iconKey);
+  });
+
   it("uses ingredient-specific icon intent for chicken thigh", () => {
     const affordance = resolveIngredientAffordance("chicken thigh", "protein", null);
 

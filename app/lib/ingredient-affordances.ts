@@ -84,9 +84,11 @@ const CATEGORY_KEYWORDS: Array<{
   categoryKey: IngredientCategoryKey;
   iconKey: IngredientIconKey;
 }> = [
-  { includes: ["basil", "cilantro", "parsley", "lettuce", "spinach", "kale", "arugula", "herb"], categoryKey: "produce", iconKey: "leaf" },
+  { includes: ["tomato paste"], categoryKey: "pantry", iconKey: "package" },
+
+  { includes: ["basil", "cilantro", "parsley", "dill", "chive", "chives", "sage", "lettuce", "spinach", "kale", "arugula", "herb"], categoryKey: "produce", iconKey: "leaf" },
   { includes: ["lime", "lemon", "orange", "grapefruit", "citrus"], categoryKey: "produce", iconKey: "citrus" },
-  { includes: ["carrot", "onion", "garlic", "tomato", "potato", "broccoli", "cauliflower", "zucchini", "cucumber", "celery"], categoryKey: "produce", iconKey: "carrot" },
+  { includes: ["carrot", "onion", "garlic", "tomato", "potato", "broccoli", "cauliflower", "zucchini", "cucumber", "celery", "fennel", "eggplant", "cabbage", "radicchio"], categoryKey: "produce", iconKey: "carrot" },
   { includes: ["apple", "banana", "berry", "avocado", "mango"], categoryKey: "produce", iconKey: "apple" },
 
   { includes: ["chicken", "thigh", "drumstick", "wing"], categoryKey: "protein", iconKey: "drumstick" },
@@ -98,9 +100,9 @@ const CATEGORY_KEYWORDS: Array<{
   { includes: ["coconut milk"], categoryKey: "pantry", iconKey: "package" },
   { includes: ["flour", "rice", "oat", "pasta", "noodle", "quinoa", "sugar"], categoryKey: "pantry", iconKey: "wheat" },
   { includes: ["oil", "vinegar", "broth", "stock", "water", "soy sauce", "tamari", "sauce"], categoryKey: "pantry", iconKey: "droplets" },
-  { includes: ["can", "canned", "jar", "coconut cream"], categoryKey: "pantry", iconKey: "package" },
+  { includes: ["can", "canned", "jar", "coconut cream", "miso", "curry paste", "walnut", "pistachio", "sesame", "seed"], categoryKey: "pantry", iconKey: "package" },
 
-  { includes: ["milk", "cream", "yogurt", "cheese", "butter", "half and half"], categoryKey: "dairy", iconKey: "milk" },
+  { includes: ["milk", "cream", "yogurt", "cheese", "butter", "half and half", "mozzarella", "ricotta", "feta", "parmesan", "cheddar"], categoryKey: "dairy", iconKey: "milk" },
 
   { includes: ["bread", "bun", "tortilla", "bagel", "pita"], categoryKey: "bakery", iconKey: "sandwich" },
   { includes: ["frozen"], categoryKey: "frozen", iconKey: "package" },
