@@ -57,8 +57,7 @@ describe('StepOutputUseCallout', () => {
           references={[{ id: '1', stepNumber: 2, stepTitle: 'Make the roux' }]}
         />
       )
-      expect(screen.getByText('Step 2')).toBeInTheDocument()
-      expect(screen.getByText(/Make the roux/)).toBeInTheDocument()
+      expect(screen.getByText('Step 2: Make the roux')).toBeInTheDocument()
     })
 
     it('displays multiple references', () => {
@@ -71,11 +70,9 @@ describe('StepOutputUseCallout', () => {
           ]}
         />
       )
-      expect(screen.getByText('Step 1')).toBeInTheDocument()
-      expect(screen.getByText('Step 2')).toBeInTheDocument()
+      expect(screen.getByText('Step 1: First step')).toBeInTheDocument()
+      expect(screen.getByText('Step 2: Second step')).toBeInTheDocument()
       expect(screen.getByText('Step 3')).toBeInTheDocument()
-      expect(screen.getByText(/First step/)).toBeInTheDocument()
-      expect(screen.getByText(/Second step/)).toBeInTheDocument()
     })
   })
 
@@ -253,7 +250,7 @@ describe('StepOutputUseCallout', () => {
       expect(checkboxes[1]).not.toBeChecked()
     })
 
-    it('applies visual distinction to checked items', () => {
+    it('applies the shared full-row strike to checked items', () => {
       render(
         <StepOutputUseCallout
           references={[{ id: '1', stepNumber: 2, stepTitle: 'Make sauce' }]}
@@ -262,9 +259,10 @@ describe('StepOutputUseCallout', () => {
         />
       )
 
-      // Should have strikethrough or muted styling
-      const mutedElements = document.querySelectorAll('.line-through')
-      expect(mutedElements.length).toBeGreaterThan(0)
+      const strikes = screen.getAllByTestId('checklist-row-strike')
+      expect(strikes).toHaveLength(1)
+      expect(strikes[0]).toHaveClass('left-0')
+      expect(strikes[0]).toHaveClass('right-0')
     })
 
     it('calls onToggle with correct id for multiple references', async () => {
@@ -346,7 +344,7 @@ describe('StepOutputUseCallout', () => {
       const checkboxes = screen.getAllByRole('checkbox')
       expect(checkboxes).toHaveLength(3)
       // First has title
-      expect(screen.getByText(/Prep ingredients/)).toBeInTheDocument()
+      expect(screen.getByText('Step 1: Prep ingredients')).toBeInTheDocument()
       // Others don't
       expect(screen.getByText('Step 2')).toBeInTheDocument()
       expect(screen.getByText('Step 3')).toBeInTheDocument()

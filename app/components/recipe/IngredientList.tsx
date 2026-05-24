@@ -1,4 +1,3 @@
-import { Checkbox } from '../ui/checkbox'
 import type { StepReference } from './StepOutputUseCallout'
 import type { IngredientIconKey } from '~/lib/ingredient-affordances'
 import { formatQuantity, scaleQuantity } from '~/lib/quantity'
@@ -46,7 +45,7 @@ export interface IngredientListProps {
  * - Scaled quantities using ScaledQuantity component
  * - Strikethrough styling for checked items
  * - Large touch targets for kitchen use
- * - Optional step output uses rendered at the top with amber styling
+ * - Optional step output uses rendered as the same checklist grammar as ingredients
  */
 export function IngredientList({
   ingredients,
@@ -81,45 +80,27 @@ export function IngredientList({
   return (
     <ul
       data-testid="ingredient-list"
-      className="space-y-2"
+      className="m-0 p-0"
     >
       {hasStepOutputUses && (
-        <li data-testid="step-output-uses-section" className="border-l border-[var(--sj-brass)] pl-4">
-          <ul className="space-y-2 py-1">
+        <li data-testid="step-output-uses-section" className="contents">
+          <ul className="contents">
             {stepOutputUses.map((ref) => {
               const isChecked = checkedStepOutputIds.has(ref.id)
               const shouldShowCheckbox = showCheckboxes && onStepOutputToggle
 
-              if (shouldShowCheckbox) {
-                return (
-                  <li key={ref.id}>
-                    <div className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => onStepOutputToggle(ref.id)}
-                        className={`min-h-11 min-w-0 text-left text-sm transition-colors ${
-                          isChecked
-                            ? 'line-through text-[var(--sj-ink-soft)] opacity-60'
-                            : 'text-[var(--sj-ink-soft)]'
-                        }`}
-                      >
-                        <StepReferenceText reference={ref} />
-                      </button>
-                      <Checkbox
-                        checked={isChecked}
-                        onChange={() => onStepOutputToggle(ref.id)}
-                        aria-label={`Mark Step ${ref.stepNumber}${ref.stepTitle ? `: ${ref.stepTitle}` : ''} as used`}
-                      />
-                    </div>
-                  </li>
-                )
-              }
-
               return (
-                <li key={ref.id}>
-                  <span className="text-sm text-[var(--sj-ink-soft)]">
-                    <StepReferenceText reference={ref} />
-                  </span>
+                <li
+                  key={ref.id}
+                  className="border-b border-[var(--sj-border)]"
+                  data-testid={`step-output-item-${ref.id}`}
+                >
+                  <ChecklistRow
+                    checked={isChecked}
+                    name={formatStepReferenceName(ref)}
+                    note={isChecked ? 'used' : 'step output'}
+                    onToggle={shouldShowCheckbox ? () => onStepOutputToggle(ref.id) : undefined}
+                  />
                 </li>
               )
             })}
@@ -182,16 +163,10 @@ function getScaledAmountLabel(ingredient: Ingredient, scaleFactor: number) {
   return [formattedQuantity, ingredient.unit].filter(Boolean).join(' ').trim()
 }
 
-function StepReferenceText({ reference }: { reference: StepReference }) {
+export function formatStepReferenceName(reference: StepReference) {
   if (reference.stepTitle) {
-    return (
-      <>
-        <span className="font-medium">Step {reference.stepNumber}</span>
-        {': '}
-        {reference.stepTitle}
-      </>
-    )
+    return `Step ${reference.stepNumber}: ${reference.stepTitle}`
   }
 
-  return <span className="font-medium">Step {reference.stepNumber}</span>
+  return `Step ${reference.stepNumber}`
 }

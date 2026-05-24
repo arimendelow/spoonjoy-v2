@@ -105,12 +105,15 @@ describe('IngredientList', () => {
     expect(onToggle).toHaveBeenCalledWith('2')
   })
 
-  it('applies strikethrough to checked ingredient name and quantity', () => {
+  it('applies a full-width ruled strike to checked ingredient rows', () => {
     render(<IngredientList ingredients={sampleIngredients} checkedIds={new Set(['1'])} onToggle={vi.fn()} />)
 
     const flourItem = screen.getByTestId('ingredient-item-1')
-    expect(within(flourItem).getByText('flour')).toHaveClass('line-through')
-    expect(screen.getByTestId('ingredient-quantity-1')).toHaveClass('line-through')
+    const strike = within(flourItem).getByTestId('checklist-row-strike')
+    expect(strike).toHaveClass('left-0')
+    expect(strike).toHaveClass('right-0')
+    expect(within(flourItem).getByText('flour')).toHaveClass('text-[var(--sj-ink-soft)]')
+    expect(screen.getByTestId('ingredient-quantity-1')).toHaveClass('text-[var(--sj-ink-soft)]')
   })
 
   it('moves checked ingredients to the bottom of the list', () => {
@@ -151,8 +154,9 @@ describe('IngredientList', () => {
 
     const section = screen.getByTestId('step-output-uses-section')
     expect(section).toBeInTheDocument()
-    expect(section).toHaveTextContent('Step 1')
-    expect(section).toHaveTextContent('Make the dough')
+    expect(section).not.toHaveClass('border-l')
+    expect(screen.getByTestId('step-output-item-step-1')).toHaveTextContent('Step 1: Make the dough')
+    expect(screen.getByTestId('step-output-item-step-1')).toHaveTextContent('step output')
   })
 
   it('renders step output references without checkboxes when onStepOutputToggle is missing', () => {
@@ -198,11 +202,11 @@ describe('IngredientList', () => {
       />
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /step 1.*make the dough/i }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /step 1.*make the dough/i }))
     expect(onStepOutputToggle).toHaveBeenCalledWith('step-1')
   })
 
-  it('applies checked styling to checked step output references', () => {
+  it('renders checked step output references with the shared row strike', () => {
     render(
       <IngredientList
         ingredients={sampleIngredients}
@@ -214,9 +218,9 @@ describe('IngredientList', () => {
       />
     )
 
-    const section = screen.getByTestId('step-output-uses-section')
-    const checkedText = within(section).getByText(/step 1/i)
-    expect(checkedText.closest('button')).toHaveClass('line-through')
+    const checkedItem = screen.getByTestId('step-output-item-step-1')
+    expect(within(checkedItem).getByTestId('checklist-row-strike')).toHaveClass('right-0')
+    expect(within(checkedItem).getByText('used')).toBeInTheDocument()
   })
 
   it('applies min-h-11 touch target class to step output use buttons', () => {
@@ -232,9 +236,9 @@ describe('IngredientList', () => {
     )
 
     const section = screen.getByTestId('step-output-uses-section')
-    const buttons = within(section).getAllByRole('button')
-    for (const button of buttons) {
-      expect(button).toHaveClass('min-h-11')
+    const checkboxes = within(section).getAllByRole('checkbox')
+    for (const checkbox of checkboxes) {
+      expect(checkbox).toHaveClass('min-h-14')
     }
   })
 
@@ -275,8 +279,10 @@ describe('IngredientList', () => {
       />
     )
 
-    expect(screen.getByText('flour')).toHaveClass('line-through')
-    expect(screen.getByTestId('ingredient-quantity-1')).toHaveClass('line-through')
+    const flourItem = screen.getByText('flour').closest('li')
+    expect(flourItem).not.toBeNull()
+    expect(within(flourItem as HTMLElement).getByTestId('checklist-row-strike')).toBeInTheDocument()
+    expect(screen.getByTestId('ingredient-quantity-1')).toHaveClass('text-[var(--sj-ink-soft)]')
   })
 
   it('renders a non-empty placeholder when quantity and unit are missing', () => {

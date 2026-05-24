@@ -688,7 +688,7 @@ describe("Shopping List Routes", () => {
       expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
     });
 
-    it("should render checked items with checkmark and line-through", async () => {
+    it("should render checked items with checkmark and completed-row strike", async () => {
       const mockData = {
         shoppingList: {
           id: "list-1",
@@ -718,6 +718,7 @@ describe("Shopping List Routes", () => {
       // Checked item should have checkmark
       expect(await screen.findByText("✓")).toBeInTheDocument();
       expect(screen.getByRole("checkbox", { name: "sugar" })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByTestId("checklist-row-strike")).toHaveClass("right-0");
     });
 
     it("should render unchecked items without checkmark", async () => {
