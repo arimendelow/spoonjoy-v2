@@ -12,6 +12,10 @@ import { faker } from "@faker-js/faker";
  * Tests the new RecipeHeader + StepCard components with scale state management.
  */
 describe("Recipe View Scaling Integration", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   describe("component scaling behavior", () => {
     it("should render new components with scale selector", async () => {
       const mockData = {
