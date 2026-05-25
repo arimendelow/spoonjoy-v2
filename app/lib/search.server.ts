@@ -71,6 +71,8 @@ interface SearchRow {
 
 const DEFAULT_SEARCH_LIMIT = 20;
 const MAX_SEARCH_LIMIT = 50;
+const SEARCH_INSERT_COLUMN_COUNT = 11;
+const SEARCH_INSERT_BATCH_SIZE = 8;
 
 const ENTITY_TYPES_BY_SCOPE: Record<SearchScope, readonly SearchEntityType[]> = {
   all: ["recipe", "cookbook", "chef", "shopping-list-item"],
@@ -206,9 +208,24 @@ async function ensureSearchIndex(database: PrismaClient) {
   await database.$executeRawUnsafe(SEARCH_SCHEMA_SQL);
 }
 
-async function insertSearchDocument(database: PrismaClient, document: SearchDocumentInput) {
-  await database.$executeRawUnsafe(
-    `INSERT INTO "SearchDocument" (
+function searchDocumentSqlValues(document: SearchDocumentInput): Array<string | null> {
+  return [
+    document.type,
+    document.id,
+    document.ownerId,
+    document.ownerUsername,
+    document.sortAt,
+    document.title,
+    document.subtitle,
+    document.body,
+    document.href,
+    document.imageUrl,
+    JSON.stringify(document.metadata),
+  ];
+}
+
+async function insertSearchDocuments(database: PrismaClient, documents: SearchDocumentInput[]) {
+  const columns = `(
       entityType,
       entityId,
       ownerId,
@@ -220,19 +237,19 @@ async function insertSearchDocument(database: PrismaClient, document: SearchDocu
       href,
       imageUrl,
       metadata
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    document.type,
-    document.id,
-    document.ownerId,
-    document.ownerUsername,
-    document.sortAt,
-    document.title,
-    document.subtitle,
-    document.body,
-    document.href,
-    document.imageUrl,
-    JSON.stringify(document.metadata)
-  );
+    )`;
+
+  for (let offset = 0; offset < documents.length; offset += SEARCH_INSERT_BATCH_SIZE) {
+    const batch = documents.slice(offset, offset + SEARCH_INSERT_BATCH_SIZE);
+    const rowPlaceholders = `(${Array.from({ length: SEARCH_INSERT_COLUMN_COUNT }, () => "?").join(", ")})`;
+    const placeholders = Array.from({ length: batch.length }, () => rowPlaceholders).join(", ");
+    const values = batch.flatMap(searchDocumentSqlValues);
+
+    await database.$executeRawUnsafe(
+      `INSERT INTO "SearchDocument" ${columns} VALUES ${placeholders}`,
+      ...values
+    );
+  }
 }
 
 async function recipeDocuments(database: PrismaClient): Promise<SearchDocumentInput[]> {
@@ -443,9 +460,7 @@ export async function rebuildSearchIndex(database: PrismaClient): Promise<number
 
   await database.$executeRawUnsafe(`DELETE FROM "SearchDocument"`);
 
-  for (const document of documents) {
-    await insertSearchDocument(database, document);
-  }
+  await insertSearchDocuments(database, documents);
 
   return documents.length;
 }
