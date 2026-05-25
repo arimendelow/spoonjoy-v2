@@ -5,6 +5,9 @@ export default {
   ssr: true,
   serverBuildFile: "_worker.js",
   serverModuleFormat: "esm",
+  routeDiscovery: {
+    mode: "initial",
+  },
   future: {
     v8_viteEnvironmentApi: true,
   },
