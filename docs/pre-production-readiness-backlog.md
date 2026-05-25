@@ -31,7 +31,9 @@ Goal: reach the point where the only remaining dependency before switching `spoo
 **Blast radius**: auth, import, AI image features
 **Recommended lane**: fix-now for available Google secrets; external-prerequisite for missing Apple/OpenAI values
 **Verification**: `wrangler secret list`; OAuth start smoke should show configured providers only; OpenAI-backed MCP import/image smoke after Ari provides key.
-**Status**: open
+**Status**: fixed
+**Linked work**: local branch commit pending
+**Notes**: Cook mode now stores recipe-scoped progress in localStorage: active step, scale factor, checked ingredient IDs, and checked step-output IDs. Stored IDs are filtered against the current recipe shape.
 
 ---
 
@@ -45,7 +47,9 @@ Goal: reach the point where the only remaining dependency before switching `spoo
 **Blast radius**: recipe detail/cook mode
 **Recommended lane**: fix-now
 **Verification**: Route tests around localStorage persistence and storage migration; browser smoke reload in `#cook`.
-**Status**: open
+**Status**: fixed
+**Linked work**: local branch commit pending
+**Notes**: Focused cook mode now shows a timer when `RecipeStep.duration` is present, with start/pause/reset/restart behavior.
 
 ---
 
