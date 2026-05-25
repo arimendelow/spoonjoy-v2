@@ -79,7 +79,9 @@ Goal: reach the point where the only remaining dependency before switching `spoo
 **Blast radius**: QA tooling
 **Recommended lane**: fix-now
 **Verification**: Add scripts/tests or smoke commands; rerun inventory and rendered crawl from repo paths.
-**Status**: open
+**Status**: in-progress
+**Linked work**: `pnpm exec wrangler secret put GOOGLE_CLIENT_ID`; `pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET`
+**Notes**: Google OAuth secrets were found in local `.env` and uploaded to the Worker. Apple OAuth and OpenAI credentials were not found in local env files or keychain. `pnpm production:readiness` now reports those missing feature groups as WARN.
 
 ---
 
@@ -93,7 +95,9 @@ Goal: reach the point where the only remaining dependency before switching `spoo
 **Blast radius**: operations/cutover
 **Recommended lane**: fix-now
 **Verification**: Durable runbook with preflight, migration placeholder, smoke, rollback, and owner-provided dependency list.
-**Status**: open
+**Status**: fixed
+**Linked work**: `docs/production-cutover.md`
+**Notes**: Added a stable-domain cutover runbook covering hard gates, secrets, data migration placeholder, DNS/custom domain, OAuth callbacks, smoke tests, and rollback.
 
 ---
 
@@ -107,7 +111,9 @@ Goal: reach the point where the only remaining dependency before switching `spoo
 **Blast radius**: operations/CI
 **Recommended lane**: fix-now
 **Verification**: Add script + tests; run locally against remote where safe.
-**Status**: open
+**Status**: fixed
+**Linked work**: `scripts/production-readiness.ts`; `pnpm production:readiness`
+**Notes**: Added machine-checkable production readiness covering required runtime secrets, optional feature secret groups, PWA assets, production runbook coverage, and remote `User.photoUrl` schema.
 
 ---
 
