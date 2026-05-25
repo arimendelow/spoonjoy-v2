@@ -30,6 +30,10 @@ Latest cookbook-language audit screenshot artifact directory:
 
 `/tmp/spoonjoy-cookbook-language-crawl`
 
+Latest ingredient-width audit screenshot artifact directory:
+
+`/tmp/spoonjoy-ingredient-width-local`
+
 Contact sheets:
 
 - `/tmp/spoonjoy-ui-crawl-local/contact-mobile-top.png`
@@ -54,6 +58,7 @@ pnpm typecheck
 pnpm build
 UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-border-crawl
 UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-cookbook-language-crawl
+UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes /tmp/spoonjoy-recipe-detail-route.json --out /tmp/spoonjoy-ingredient-width-local
 ```
 
 Ouroboros harness smoke:
@@ -75,6 +80,7 @@ Rendered crawl:
 - 0 page errors.
 - Border-rule re-crawl at `/tmp/spoonjoy-border-crawl` repeated the 54-route matrix with the same zero-error result.
 - Cookbook-language re-crawl at `/tmp/spoonjoy-cookbook-language-crawl` repeated the 54-route matrix with the same zero-error result.
+- Ingredient-width focused crawl at `/tmp/spoonjoy-ingredient-width-local` covered recipe detail across mobile, tablet, and desktop with the same zero-error result.
 
 Deployed crawl:
 
@@ -124,6 +130,7 @@ Verification:
 | UIA-010 | Low | Accepted | Dock, avatars, radios, switches | `rounded-full` remains intentional only where circular shape carries semantic or physical meaning. |
 | UIA-011 | Medium | Fixed | Page mastheads, forms, shopping list, ruled lists | Collapsed duplicate horizontal rules so headers, form sections, settings panels, and cookbook lists use one purposeful divider instead of stacked border echoes. |
 | UIA-012 | High | Fixed | Cookbook detail | Replaced the admin/table-like recipe membership list with a cookbook table-of-contents treatment; owner add/remove/edit/delete tools now live in a collapsed maintenance area outside the printable contents. |
+| UIA-013 | Medium | Fixed | Recipe detail ingredients | Constrained only the per-step ingredient checklist on desktop so quantity labels stay visually connected, while leaving step prose at the wider cookbook reading measure. |
 
 ## Re-Audit Notes
 
