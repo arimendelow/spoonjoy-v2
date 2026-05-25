@@ -42,20 +42,69 @@ If a feature secret group is missing, either set it before cutover or confirm th
 
 ## Data Migration
 
-This section is intentionally a placeholder until Ari provides the source-of-truth migration instructions.
+Source:
 
-When the migration instructions arrive, add:
+- Spoonjoy v1 production data is in Neon project `spoonjoy`, database `sjdb`, branch `main`.
+- Store the Neon connection string outside the repo, then expose it only for the migration command as `SPOONJOY_V1_DATABASE_URL`.
+- The old Postgres-to-D1 gist is historical reference only. Do not use it directly for this repo because it deletes/recreates D1, regenerates migrations, and uses broad dump/sed conversion.
 
-- Source database/export location.
-- Target D1 database.
-- Image/blob migration plan.
-- User identity mapping.
-- Recipe/cookbook/shopping-list/spoon mapping.
-- Idempotency strategy.
-- Verification queries.
-- Rollback/restore plan.
+Target:
 
-Before cutover, create a D1 backup/export or other restorable snapshot for any v2 target receiving migrated production data.
+- Cloudflare D1 binding `DB`, database `spoonjoy`, database ID recorded in `wrangler.json`.
+- Existing v2 demo/staging rows are replaced during the final production import. Always export the target first.
+
+Dry-run/report:
+
+```bash
+SPOONJOY_V1_DATABASE_URL="<neon-postgres-url>" pnpm db:migrate:v1:report
+```
+
+Build final SQL and sidecar report:
+
+```bash
+mkdir -p /tmp/spoonjoy-v1-migration
+SPOONJOY_V1_DATABASE_URL="<neon-postgres-url>" \
+  pnpm db:migrate:v1:build-sql -- \
+  --out /tmp/spoonjoy-v1-migration/import.sql \
+  --report-out /tmp/spoonjoy-v1-migration/report.json \
+  --replace-target
+```
+
+Current verified source report:
+
+- Migrates 42 users, 20 passkeys, 8 OAuth rows, 289 recipes, 1,231 steps, 202 step-output links, 1,802 ingredients, 50 cookbooks, and 230 valid cookbook recipe links.
+- Creates 286 `RecipeCover` rows from v1 non-default `Recipe.imageUrl` values with `sourceType='chef-upload'`.
+- Skips 85 stale `RecipeInCookbook` rows whose cookbook no longer exists in v1.
+- v1 has no shopping-list rows to migrate.
+- Auth caveat: 2 users currently have no v2-supported login path unless GitHub OAuth is added or an intentional account-recovery path is provided.
+
+Local isolated D1 rehearsal:
+
+```bash
+rm -rf /tmp/spoonjoy-v1-rehearsal-d1
+pnpm exec wrangler d1 migrations apply DB --local --persist-to /tmp/spoonjoy-v1-rehearsal-d1
+pnpm exec wrangler d1 execute DB --local --persist-to /tmp/spoonjoy-v1-rehearsal-d1 \
+  --file /tmp/spoonjoy-v1-migration/import.sql --yes
+```
+
+Validation:
+
+- Count all migrated tables and compare with `/tmp/spoonjoy-v1-migration/report.json`.
+- Run `PRAGMA foreign_key_check;` and require zero rows.
+- Rebuild search with `rebuildSearchIndex(db)` against the rehearsal database and run at least one query such as `tomato`.
+
+Remote backup and import:
+
+```bash
+mkdir -p /tmp/spoonjoy-d1-backups
+pnpm exec wrangler d1 export DB --remote --output /tmp/spoonjoy-d1-backups/pre-v1-import-$(date -u +%Y%m%dT%H%M%SZ).sql --yes
+pnpm exec wrangler d1 execute DB --remote --file /tmp/spoonjoy-v1-migration/import.sql --yes
+```
+
+Rollback:
+
+- If the import fails before DNS cutover, restore the pre-import export to D1 or use D1 Time Travel.
+- If cutover fails after DNS switch, route `spoonjoy.app` back to v1 first, then restore or repair D1 before retrying.
 
 ## DNS And Custom Domain
 
@@ -100,4 +149,3 @@ If cutover fails:
 3. Do not mutate migrated data further until the failure is understood.
 4. If data corruption occurred, restore the pre-cutover D1 snapshot/export.
 5. Record the failure, exact Worker version, and rollback time in the release notes.
-
