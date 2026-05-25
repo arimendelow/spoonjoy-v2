@@ -18,6 +18,7 @@ When registered under the server name `spoonjoy`, the harness exposes these firs
 | `get_recipe` | Fetch a recipe by id or title with ordered steps and ingredients. |
 | `create_recipe` | Create a recipe for the configured owner, including steps and ingredients. |
 | `update_recipe` | Update an owner-scoped recipe's title, optional metadata, and optionally replace its steps and ingredients. |
+| `delete_recipe` | Soft-delete an owner-scoped recipe so agent-created drafts and test recipes can be cleaned up. |
 | `add_recipe_to_shopping_list` | Add all recipe ingredients to the owner shopping list, merging duplicates. |
 | `list_cookbooks` | List cookbooks owned by the configured owner, with active recipe counts and cover recipes. |
 | `get_cookbook` | Fetch one owner-scoped cookbook by `cookbookId`, `title`, or `cookbookTitle`. |
@@ -32,6 +33,8 @@ When registered under the server name `spoonjoy`, the harness exposes these firs
 Search is backed by the same self-hosted SQLite/D1 FTS5 index as the UI and ranked with BM25. Shopping-list results are private: `search_spoonjoy` includes them only when an authenticated token, `SPOONJOY_MCP_USER_EMAIL`, or `ownerEmail` identifies the owner, and `search_shopping_list` always requires that owner identity.
 
 Cookbook tools are deliberately owner-scoped: agents can only list, fetch, create, and mutate cookbooks owned by `SPOONJOY_MCP_USER_EMAIL` or an explicit `ownerEmail`. Recipe membership adds require an active `recipeId`; deleted recipes are excluded from cookbook payloads and cannot be newly added.
+
+Recipe cleanup is owner-scoped too. `delete_recipe` sets `deletedAt` on the target recipe, hides it from normal `get_recipe`/search/cookbook payloads, and returns `deleted: false` if the same owner repeats cleanup for an already-deleted recipe.
 
 ## Authentication And Authorization
 
@@ -73,3 +76,5 @@ printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\n{"jsonrpc":"
 ```
 
 The server uses the same local database resolution as the app: Cloudflare D1 via Wrangler when available, with SQLite fallback in restricted local contexts.
+
+Some MCP clients cache tool schemas for the life of a session. If a newly added Spoonjoy operation is present in raw `tools/list` output but absent as a first-class `spoonjoy_*` tool, restart or refresh the harness MCP session.
