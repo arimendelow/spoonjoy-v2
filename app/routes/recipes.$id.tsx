@@ -1,6 +1,6 @@
 import type { Route } from "./+types/recipes.$id";
 import { useFetcher, useLoaderData, useSubmit } from "react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { usePostHog } from "@posthog/react";
 import { ArrowLeft } from "lucide-react";
@@ -17,6 +17,7 @@ import { Input } from "~/components/ui/input";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { RecipeHeader } from "~/components/recipe/RecipeHeader";
+import { ScaleSelector } from "~/components/recipe/ScaleSelector";
 import { RecipeProvenance } from "~/components/recipe/RecipeProvenance";
 import { ForkRecipeButton } from "~/components/recipe/ForkRecipeButton";
 import { SpoonDialog } from "~/components/recipe/SpoonDialog";
@@ -57,6 +58,133 @@ const recipeMastheadActionClass =
 
 const recipeMastheadPrimaryActionClass =
   "text-[var(--sj-action)] hover:text-[var(--sj-tomato)]";
+
+const COOK_PROGRESS_STORAGE_VERSION = 1;
+
+interface CookProgressSnapshot {
+  version: typeof COOK_PROGRESS_STORAGE_VERSION;
+  activeStepIndex: number;
+  scaleFactor: number;
+  checkedIngredientIds: string[];
+  checkedStepOutputIds: string[];
+  updatedAt: string;
+}
+
+interface CookProgressBounds {
+  stepCount: number;
+  ingredientIds: ReadonlySet<string>;
+  stepOutputIds: ReadonlySet<string>;
+}
+
+interface CookProgressState {
+  activeStepIndex: number;
+  scaleFactor: number;
+  checkedIngredientIds: Set<string>;
+  checkedStepOutputIds: Set<string>;
+}
+
+export function getCookProgressStorageKey(recipeId: string) {
+  return `spoonjoy-cook-progress:${recipeId}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function normalizedScaleFactor(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.min(50, Math.max(0.25, Math.round(value * 100) / 100));
+}
+
+function normalizedStepIndex(value: unknown, stepCount: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || stepCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(stepCount - 1, Math.max(0, Math.trunc(value)));
+}
+
+export function parseCookProgressSnapshot(
+  value: string | null,
+  bounds: CookProgressBounds
+): CookProgressState | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!isRecord(parsed) || parsed.version !== COOK_PROGRESS_STORAGE_VERSION) {
+      return null;
+    }
+
+    return {
+      activeStepIndex: normalizedStepIndex(parsed.activeStepIndex, bounds.stepCount),
+      scaleFactor: normalizedScaleFactor(parsed.scaleFactor),
+      checkedIngredientIds: new Set(
+        stringArray(parsed.checkedIngredientIds).filter((id) => bounds.ingredientIds.has(id))
+      ),
+      checkedStepOutputIds: new Set(
+        stringArray(parsed.checkedStepOutputIds).filter((id) => bounds.stepOutputIds.has(id))
+      ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function readCookProgress(recipeId: string, bounds: CookProgressBounds): CookProgressState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return parseCookProgressSnapshot(
+      window.localStorage.getItem(getCookProgressStorageKey(recipeId)),
+      bounds
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function writeCookProgress(
+  recipeId: string,
+  {
+    activeStepIndex,
+    scaleFactor,
+    checkedIngredientIds,
+    checkedStepOutputIds,
+  }: CookProgressState
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const snapshot: CookProgressSnapshot = {
+    version: COOK_PROGRESS_STORAGE_VERSION,
+    activeStepIndex,
+    scaleFactor,
+    checkedIngredientIds: Array.from(checkedIngredientIds),
+    checkedStepOutputIds: Array.from(checkedStepOutputIds),
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    window.localStorage.setItem(getCookProgressStorageKey(recipeId), JSON.stringify(snapshot));
+  } catch {
+    // Ignore unavailable storage. Cook mode remains fully usable for the current session.
+  }
+}
 
 export function findRecipeStepsScrollTarget(doc: Document): HTMLElement | null {
   const candidates = Array.from(doc.querySelectorAll<HTMLElement>("#steps"));
@@ -112,6 +240,7 @@ export default function RecipeDetail() {
   const [checkedStepOutputs, setCheckedStepOutputs] = useState<Set<string>>(new Set());
   const [isCookMode, setIsCookMode] = useState(false);
   const [activeCookStepIndex, setActiveCookStepIndex] = useState(0);
+  const [loadedCookProgressRecipeId, setLoadedCookProgressRecipeId] = useState<string | null>(null);
 
   const [availableCookbooks, setAvailableCookbooks] = useState(() => cookbooks);
 
@@ -131,6 +260,11 @@ export default function RecipeDetail() {
   const stepOutputUseCount = recipe.steps.reduce((count, step) => count + (step.usingSteps?.length ?? 0), 0);
   const cookProgressTotal = ingredientCount + stepOutputUseCount;
   const cookProgressChecked = checkedIngredients.size + checkedStepOutputs.size;
+  const cookProgressBounds = useMemo<CookProgressBounds>(() => ({
+    stepCount: recipe.steps.length,
+    ingredientIds: new Set(recipe.steps.flatMap((step) => step.ingredients.map((ingredient) => ingredient.id))),
+    stepOutputIds: new Set(recipe.steps.flatMap((step) => (step.usingSteps ?? []).map((use) => use.id))),
+  }), [recipe.steps]);
 
   // PostHog: Track recipe view on mount
   useEffect(() => {
@@ -218,6 +352,43 @@ export default function RecipeDetail() {
     setCheckedIngredients(new Set());
     setCheckedStepOutputs(new Set());
   };
+
+  useEffect(() => {
+    setScaleFactor(1);
+    setCheckedIngredients(new Set());
+    setCheckedStepOutputs(new Set());
+    setActiveCookStepIndex(0);
+
+    const storedProgress = readCookProgress(recipe.id, cookProgressBounds);
+    if (storedProgress) {
+      setScaleFactor(storedProgress.scaleFactor);
+      setCheckedIngredients(storedProgress.checkedIngredientIds);
+      setCheckedStepOutputs(storedProgress.checkedStepOutputIds);
+      setActiveCookStepIndex(storedProgress.activeStepIndex);
+    }
+
+    setLoadedCookProgressRecipeId(recipe.id);
+  }, [recipe.id, cookProgressBounds]);
+
+  useEffect(() => {
+    if (loadedCookProgressRecipeId !== recipe.id) {
+      return;
+    }
+
+    writeCookProgress(recipe.id, {
+      activeStepIndex: activeCookStepIndex,
+      scaleFactor,
+      checkedIngredientIds: checkedIngredients,
+      checkedStepOutputIds: checkedStepOutputs,
+    });
+  }, [
+    recipe.id,
+    loadedCookProgressRecipeId,
+    activeCookStepIndex,
+    scaleFactor,
+    checkedIngredients,
+    checkedStepOutputs,
+  ]);
 
   useEffect(() => {
     setActiveCookStepIndex((current) => {
@@ -619,6 +790,7 @@ export default function RecipeDetail() {
           checkedStepOutputIds={checkedStepOutputs}
           onIngredientToggle={handleIngredientToggle}
           onStepOutputToggle={handleStepOutputToggle}
+          onScaleChange={handleScaleChange}
           onPrevious={() => setActiveCookStepIndex((current) => Math.max(0, current - 1))}
           onNext={() => setActiveCookStepIndex((current) => Math.min(recipe.steps.length - 1, current + 1))}
           onExit={handleExitCookMode}
@@ -791,6 +963,7 @@ type CookModeStep = {
   stepNum: number;
   stepTitle: string | null;
   description: string;
+  duration?: number | null;
 };
 
 function CookModePanel({
@@ -806,6 +979,7 @@ function CookModePanel({
   checkedStepOutputIds,
   onIngredientToggle,
   onStepOutputToggle,
+  onScaleChange,
   onPrevious,
   onNext,
   onExit,
@@ -822,6 +996,7 @@ function CookModePanel({
   checkedStepOutputIds: Set<string>;
   onIngredientToggle: (id: string) => void;
   onStepOutputToggle: (id: string) => void;
+  onScaleChange: (value: number) => void;
   onPrevious: () => void;
   onNext: () => void;
   onExit: () => void;
@@ -867,6 +1042,12 @@ function CookModePanel({
             {progressLabel}
           </Text>
 
+          <div className="mt-6 max-w-[26rem]">
+            <ScaleSelector value={scaleFactor} onChange={onScaleChange} />
+          </div>
+
+          {step.duration ? <CookModeTimer durationMinutes={step.duration} /> : null}
+
           {(ingredients.length > 0 || stepOutputUses.length > 0) && (
             <div className="mt-8 lg:max-w-[40rem]">
               <div className="font-sj-ui mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--sj-ink-soft)]">
@@ -908,5 +1089,96 @@ function CookModePanel({
         </div>
       </div>
     </section>
+  );
+}
+
+export function formatTimerSeconds(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function CookModeTimer({ durationMinutes }: { durationMinutes: number }) {
+  const totalSeconds = Math.max(0, Math.round(durationMinutes * 60));
+  const [remainingSeconds, setRemainingSeconds] = useState(totalSeconds);
+  const [isRunning, setIsRunning] = useState(false);
+  const durationLabel = `${durationMinutes} min timer`;
+
+  useEffect(() => {
+    setRemainingSeconds(totalSeconds);
+    setIsRunning(false);
+  }, [totalSeconds]);
+
+  useEffect(() => {
+    if (!isRunning) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setRemainingSeconds((current) => {
+        if (current <= 1) {
+          window.clearInterval(intervalId);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (remainingSeconds === 0) {
+      setIsRunning(false);
+    }
+  }, [remainingSeconds]);
+
+  if (totalSeconds <= 0) {
+    return null;
+  }
+
+  return (
+    <div
+      data-testid="cook-mode-timer"
+      className="mt-6 flex flex-col gap-4 border-y border-[var(--sj-border)] py-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div>
+        <p className="font-sj-ui text-xs font-bold uppercase tracking-[0.18em] text-[var(--sj-brass)]">
+          {durationLabel}
+        </p>
+        <p className="font-sj-display mt-2 text-4xl/10 font-semibold tabular-nums text-[var(--sj-ink)]">
+          {formatTimerSeconds(remainingSeconds)}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:flex">
+        <Button
+          type="button"
+          onClick={() => {
+            if (isRunning) {
+              setIsRunning(false);
+              return;
+            }
+
+            if (remainingSeconds === 0) {
+              setRemainingSeconds(totalSeconds);
+            }
+            setIsRunning(true);
+          }}
+        >
+          {isRunning ? "Pause timer" : remainingSeconds === 0 ? "Restart timer" : "Start timer"}
+        </Button>
+        <Button
+          type="button"
+          plain
+          onClick={() => {
+            setRemainingSeconds(totalSeconds);
+            setIsRunning(false);
+          }}
+        >
+          Reset timer
+        </Button>
+      </div>
+    </div>
   );
 }

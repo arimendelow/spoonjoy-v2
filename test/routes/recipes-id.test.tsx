@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Request as UndiciRequest, FormData as UndiciFormData } from "undici";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
@@ -16,7 +16,17 @@ vi.mock("~/components/navigation", async () => {
 });
 
 import { shareContent, useRecipeDetailActions } from "~/components/navigation";
-import { loader, action, applyCreatedCookbookState, findRecipeStepsScrollTarget } from "~/routes/recipes.$id";
+import {
+  loader,
+  action,
+  applyCreatedCookbookState,
+  findRecipeStepsScrollTarget,
+  getCookProgressStorageKey,
+  parseCookProgressSnapshot,
+  readCookProgress,
+  formatTimerSeconds,
+  writeCookProgress,
+} from "~/routes/recipes.$id";
 import RecipeDetail from "~/routes/recipes.$id";
 import { createUser } from "~/lib/auth.server";
 import { sessionStorage } from "~/lib/session.server";
@@ -41,6 +51,7 @@ describe("Recipes $id Route", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     await cleanupDatabase();
     const email = faker.internet.email();
     const username = faker.internet.username() + "_" + faker.string.alphanumeric(8);
@@ -104,6 +115,110 @@ describe("Recipes $id Route", () => {
 
     it("returns null when no steps container exists", () => {
       expect(findRecipeStepsScrollTarget(document.implementation.createHTMLDocument())).toBeNull();
+    });
+  });
+
+  describe("cook progress helpers", () => {
+    const bounds = {
+      stepCount: 2,
+      ingredientIds: new Set(["ing-1"]),
+      stepOutputIds: new Set(["use-1"]),
+    };
+
+    it("builds the recipe-specific cook progress storage key", () => {
+      expect(getCookProgressStorageKey("recipe-1")).toBe("spoonjoy-cook-progress:recipe-1");
+    });
+
+    it("parses, clamps, and filters stored cook progress", () => {
+      const parsed = parseCookProgressSnapshot(
+        JSON.stringify({
+          version: 1,
+          activeStepIndex: 99,
+          scaleFactor: 100,
+          checkedIngredientIds: ["ing-1", "stale-ing"],
+          checkedStepOutputIds: ["use-1", "stale-use"],
+          updatedAt: "2026-05-25T00:00:00.000Z",
+        }),
+        bounds
+      );
+
+      expect(parsed?.activeStepIndex).toBe(1);
+      expect(parsed?.scaleFactor).toBe(50);
+      expect(Array.from(parsed?.checkedIngredientIds ?? [])).toEqual(["ing-1"]);
+      expect(Array.from(parsed?.checkedStepOutputIds ?? [])).toEqual(["use-1"]);
+    });
+
+    it("defaults malformed cook progress values", () => {
+      const parsed = parseCookProgressSnapshot(
+        JSON.stringify({
+          version: 1,
+          activeStepIndex: -3,
+          scaleFactor: "not-a-number",
+          checkedIngredientIds: "ing-1",
+          checkedStepOutputIds: "use-1",
+        }),
+        bounds
+      );
+
+      expect(parsed?.activeStepIndex).toBe(0);
+      expect(parsed?.scaleFactor).toBe(1);
+      expect(parsed?.checkedIngredientIds.size).toBe(0);
+      expect(parsed?.checkedStepOutputIds.size).toBe(0);
+    });
+
+    it("treats unavailable cook progress storage as empty", () => {
+      const originalWindow = window;
+      vi.stubGlobal("window", {
+        localStorage: {
+          getItem() {
+            throw new Error("storage unavailable");
+          },
+          setItem() {
+            throw new Error("storage unavailable");
+          },
+        },
+      });
+
+      try {
+        expect(readCookProgress("recipe-1", bounds)).toBeNull();
+        expect(() => writeCookProgress("recipe-1", {
+          activeStepIndex: 0,
+          scaleFactor: 1,
+          checkedIngredientIds: new Set(),
+          checkedStepOutputIds: new Set(),
+        })).not.toThrow();
+      } finally {
+        vi.stubGlobal("window", originalWindow);
+      }
+    });
+
+    it("treats missing window storage as empty", () => {
+      const originalWindow = window;
+      vi.stubGlobal("window", undefined);
+
+      try {
+        expect(readCookProgress("recipe-1", bounds)).toBeNull();
+        expect(() => writeCookProgress("recipe-1", {
+          activeStepIndex: 0,
+          scaleFactor: 1,
+          checkedIngredientIds: new Set(),
+          checkedStepOutputIds: new Set(),
+        })).not.toThrow();
+      } finally {
+        vi.stubGlobal("window", originalWindow);
+      }
+    });
+
+    it("ignores invalid stored cook progress payloads", () => {
+      expect(parseCookProgressSnapshot(null, bounds)).toBeNull();
+      expect(parseCookProgressSnapshot("{", bounds)).toBeNull();
+      expect(parseCookProgressSnapshot(JSON.stringify({ version: 0 }), bounds)).toBeNull();
+      expect(parseCookProgressSnapshot(JSON.stringify(null), bounds)).toBeNull();
+    });
+
+    it("formats timer seconds as cookbook timer text", () => {
+      expect(formatTimerSeconds(0)).toBe("00:00");
+      expect(formatTimerSeconds(65)).toBe("01:05");
     });
   });
 
@@ -1313,6 +1428,246 @@ describe("Recipes $id Route", () => {
       await user.click(within(cookMode).getByRole("button", { name: "Exit cook mode" }));
       expect(screen.queryByTestId("cook-mode-panel")).not.toBeInTheDocument();
       expect(window.location.hash).toBe("");
+    });
+
+    it("persists focused cook-mode progress across reloads", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Persistent Cook Recipe",
+          description: null,
+          servings: "2 servings",
+          coverImageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Prep",
+              description: "Chop everything before the pan is hot.",
+              ingredients: [
+                {
+                  id: "ing-1",
+                  quantity: 1,
+                  unit: { name: "cup" },
+                  ingredientRef: { name: "tomatoes" },
+                },
+              ],
+              usingSteps: [],
+            },
+            {
+              id: "step-2",
+              stepNum: 2,
+              stepTitle: "Cook",
+              description: "Simmer until glossy.",
+              ingredients: [
+                {
+                  id: "ing-2",
+                  quantity: 2,
+                  unit: { name: "tbsp" },
+                  ingredientRef: { name: "olive oil" },
+                },
+              ],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      const user = userEvent.setup();
+      const { unmount } = render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Persistent Cook Recipe" });
+      await user.click(screen.getByTestId("recipe-header-cook-action"));
+
+      const cookMode = await screen.findByTestId("cook-mode-panel");
+      await user.click(within(cookMode).getByRole("checkbox", { name: "tomatoes" }));
+      await user.click(within(cookMode).getByRole("button", { name: "Increase scale" }));
+      await user.click(within(cookMode).getByRole("button", { name: "Next step" }));
+
+      await waitFor(() => {
+        const persisted = JSON.parse(window.localStorage.getItem(getCookProgressStorageKey("recipe-1")) ?? "{}");
+        expect(persisted.activeStepIndex).toBe(1);
+        expect(persisted.scaleFactor).toBe(1.25);
+        expect(persisted.checkedIngredientIds).toContain("ing-1");
+      });
+
+      unmount();
+      window.history.replaceState(null, "", "/recipes/recipe-1#cook");
+      render(<Stub initialEntries={["/recipes/recipe-1#cook"]} />);
+
+      const restoredCookMode = await screen.findByTestId("cook-mode-panel");
+      await waitFor(() => {
+        expect(within(restoredCookMode).getByText("Step 2 of 2")).toBeInTheDocument();
+      });
+      expect(within(restoredCookMode).getByRole("heading", { name: "Cook" })).toBeInTheDocument();
+      expect(within(restoredCookMode).getByText("1 of 2 checked")).toBeInTheDocument();
+      expect(within(restoredCookMode).getByTestId("scale-display")).toHaveTextContent("1.25×");
+    });
+
+    it("shows a step timer in focused cook mode when a step has duration", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Timed Cook Recipe",
+          description: null,
+          servings: null,
+          coverImageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Simmer",
+              description: "Keep it just below a boil.",
+              duration: 5,
+              ingredients: [],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      const user = userEvent.setup();
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Timed Cook Recipe" });
+      await user.click(screen.getByTestId("recipe-header-cook-action"));
+
+      const cookMode = await screen.findByTestId("cook-mode-panel");
+      expect(within(cookMode).getByText("5 min timer")).toBeInTheDocument();
+      expect(within(cookMode).getByText("05:00")).toBeInTheDocument();
+      await user.click(within(cookMode).getByRole("button", { name: "Start timer" }));
+      expect(within(cookMode).getByRole("button", { name: "Pause timer" })).toBeInTheDocument();
+      await user.click(within(cookMode).getByRole("button", { name: "Pause timer" }));
+      expect(within(cookMode).getByRole("button", { name: "Start timer" })).toBeInTheDocument();
+      await user.click(within(cookMode).getByRole("button", { name: "Start timer" }));
+      expect(within(cookMode).getByRole("button", { name: "Pause timer" })).toBeInTheDocument();
+      await user.click(within(cookMode).getByRole("button", { name: "Reset timer" }));
+      expect(within(cookMode).getByRole("button", { name: "Start timer" })).toBeInTheDocument();
+      expect(within(cookMode).getByText("05:00")).toBeInTheDocument();
+    });
+
+    it("does not show a focused cook-mode timer for a non-positive duration", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Mistimed Cook Recipe",
+          description: null,
+          servings: null,
+          coverImageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Taste",
+              description: "Use judgment instead of a timer.",
+              duration: -1,
+              ingredients: [],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      const user = userEvent.setup();
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Mistimed Cook Recipe" });
+      await user.click(screen.getByTestId("recipe-header-cook-action"));
+
+      const cookMode = await screen.findByTestId("cook-mode-panel");
+      expect(within(cookMode).queryByTestId("cook-mode-timer")).not.toBeInTheDocument();
+    });
+
+    it("lets a focused cook-mode timer finish and restart", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "One Minute Recipe",
+          description: null,
+          servings: null,
+          coverImageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Rest",
+              description: "Let it sit.",
+              duration: 1,
+              ingredients: [],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      const user = userEvent.setup();
+      try {
+        render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+        await screen.findByRole("heading", { name: "One Minute Recipe" });
+        await user.click(screen.getByTestId("recipe-header-cook-action"));
+
+        const cookMode = await screen.findByTestId("cook-mode-panel");
+        expect(within(cookMode).getByText("1 min timer")).toBeInTheDocument();
+        vi.useFakeTimers();
+        fireEvent.click(within(cookMode).getByRole("button", { name: "Start timer" }));
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(60_000);
+        });
+
+        expect(within(cookMode).getByText("00:00")).toBeInTheDocument();
+        expect(within(cookMode).getByRole("button", { name: "Restart timer" })).toBeInTheDocument();
+
+        fireEvent.click(within(cookMode).getByRole("button", { name: "Restart timer" }));
+        expect(within(cookMode).getByText("01:00")).toBeInTheDocument();
+        expect(within(cookMode).getByRole("button", { name: "Pause timer" })).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("opens focused cook mode from a cook hash and leaves it on browser back", async () => {

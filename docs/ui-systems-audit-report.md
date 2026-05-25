@@ -49,11 +49,11 @@ Contact sheets:
 
 ```bash
 python3 /Users/arimendelow/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Users/arimendelow/.codex/skills/ui-systems-audit
-node /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/inventory-ui.mjs /Users/arimendelow/Projects/spoonjoy-v2 --json > /tmp/spoonjoy-ui-inventory.json
-node /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/inventory-ui.mjs /Users/arimendelow/Projects/spoonjoy-v2 --json > /tmp/spoonjoy-cookbook-language-inventory.json
+node scripts/inventory-ui.mjs /Users/arimendelow/Projects/spoonjoy-v2 --json > /tmp/spoonjoy-ui-inventory.json
+node scripts/inventory-ui.mjs /Users/arimendelow/Projects/spoonjoy-v2 --json > /tmp/spoonjoy-cookbook-language-inventory.json
 pnpm db:seed
-UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-ui-crawl-local
-UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url https://spoonjoy-v2.mendelow-studio.workers.dev --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-ui-crawl-deployed
+UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 node scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-ui-crawl-local
+UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 node scripts/crawl-ui.mjs --base-url https://spoonjoy-v2.mendelow-studio.workers.dev --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-ui-crawl-deployed
 pnpm test test/components/recipe/IngredientList.test.tsx test/components/recipe/StepList.test.tsx test/components/ui/button.test.tsx test/components/ui/checkbox.test.tsx test/components/recipe/SpoonsStrip.test.tsx -- --run
 pnpm test test/components/recipe/IngredientList.test.tsx test/components/recipe/SpoonsStrip.test.tsx -- --run
 pnpm test test/components/ui/design-system-hygiene.test.ts test/components/ui/button.test.tsx -- --run
@@ -61,10 +61,10 @@ pnpm test test/routes/focused-step-editor-flow-e2e.test.tsx -- --run
 pnpm test:coverage
 pnpm typecheck
 pnpm build
-UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-border-crawl
-UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-cookbook-language-crawl
-UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes /tmp/spoonjoy-recipe-detail-route.json --out /tmp/spoonjoy-ingredient-width-local
-UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 node /Users/arimendelow/.codex/skills/ui-systems-audit/scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes /tmp/spoonjoy-cook-shopping-routes.json --out /tmp/spoonjoy-cook-shopping-local
+UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 node scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-border-crawl
+UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 node scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes docs/ui-systems-audit-routes.json --out /tmp/spoonjoy-cookbook-language-crawl
+UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 node scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes /tmp/spoonjoy-recipe-detail-route.json --out /tmp/spoonjoy-ingredient-width-local
+UI_AUDIT_EMAIL=demo@spoonjoy.com UI_AUDIT_PASSWORD=demo1234 node scripts/crawl-ui.mjs --base-url http://localhost:5173 --routes /tmp/spoonjoy-cook-shopping-routes.json --out /tmp/spoonjoy-cook-shopping-local
 # Focused Playwright cook-mode screenshot script wrote /tmp/spoonjoy-cook-mode-local.
 pnpm test test/routes/shopping-list-ux.test.tsx test/routes/recipes-id.test.tsx test/components/navigation/recipe-dock-actions.test.tsx test/routes/recipe-dock-integration.test.tsx -- --run
 ```
