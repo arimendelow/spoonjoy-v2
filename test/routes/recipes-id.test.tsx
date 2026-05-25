@@ -1496,9 +1496,56 @@ describe("Recipes $id Route", () => {
       expect(within(cookMode).getByText("05:00")).toBeInTheDocument();
       await user.click(within(cookMode).getByRole("button", { name: "Start timer" }));
       expect(within(cookMode).getByRole("button", { name: "Pause timer" })).toBeInTheDocument();
+      await user.click(within(cookMode).getByRole("button", { name: "Pause timer" }));
+      expect(within(cookMode).getByRole("button", { name: "Start timer" })).toBeInTheDocument();
+      await user.click(within(cookMode).getByRole("button", { name: "Start timer" }));
+      expect(within(cookMode).getByRole("button", { name: "Pause timer" })).toBeInTheDocument();
       await user.click(within(cookMode).getByRole("button", { name: "Reset timer" }));
       expect(within(cookMode).getByRole("button", { name: "Start timer" })).toBeInTheDocument();
       expect(within(cookMode).getByText("05:00")).toBeInTheDocument();
+    });
+
+    it("does not show a focused cook-mode timer for a non-positive duration", async () => {
+      const mockData = {
+        recipe: {
+          id: "recipe-1",
+          title: "Mistimed Cook Recipe",
+          description: null,
+          servings: null,
+          coverImageUrl: null,
+          chef: { id: "user-1", username: "testchef" },
+          steps: [
+            {
+              id: "step-1",
+              stepNum: 1,
+              stepTitle: "Taste",
+              description: "Use judgment instead of a timer.",
+              duration: -1,
+              ingredients: [],
+              usingSteps: [],
+            },
+          ],
+        },
+        isOwner: true,
+        cookbooks: [],
+        savedInCookbookIds: [],
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/recipes/:id",
+          Component: RecipeDetail,
+          loader: () => mockData,
+        },
+      ]);
+
+      const user = userEvent.setup();
+      render(<Stub initialEntries={["/recipes/recipe-1"]} />);
+      await screen.findByRole("heading", { name: "Mistimed Cook Recipe" });
+      await user.click(screen.getByTestId("recipe-header-cook-action"));
+
+      const cookMode = await screen.findByTestId("cook-mode-panel");
+      expect(within(cookMode).queryByTestId("cook-mode-timer")).not.toBeInTheDocument();
     });
 
     it("lets a focused cook-mode timer finish and restart", async () => {
