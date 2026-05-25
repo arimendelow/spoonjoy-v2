@@ -63,7 +63,9 @@ Goal: reach the point where the only remaining dependency before switching `spoo
 **Blast radius**: recipe detail/cook mode
 **Recommended lane**: fix-now
 **Verification**: Component/route tests for duration display, start/pause/reset/done states; browser smoke.
-**Status**: open
+**Status**: fixed
+**Linked work**: local branch commit pending
+**Notes**: Added repo-local `scripts/inventory-ui.mjs` and `scripts/crawl-ui.mjs`, plus `pnpm ui:inventory` and `pnpm ui:crawl`. Updated the UI audit report to use repo-local commands.
 
 ---
 

@@ -24,6 +24,8 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "db:seed": "pnpm exec tsx prisma/seed.ts",
+    "ui:inventory": "node scripts/inventory-ui.mjs .",
+    "ui:crawl": "node scripts/crawl-ui.mjs",
     "mcp:serve": "tsx scripts/spoonjoy-mcp-server.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
