@@ -17,6 +17,7 @@ There are no open UI audit findings after the current pass.
 - UIA-009: Desktop nav/logo inconsistency: fixed.
 - UIA-011: Duplicate and ornamental horizontal rules across mastheads, forms, shopping list, and ruled lists: fixed.
 - UIA-012: Cookbook detail mixed printed contents with inline admin/table controls: fixed.
+- UIA-013: Recipe detail ingredient checklists were too wide on desktop while prose needed to remain wider: fixed.
 
 ## Accepted Exceptions
 

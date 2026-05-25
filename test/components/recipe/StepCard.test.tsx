@@ -64,4 +64,20 @@ describe('StepCard', () => {
       })
     )
   })
+
+  it('keeps the ingredient checklist narrower than the step prose on desktop', () => {
+    render(
+      <StepCard
+        stepNumber={1}
+        description="This prose can keep a comfortable cookbook reading measure."
+        ingredients={[{ id: 'i1', quantity: 1, unit: 'cup', name: 'water' }]}
+        stepOutputUses={[]}
+      />
+    )
+
+    expect(screen.getByTestId('step-ingredients-block')).toHaveClass('lg:max-w-[40rem]')
+    expect(screen.getByText('This prose can keep a comfortable cookbook reading measure.')).not.toHaveClass(
+      'lg:max-w-[40rem]'
+    )
+  })
 })
