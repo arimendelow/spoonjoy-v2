@@ -111,15 +111,16 @@ Do not set this in production deploy workflows — the whole point of the check 
 The shortest path for a production release is `pnpm deploy:auto`, which chains:
 
 ```
-pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy
+SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy
 ```
 
 In one command this:
 
-1. Runs the full preflight (including the remote-migration check).
+1. Runs local deploy preflight checks while skipping only the remote-migration check.
 2. Builds the client bundle.
 3. Applies any pending remote D1 migrations.
-4. Deploys the Worker.
+4. Reruns the full preflight, including the remote-migration check.
+5. Deploys the Worker.
 
 For full deploys with the longer test/typecheck gate:
 
@@ -151,6 +152,6 @@ pnpm deploy
 | Uploaded images work locally but not in production | Missing `PHOTOS` R2 bucket/binding or R2 is not enabled for the deploy account | Enable R2 in the Dashboard, create `spoonjoy-photos`, and verify `wrangler.json` binding |
 | Ingredient parsing returns fallback/manual review | Missing or invalid `OPENAI_API_KEY` | Set the secret or keep deterministic fallback behavior |
 | Production schema is stale | D1 migrations not applied remotely | Run `wrangler d1 migrations apply DB --remote` before deploy, or use `pnpm deploy:auto` to apply + deploy in one step |
-| `pnpm deploy:preflight` fails with "Remote D1 has N pending migration(s)" | Local code references a schema change that has not been applied to remote D1 | Run `pnpm exec wrangler d1 migrations apply DB --remote` or `pnpm deploy:auto` (which applies pending migrations before deploying) |
+| `pnpm deploy:preflight` fails with "Remote D1 has N pending migration(s)" | Local code references a schema change that has not been applied to remote D1 | Run `pnpm exec wrangler d1 migrations apply DB --remote` or `pnpm deploy:auto` (which applies pending migrations, reruns preflight, then deploys) |
 | Intermittent 1102 / "Worker exceeded CPU time limit" on SSR routes | Worker Free CPU headroom is too close to React Router SSR + Prisma/D1 render cost | Reproduce with `wrangler tail`, then either reduce the hot route's server work or move the Worker to a paid plan before setting `limits.cpu_ms` |
 | Sessions reset across deploys | Missing/rotating `SESSION_SECRET` | Set a stable high-entropy production secret |
