@@ -90,7 +90,7 @@ For Ouroboros agent integration, see [`docs/ouroboros-mcp.md`](docs/ouroboros-mc
 | `pnpm dev:sync` | Generate Prisma client, run the legacy option2 idempotent migration helper, then start dev |
 | `pnpm build` | Production build |
 | `pnpm typecheck` | TypeScript validation |
-| `pnpm deploy:preflight` | Verify Cloudflare bindings, secrets docs, scripts, and migrations before production deploy |
+| `pnpm run deploy:preflight` | Verify Cloudflare bindings, secrets docs, scripts, and migrations before production deploy |
 
 ## Generated Artifacts
 
@@ -181,13 +181,15 @@ pnpm exec prisma migrate diff --from-empty --to-schema-datamodel=./prisma/schema
 
 6. Run the deployment preflight:
    ```bash
-   pnpm deploy:preflight
+   pnpm run deploy:preflight
    ```
 
 7. Deploy:
    ```bash
-   pnpm deploy
+   pnpm run deploy
    ```
+
+   Use `pnpm run deploy`; bare `pnpm deploy` is pnpm's workspace deploy command and will not run this package script.
 
 See [docs/deployment.md](./docs/deployment.md) for the full production checklist, local `.dev.vars` guidance, and common failure modes.
 

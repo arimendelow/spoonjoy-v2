@@ -73,7 +73,7 @@ Basic local app development does not require these values. The app uses safe loc
 Run the machine-checkable preflight before production deploys:
 
 ```bash
-pnpm deploy:preflight
+pnpm run deploy:preflight
 ```
 
 The preflight verifies:
@@ -102,7 +102,7 @@ Set `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1` to skip the remote D1 migration check. Th
 
 - CI runs that do not have wrangler credentials.
 - Local dev machines without `wrangler login`.
-- Smoke runs of `pnpm deploy:preflight` from sandboxes.
+- Smoke runs of `pnpm run deploy:preflight` from sandboxes.
 
 Do not set this in production deploy workflows — the whole point of the check is to catch unapplied migrations before they reach users.
 
@@ -111,7 +111,7 @@ Do not set this in production deploy workflows — the whole point of the check 
 The shortest path for a production release is `pnpm deploy:auto`, which chains:
 
 ```
-SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy
+SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm run deploy:preflight && pnpm exec wrangler deploy
 ```
 
 In one command this:
@@ -127,7 +127,7 @@ For full deploys with the longer test/typecheck gate:
 ```bash
 pnpm install --frozen-lockfile
 pnpm prisma:generate
-pnpm deploy:preflight
+pnpm run deploy:preflight
 pnpm typecheck
 pnpm test:coverage
 pnpm test:e2e
@@ -137,12 +137,12 @@ pnpm deploy:auto
 If you prefer the manual two-step (no auto-apply of migrations), use:
 
 ```bash
-pnpm deploy:preflight
+pnpm run deploy:preflight
 wrangler d1 migrations apply DB --remote
-pnpm deploy
+pnpm run deploy
 ```
 
-`pnpm deploy` now runs `pnpm deploy:preflight && pnpm build && pnpm exec wrangler deploy`; keep that chain so deploys never publish an unbuilt client bundle or skip the remote-migration check.
+`pnpm run deploy` runs `pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler deploy`; keep that chain so deploys never publish an unbuilt client bundle or skip the remote-migration check. Use `pnpm run deploy`; bare `pnpm deploy` is pnpm's workspace deploy command and will not run this package script.
 
 ## Failure Modes
 
@@ -152,6 +152,6 @@ pnpm deploy
 | Uploaded images work locally but not in production | Missing `PHOTOS` R2 bucket/binding or R2 is not enabled for the deploy account | Enable R2 in the Dashboard, create `spoonjoy-photos`, and verify `wrangler.json` binding |
 | Ingredient parsing returns fallback/manual review | Missing or invalid `OPENAI_API_KEY` | Set the secret or keep deterministic fallback behavior |
 | Production schema is stale | D1 migrations not applied remotely | Run `wrangler d1 migrations apply DB --remote` before deploy, or use `pnpm deploy:auto` to apply + deploy in one step |
-| `pnpm deploy:preflight` fails with "Remote D1 has N pending migration(s)" | Local code references a schema change that has not been applied to remote D1 | Run `pnpm exec wrangler d1 migrations apply DB --remote` or `pnpm deploy:auto` (which applies pending migrations, reruns preflight, then deploys) |
+| `pnpm run deploy:preflight` fails with "Remote D1 has N pending migration(s)" | Local code references a schema change that has not been applied to remote D1 | Run `pnpm exec wrangler d1 migrations apply DB --remote` or `pnpm deploy:auto` (which applies pending migrations, reruns preflight, then deploys) |
 | Intermittent 1102 / "Worker exceeded CPU time limit" on SSR routes | Worker Free CPU headroom is too close to React Router SSR + Prisma/D1 render cost | Reproduce with `wrangler tail`, then either reduce the hot route's server work or move the Worker to a paid plan before setting `limits.cpu_ms` |
 | Sessions reset across deploys | Missing/rotating `SESSION_SECRET` | Set a stable high-entropy production secret |

@@ -212,16 +212,18 @@ wrangler d1 execute spoonjoy --remote --file=./migrations/0002_seed.sql
 
 There are two supported deploy paths:
 
-### `pnpm deploy` — safe, manual migrations
+### `pnpm run deploy` — safe, manual migrations
 
-`pnpm deploy` now runs the full preflight (including a remote D1 migration check) before building and deploying. It does **not** apply remote D1 migrations for you. If the preflight detects pending migrations, it fails and tells you which migrations are pending.
+`pnpm run deploy` runs the full preflight (including a remote D1 migration check) before building and deploying. It does **not** apply remote D1 migrations for you. If the preflight detects pending migrations, it fails and tells you which migrations are pending.
+
+Use `pnpm run deploy`; bare `pnpm deploy` is pnpm's workspace deploy command and will not run this package script.
 
 ```bash
 # Apply any pending migrations first
 pnpm exec wrangler d1 migrations apply DB --remote
 
 # Then deploy (preflight → build → wrangler deploy)
-pnpm deploy
+pnpm run deploy
 ```
 
 Use this path when you want to inspect migrations before applying them or when migrations require a manual review.
@@ -232,16 +234,16 @@ Use this path when you want to inspect migrations before applying them or when m
 pnpm deploy:auto
 ```
 
-This chains `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy`. The first preflight still checks local deploy readiness but skips the remote-migration check so pending migrations can be applied; the second preflight verifies remote D1 is up to date before deploying. Use this when migrations are routine and you want a single command to fully push a release. This is the recommended path for the common case.
+This chains `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm run deploy:preflight && pnpm exec wrangler deploy`. The first preflight still checks local deploy readiness but skips the remote-migration check so pending migrations can be applied; the second preflight verifies remote D1 is up to date before deploying. Use this when migrations are routine and you want a single command to fully push a release. This is the recommended path for the common case.
 
 **Why this matters**: on 2026-05-10 a production deploy went out without applying remote D1 migrations, causing `/search` to 500 with `no such column: ...` errors. `pnpm deploy:auto` and the preflight remote-migration check exist to make that failure mode impossible going forward.
 
 ### Skipping the remote check in dev or unauthenticated CI
 
-If you run `pnpm deploy:preflight` from an environment without wrangler credentials, set `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1` to skip the remote check. The preflight will emit a WARN line so the skip is visible in logs.
+If you run `pnpm run deploy:preflight` from an environment without wrangler credentials, set `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1` to skip the remote check. The preflight will emit a WARN line so the skip is visible in logs.
 
 ```bash
-SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight
+SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight
 ```
 
 Do **not** set this in a real production deploy — the check is what catches unapplied migrations.
@@ -318,7 +320,7 @@ git commit -m "your changes"
 git push
 
 # Deploy
-pnpm deploy
+pnpm run deploy
 ```
 
 Or set up automatic deployments via GitHub integration in Cloudflare Pages dashboard.
