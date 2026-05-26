@@ -121,6 +121,17 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
       "package.json deploy script must build first and deploy with wrangler."
     ),
     check(
+      "deploy:auto script",
+      typeof scripts["deploy:auto"] === "string" &&
+        scripts["deploy:auto"].includes("SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight") &&
+        scripts["deploy:auto"].includes("pnpm build") &&
+        scripts["deploy:auto"].includes("pnpm exec wrangler d1 migrations apply DB --remote") &&
+        scripts["deploy:auto"].includes("pnpm exec wrangler deploy") &&
+        scripts["deploy:auto"].indexOf("pnpm exec wrangler d1 migrations apply DB --remote") <
+          scripts["deploy:auto"].lastIndexOf("pnpm deploy:preflight"),
+      "package.json deploy:auto must skip only the initial remote preflight, apply D1 migrations, rerun full preflight, then deploy."
+    ),
+    check(
       "preflight script",
       typeof scripts["deploy:preflight"] === "string" && scripts["deploy:preflight"].includes("deployment-preflight"),
       "package.json must expose deploy:preflight for local and CI production-readiness checks."

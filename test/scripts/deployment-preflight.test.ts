@@ -28,7 +28,7 @@ function validInputs(): DeploymentPreflightInputs {
         build: "react-router build",
         deploy: "pnpm deploy:preflight && pnpm build && pnpm exec wrangler deploy",
         "deploy:auto":
-          "pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy",
+          "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy",
         "deploy:preflight": "tsx scripts/deployment-preflight.ts",
         typecheck: "react-router typegen && tsc",
         "test:coverage": "vitest run --coverage",
@@ -120,6 +120,16 @@ describe("deployment preflight", () => {
     const result = validateDeploymentConfig(inputs);
 
     expect(result.errors.map((item) => item.name)).toContain("package scripts");
+  });
+
+  it("requires deploy:auto to apply migrations before the full remote preflight", () => {
+    const inputs = validInputs();
+    (inputs.packageJson.scripts as Record<string, string>)["deploy:auto"] =
+      "pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy";
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("deploy:auto script");
   });
 
   it("reports NODE_ENV as a warning instead of a hard failure", () => {
@@ -430,14 +440,14 @@ describe("package.json deploy scripts", () => {
     );
   });
 
-  it("deploy:auto chains preflight then build then migrate then deploy via pnpm exec in that order", async () => {
+  it("deploy:auto skips only the first remote preflight, then builds, migrates, fully preflights, and deploys", async () => {
     const pkgRaw = await import("node:fs/promises").then((mod) =>
       mod.readFile(`${process.cwd()}/package.json`, "utf8"),
     );
     const pkg = JSON.parse(pkgRaw) as { scripts: Record<string, string> };
 
     expect(pkg.scripts["deploy:auto"]).toBe(
-      "pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy",
+      "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy",
     );
   });
 });

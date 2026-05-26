@@ -227,7 +227,7 @@ Use this path when you want to inspect migrations before applying them or when m
 pnpm deploy:auto
 ```
 
-This chains `pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy`. Use this when migrations are routine and you want a single command to fully push a release. This is the recommended path for the common case.
+This chains `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy`. The first preflight still checks local deploy readiness but skips the remote-migration check so pending migrations can be applied; the second preflight verifies remote D1 is up to date before deploying. Use this when migrations are routine and you want a single command to fully push a release. This is the recommended path for the common case.
 
 **Why this matters**: on 2026-05-10 a production deploy went out without applying remote D1 migrations, causing `/search` to 500 with `no such column: ...` errors. `pnpm deploy:auto` and the preflight remote-migration check exist to make that failure mode impossible going forward.
 
