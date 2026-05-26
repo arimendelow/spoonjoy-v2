@@ -117,18 +117,18 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
     ),
     check(
       "deploy script",
-      typeof scripts.deploy === "string" && scripts.deploy.includes("pnpm build") && scripts.deploy.includes("wrangler deploy"),
-      "package.json deploy script must build first and deploy with wrangler."
+      typeof scripts.deploy === "string" && scripts.deploy.includes("pnpm run build") && scripts.deploy.includes("wrangler deploy"),
+      "package.json deploy script must build first and deploy with wrangler. Use pnpm run deploy; bare pnpm deploy is pnpm's workspace deploy command."
     ),
     check(
       "deploy:auto script",
       typeof scripts["deploy:auto"] === "string" &&
-        scripts["deploy:auto"].includes("SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight") &&
-        scripts["deploy:auto"].includes("pnpm build") &&
+        scripts["deploy:auto"].includes("SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight") &&
+        scripts["deploy:auto"].includes("pnpm run build") &&
         scripts["deploy:auto"].includes("pnpm exec wrangler d1 migrations apply DB --remote") &&
         scripts["deploy:auto"].includes("pnpm exec wrangler deploy") &&
         scripts["deploy:auto"].indexOf("pnpm exec wrangler d1 migrations apply DB --remote") <
-          scripts["deploy:auto"].lastIndexOf("pnpm deploy:preflight"),
+          scripts["deploy:auto"].lastIndexOf("pnpm run deploy:preflight"),
       "package.json deploy:auto must skip only the initial remote preflight, apply D1 migrations, rerun full preflight, then deploy."
     ),
     check(
@@ -149,7 +149,7 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
     check(
       "deployment commands",
       [
-        "pnpm deploy:preflight",
+        "pnpm run deploy:preflight",
         "wrangler d1 migrations apply DB --remote",
         "wrangler r2 bucket create spoonjoy-photos",
         "wrangler secret put SESSION_SECRET",

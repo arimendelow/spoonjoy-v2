@@ -26,9 +26,9 @@ function validInputs(): DeploymentPreflightInputs {
     packageJson: {
       scripts: {
         build: "react-router build",
-        deploy: "pnpm deploy:preflight && pnpm build && pnpm exec wrangler deploy",
+        deploy: "pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler deploy",
         "deploy:auto":
-          "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy",
+          "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm run deploy:preflight && pnpm exec wrangler deploy",
         "deploy:preflight": "tsx scripts/deployment-preflight.ts",
         typecheck: "react-router typegen && tsc",
         "test:coverage": "vitest run --coverage",
@@ -37,8 +37,8 @@ function validInputs(): DeploymentPreflightInputs {
       },
     },
     cloudflareEnvDts: "DB?: D1Database; PHOTOS?: R2Bucket; SESSION_SECRET?: string; OPENAI_API_KEY?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; GITHUB_CLIENT_ID?: string; GITHUB_CLIENT_SECRET?: string; APPLE_CLIENT_ID?: string; APPLE_TEAM_ID?: string; APPLE_KEY_ID?: string; APPLE_PRIVATE_KEY?: string;",
-    readme: "pnpm deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY",
-    deploymentDoc: "pnpm deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY",
+    readme: "pnpm run deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY",
+    deploymentDoc: "pnpm run deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY",
     migrationFiles: ["0000_init.sql"],
   };
 }
@@ -103,7 +103,7 @@ describe("deployment preflight", () => {
     const inputs = validInputs();
     inputs.wrangler.r2_buckets = [];
     inputs.cloudflareEnvDts = "DB?: D1Database;";
-    inputs.readme = "pnpm deploy:preflight";
+    inputs.readme = "pnpm run deploy:preflight";
     inputs.deploymentDoc = "wrangler d1 migrations apply DB --remote";
 
     const result = validateDeploymentConfig(inputs);
@@ -125,7 +125,7 @@ describe("deployment preflight", () => {
   it("requires deploy:auto to apply migrations before the full remote preflight", () => {
     const inputs = validInputs();
     (inputs.packageJson.scripts as Record<string, string>)["deploy:auto"] =
-      "pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy";
+      "pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm exec wrangler deploy";
 
     const result = validateDeploymentConfig(inputs);
 
@@ -436,7 +436,7 @@ describe("package.json deploy scripts", () => {
     const pkg = JSON.parse(pkgRaw) as { scripts: Record<string, string> };
 
     expect(pkg.scripts.deploy).toBe(
-      "pnpm deploy:preflight && pnpm build && pnpm exec wrangler deploy",
+      "pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler deploy",
     );
   });
 
@@ -447,7 +447,7 @@ describe("package.json deploy scripts", () => {
     const pkg = JSON.parse(pkgRaw) as { scripts: Record<string, string> };
 
     expect(pkg.scripts["deploy:auto"]).toBe(
-      "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm deploy:preflight && pnpm build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm deploy:preflight && pnpm exec wrangler deploy",
+      "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm run deploy:preflight && pnpm exec wrangler deploy",
     );
   });
 });
