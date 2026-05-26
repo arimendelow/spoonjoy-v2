@@ -70,12 +70,6 @@ interface SearchRow {
   snippet: string;
 }
 
-interface SearchSourceAggregateRow {
-  tableName: string;
-  rowCount: number | bigint;
-  latestAt: Date | string | number | bigint | null;
-}
-
 interface SearchIndexMetadataRow {
   sourceFingerprint: string;
   documentCount: number | bigint;
@@ -90,6 +84,23 @@ const MAX_SEARCH_LIMIT = 50;
 const SEARCH_INSERT_COLUMN_COUNT = 11;
 const SEARCH_INSERT_BATCH_SIZE = 8;
 const SEARCH_METADATA_ID = "current";
+
+const SEARCH_SOURCE_TABLES = [
+  { tableName: "User", countKey: "userCount", latestKey: "userLatestAt" },
+  { tableName: "Recipe", countKey: "recipeCount", latestKey: "recipeLatestAt" },
+  { tableName: "RecipeCover", countKey: "recipeCoverCount", latestKey: "recipeCoverLatestAt" },
+  { tableName: "RecipeStep", countKey: "recipeStepCount", latestKey: "recipeStepLatestAt" },
+  { tableName: "Ingredient", countKey: "ingredientCount", latestKey: "ingredientLatestAt" },
+  { tableName: "IngredientRef", countKey: "ingredientRefCount", latestKey: "ingredientRefLatestAt" },
+  { tableName: "Unit", countKey: "unitCount", latestKey: "unitLatestAt" },
+  { tableName: "Cookbook", countKey: "cookbookCount", latestKey: "cookbookLatestAt" },
+  { tableName: "RecipeInCookbook", countKey: "recipeInCookbookCount", latestKey: "recipeInCookbookLatestAt" },
+  { tableName: "ShoppingListItem", countKey: "shoppingListItemCount", latestKey: "shoppingListItemLatestAt" },
+] as const;
+
+type SearchSourceFingerprintKey = (typeof SEARCH_SOURCE_TABLES)[number]["countKey" | "latestKey"];
+
+type SearchSourceFingerprintRow = Record<SearchSourceFingerprintKey, number | bigint | string | Date | null>;
 
 const ENTITY_TYPES_BY_SCOPE: Record<SearchScope, readonly SearchEntityType[]> = {
   all: ["recipe", "cookbook", "chef", "shopping-list-item"],
@@ -122,17 +133,27 @@ const SEARCH_METADATA_SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS "SearchIndexMetad
   "rebuiltAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 )`;
 
-const SEARCH_SOURCE_FINGERPRINT_SQL = `
-  SELECT 'User' AS tableName, COUNT(*) AS rowCount, MAX("updatedAt") AS latestAt FROM "User"
-  UNION ALL SELECT 'Recipe', COUNT(*), MAX("updatedAt") FROM "Recipe"
-  UNION ALL SELECT 'RecipeCover', COUNT(*), MAX("createdAt") FROM "RecipeCover"
-  UNION ALL SELECT 'RecipeStep', COUNT(*), MAX("updatedAt") FROM "RecipeStep"
-  UNION ALL SELECT 'Ingredient', COUNT(*), MAX("updatedAt") FROM "Ingredient"
-  UNION ALL SELECT 'IngredientRef', COUNT(*), MAX("updatedAt") FROM "IngredientRef"
-  UNION ALL SELECT 'Unit', COUNT(*), MAX("updatedAt") FROM "Unit"
-  UNION ALL SELECT 'Cookbook', COUNT(*), MAX("updatedAt") FROM "Cookbook"
-  UNION ALL SELECT 'RecipeInCookbook', COUNT(*), MAX("updatedAt") FROM "RecipeInCookbook"
-  UNION ALL SELECT 'ShoppingListItem', COUNT(*), MAX("updatedAt") FROM "ShoppingListItem"
+const SEARCH_SOURCE_FINGERPRINT_SQL = `SELECT
+  (SELECT COUNT(*) FROM "User") AS userCount,
+  (SELECT MAX("updatedAt") FROM "User") AS userLatestAt,
+  (SELECT COUNT(*) FROM "Recipe") AS recipeCount,
+  (SELECT MAX("updatedAt") FROM "Recipe") AS recipeLatestAt,
+  (SELECT COUNT(*) FROM "RecipeCover") AS recipeCoverCount,
+  (SELECT MAX("createdAt") FROM "RecipeCover") AS recipeCoverLatestAt,
+  (SELECT COUNT(*) FROM "RecipeStep") AS recipeStepCount,
+  (SELECT MAX("updatedAt") FROM "RecipeStep") AS recipeStepLatestAt,
+  (SELECT COUNT(*) FROM "Ingredient") AS ingredientCount,
+  (SELECT MAX("updatedAt") FROM "Ingredient") AS ingredientLatestAt,
+  (SELECT COUNT(*) FROM "IngredientRef") AS ingredientRefCount,
+  (SELECT MAX("updatedAt") FROM "IngredientRef") AS ingredientRefLatestAt,
+  (SELECT COUNT(*) FROM "Unit") AS unitCount,
+  (SELECT MAX("updatedAt") FROM "Unit") AS unitLatestAt,
+  (SELECT COUNT(*) FROM "Cookbook") AS cookbookCount,
+  (SELECT MAX("updatedAt") FROM "Cookbook") AS cookbookLatestAt,
+  (SELECT COUNT(*) FROM "RecipeInCookbook") AS recipeInCookbookCount,
+  (SELECT MAX("updatedAt") FROM "RecipeInCookbook") AS recipeInCookbookLatestAt,
+  (SELECT COUNT(*) FROM "ShoppingListItem") AS shoppingListItemCount,
+  (SELECT MAX("updatedAt") FROM "ShoppingListItem") AS shoppingListItemLatestAt
 `;
 
 export function normalizeSearchScope(value: string | null | undefined): SearchScope {
@@ -255,11 +276,12 @@ function aggregateDateString(value: Date | string | number | bigint | null): str
 }
 
 async function searchSourceFingerprint(database: PrismaClient): Promise<string> {
-  const rows = await database.$queryRawUnsafe<SearchSourceAggregateRow[]>(SEARCH_SOURCE_FINGERPRINT_SQL);
-  const normalizedRows = rows.map((row) => ({
-    tableName: row.tableName,
-    rowCount: toNumber(row.rowCount),
-    latestAt: aggregateDateString(row.latestAt),
+  const rows = await database.$queryRawUnsafe<SearchSourceFingerprintRow[]>(SEARCH_SOURCE_FINGERPRINT_SQL);
+  const row = rows[0]!;
+  const normalizedRows = SEARCH_SOURCE_TABLES.map((sourceTable) => ({
+    tableName: sourceTable.tableName,
+    rowCount: toNumber(row[sourceTable.countKey] as number | bigint),
+    latestAt: aggregateDateString(row[sourceTable.latestKey] as Date | string | number | bigint | null),
   }));
 
   return JSON.stringify(normalizedRows);
