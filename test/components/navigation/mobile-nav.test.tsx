@@ -51,13 +51,13 @@ describe("MobileNav", () => {
         </MemoryRouter>,
       );
 
-      expect(screen.getByRole("link", { name: /kitchen home/i })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: /my kitchen/i })).toHaveAttribute("href", "/");
       expect(screen.getByTestId("dock-center")).toContainElement(
         screen.getByRole("link", { name: /create recipe/i }),
       );
       expect(screen.getByRole("link", { name: /search/i })).toHaveAttribute("href", "/search");
       expect(screen.getByRole("link", { name: /shopping list/i })).toHaveAttribute("href", "/shopping-list");
-      expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute("href", "/account/settings");
+      expect(screen.queryByRole("link", { name: /settings/i })).not.toBeInTheDocument();
     });
 
     it("does not render the old dashboard navigation labels", () => {
@@ -79,7 +79,7 @@ describe("MobileNav", () => {
         </MemoryRouter>,
       );
 
-      expect(screen.getByRole("link", { name: /kitchen home/i })).toHaveAttribute("aria-current", "page");
+      expect(screen.getByRole("link", { name: /my kitchen/i })).toHaveAttribute("aria-current", "page");
       unmount();
 
       render(
@@ -218,6 +218,7 @@ describe("MobileNav", () => {
 
       expect(screen.getByRole("link", { name: /shelf cookbooks/i })).toHaveAttribute("aria-current", "page");
       expect(screen.getByRole("link", { name: /create cookbook/i })).toHaveAttribute("href", "/cookbooks/new");
+      expect(screen.getByRole("link", { name: /my kitchen/i })).toHaveAttribute("href", "/");
     });
   });
 
