@@ -30,6 +30,7 @@ model User {
   cookbooks           Cookbook[]
   addedToCookbooks    RecipeInCookbook[]
   apiCredentials      ApiCredential[]
+  agentConnections    AgentConnectionRequest[]
   spoons              RecipeSpoon[]
   imageGenLedger      ImageGenLedger[]
 
@@ -54,8 +55,37 @@ model ApiCredential {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
+  agentConnections AgentConnectionRequest[]
+
   @@index([userId])
   @@index([tokenPrefix])
+}
+
+model AgentConnectionRequest {
+  id             String         @id @default(cuid())
+  deviceCodeHash String         @unique
+  userCode       String         @unique
+  agentName      String
+  scopes         String         @default("kitchen:read kitchen:write")
+  status         String         @default("pending")
+
+  approvedById String?
+  approvedBy   User?   @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  credentialId String?
+  credential   ApiCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+
+  expiresAt  DateTime
+  approvedAt DateTime?
+  deniedAt   DateTime?
+  claimedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([approvedById])
+  @@index([credentialId])
+  @@index([status, expiresAt])
 }
 
 model UserCredential {

@@ -43,6 +43,7 @@ declare global {
     DB?: D1Database;
     PHOTOS?: R2Bucket;
     SESSION_SECRET?: string;
+    SPOONJOY_BASE_URL?: string;
     OPENAI_API_KEY?: string;
     INGREDIENT_PARSE_PROVIDER?: string;
     INGREDIENT_PARSE_MODEL?: string;
@@ -56,6 +57,9 @@ declare global {
     APPLE_TEAM_ID?: string;
     APPLE_KEY_ID?: string;
     APPLE_PRIVATE_KEY?: string;
+    VAPID_PUBLIC_KEY?: string;
+    VAPID_PRIVATE_KEY?: string;
+    VAPID_SUBJECT?: string;
   }
 
   interface CloudflareEnvironment extends Env {}

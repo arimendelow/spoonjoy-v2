@@ -11,6 +11,7 @@ export default [
   route("auth/github/callback", "routes/auth.github.callback.tsx"),
   route("auth/apple", "routes/auth.apple.tsx"),
   route("auth/apple/callback", "routes/auth.apple.callback.tsx"),
+  route("agent/connect/:requestId", "routes/agent.connect.$requestId.tsx"),
   route(".redwood/functions/auth/oauth", "routes/redwood-functions-auth-oauth.tsx"),
   route("search", "routes/search.tsx"),
   route("og/recipes/:id.png", "routes/og.recipes.$id.png.tsx"),
