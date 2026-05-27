@@ -9,6 +9,8 @@ When registered under the server name `spoonjoy`, the harness exposes these firs
 | Tool | Purpose |
 | --- | --- |
 | `health` | Check server readiness, auth source, and whether owner-scoped writes are available. |
+| `start_agent_connection` | Create a browser approval link for delegated agent access. |
+| `poll_agent_connection` | Poll a pending delegated connection and receive the one-time API token after approval. |
 | `create_api_token` | Create an owner-scoped Spoonjoy API token; the secret is returned once and stored hashed. |
 | `list_api_tokens` | List API token metadata for the owner; token secrets are never returned. |
 | `revoke_api_token` | Revoke one owner-scoped API token. |
@@ -38,8 +40,9 @@ Recipe cleanup is owner-scoped too. `delete_recipe` sets `deletedAt` on the targ
 
 ## Authentication And Authorization
 
-Spoonjoy supports two MCP auth modes:
+Spoonjoy supports three MCP auth modes:
 
+- Preferred agent mode: call `start_agent_connection`, send the returned `authorizationUrl` to the human, then call `poll_agent_connection` after approval. The returned token is owner-scoped, stored hashed by Spoonjoy, returned once, and should be stored in the agent vault item `spoonjoy.app`.
 - Preferred portable mode: set `SPOONJOY_MCP_API_TOKEN` to a Spoonjoy API token. This works for any MCP client that can pass environment variables to the stdio server. Tokens are owner-scoped, stored hashed, and can be revoked.
 - Trusted local/Ouro bootstrap mode: set `SPOONJOY_MCP_USER_EMAIL`. This is useful for the Ouroboros harness and local development, especially when the value comes from Ouro vault. It is not a remote auth boundary by itself; it is a trusted local stdio identity assertion.
 
@@ -59,13 +62,15 @@ Add this to an agent bundle's `agent.json`:
       "args": ["--silent", "mcp:serve"],
       "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
       "env": {
-        "SPOONJOY_MCP_API_TOKEN": "vault:runtime/config/spoonjoyApiToken",
-        "SPOONJOY_MCP_USER_EMAIL": "vault:runtime/config/spoonjoyUserEmail"
+        "SPOONJOY_MCP_API_BASE_URL": "https://spoonjoy.app",
+        "SPOONJOY_MCP_API_TOKEN": "vault?:spoonjoy.app/password"
       }
     }
   }
 }
 ```
+
+`vault?:` is Ouro's optional vault reference: the MCP server still starts before the first token exists, so it can generate the browser approval link. After approval, store the returned token in `spoonjoy.app` as the password field.
 
 For local development without vault injection, use a literal `SPOONJOY_MCP_API_TOKEN` or a local test `SPOONJOY_MCP_USER_EMAIL`. If both are missing, public read tools still work and owner-scoped tools return an authentication/configuration error unless `ownerEmail` is provided in the tool call.
 

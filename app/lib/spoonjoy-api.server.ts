@@ -6,6 +6,10 @@ import {
   requireApiPrincipal,
   type ApiPrincipal,
 } from "~/lib/api-auth.server";
+import {
+  pollAgentConnection,
+  startAgentConnection,
+} from "~/lib/agent-connection.server";
 import { validateActiveRecipeTitleUnique } from "~/lib/recipe-title-uniqueness.server";
 import { createCover, getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
 import { normalizeSearchScope, searchSpoonjoy } from "~/lib/search.server";
@@ -40,8 +44,9 @@ export interface SpoonjoyApiContext {
   db: PrismaClientType;
   principal?: ApiPrincipal | null;
   defaultOwnerEmail?: string;
+  allowOwnerEmailFallback?: boolean;
   waitUntil?: (promise: Promise<unknown>) => void;
-  env?: ({ OPENAI_API_KEY?: string } & VapidEnv) | null;
+  env?: ({ OPENAI_API_KEY?: string; SPOONJOY_BASE_URL?: string } & VapidEnv) | null;
   bucket?: R2Bucket;
   imageGenRunner?: ImageGenRunner;
   logger?: Pick<Console, "error">;
@@ -214,6 +219,10 @@ function ownerEmail(args: Record<string, unknown>, context: SpoonjoyApiContext):
       assertCanUseOwnerEmail(context.principal, requestedOwnerEmail);
     }
     return principalEmail;
+  }
+
+  if (context.allowOwnerEmailFallback === false) {
+    return context.defaultOwnerEmail?.toLowerCase();
   }
 
   return requestedOwnerEmail ?? context.defaultOwnerEmail?.toLowerCase();
@@ -669,6 +678,61 @@ const authStatusTool: SpoonjoyApiOperation = {
         ? "Use the authenticated principal or configured owner. Never ask for raw Spoonjoy credentials."
         : "Public reads are available. For writes, ask the user to approve a delegated Spoonjoy authorization link or provide a scoped API token; never ask for their password.",
     });
+  },
+};
+
+const startAgentConnectionTool: SpoonjoyApiOperation = {
+  name: "start_agent_connection",
+  description:
+    "Start a browser-approved delegated Spoonjoy connection for this agent. Send authorizationUrl to the user, then poll with deviceCode.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      agentName: { type: "string" },
+      baseUrl: { type: "string" },
+    },
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    const started = await startAgentConnection(context.db, {
+      agentName: optionalString(args.agentName),
+      baseUrl: optionalString(args.baseUrl) ?? context.env?.SPOONJOY_BASE_URL,
+    });
+
+    return json({
+      deviceCode: started.deviceCode,
+      userCode: started.request.userCode,
+      authorizationUrl: started.authorizationUrl,
+      verificationUri: started.authorizationUrl,
+      expiresAt: started.request.expiresAt.toISOString(),
+      expiresIn: started.expiresIn,
+      interval: started.interval,
+      message:
+        "Send authorizationUrl to the user. After they approve, call poll_agent_connection with deviceCode. Never ask for their Spoonjoy password.",
+    });
+  },
+};
+
+const pollAgentConnectionTool: SpoonjoyApiOperation = {
+  name: "poll_agent_connection",
+  description:
+    "Poll a pending delegated Spoonjoy connection. When approved, returns a one-time API token to store in the agent vault.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      deviceCode: { type: "string" },
+      tokenName: { type: "string" },
+      baseUrl: { type: "string" },
+    },
+    required: ["deviceCode"],
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    return json(await pollAgentConnection(context.db, {
+      deviceCode: requiredString(args, "deviceCode"),
+      tokenName: optionalString(args.tokenName),
+      baseUrl: optionalString(args.baseUrl) ?? context.env?.SPOONJOY_BASE_URL,
+    }));
   },
 };
 
@@ -1977,6 +2041,8 @@ const forkRecipeTool: SpoonjoyApiOperation = {
 const tools: SpoonjoyApiOperation[] = [
   healthTool,
   authStatusTool,
+  startAgentConnectionTool,
+  pollAgentConnectionTool,
   createApiTokenTool,
   listApiTokensTool,
   revokeApiTokenTool,

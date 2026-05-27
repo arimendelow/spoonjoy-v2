@@ -49,6 +49,8 @@ describe("spoonjoy MCP tools", () => {
     expect(listSpoonjoyMcpTools().map((tool) => tool.name)).toEqual([
       "health",
       "auth_status",
+      "start_agent_connection",
+      "poll_agent_connection",
       "create_api_token",
       "list_api_tokens",
       "revoke_api_token",
@@ -150,6 +152,62 @@ describe("spoonjoy MCP tools", () => {
       authSource: "session",
       credentialId: null,
     });
+  });
+
+  it("starts and polls delegated agent connections over MCP", async () => {
+    const user = await context.db.user.create({
+      data: { email: uniqueEmail("delegated"), username: faker.internet.username() },
+    });
+
+    const started = parseJson(await callSpoonjoyMcpTool("start_agent_connection", {
+      agentName: "slugger",
+      baseUrl: "https://spoonjoy.app",
+    }, context));
+    expect(started).toMatchObject({
+      deviceCode: expect.stringMatching(/^sjdc_/),
+      userCode: expect.stringMatching(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/),
+      authorizationUrl: expect.stringContaining("https://spoonjoy.app/agent/connect/"),
+      verificationUri: expect.stringContaining("https://spoonjoy.app/agent/connect/"),
+      interval: 2,
+      message: expect.stringContaining("Never ask"),
+    });
+
+    const envFallback = parseJson(await callSpoonjoyMcpTool("start_agent_connection", {
+      agentName: "slugger",
+    }, {
+      ...context,
+      env: { SPOONJOY_BASE_URL: "https://spoonjoy.app" },
+    }));
+    expect(envFallback.authorizationUrl).toContain("https://spoonjoy.app/agent/connect/");
+
+    const pending = parseJson(await callSpoonjoyMcpTool("poll_agent_connection", {
+      deviceCode: started.deviceCode,
+      baseUrl: "https://spoonjoy.app",
+    }, context));
+    expect(pending).toMatchObject({
+      status: "pending",
+      userCode: started.userCode,
+      authorizationUrl: started.authorizationUrl,
+    });
+
+    const requestId = new URL(started.authorizationUrl).pathname.split("/").pop()!;
+    await context.db.agentConnectionRequest.update({
+      where: { id: requestId },
+      data: { status: "approved", approvedById: user.id, approvedAt: new Date() },
+    });
+    const approved = parseJson(await callSpoonjoyMcpTool("poll_agent_connection", {
+      deviceCode: started.deviceCode,
+      tokenName: "Slugger test token",
+    }, context));
+    expect(approved).toMatchObject({
+      status: "approved",
+      token: expect.stringMatching(/^sj_/),
+      credential: { name: "Slugger test token" },
+      storage: { vaultItem: "spoonjoy.app", passwordField: "password" },
+    });
+
+    await expect(callSpoonjoyMcpTool("poll_agent_connection", {}, context))
+      .rejects.toThrow("deviceCode is required");
   });
 
   it("creates, lists, revokes, and authorizes owner-scoped API tokens", async () => {

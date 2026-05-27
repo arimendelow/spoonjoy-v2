@@ -6,6 +6,12 @@ import type { JsonRpcToolRouter } from "../app/lib/mcp/json-rpc.server";
 import { getSpoonjoyMcpEnv } from "../app/lib/mcp/spoonjoy-mcp-env.server";
 import { callSpoonjoyMcpTool, listSpoonjoyMcpTools } from "../app/lib/mcp/spoonjoy-tools.server";
 
+type RemoteOperation = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+};
+
 async function getProtocolSafeDb() {
   const originalWrite = process.stdout.write.bind(process.stdout);
   process.stdout.write = (() => true) as typeof process.stdout.write;
@@ -16,23 +22,81 @@ async function getProtocolSafeDb() {
   }
 }
 
-const db = await getProtocolSafeDb();
-const defaultOwnerEmail = process.env.SPOONJOY_MCP_USER_EMAIL;
+function remoteBaseUrl(): string | null {
+  const raw = process.env.SPOONJOY_MCP_API_BASE_URL?.trim();
+  if (!raw) return null;
+  return new URL(raw).origin;
+}
+
+function remoteUrl(baseUrl: string, path: string): string {
+  return new URL(path, baseUrl).toString();
+}
+
+async function remoteJson(baseUrl: string, path: string, init?: RequestInit): Promise<unknown> {
+  const headers = new Headers(init?.headers);
+  if (process.env.SPOONJOY_MCP_API_TOKEN) {
+    headers.set("Authorization", `Bearer ${process.env.SPOONJOY_MCP_API_TOKEN}`);
+  }
+  const response = await fetch(remoteUrl(baseUrl, path), { ...init, headers });
+  const payload = await response.json() as {
+    ok?: boolean;
+    data?: unknown;
+    error?: { message?: string };
+  };
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error?.message ?? `Spoonjoy API request failed: ${response.status}`);
+  }
+  return payload.data;
+}
+
+async function remoteTools(baseUrl: string): Promise<RemoteOperation[]> {
+  const data = await remoteJson(baseUrl, "/api/tools") as { operations?: RemoteOperation[] };
+  return data.operations ?? [];
+}
+
+const baseUrl = remoteBaseUrl();
+let db: Awaited<ReturnType<typeof getProtocolSafeDb>> | null = null;
+let defaultOwnerEmail: string | undefined;
 const env = getSpoonjoyMcpEnv(process.env);
 let principal: ApiPrincipal | null = null;
+const remoteToolList = baseUrl ? await remoteTools(baseUrl) : null;
 
-if (process.env.SPOONJOY_MCP_API_TOKEN) {
-  principal = await authenticateApiToken(db, process.env.SPOONJOY_MCP_API_TOKEN);
-} else if (defaultOwnerEmail) {
-  principal = await principalFromUserEmail(db, defaultOwnerEmail, "environment");
+if (!baseUrl) {
+  db = await getProtocolSafeDb();
+  defaultOwnerEmail = process.env.SPOONJOY_MCP_API_TOKEN ? undefined : process.env.SPOONJOY_MCP_USER_EMAIL;
+
+  if (process.env.SPOONJOY_MCP_API_TOKEN) {
+    principal = await authenticateApiToken(db, process.env.SPOONJOY_MCP_API_TOKEN);
+  } else if (defaultOwnerEmail) {
+    principal = await principalFromUserEmail(db, defaultOwnerEmail, "environment");
+  }
 }
 
 const router: JsonRpcToolRouter = {
   listTools() {
-    return { tools: listSpoonjoyMcpTools() };
+    return { tools: remoteToolList ?? listSpoonjoyMcpTools() };
   },
   async callTool(name, args) {
+    if (baseUrl) {
+      const data = await remoteJson(baseUrl, `/api/tools/${encodeURIComponent(name)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+      if (name === "poll_agent_connection" && data && typeof data === "object" && "token" in data) {
+        process.env.SPOONJOY_MCP_API_TOKEN = String((data as { token: unknown }).token);
+      }
+      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+    }
+
+    if (!db) throw new Error("Spoonjoy database is unavailable");
     const text = await callSpoonjoyMcpTool(name, args, { db, principal, defaultOwnerEmail, env });
+    if (name === "poll_agent_connection") {
+      const parsed = JSON.parse(text) as { token?: string };
+      if (parsed.token) {
+        principal = await authenticateApiToken(db, parsed.token);
+      }
+    }
     return { content: [{ type: "text", text }] };
   },
 };
@@ -44,7 +108,7 @@ const session = createJsonRpcLineSession(router, {
     process.stdout.write(line);
   },
   async disconnect() {
-    await db.$disconnect();
+    await db?.$disconnect();
   },
 });
 

@@ -48,6 +48,10 @@ describe("Spoonjoy REST API route", () => {
     const tools = await loader(routeArgs(new UndiciRequest("http://localhost/api/tools"), "tools"));
     const toolsPayload = await readJson(tools);
     expect(toolsPayload.data.operations.map((operation: { name: string }) => operation.name)).toContain("search_spoonjoy");
+    const toolsWithBadBearer = await loader(routeArgs(new UndiciRequest("http://localhost/api/tools", {
+      headers: { Authorization: "Bearer literal-bootstrap-placeholder" },
+    }), "tools"));
+    await expect(readJson(toolsWithBadBearer)).resolves.toMatchObject({ ok: true });
 
     const options = await action(routeArgs(new UndiciRequest("http://localhost/api/search", { method: "OPTIONS" }), "search"));
     expect(options.status).toBe(204);
@@ -111,6 +115,32 @@ describe("Spoonjoy REST API route", () => {
       headers: { Authorization: `Bearer ${token}` },
     }), `shopping-list/items/${itemId}`));
     await expect(readJson(removeResponse)).resolves.toMatchObject({ ok: true, data: { shoppingList: { items: [] } } });
+  });
+
+  it("exposes generic tool calls without allowing unauthenticated ownerEmail writes", async () => {
+    const connectionResponse = await action(routeArgs(new UndiciRequest("http://localhost/api/tools/start_agent_connection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agentName: "slugger", baseUrl: "https://spoonjoy.app" }),
+    }), "tools/start_agent_connection"));
+    const connectionPayload = await readJson(connectionResponse);
+    expect(connectionPayload).toMatchObject({
+      ok: true,
+      data: {
+        deviceCode: expect.stringMatching(/^sjdc_/),
+        authorizationUrl: expect.stringContaining("https://spoonjoy.app/agent/connect/"),
+      },
+    });
+
+    const blocked = await action(routeArgs(new UndiciRequest("http://localhost/api/tools/create_recipe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownerEmail: uniqueEmail("attacker"), title: "Remote takeover soup" }),
+    }), "tools/create_recipe"));
+    await expect(readJson(blocked)).resolves.toMatchObject({
+      ok: false,
+      error: { status: 401, message: expect.stringContaining("ownerEmail is required") },
+    });
   });
 
   it("routes recipe and cookbook REST endpoints through the shared operation layer", async () => {

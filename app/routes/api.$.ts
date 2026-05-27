@@ -90,6 +90,9 @@ function dispatchGet(path: string, segments: string[], url: URL): ApiDispatch | 
 async function dispatchMutation(method: string, path: string, segments: string[], request: Request): Promise<ApiDispatch> {
   const args = await bodyArgs(request);
 
+  if (method === "POST" && segments[0] === "tools" && segments.length === 2) {
+    return { operation: segments[1], args };
+  }
   if (method === "POST" && path === "recipes") return { operation: "create_recipe", args };
   if (method === "POST" && segments[0] === "recipes" && segments.length === 3 && segments[2] === "shopping-list") {
     return { operation: "add_recipe_to_shopping_list", args: { ...args, recipeId: segments[1] } };
@@ -132,8 +135,6 @@ async function handleApiRequest({ request, context, params }: Route.LoaderArgs |
   }
 
   try {
-    const db = await getRequestDb(context);
-    const principal = await authenticateApiRequest(db, request, context.cloudflare?.env);
     const url = new URL(request.url);
     const splat = params["*"] ?? "";
     const segments = splat.split("/").filter(Boolean).map(decodeURIComponent);
@@ -153,6 +154,9 @@ async function handleApiRequest({ request, context, params }: Route.LoaderArgs |
       return apiJson({ ok: true, data: { operations: listSpoonjoyApiOperations() } });
     }
 
+    const db = await getRequestDb(context);
+    const principal = await authenticateApiRequest(db, request, context.cloudflare?.env);
+
     const dispatch = request.method === "GET"
       ? dispatchGet(path, segments, url)
       : await dispatchMutation(request.method, path, segments, request);
@@ -167,8 +171,15 @@ async function handleApiRequest({ request, context, params }: Route.LoaderArgs |
     const data = await callSpoonjoyApiOperation(dispatch.operation, dispatch.args, {
       db,
       principal,
+      allowOwnerEmailFallback: false,
       waitUntil,
-      env: cfEnv ? { OPENAI_API_KEY: cfEnv.OPENAI_API_KEY } : null,
+      env: cfEnv ? {
+        OPENAI_API_KEY: cfEnv.OPENAI_API_KEY,
+        SPOONJOY_BASE_URL: cfEnv.SPOONJOY_BASE_URL,
+        VAPID_PUBLIC_KEY: cfEnv.VAPID_PUBLIC_KEY,
+        VAPID_PRIVATE_KEY: cfEnv.VAPID_PRIVATE_KEY,
+        VAPID_SUBJECT: cfEnv.VAPID_SUBJECT,
+      } : null,
       bucket: cfEnv?.PHOTOS ?? undefined,
     });
     return apiJson({ ok: true, data });

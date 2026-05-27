@@ -48,6 +48,7 @@ export async function cleanupDatabase() {
   await db.recipe.deleteMany({});
   await db.ingredientRef.deleteMany({});
   await db.unit.deleteMany({});
+  await db.agentConnectionRequest.deleteMany({});
   await db.apiCredential.deleteMany({});
   await db.userCredential.deleteMany({});
   await db.oAuth.deleteMany({});
