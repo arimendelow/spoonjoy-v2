@@ -13,8 +13,8 @@ POST https://spoonjoy.app/mcp
 - Transport: MCP **Streamable HTTP**, `application/json` responses (no SSE). Stateless — every request is a self-contained JSON-RPC message.
 - Methods: `initialize`, `tools/list`, `tools/call`, and notifications (acked with `202`).
 - `initialize` negotiates the protocol version (it echoes the client's requested `protocolVersion`).
-- `initialize` and `tools/list` are open for discovery. `tools/call` is authenticated per-tool: public bootstrap tools (`health`, `auth_status`, `start_agent_connection`, `poll_agent_connection`) work unauthenticated; everything else requires a bearer token and acts only as that token's owner.
-- Rate-limited per token and per IP (shared limiter with the REST API).
+- **Auth-required:** every request (including `initialize`) must carry a valid bearer token. An unauthenticated request gets `401` + `WWW-Authenticate` pointing at the protected-resource metadata, which is how an OAuth client (claude.ai) discovers the authorization server and runs login + consent *before* connecting. Each request acts only as its token's owner.
+- Rate-limited per token and per IP (shared limiter with the REST API), before any auth work.
 
 ## Auth: delegated bearer token
 
@@ -66,7 +66,7 @@ The connector exposes the same tools as the [Ouroboros stdio MCP integration](./
 
 ## Security posture
 
-- Discovery is open; all mutation and private reads require the bearer token.
+- The endpoint is an OAuth-protected resource: every request requires a valid bearer token, so an MCP client must authenticate (OAuth or a bearer header) before it can list or call tools.
 - A bearer-authenticated request can only act for its own owner — passing a different `ownerEmail` is rejected (`403`).
 - The endpoint is rate-limited before authentication, so an invalid or leaked token cannot burn database/AI quota.
 - Tokens are stored hashed (SHA-256); the secret is shown once.

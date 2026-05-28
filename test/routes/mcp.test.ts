@@ -40,21 +40,28 @@ describe("/mcp route", () => {
     expect(response.status).toBe(405);
   });
 
-  it("handles initialize + tools/list + an authed tools/call end to end", async () => {
+  it("challenges an unauthenticated request via the action", async () => {
+    const response = await action(routeArgs(rpc({ jsonrpc: "2.0", id: 1, method: "initialize" })));
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toContain("resource_metadata=");
+  });
+
+  it("handles initialize + tools/list + a tools/call end to end when authenticated", async () => {
     const user = await db.user.create({ data: { email: uniqueEmail(), username: faker.internet.username() } });
     const { token } = await createApiCredential(db, user.id, "route token");
+    const auth = { Authorization: `Bearer ${token}` };
 
-    const initResponse = await action(routeArgs(rpc({ jsonrpc: "2.0", id: 1, method: "initialize" })));
+    const initResponse = await action(routeArgs(rpc({ jsonrpc: "2.0", id: 1, method: "initialize" }, auth)));
     expect(initResponse.status).toBe(200);
     await expect(initResponse.json()).resolves.toMatchObject({ result: { serverInfo: { name: "spoonjoy" } } });
 
-    const listResponse = await action(routeArgs(rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" })));
+    const listResponse = await action(routeArgs(rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, auth)));
     const listBody = await listResponse.json() as { result: { tools: { name: string }[] } };
     expect(listBody.result.tools.map((t) => t.name)).toContain("get_shopping_list");
 
     const callResponse = await action(routeArgs(rpc(
       { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "get_shopping_list", arguments: {} } },
-      { Authorization: `Bearer ${token}` },
+      auth,
     )));
     expect(callResponse.status).toBe(200);
     const callBody = await callResponse.json() as { result: { content: { text: string }[] } };

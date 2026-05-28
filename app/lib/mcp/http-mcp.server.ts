@@ -7,10 +7,12 @@
  * same operation layer the REST API and stdio bridge use. Responses are
  * `application/json` (no SSE); notifications get a 202 with no body.
  *
- * Auth mirrors the REST surface: discovery (`initialize` / `tools/list`) is
- * open; `tools/call` resolves a principal (bearer token) and the operation
- * layer enforces per-tool authorization. Public bootstrap tools work
- * unauthenticated. Requests are rate-limited before any work.
+ * The endpoint is an OAuth-protected resource: EVERY request (including
+ * `initialize`) must carry a valid bearer token, and an unauthenticated request
+ * gets a 401 + `WWW-Authenticate` pointing at the protected-resource metadata —
+ * the cue an OAuth-capable client (claude.ai) uses to run login + consent before
+ * connecting. Claude Code authenticates the same way via its bearer header.
+ * Requests are rate-limited before any auth work.
  */
 
 import type { PrismaClient as PrismaClientType } from "@prisma/client";
@@ -24,7 +26,6 @@ import {
 } from "~/lib/mcp/spoonjoy-tools.server";
 import {
   buildSpoonjoyApiContext,
-  PUBLIC_BOOTSTRAP_OPERATIONS,
   resolveApiPrincipal,
 } from "~/lib/spoonjoy-api-request.server";
 import { protectedResourceMetadataUrl, resolveIssuerOrigin } from "~/lib/oauth-metadata.server";
@@ -60,41 +61,21 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
+// Any operation name that isn't a public bootstrap op; used so the principal
+// resolver rethrows on an invalid token (rather than swallowing it) and we can
+// uniformly treat "no token" and "bad token" as unauthenticated.
+const MCP_AUTH_OPERATION = "mcp";
+
 /**
- * If this message is a `tools/call` for a protected tool and the caller has no
- * valid principal, answer with an HTTP 401 carrying a `WWW-Authenticate` hint
- * at the protected-resource metadata. That's the signal an MCP client (e.g. the
- * claude.ai connector) uses to start the OAuth flow. `initialize`, `tools/list`,
- * and the public bootstrap tools stay open, and an authenticated caller (the
- * existing Claude Code bearer-token connection) is never challenged.
+ * Build the 401 that tells an MCP client to authenticate. The
+ * `WWW-Authenticate` header points at the protected-resource metadata, which is
+ * how an OAuth-capable client (claude.ai) discovers the authorization server
+ * and starts the login + consent flow.
  */
-async function authChallengeIfNeeded(
-  body: string,
+function authChallengeResponse(
   request: Request,
-  db: PrismaClientType,
   cloudflareEnv: CloudflareEnvLike | null | undefined,
-): Promise<Response | null> {
-  let parsed: { method?: unknown; params?: { name?: unknown } };
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    return null; // let the JSON-RPC layer report the parse error
-  }
-  if (parsed?.method !== "tools/call") return null;
-
-  const toolName = parsed.params?.name;
-  if (typeof toolName !== "string" || PUBLIC_BOOTSTRAP_OPERATIONS.has(toolName)) {
-    return null;
-  }
-
-  let principal = null;
-  try {
-    principal = await resolveApiPrincipal(db, request, cloudflareEnv, toolName);
-  } catch {
-    principal = null; // an invalid token on a protected op also warrants a challenge
-  }
-  if (principal) return null;
-
+): Response {
   const origin = resolveIssuerOrigin(request.url, cloudflareEnv?.SPOONJOY_BASE_URL);
   return new Response(
     JSON.stringify({ error: "unauthorized", message: "Authentication required." }),
@@ -128,12 +109,25 @@ export async function handleMcpHttpRequest(params: HandleMcpHttpRequestParams): 
     return rateLimitedResponse(rateLimit.retryAfterSeconds);
   }
 
+  // The connector is an OAuth-protected resource: every request — including
+  // `initialize` — must carry a valid token. An unauthenticated request gets a
+  // 401 + WWW-Authenticate so the client runs OAuth before connecting. (Claude
+  // Code's existing bearer-token connection authenticates the same way.)
+  let principal;
+  try {
+    principal = await resolveApiPrincipal(db, request, cloudflareEnv, MCP_AUTH_OPERATION);
+  } catch {
+    principal = null; // an invalid/expired token is treated as unauthenticated
+  }
+  if (!principal) {
+    return authChallengeResponse(request, cloudflareEnv);
+  }
+
   const router: JsonRpcToolRouter = {
     listTools() {
       return { tools: listSpoonjoyMcpTools() };
     },
     async callTool(name, args) {
-      const principal = await resolveApiPrincipal(db, request, cloudflareEnv, name);
       const context = buildSpoonjoyApiContext({ db, principal, cloudflareEnv, waitUntil });
       const text = await callSpoonjoyMcpTool(name, args, context);
       return { content: [{ type: "text", text }] };
@@ -141,10 +135,6 @@ export async function handleMcpHttpRequest(params: HandleMcpHttpRequestParams): 
   };
 
   const body = await request.text();
-
-  const challenge = await authChallengeIfNeeded(body, request, db, cloudflareEnv);
-  if (challenge) return challenge;
-
   const response = await handleJsonRpcLine(body, router);
 
   // Notifications (no id) produce no JSON-RPC response — ack with 202.

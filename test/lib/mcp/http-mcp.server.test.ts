@@ -42,52 +42,20 @@ describe("handleMcpHttpRequest", () => {
     expect(response.status).toBe(405);
   });
 
-  it("returns 202 with empty body for notifications", async () => {
-    const response = await handleMcpHttpRequest({
-      request: rpcRequest({ jsonrpc: "2.0", method: "notifications/initialized" }),
-      db,
-    });
-    expect(response.status).toBe(202);
-    expect(await response.text()).toBe("");
-  });
+  async function mintToken(): Promise<string> {
+    const user = await db.user.create({ data: { email: uniqueEmail(), username: faker.internet.username() } });
+    const { token } = await createApiCredential(db, user.id, "mcp connector");
+    return token;
+  }
 
-  it("handles initialize without auth and negotiates protocol version", async () => {
+  function bearer(token: string): Record<string, string> {
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  it("challenges an unauthenticated initialize with 401 + WWW-Authenticate", async () => {
+    // The cue an OAuth client uses to start login + consent before connecting.
     const response = await handleMcpHttpRequest({
       request: rpcRequest(init(1, "initialize", { protocolVersion: "2025-06-18" })),
-      db,
-    });
-    expect(response.status).toBe(200);
-    const body = await response.json() as { result: { protocolVersion: string; serverInfo: { name: string } } };
-    expect(body.result.protocolVersion).toBe("2025-06-18");
-    expect(body.result.serverInfo.name).toBe("spoonjoy");
-  });
-
-  it("lists tools without auth (discovery)", async () => {
-    const response = await handleMcpHttpRequest({
-      request: rpcRequest(init(2, "tools/list")),
-      db,
-    });
-    expect(response.status).toBe(200);
-    const body = await response.json() as { result: { tools: { name: string }[] } };
-    const names = body.result.tools.map((t) => t.name);
-    expect(names).toContain("search_spoonjoy");
-    expect(names).toContain("get_shopping_list");
-  });
-
-  it("allows a public bootstrap tool/call without auth", async () => {
-    const response = await handleMcpHttpRequest({
-      request: rpcRequest(init(3, "tools/call", { name: "health", arguments: {} })),
-      db,
-    });
-    expect(response.status).toBe(200);
-    const body = await response.json() as { result: { content: { type: string; text: string }[] } };
-    expect(body.result.content[0].type).toBe("text");
-    expect(JSON.parse(body.result.content[0].text)).toMatchObject({ ok: true });
-  });
-
-  it("challenges a protected tool/call without auth (401 + WWW-Authenticate)", async () => {
-    const response = await handleMcpHttpRequest({
-      request: rpcRequest(init(4, "tools/call", { name: "get_shopping_list", arguments: {} })),
       db,
     });
     expect(response.status).toBe(401);
@@ -96,11 +64,14 @@ describe("handleMcpHttpRequest", () => {
     );
   });
 
-  it("challenges a protected tool/call carrying an invalid token", async () => {
+  it("challenges any unauthenticated request (tools/list)", async () => {
+    const response = await handleMcpHttpRequest({ request: rpcRequest(init(2, "tools/list")), db });
+    expect(response.status).toBe(401);
+  });
+
+  it("challenges a request carrying an invalid token", async () => {
     const response = await handleMcpHttpRequest({
-      request: rpcRequest(init(4, "tools/call", { name: "get_shopping_list", arguments: {} }), {
-        Authorization: "Bearer sj_not_a_real_token",
-      }),
+      request: rpcRequest(init(3, "tools/list"), { Authorization: "Bearer sj_not_a_real_token" }),
       db,
     });
     expect(response.status).toBe(401);
@@ -111,7 +82,7 @@ describe("handleMcpHttpRequest", () => {
     const request = new UndiciRequest("https://spoonjoy-v2.mendelow-studio.workers.dev/mcp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(init(4, "tools/call", { name: "get_shopping_list", arguments: {} })),
+      body: JSON.stringify(init(4, "initialize", {})),
     }) as unknown as Request;
     const response = await handleMcpHttpRequest({
       request,
@@ -124,22 +95,39 @@ describe("handleMcpHttpRequest", () => {
     );
   });
 
-  it("does not challenge a malformed tool/call with no tool name", async () => {
+  it("negotiates protocol version on an authenticated initialize", async () => {
     const response = await handleMcpHttpRequest({
-      request: rpcRequest(init(4, "tools/call", { arguments: {} })),
+      request: rpcRequest(init(1, "initialize", { protocolVersion: "2025-06-18" }), bearer(await mintToken())),
       db,
     });
     expect(response.status).toBe(200);
+    const body = await response.json() as { result: { protocolVersion: string; serverInfo: { name: string } } };
+    expect(body.result.protocolVersion).toBe("2025-06-18");
+    expect(body.result.serverInfo.name).toBe("spoonjoy");
+  });
+
+  it("lists tools for an authenticated request", async () => {
+    const response = await handleMcpHttpRequest({
+      request: rpcRequest(init(2, "tools/list"), bearer(await mintToken())),
+      db,
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json() as { result: { tools: { name: string }[] } };
+    const names = body.result.tools.map((t) => t.name);
+    expect(names).toContain("search_spoonjoy");
+    expect(names).toContain("get_shopping_list");
+  });
+
+  it("acks an authenticated notification with 202 and no body", async () => {
+    const request = rpcRequest({ jsonrpc: "2.0", method: "notifications/initialized" }, bearer(await mintToken()));
+    const response = await handleMcpHttpRequest({ request, db });
+    expect(response.status).toBe(202);
+    expect(await response.text()).toBe("");
   });
 
   it("dispatches a protected tool/call with a valid bearer token", async () => {
-    const user = await db.user.create({ data: { email: uniqueEmail(), username: faker.internet.username() } });
-    const { token } = await createApiCredential(db, user.id, "mcp connector");
-
     const response = await handleMcpHttpRequest({
-      request: rpcRequest(init(5, "tools/call", { name: "get_shopping_list", arguments: {} }), {
-        Authorization: `Bearer ${token}`,
-      }),
+      request: rpcRequest(init(5, "tools/call", { name: "get_shopping_list", arguments: {} }), bearer(await mintToken())),
       db,
     });
     expect(response.status).toBe(200);
@@ -148,9 +136,9 @@ describe("handleMcpHttpRequest", () => {
     expect(payload).toHaveProperty("shoppingList");
   });
 
-  it("returns a JSON-RPC parse error for an invalid body", async () => {
+  it("returns a JSON-RPC parse error for an invalid (authenticated) body", async () => {
     const response = await handleMcpHttpRequest({
-      request: rpcRequest("{ not json"),
+      request: rpcRequest("{ not json", bearer(await mintToken())),
       db,
     });
     expect(response.status).toBe(200);
