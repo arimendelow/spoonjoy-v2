@@ -1,4 +1,5 @@
 import type { Route } from "./+types/login";
+import { useState } from "react";
 import { Form, redirect, data, useActionData, useLoaderData, useSearchParams } from "react-router";
 import { getRequestDb } from "~/lib/route-platform.server";
 import { authenticateUser } from "~/lib/auth.server";
@@ -94,6 +95,7 @@ export default function Login() {
   const oauthProviders = loaderData?.oauthProviders ?? [];
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") ?? undefined;
+  const [email, setEmail] = useState("");
 
   return (
     <AuthLayout>
@@ -121,7 +123,10 @@ export default function Login() {
               type="email"
               id="email"
               name="email"
+              autoComplete="username webauthn"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               invalid={/* istanbul ignore next -- @preserve */ !!actionData?.errors?.email}
             />
             {/* istanbul ignore next -- @preserve */ actionData?.errors?.email && (
@@ -149,7 +154,7 @@ export default function Login() {
         </Form>
 
         <div className="my-6 border-t border-[var(--sj-border)]" aria-hidden="true" />
-        <PasskeySignInButton redirectTo={redirectTo} />
+        <PasskeySignInButton email={email} redirectTo={redirectTo} />
 
         <Text className="mt-6 text-center">
           Don't have an account?{" "}

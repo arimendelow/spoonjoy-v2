@@ -1,24 +1,30 @@
 /**
  * "Sign in with a passkey" control for the login page.
  *
- * Username-first flow: the user enters their email, clicks the button, and
- * the browser prompts for their passkey. On success the server sets a
- * session cookie and we navigate to the post-login destination.
+ * Username-first flow: the email comes from the login form's single shared
+ * email field (passed in as a prop). Clicking prompts the authenticator; on
+ * success the server sets a session cookie and we navigate to the
+ * post-login destination.
  *
- * Renders nothing if the browser doesn't support WebAuthn.
+ * WebAuthn support is detected after mount (not during render) so the
+ * server render and the first client render agree. The support check is
+ * false on the server (no `window.PublicKeyCredential`) and true in a
+ * capable browser — checking it during render would cause a hydration
+ * mismatch. We render nothing until mounted + supported.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Field, Label, ErrorMessage } from "~/components/ui/fieldset";
-import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
 import {
   authenticatePasskey,
   browserSupportsPasskeys,
 } from "~/lib/webauthn-client";
 
 export interface PasskeySignInButtonProps {
+  /** Email from the login form's shared email field. */
+  email: string;
   redirectTo?: string;
   /** Test seam: override the support check. */
   supportsPasskeys?: boolean;
@@ -27,16 +33,20 @@ export interface PasskeySignInButtonProps {
 }
 
 export function PasskeySignInButton({
+  email,
   redirectTo,
   supportsPasskeys,
   onNavigate,
 }: PasskeySignInButtonProps) {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [supported, setSupported] = useState(false);
   const [status, setStatus] = useState<"idle" | "pending">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const supported = supportsPasskeys ?? browserSupportsPasskeys();
+  useEffect(() => {
+    setSupported(supportsPasskeys ?? browserSupportsPasskeys());
+  }, [supportsPasskeys]);
+
   if (!supported) return null;
 
   const go = (to: string) => (onNavigate ? onNavigate(to) : navigate(to));
@@ -45,7 +55,7 @@ export function PasskeySignInButton({
     setError(null);
     const trimmed = email.trim();
     if (!trimmed) {
-      setError("Enter your email to use a passkey.");
+      setError("Enter your email above to use a passkey.");
       return;
     }
 
@@ -61,20 +71,7 @@ export function PasskeySignInButton({
   }
 
   return (
-    <div className="space-y-3">
-      <Field>
-        <Label htmlFor="passkey-email">Email</Label>
-        <Input
-          type="email"
-          id="passkey-email"
-          name="passkey-email"
-          autoComplete="username webauthn"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          invalid={!!error}
-        />
-        {error && <ErrorMessage>{error}</ErrorMessage>}
-      </Field>
+    <div className="space-y-2">
       <Button
         type="button"
         plain
@@ -84,6 +81,11 @@ export function PasskeySignInButton({
       >
         {status === "pending" ? "Waiting for passkey…" : "Sign in with a passkey"}
       </Button>
+      {error && (
+        <Text className="text-sm text-[var(--sj-tomato)]" role="alert">
+          {error}
+        </Text>
+      )}
     </div>
   );
 }

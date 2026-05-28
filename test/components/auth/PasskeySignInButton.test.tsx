@@ -11,12 +11,16 @@ vi.mock("~/lib/webauthn-client", () => ({
 import { PasskeySignInButton, type PasskeySignInButtonProps } from "~/components/auth/PasskeySignInButton";
 import { authenticatePasskey } from "~/lib/webauthn-client";
 
-function renderButton(props: PasskeySignInButtonProps = {}) {
+function renderButton(props: Partial<PasskeySignInButtonProps> = {}) {
+  const finalProps: PasskeySignInButtonProps = { email: "", ...props };
   const Stub = createTestRoutesStub([
-    { path: "/", Component: () => <PasskeySignInButton {...props} /> },
+    { path: "/", Component: () => <PasskeySignInButton {...finalProps} /> },
   ]);
   return render(<Stub initialEntries={["/"]} />);
 }
+
+const queryButton = () => screen.queryByRole("button", { name: /sign in with a passkey/i });
+const findButton = () => screen.findByRole("button", { name: /sign in with a passkey/i });
 
 describe("PasskeySignInButton", () => {
   beforeEach(() => {
@@ -25,25 +29,38 @@ describe("PasskeySignInButton", () => {
 
   it("renders nothing when passkeys aren't supported", () => {
     renderButton({ supportsPasskeys: false });
-    expect(screen.queryByRole("button", { name: /passkey/i })).not.toBeInTheDocument();
+    // After the mount effect resolves support to false, nothing renders.
+    expect(queryButton()).not.toBeInTheDocument();
+  });
+
+  it("renders the button once mounted + supported", async () => {
+    renderButton({ supportsPasskeys: true, email: "chef@example.com" });
+    expect(await findButton()).toBeInTheDocument();
   });
 
   it("requires an email before starting the ceremony", async () => {
-    renderButton({ supportsPasskeys: true });
+    renderButton({ supportsPasskeys: true, email: "" });
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /sign in with a passkey/i }));
-    expect(screen.getByText(/enter your email/i)).toBeInTheDocument();
+    await user.click(await findButton());
+    expect(screen.getByText(/enter your email above/i)).toBeInTheDocument();
+    expect(authenticatePasskey).not.toHaveBeenCalled();
+  });
+
+  it("treats a whitespace-only email as empty", async () => {
+    renderButton({ supportsPasskeys: true, email: "   " });
+    const user = userEvent.setup();
+    await user.click(await findButton());
+    expect(screen.getByText(/enter your email above/i)).toBeInTheDocument();
     expect(authenticatePasskey).not.toHaveBeenCalled();
   });
 
   it("authenticates and navigates to the returned redirect", async () => {
     vi.mocked(authenticatePasskey).mockResolvedValue({ ok: true, redirectTo: "/recipes" });
     const onNavigate = vi.fn();
-    renderButton({ supportsPasskeys: true, onNavigate, redirectTo: "/cookbooks" });
+    renderButton({ supportsPasskeys: true, onNavigate, email: "chef@example.com", redirectTo: "/cookbooks" });
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Email"), "chef@example.com");
-    await user.click(screen.getByRole("button", { name: /sign in with a passkey/i }));
+    await user.click(await findButton());
 
     expect(authenticatePasskey).toHaveBeenCalledWith("chef@example.com", "/cookbooks");
     expect(onNavigate).toHaveBeenCalledWith("/recipes");
@@ -52,11 +69,10 @@ describe("PasskeySignInButton", () => {
   it("navigates home when the server returns no redirect", async () => {
     vi.mocked(authenticatePasskey).mockResolvedValue({ ok: true });
     const onNavigate = vi.fn();
-    renderButton({ supportsPasskeys: true, onNavigate });
+    renderButton({ supportsPasskeys: true, onNavigate, email: "chef@example.com" });
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Email"), "chef@example.com");
-    await user.click(screen.getByRole("button", { name: /sign in with a passkey/i }));
+    await user.click(await findButton());
 
     expect(onNavigate).toHaveBeenCalledWith("/");
   });
@@ -64,11 +80,10 @@ describe("PasskeySignInButton", () => {
   it("shows an error when authentication fails", async () => {
     vi.mocked(authenticatePasskey).mockResolvedValue({ ok: false, error: "Unknown credential" });
     const onNavigate = vi.fn();
-    renderButton({ supportsPasskeys: true, onNavigate });
+    renderButton({ supportsPasskeys: true, onNavigate, email: "chef@example.com" });
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Email"), "chef@example.com");
-    await user.click(screen.getByRole("button", { name: /sign in with a passkey/i }));
+    await user.click(await findButton());
 
     expect(await screen.findByText("Unknown credential")).toBeInTheDocument();
     expect(onNavigate).not.toHaveBeenCalled();
@@ -77,32 +92,21 @@ describe("PasskeySignInButton", () => {
   it("trims whitespace from the email", async () => {
     vi.mocked(authenticatePasskey).mockResolvedValue({ ok: true, redirectTo: "/" });
     const onNavigate = vi.fn();
-    renderButton({ supportsPasskeys: true, onNavigate });
+    renderButton({ supportsPasskeys: true, onNavigate, email: "  chef@example.com  " });
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Email"), "  chef@example.com  ");
-    await user.click(screen.getByRole("button", { name: /sign in with a passkey/i }));
+    await user.click(await findButton());
 
     expect(authenticatePasskey).toHaveBeenCalledWith("chef@example.com", undefined);
-  });
-
-  it("treats a whitespace-only email as empty", async () => {
-    renderButton({ supportsPasskeys: true });
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Email"), "   ");
-    await user.click(screen.getByRole("button", { name: /sign in with a passkey/i }));
-    expect(screen.getByText(/enter your email/i)).toBeInTheDocument();
-    expect(authenticatePasskey).not.toHaveBeenCalled();
   });
 
   it("falls back to the real support check + navigate when seams omitted", async () => {
     // browserSupportsPasskeys mocked true → renders. No onNavigate → uses
     // router navigate (no-op in the stub). authenticatePasskey resolves ok.
     vi.mocked(authenticatePasskey).mockResolvedValue({ ok: true, redirectTo: "/recipes" });
-    renderButton({});
+    renderButton({ email: "chef@example.com" });
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Email"), "chef@example.com");
-    await user.click(screen.getByRole("button", { name: /sign in with a passkey/i }));
+    await user.click(await findButton());
     expect(authenticatePasskey).toHaveBeenCalled();
   });
 });
