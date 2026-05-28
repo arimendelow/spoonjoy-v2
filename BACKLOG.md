@@ -3,7 +3,7 @@
 Status: proposed canonical backlog
 Audit date: 2026-05-27 (refresh)
 Baseline: `main` at `c89883f` (`chore: gitignore live smoke artifacts (#104)`)
-Verification anchor: `pnpm test:coverage` passes with 228 test files, 0 skipped tests, and 100% statements/branches/functions/lines.
+Verification anchor: `pnpm test:coverage` passes with 240 test files, 5031 tests, 0 skipped, and 100% statements/branches/functions/lines.
 
 ## How To Use This Backlog
 
@@ -43,8 +43,8 @@ The previous run-through (SJ-001 → SJ-026) is complete. The next wave focuses 
 4. `SJ-036`: Finish PostHog setup and add free-tier server-side error tracking.
 5. `SJ-037`: Rate-limit `/api/*` and the MCP bearer surface.
 6. `SJ-038`: Polish PWA install prompt and offline fallback.
-7. `SJ-016`: Build password reset (depends on rate limiting from `SJ-037`).
-8. `SJ-016b`: Build WebAuthn enrollment + sign-in (three PRs: server registration, server assertion, client UX).
+7. `SJ-016b`: Build WebAuthn enrollment + sign-in — **done** (server registration/sign-in #112, client UX #113, settings management #116, rename #117, passkey-aware auth guards #118).
+8. `SJ-016` / `PR-I`: Password reset — **deferred** (blocked on an email-send provider decision + domain DNS; passkeys + OAuth now cover account recovery, lowering urgency).
 
 Completed waves (in chronological order of completion):
 
@@ -504,7 +504,7 @@ Completion notes:
 
 Priority: `P2`
 Lane: `auth`, `v1-parity`, `security`
-Status: `in-progress`
+Status: `in-progress` (WebAuthn/passkey build complete and shipped; only password-reset email remains, deferred)
 
 Problem: v2 schema still has reset-token and WebAuthn credential fields, and v1 included forgot/reset password and WebAuthn client plumbing. v2 has no routes or product decision for these capabilities.
 
@@ -518,10 +518,10 @@ Decision (2026-05-27): **In scope.** Build password reset first (depends on `SJ-
 
 Execution plan:
 
-- **PR-I (password reset):** `/forgot-password` request form, token gen with crypto-grade randomness, email send action (provider TBD — Cloudflare Email Workers vs Resend free tier), `/reset-password?token=...` form, token consumption + expiry. Heavily rate-limited via `SJ-037`. Tests cover token lifecycle, expired, used, invalid, and race.
-- **PR-J1 (WebAuthn registration):** Server-side challenge generation + attestation verification (`@simplewebauthn/server`), credential persistence into `UserCredential`. `POST /auth/webauthn/register/options`, `POST /auth/webauthn/register/verify`. RPID = `spoonjoy.app`.
-- **PR-J2 (WebAuthn sign-in):** Server-side assertion verification, `POST /auth/webauthn/sign-in/options`, `POST /auth/webauthn/sign-in/verify`, `signCount` rotation, session creation.
-- **PR-J3 (WebAuthn client UX):** Settings-page "Add a passkey" button + passkey list with rename/remove. Login-page "Sign in with passkey" with conditional mediation. Graceful fallback to password if WebAuthn unavailable. Storybook stories + e2e.
+- **PR-I (password reset) — deferred:** `/forgot-password` request form, token gen with crypto-grade randomness, email send action, `/reset-password?token=...` form, token consumption + expiry, heavily rate-limited via `SJ-037`. **Blocked on an email-send provider:** Cloudflare has no first-party transactional send (Email Routing is receive-only; MailChannels' free Workers tier ended in 2024), so this needs a provider choice (e.g. Resend free tier) plus domain DNS verification — a human decision. Passkeys + OAuth now give password-only users a recovery path, lowering urgency.
+- **PR-J1 (WebAuthn registration) — done (#112):** Server-side challenge generation + attestation verification (`@simplewebauthn/server`), credential persistence into `UserCredential`. `POST /auth/webauthn/register/options`, `POST /auth/webauthn/register/verify`. RPID = `spoonjoy.app`.
+- **PR-J2 (WebAuthn sign-in) — done (#112):** Server-side assertion verification, options/verify routes, `signCount` rotation, session creation.
+- **PR-J3 (WebAuthn client UX) — done (#113):** Login-page "Sign in with passkey" with hydration-safe capability detection + graceful password fallback, settings-page "Add a passkey" button, Storybook stories. (A dedicated WebAuthn e2e harness — virtual authenticator — is the one remaining piece, deferred; the flows have full unit + integration coverage.)
 - **PR-J4 (passkey settings management) — done:** Account settings now names a passkey at enrollment (optional label) and lists enrolled passkeys (newest first, name + enrollment date) with per-passkey removal guarded against deleting the user's last remaining sign-in method. Adds `UserCredential.name`/`createdAt` (migration `0012_passkey_metadata.sql`), `listUserPasskeys`/`removeUserPasskey` helpers, and a `removePasskey` action.
 - **PR-J5 (passkey rename) — done:** Per-passkey inline rename in account settings (`renameUserPasskey` helper + `renamePasskey` action), `userId`-scoped; a blank label clears the name back to the generic fallback. Completes PR-J3's "rename/remove" promise.
 
