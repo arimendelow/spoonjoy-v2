@@ -161,8 +161,8 @@ describe('SpoonDock v3 Layout Integration', () => {
     })
   })
 
-  describe('mobile cookbook grid layout', () => {
-    it('dock uses place / primary / tools columns', () => {
+  describe('mobile dock layout', () => {
+    it('spreads place / primary / tools edge-to-edge', () => {
       render(
         <MemoryRouter>
           <AssembledSpoonDock />
@@ -170,8 +170,8 @@ describe('SpoonDock v3 Layout Integration', () => {
       )
 
       const nav = screen.getByRole('navigation')
-      expect(nav).toHaveClass('grid')
-      expect(nav).toHaveClass('grid-cols-[minmax(3rem,0.9fr)_auto_auto]')
+      expect(nav).toHaveClass('flex')
+      expect(nav).toHaveClass('justify-between')
     })
   })
 
