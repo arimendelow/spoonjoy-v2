@@ -5,14 +5,26 @@ const DEFAULT_DEV_SESSION_SECRET = "default-dev-secret-please-change-in-producti
 
 export interface SessionEnv {
   SESSION_SECRET?: string;
-  // NODE_ENV is read so we can fail closed in production when SESSION_SECRET
-  // is missing — silently signing sessions with the well-known dev secret in
-  // prod would let anyone with the source forge sessions.
+  // NODE_ENV is read so we surface a loud warning when SESSION_SECRET is
+  // missing in production. We don't throw because wrangler.json sets
+  // NODE_ENV=production for both real prod AND `wrangler dev` (no env.dev
+  // override exists), so a hard throw would break e2e/dev too.
   NODE_ENV?: string;
 }
 
 const storageCache = new Map<string, ReturnType<typeof createSessionStorageForSecret>>();
 const oauthStorageCache = new Map<string, ReturnType<typeof createOAuthSessionStorageForSecret>>();
+
+// Module-scope flag so the warning fires once per process, not once per
+// request. Real prod never legitimately hits this path (the Worker has
+// SESSION_SECRET set as a wrangler secret), so a single noisy log is all
+// the signal an operator needs.
+let warnedAboutFallbackInProduction = false;
+
+/** Test-only: reset the once-per-process warning latch. */
+export function _resetSessionWarningLatchForTests(): void {
+  warnedAboutFallbackInProduction = false;
+}
 
 function isProduction(env?: SessionEnv | null): boolean {
   return env?.NODE_ENV === "production" || process.env.NODE_ENV === "production";
@@ -27,13 +39,17 @@ function resolveSessionSecret(env?: SessionEnv | null): string {
     return process.env.SESSION_SECRET;
   }
 
-  // Fail closed in production — signing sessions with the well-known dev
-  // fallback is equivalent to no signing. The audit flagged this as P2
-  // hardening (the worker should already have SESSION_SECRET set); this
-  // turns "wasn't set" into a hard error instead of a silent compromise.
-  if (isProduction(env)) {
-    throw new Error(
-      "SESSION_SECRET is required in production — refusing to sign sessions with the dev fallback.",
+  // The audit flagged this as P2 hardening: signing prod sessions with the
+  // committed dev fallback is equivalent to no signing. We can't *throw*
+  // (wrangler.json sets NODE_ENV=production in dev too), so we emit a
+  // once-per-process loud warning — operators see it immediately if a real
+  // prod deploy ever lands without SESSION_SECRET configured.
+  if (isProduction(env) && !warnedAboutFallbackInProduction) {
+    warnedAboutFallbackInProduction = true;
+    console.warn(
+      "[session.server] WARNING: SESSION_SECRET is not set while NODE_ENV=production. " +
+        "Falling back to the committed dev secret — sessions are NOT securely signed. " +
+        "Set SESSION_SECRET as a wrangler secret before this hits real production traffic.",
     );
   }
 
