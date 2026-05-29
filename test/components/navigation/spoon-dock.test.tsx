@@ -54,12 +54,22 @@ describe('SpoonDock', () => {
     })
   })
 
-  describe('full-width layout', () => {
-    it('distributes place / primary / tools edge-to-edge', () => {
+  describe('layout', () => {
+    it('centers the primary by default with symmetric side columns', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      // Flex + justify-between spreads the groups across the full width with
-      // equal gaps, so the dock never leaves a lopsided void.
+      // Symmetric minmax(0,1fr) side columns keep the place item at the far
+      // left and tools at the far right with the primary dead-center.
+      expect(nav).toHaveClass('grid')
+      expect(nav).toHaveClass('grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]')
+      expect(nav).not.toHaveClass('flex')
+    })
+
+    it('falls back to edge-to-edge distribution when not centered (full tool cluster)', () => {
+      render(<SpoonDock centered={false} />)
+      const nav = screen.getByRole('navigation')
+      // No room to center; distribute with equal gaps so it fills the width
+      // without spilling.
       expect(nav).toHaveClass('flex')
       expect(nav).toHaveClass('justify-between')
       expect(nav).not.toHaveClass('grid')
@@ -68,19 +78,10 @@ describe('SpoonDock', () => {
     it('keeps a minimum gap that compacts on narrow phones', () => {
       render(<SpoonDock />)
       const nav = screen.getByRole('navigation')
-      // gap-* is the floor; justify-between adds the remaining slack. Gap +
-      // padding tighten at <=389px (iPhone 13 mini / SE / 5) so items never spill.
+      // Gap + padding tighten at <=389px (iPhone 13 mini / SE / 5) so items never spill.
       expect(nav).toHaveClass('gap-2')
       expect(nav).toHaveClass('max-[389px]:gap-1')
       expect(nav).toHaveClass('max-[389px]:p-1.5')
-    })
-
-    it('uses one consistent layout for root and contextual docks', () => {
-      render(<SpoonDock />)
-      const nav = screen.getByRole('navigation')
-      expect(nav).toHaveClass('flex')
-      expect(nav).toHaveClass('justify-between')
-      expect(nav).not.toHaveClass('grid-cols-[72px_1fr_72px]')
     })
 
     it('centers items vertically', () => {

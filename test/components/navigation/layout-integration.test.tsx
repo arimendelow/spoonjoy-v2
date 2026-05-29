@@ -162,7 +162,7 @@ describe('SpoonDock v3 Layout Integration', () => {
   })
 
   describe('mobile dock layout', () => {
-    it('spreads place / primary / tools edge-to-edge', () => {
+    it('centers the primary on a root dock (<=2 tools)', () => {
       render(
         <MemoryRouter>
           <AssembledSpoonDock />
@@ -170,8 +170,8 @@ describe('SpoonDock v3 Layout Integration', () => {
       )
 
       const nav = screen.getByRole('navigation')
-      expect(nav).toHaveClass('flex')
-      expect(nav).toHaveClass('justify-between')
+      expect(nav).toHaveClass('grid')
+      expect(nav).toHaveClass('grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]')
     })
   })
 

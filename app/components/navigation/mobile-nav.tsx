@@ -195,7 +195,12 @@ export function MobileNav({ isAuthenticated = true }: MobileNavProps) {
   const tools = activeConfig.tools.slice(0, 3);
 
   return (
-    <SpoonDock aria-label={activeConfig.ariaLabel ?? "Spoonjoy navigation"}>
+    <SpoonDock
+      aria-label={activeConfig.ariaLabel ?? "Spoonjoy navigation"}
+      // Center the primary unless the tools cluster is full (3), where there's
+      // no room to center at the narrowest widths without the tools spilling.
+      centered={tools.length <= 2}
+    >
       <div className="flex min-w-0 justify-start">
         <DockItem
           {...activeConfig.left}

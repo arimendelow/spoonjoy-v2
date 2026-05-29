@@ -4,12 +4,22 @@ export interface SpoonDockProps {
   children?: React.ReactNode;
   className?: string;
   "aria-label"?: string;
+  /**
+   * Center the primary (middle child) in the dock. Symmetric side columns put
+   * the place item at the far left and the tools at the far right with the
+   * primary dead-center. Pass `false` when the tools cluster is too wide to
+   * leave room (the 3-tool recipe view at 320px), which falls back to an
+   * edge-to-edge `justify-between` distribution that still fills the width
+   * without spilling. Defaults to centered.
+   */
+  centered?: boolean;
 }
 
 export function SpoonDock({
   children,
   className,
   "aria-label": ariaLabel = "Spoonjoy navigation",
+  centered = true,
   ...props
 }: SpoonDockProps) {
   return (
@@ -18,13 +28,15 @@ export function SpoonDock({
       aria-label={ariaLabel}
       className={clsx(
         "fixed bottom-0 left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))]",
-        // Distribute place / primary / tools edge-to-edge with equal gaps so the
-        // dock always fills its width with deliberate rhythm — never a lopsided
-        // void, never crowded. `gap-*` is the minimum spacing; justify-between
-        // spreads the remaining slack evenly. Items keep their natural width
-        // (flex-shrink only) so the 3-tool worst case never spills at 320px
-        // (guarded by e2e/flows/spoondock-responsive.spec.ts).
-        "mx-auto flex h-17 max-w-lg items-center justify-between gap-2 max-[389px]:gap-1",
+        "mx-auto h-17 max-w-lg items-center gap-2 max-[389px]:gap-1",
+        // Centered: symmetric side columns (minmax(0,1fr)) hold the place item
+        // (far left) and tools (far right) while the primary stays dead-center.
+        // Fallback: edge-to-edge distribution with equal gaps when centering
+        // would leave no room (3-tool view) — fills the width, never crowded,
+        // never spills (guarded by e2e/flows/spoondock-responsive.spec.ts).
+        centered
+          ? "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+          : "flex justify-between",
         // Solid dark fill (no backdrop-filter): a `backdrop-blur` on a
         // position:fixed element is a known iOS Safari bug that detaches/
         // mis-positions the element during scroll (the dock "not sticking to
