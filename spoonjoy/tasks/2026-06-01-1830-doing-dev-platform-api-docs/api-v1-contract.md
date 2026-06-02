@@ -76,6 +76,7 @@ Replay rules:
 - Stored 4xx/5xx responses replay exactly.
 - A replay does not require the original credential to remain active if the same client key can authenticate the current request; a revoked bearer token still fails auth before replay lookup.
 - Replay responses use the current request's `requestId` in the response envelope and `X-Request-Id` header. The stored body is copied, then `requestId` is replaced with the current request id and `mutation.replayed` is set to `true`.
+- Expired idempotency rows are ignored for replay/conflict. Before reserving a key, the helper deletes rows for the same `userId`, `clientKey`, and `key` whose `expiresAt` is less than or equal to the current time. After deletion, the key may be reused as a fresh first use.
 
 ## Envelope, Headers, And Errors
 
@@ -355,6 +356,9 @@ Credential metadata shape:
 - `scopes` is optional; omitted uses default personal API token scopes.
 - Session callers are allowed.
 - Bearer callers require `tokens:write` or legacy `kitchen:write`.
+- Session callers may create tokens with any valid first-slice scope except legacy `kitchen:*` unless those legacy scopes are explicitly provided for compatibility tests.
+- Bearer callers may create only tokens whose requested scopes are a subset of the caller's expanded fine-grained scopes. Omitted `scopes` for bearer callers defaults to the caller's expanded fine-grained scopes, excluding `offline_access`.
+- Bearer token creation with requested scopes outside the caller's expanded scope set returns `403 insufficient_scope`.
 - Response status `201`: `data: { "token": "sj_secret", "credential": credentialMetadata }`.
 - The `token` field is the only time the secret is returned.
 
@@ -490,7 +494,7 @@ Conflict semantics:
 - Client-provided timestamps are ignored in this slice.
 - Unknown item ids return `404 not_found`.
 
-Idempotent replay changes only `mutation.replayed` from `false` to `true`; the stored status and all other body fields are the original response.
+Idempotent replay changes the response envelope `requestId` to the current request id and changes `mutation.replayed` from `false` to `true`; the stored status and all other data fields are the original response.
 
 ## OpenAPI
 

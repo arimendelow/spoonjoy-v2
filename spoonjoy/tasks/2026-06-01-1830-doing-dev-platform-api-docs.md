@@ -91,7 +91,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Acceptance**: Unit 2a tests PASS; `pnpm run build` succeeds with no warnings.
 
 ### ⬜ Unit 2c: API Idempotency Storage — Coverage & Refactor
-**What**: Verify coverage for idempotency helper branches: first use, exact replay, mismatched operation, mismatched request body hash, failed stored response replay, missing credential id, and revoked credential after stored replay.
+**What**: Verify coverage for idempotency helper branches: first use, exact replay, mismatched operation, mismatched request body hash, failed stored response replay, missing credential id, revoked credential after stored replay, expired row deletion, and key reuse after expiry.
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-2c-coverage.log`; any refactor stays in `app/lib/api-idempotency.server.ts` and tests.
 **Acceptance**: 100% coverage on new/changed idempotency storage code; focused tests and build still PASS with no warnings.
 
@@ -142,7 +142,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 
 ### ⬜ Unit 6a: Personal API Token V1 Metadata — Tests
 **What**: Write failing tests for authenticated personal API token metadata endpoints `GET /api/v1/tokens`, `POST /api/v1/tokens`, and `DELETE /api/v1/tokens/:credentialId`.
-**Output**: `test/routes/api-v1-tokens.test.ts` asserts the exact credential metadata fields, `token` one-time secret field, requested scope normalization, default personal token scopes, unknown request body fields rejected with `400 validation_error`, revoke response fields, self-revoke succeeds for the current request and fails on later requests, missing auth 401, invalid JSON 400, and `tokens:read` / `tokens:write` enforcement from `api-v1-contract.md`.
+**Output**: `test/routes/api-v1-tokens.test.ts` asserts the exact credential metadata fields, `token` one-time secret field, requested scope normalization, default personal token scopes, bearer-created token scopes capped to the caller's expanded fine-grained scopes, bearer scope escalation returning `403 insufficient_scope`, unknown request body fields rejected with `400 validation_error`, revoke response fields, self-revoke succeeds for the current request and fails on later requests, missing auth 401, invalid JSON 400, and `tokens:read` / `tokens:write` enforcement from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because token metadata endpoints are not implemented under `/api/v1`.
 
 ### ⬜ Unit 6b: Personal API Token V1 Metadata — Implementation
@@ -196,7 +196,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Acceptance**: Unit 9a tests PASS; legacy shopping-list mutation tests still PASS; `pnpm run build` succeeds with no warnings.
 
 ### ⬜ Unit 9c: Idempotent Shopping-List Mutations — Coverage & Refactor
-**What**: Verify coverage for mutation branches: add blank text, add duplicate ingredient text, patch checked true, patch checked false, delete existing item, delete already deleted item, replay with revoked token, and replay with mismatched body hash.
+**What**: Verify coverage for mutation branches: add blank text, add duplicate ingredient text, patch checked true, patch checked false, delete existing item, delete already deleted item, replay with current request ID, replay with revoked token, replay with mismatched body hash, and key reuse after idempotency expiry.
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-9c-coverage.log`; refactors stay in shopping mutation/idempotency helpers and tests.
 **Acceptance**: 100% coverage on new/changed idempotent mutation code; focused tests and build still PASS with no warnings.
 
