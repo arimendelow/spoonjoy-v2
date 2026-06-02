@@ -571,7 +571,7 @@ OpenAPI response status matrix:
 
 - All routes: `429 rate_limited`, `500 internal_error`.
 - All routes except `OPTIONS`: `405 method_not_allowed` for unsupported methods on the route path.
-- `GET /api/v1`: `200`, `429`, `500`.
+- `GET /api/v1`: `200`, `401 invalid_token`, `429`, `500`.
 - `GET /api/v1/health`: `200`, `401 invalid_token`, `429`, `500`. Health has no `403` because it has no required scope.
 - `GET /api/v1/openapi.json`: `200`, `401 invalid_token`, `429`, `500`. OpenAPI has no `403` because it has no required scope.
 - `GET /api/v1/recipes`: `200`, `400 validation_error`, `401 invalid_token`, `403 insufficient_scope`, `429`, `500`.
