@@ -63,6 +63,41 @@ const authModels = [
   },
 ] as const;
 
+const clientProfiles = [
+  ["Tiny-device clients", "Use sync cursors, small payloads, and idempotent retries when a device is offline or battery constrained."],
+  ["Mobile apps", "Read public recipes without auth, then request shopping-list scopes only after a chef connects their account."],
+  ["CLI/script clients", "Use personal tokens, curl, and OpenAPI JSON to automate imports, sync, and kitchen maintenance."],
+  ["Browser clients", "Use OAuth/PKCE with dynamic client registration instead of embedding long-lived secrets."],
+  ["Agent clients", "Use MCP or delegated connection endpoints when a chef needs to approve an assistant-style runtime."],
+] as const;
+
+const externalGuideSteps = [
+  {
+    title: "Read the public Chef graph",
+    scope: "No token required",
+    body: "Start with GET /api/v1/recipes and GET /api/v1/cookbooks. Public graph reads do not require Authorization: Bearer, and the OpenAPI contract is available at /api/v1/openapi.json.",
+    sample: "curl 'https://spoonjoy.app/api/v1/recipes?query=pasta&limit=20'\ncurl 'https://spoonjoy.app/api/v1/cookbooks?limit=20'",
+  },
+  {
+    title: "Create a scoped client token",
+    scope: "Requires tokens:write",
+    body: "Use POST /api/v1/tokens with an owner credential that has tokens:write, then hand the new token only the scopes the client needs.",
+    sample: "curl -X POST https://spoonjoy.app/api/v1/tokens\n  -H 'Authorization: Bearer sj_owner_token'\n  -H 'Content-Type: application/json'\n  -d '{\"name\":\"External client\",\"scopes\":[\"recipes:read\",\"cookbooks:read\",\"shopping_list:read\",\"shopping_list:write\"]}'",
+  },
+  {
+    title: "Sync a private shopping list",
+    scope: "Requires shopping_list:read",
+    body: "Use GET /api/v1/shopping-list/sync with a cursor to fetch active rows and deletion records for removed rows.",
+    sample: "curl 'https://spoonjoy.app/api/v1/shopping-list/sync?cursor=2026-06-01T00:00:00.000Z'\n  -H 'Authorization: Bearer sj_client_token'",
+  },
+  {
+    title: "Perform an idempotent shopping-list mutation",
+    scope: "Requires shopping_list:write",
+    body: "Use POST /api/v1/shopping-list/items with clientMutationId so retries can replay the same write without duplicating items.",
+    sample: "curl -X POST https://spoonjoy.app/api/v1/shopping-list/items\n  -H 'Authorization: Bearer sj_client_token'\n  -H 'Content-Type: application/json'\n  -d '{\"clientMutationId\":\"device-uuid-1\",\"name\":\"Eggs\",\"quantity\":12,\"unit\":\"Each\"}'",
+  },
+] as const;
+
 const guideSteps = [
   "Read public recipes and cookbooks anonymously before adding auth.",
   "Mint a personal token or register an OAuth client when a client needs private or mutating access.",
@@ -146,6 +181,40 @@ export default function Developers() {
           </div>
         ))}
       </section>
+
+      <SectionShell title="External Client Guide">
+        <div className="grid gap-6">
+          <div className="grid gap-3 md:grid-cols-5">
+            {clientProfiles.map(([title, body]) => (
+              <article key={title} className="border-t border-[var(--sj-border)] pt-4">
+                <h3 className="font-sj-ui text-sm/5 font-bold text-[var(--sj-ink)]">{title}</h3>
+                <p className="mt-2 text-sm/6 text-[var(--sj-ink-soft)]">{body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="grid gap-4">
+            {externalGuideSteps.map((step) => (
+              <article
+                key={step.title}
+                className="grid gap-4 border-b border-[var(--sj-border)] py-4 lg:grid-cols-[minmax(13rem,18rem)_minmax(0,1fr)]"
+              >
+                <div>
+                  <p className="font-sj-ui text-xs font-bold uppercase tracking-[0.16em] text-[var(--sj-ink-soft)]">
+                    {step.scope}
+                  </p>
+                  <h3 className="mt-2 font-sj-display text-2xl/7 font-semibold text-[var(--sj-ink)]">{step.title}</h3>
+                </div>
+                <div className="min-w-0 space-y-3">
+                  <p className="text-sm/6 text-[var(--sj-ink-soft)]">{step.body}</p>
+                  <pre className="overflow-x-auto whitespace-pre-wrap border border-[var(--sj-border)] bg-[var(--sj-photo-charcoal)] p-4 font-mono text-xs/5 text-[var(--sj-on-photo)]">
+                    {step.sample}
+                  </pre>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </SectionShell>
 
       <SectionShell title="Reference">
         <div className="grid gap-3">

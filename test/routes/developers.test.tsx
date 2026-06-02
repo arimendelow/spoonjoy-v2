@@ -83,8 +83,8 @@ describe("/developers route", () => {
     expect(within(tokenEndpoint).getByText("tokens:read")).toBeInTheDocument();
     expect(within(tokenEndpoint).getByText("tokens:write")).toBeInTheDocument();
 
-    expect(screen.getByText(/clientMutationId/i)).toBeInTheDocument();
-    expect(screen.getByText(/shopping_list:write/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/clientMutationId/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/shopping_list:write/i).length).toBeGreaterThan(0);
     expect(document.body).not.toHaveTextContent(/pebble/i);
   });
 });

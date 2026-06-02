@@ -100,32 +100,57 @@ curl -X POST https://spoonjoy.app/api/v1/shopping-list/items \
   -d '{"clientMutationId":"device-uuid-1","name":"Eggs","quantity":12,"unit":"Each"}'
 ```
 
-## Examples
+## External Client Guide
 
-Read the public Chef graph without credentials:
+These starting points fit different client shapes without changing the underlying API:
+
+- Tiny-device clients: use cursor sync, compact responses, and idempotent writes so a device can recover from interrupted network calls.
+- Mobile apps: read the public Chef graph before sign-in, then request shopping-list scopes after the chef connects their account.
+- CLI/script clients: use personal tokens, curl, and the OpenAPI contract to automate kitchen workflows.
+- Browser clients: use OAuth/PKCE and Dynamic Client Registration instead of embedding long-lived secrets.
+- Agent clients: use MCP or delegated connection endpoints when a chef needs to approve an external runtime.
+
+### Read the public Chef graph
+
+Public recipe and cookbook reads work without credentials. Add bearer auth later only when a client needs private state.
 
 ```bash
 curl 'https://spoonjoy.app/api/v1/recipes?query=pasta&limit=20'
 curl 'https://spoonjoy.app/api/v1/cookbooks?limit=20'
 ```
 
-Create a scoped token while signed in:
+### Create a scoped client token
+
+Create a client token with the smallest practical scope set. Token creation itself requires `tokens:write`.
 
 ```bash
 curl -X POST https://spoonjoy.app/api/v1/tokens \
   -H 'Authorization: Bearer sj_owner_token' \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Tiny client","scopes":["recipes:read","shopping_list:read"]}'
+  -d '{"name":"External client","scopes":["recipes:read","cookbooks:read","shopping_list:read","shopping_list:write"]}'
 ```
 
-Sync the private shopping list:
+### Sync a private shopping list
+
+Shopping-list sync requires `shopping_list:read`. Pass a `cursor` after the first sync to fetch active rows and tombstones for removed rows.
 
 ```bash
 curl 'https://spoonjoy.app/api/v1/shopping-list/sync?cursor=2026-06-01T00:00:00.000Z' \
-  -H 'Authorization: Bearer sj_...'
+  -H 'Authorization: Bearer sj_client_token'
 ```
 
-Start delegated agent auth:
+### Perform an idempotent shopping-list mutation
+
+Shopping-list mutations require `shopping_list:write`. Include a stable `clientMutationId`; retry the same body with the same id after network failure, and Spoonjoy will replay the recorded result instead of duplicating the write.
+
+```bash
+curl -X POST https://spoonjoy.app/api/v1/shopping-list/items \
+  -H 'Authorization: Bearer sj_client_token' \
+  -H 'Content-Type: application/json' \
+  -d '{"clientMutationId":"device-uuid-1","name":"Eggs","quantity":12,"unit":"Each"}'
+```
+
+### Start delegated agent auth
 
 ```bash
 curl -X POST https://spoonjoy.app/api/tools/start_agent_connection \
