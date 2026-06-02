@@ -115,7 +115,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: `test/routes/api-v1-recipes.test.ts` asserts the exact query params, `limit` behavior, summary/detail fields, deleted recipe exclusion, missing recipe 404 envelope, anonymous success, `recipes:read` bearer success, and scoped bearer failure without `recipes:read` from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because recipe reads are not implemented under `/api/v1`.
 
-### ⬜ Unit 4b: Public Recipe V1 Reads — Implementation
+### ✅ Unit 4b: Public Recipe V1 Reads — Implementation
 **What**: Implement `GET /api/v1/recipes` and `GET /api/v1/recipes/:id` in the v1 route/helper layer using existing recipe/search data access in `app/lib/spoonjoy-api.server.ts` and `app/lib/search.server.ts` without changing legacy `/api/recipes` behavior.
 **Output**: Updated v1 route/helper files and passing Unit 4a tests.
 **Acceptance**: Unit 4a tests PASS; legacy recipe API tests still PASS; `pnpm run build` succeeds with no warnings.
@@ -356,3 +356,5 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 20:11 Unit 3b complete: registered `/api/v1/*`, added v1 contract/shell helpers, request IDs, CORS, envelopes, optional-auth invalid-token behavior, route coverage config, green legacy/v1 route tests, typecheck, and build
 - 2026-06-01 20:17 Unit 3c complete: added v1 shell branch coverage for authenticated health, OpenAPI placeholder, no splat fallback, JSON parse branches, auth/internal error normalization, and 100% coverage on v1 shell files
 - 2026-06-01 20:19 Unit 4a complete: public recipe v1 read tests are red for placeholder 404s on search/detail/list validation and scope checks
+- 2026-06-01 20:23 Addressed Unit 4a reviewer finding by asserting v1 headers on recipe 404, validation, and insufficient-scope errors
+- 2026-06-01 20:23 Unit 4b complete: implemented public recipe list/detail formatting, query/q and limit handling, deleted exclusion, bearer scope checks, green legacy/v1 route tests, typecheck, and build
