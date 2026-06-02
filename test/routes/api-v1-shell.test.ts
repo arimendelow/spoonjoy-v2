@@ -244,11 +244,11 @@ describe("/api/v1 shell", () => {
       headers: { "Content-Type": "application/json", "X-Request-Id": "req_valid_json" },
       body: JSON.stringify({ name: "Client" }),
     }) as unknown as Request, "tokens"));
-    expect(validJson.status).toBe(404);
+    expect(validJson.status).toBe(401);
     await expect(readJson(validJson)).resolves.toMatchObject({
       ok: false,
       requestId: "req_valid_json",
-      error: { code: "not_found", status: 404 },
+      error: { code: "authentication_required", status: 401 },
     });
 
     const primitiveJson = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/tokens", {
@@ -268,11 +268,11 @@ describe("/api/v1 shell", () => {
       headers: { "Content-Type": "application/json", "X-Request-Id": "req_empty_json" },
       body: "   ",
     }) as unknown as Request, "tokens"));
-    expect(emptyJson.status).toBe(404);
+    expect(emptyJson.status).toBe(401);
     await expect(readJson(emptyJson)).resolves.toMatchObject({
       ok: false,
       requestId: "req_empty_json",
-      error: { code: "not_found", status: 404 },
+      error: { code: "authentication_required", status: 401 },
     });
   });
 

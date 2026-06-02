@@ -1,4 +1,12 @@
-import { ApiAuthError, authenticateApiRequest, type ApiPrincipal } from "~/lib/api-auth.server";
+import type { ApiCredential } from "@prisma/client";
+import {
+  ApiAuthError,
+  authenticateApiRequest,
+  createApiCredential,
+  expandCredentialScopes,
+  normalizeCredentialScopes,
+  type ApiPrincipal,
+} from "~/lib/api-auth.server";
 import { getRequestDb } from "~/lib/route-platform.server";
 import { API_V1_DISCOVERY_DATA, API_V1_ERROR_STATUS, type ApiV1ErrorCode } from "~/lib/api-v1-contract.server";
 
@@ -133,6 +141,19 @@ function principalSummary(principal: ApiPrincipal | null) {
 
 function assertScope(principal: ApiPrincipal | null, scope: string) {
   if (principal && !principal.scopes.includes(scope)) {
+    throw new ApiV1Error("insufficient_scope", `Missing required scope: ${scope}`);
+  }
+}
+
+function requirePrincipal(principal: ApiPrincipal | null): ApiPrincipal {
+  if (!principal) {
+    throw new ApiV1Error("authentication_required", "Authentication required");
+  }
+  return principal;
+}
+
+function assertPrincipalScope(principal: ApiPrincipal, scope: string) {
+  if (!principal.scopes.includes(scope)) {
     throw new ApiV1Error("insufficient_scope", `Missing required scope: ${scope}`);
   }
 }
@@ -356,6 +377,131 @@ async function handleCookbookDetail(args: ApiV1RouteArgs, requestId: string, pri
   return apiV1Success(requestId, { cookbook: cookbookDetail(cookbook) });
 }
 
+function credentialMetadata(credential: ApiCredential) {
+  return {
+    id: credential.id,
+    name: credential.name,
+    tokenPrefix: credential.tokenPrefix,
+    scopes: expandCredentialScopes(credential.scopes),
+    createdAt: credential.createdAt.toISOString(),
+    updatedAt: credential.updatedAt.toISOString(),
+    lastUsedAt: credential.lastUsedAt?.toISOString() ?? null,
+    revokedAt: credential.revokedAt?.toISOString() ?? null,
+    expiresAt: credential.expiresAt?.toISOString() ?? null,
+  };
+}
+
+function assertKnownFields(body: Record<string, unknown>, allowed: readonly string[]) {
+  const allowedSet = new Set(allowed);
+  const unknown = Object.keys(body).filter((key) => !allowedSet.has(key));
+  if (unknown.length > 0) {
+    throw new ApiV1Error("validation_error", "Unknown request body fields", { fields: unknown });
+  }
+}
+
+function nonblankString(value: unknown, field: string) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ApiV1Error("validation_error", `${field} must be a nonblank string`);
+  }
+  return value.trim();
+}
+
+function normalizeCreateTokenScopes(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === "string") return normalizeScopesOrInvalidScope(value);
+  if (Array.isArray(value) && value.every((scope) => typeof scope === "string")) {
+    return normalizeScopesOrInvalidScope(value);
+  }
+  throw new ApiV1Error("validation_error", "scopes must be a string or string array");
+}
+
+function normalizeScopesOrInvalidScope(scopes: string | string[]) {
+  try {
+    return normalizeCredentialScopes(scopes);
+  } catch (error) {
+    if (error instanceof ApiAuthError && error.status === 400) {
+      throw new ApiV1Error("invalid_scope", error.message);
+    }
+    throw error;
+  }
+}
+
+function bearerDefaultCreateScopes(principal: ApiPrincipal) {
+  return principal.scopes.filter((scope) => scope !== "offline_access").sort();
+}
+
+function assertBearerScopeSubset(principal: ApiPrincipal, storedScopes: string) {
+  if (principal.source !== "bearer") return;
+  const requestedScopes = expandCredentialScopes(storedScopes);
+  const callerScopes = new Set(principal.scopes.filter((scope) => scope !== "offline_access"));
+  const missing = requestedScopes.filter((scope) => !callerScopes.has(scope));
+  if (missing.length > 0) {
+    throw new ApiV1Error("insufficient_scope", "Cannot create a token with scopes outside the caller's scopes", { scopes: missing });
+  }
+}
+
+async function handleTokenList(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null) {
+  const authenticated = requirePrincipal(principal);
+  assertPrincipalScope(authenticated, "tokens:read");
+  const db = await getRequestDb(args.context);
+  const credentials = await db.apiCredential.findMany({
+    where: { userId: authenticated.id },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+
+  return apiV1Success(requestId, { tokens: credentials.map(credentialMetadata) });
+}
+
+async function handleTokenCreate(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null) {
+  const body = await parseApiV1JsonBody(args.request);
+  const authenticated = requirePrincipal(principal);
+  assertPrincipalScope(authenticated, "tokens:write");
+  assertKnownFields(body, ["name", "scopes"]);
+  const name = nonblankString(body.name, "name");
+  const normalizedScopes = normalizeCreateTokenScopes(body.scopes);
+  const storedScopes = normalizedScopes ?? (
+    authenticated.source === "bearer"
+      ? normalizeScopesOrInvalidScope(bearerDefaultCreateScopes(authenticated))
+      : undefined
+  );
+  if (storedScopes !== undefined) {
+    assertBearerScopeSubset(authenticated, storedScopes);
+  }
+
+  const db = await getRequestDb(args.context);
+  const created = await createApiCredential(db, authenticated.id, name, { scopes: storedScopes });
+
+  return apiV1Success(requestId, {
+    token: created.token,
+    credential: credentialMetadata(created.credential),
+  }, 201);
+}
+
+async function handleTokenRevoke(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null, credentialId: string) {
+  const authenticated = requirePrincipal(principal);
+  assertPrincipalScope(authenticated, "tokens:write");
+  const db = await getRequestDb(args.context);
+  const credential = await db.apiCredential.findFirst({
+    where: { id: credentialId, userId: authenticated.id },
+  });
+  if (!credential) {
+    throw new ApiV1Error("not_found", "API token not found");
+  }
+
+  const revoked = credential.revokedAt === null;
+  const updated = revoked
+    ? await db.apiCredential.update({
+        where: { id: credential.id },
+        data: { revokedAt: new Date() },
+      })
+    : credential;
+
+  return apiV1Success(requestId, {
+    revoked,
+    credential: credentialMetadata(updated),
+  });
+}
+
 export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response> {
   const requestId = requestIdFor(args.request);
 
@@ -407,12 +553,23 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
       return await handleCookbookDetail(args, requestId, principal, segments[1]);
     }
 
-    if (args.request.method !== "GET" && args.request.method !== "POST" && args.request.method !== "PATCH" && args.request.method !== "DELETE") {
-      throw new ApiV1Error("method_not_allowed", "Method not allowed");
+    if (args.request.method === "GET" && path === "tokens") {
+      const principal = await optionalPrincipal(args);
+      return await handleTokenList(args, requestId, principal);
     }
 
-    if (args.request.method !== "GET") {
-      await parseApiV1JsonBody(args.request);
+    if (args.request.method === "POST" && path === "tokens") {
+      const principal = await optionalPrincipal(args);
+      return await handleTokenCreate(args, requestId, principal);
+    }
+
+    if (args.request.method === "DELETE" && segments[0] === "tokens" && segments.length === 2) {
+      const principal = await optionalPrincipal(args);
+      return await handleTokenRevoke(args, requestId, principal, segments[1]);
+    }
+
+    if (args.request.method !== "GET" && args.request.method !== "POST" && args.request.method !== "PATCH" && args.request.method !== "DELETE") {
+      throw new ApiV1Error("method_not_allowed", "Method not allowed");
     }
 
     if (path === "health") {
