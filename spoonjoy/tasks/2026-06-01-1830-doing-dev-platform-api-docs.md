@@ -250,7 +250,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: `test/routes/developers.test.tsx` asserts page title/meta, visible `/api/v1` endpoints, auth mode distinctions, public-by-default Chef graph language, scope list, idempotency/sync guidance, rate-limit guidance text, OpenAPI link, OAuth/DCR/MCP route references, and no Pebble-specific framing, with endpoint/scope/example data returned by the route loader from `app/lib/api-v1-contract.server.ts`.
 **Acceptance**: Focused tests FAIL because `/developers` is not registered or rendered.
 
-### ⬜ Unit 13b: `/developers` Route — Implementation
+### ✅ Unit 13b: `/developers` Route — Implementation
 **What**: Add `route("developers", "routes/developers.tsx")`; implement `app/routes/developers.tsx` using existing page primitives from `app/components/cookbook/page.tsx`; its loader imports server-only reference data from `app/lib/api-v1-contract.server.ts` or `app/lib/api-v1-openapi.server.ts` and returns serializable docs data, while the component imports no `.server.ts` modules.
 **Output**: Updated `app/routes.ts`, new developers route, and passing Unit 13a tests.
 **Acceptance**: Unit 13a tests PASS; `pnpm run build` succeeds with no warnings.
@@ -382,6 +382,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 22:14 Unit 12b complete: verified the shared v1 scope-matrix helper covers all supported endpoints with 50 passing v1 route tests and a clean production build; no code change required after prior centralization
 - 2026-06-01 22:16 Unit 12c complete: covered the v1 scope fallback branch, verified 56 v1 route/OpenAPI tests, and confirmed 100% coverage for `api-v1.server.ts`, `api-v1-openapi.server.ts`, `api-v1-contract.server.ts`, and `api.v1.$.ts`; global coverage table still reports unrelated app files outside this unit
 - 2026-06-01 22:18 Unit 13a complete: added route registration, loader/meta, and rendered developer-docs tests; red run fails because `~/routes/developers` is not implemented yet
+- 2026-06-01 22:22 Unit 13b complete: registered `/developers`, added a contract-backed developer docs route, passed the focused route test, and completed a clean production build
 - 2026-06-01 21:27 Unit 8b complete: implemented v1 shopping-list read and sync endpoints with scope rows, active-list formatting, empty-list creation, tombstone-inclusive sync, cursor filtering, invalid cursor errors, focused route tests, typecheck, and warning-free build
 - 2026-06-01 21:33 Unit 8c complete: added sync ordering/cursor fallback coverage, hardened cursor parsing to reject non-round-tripping JavaScript date inputs, and verified 100% v1 coverage plus typecheck and warning-free build
 - 2026-06-01 21:37 Unit 9a complete: added red v1 shopping-list mutation tests for write scope rows, add/check/remove envelopes, restore/merge behavior, unknown fields, clientMutationId validation, idempotent replay/current request IDs, idempotency conflicts, and write-scope enforcement; red run fails on missing v1 mutation routes returning 404 and missing scope rows
