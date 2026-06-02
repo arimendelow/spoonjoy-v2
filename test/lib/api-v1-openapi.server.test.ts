@@ -3,9 +3,35 @@ import { buildApiV1OpenApiDocument } from "~/lib/api-v1-openapi.server";
 import { API_V1_ERROR_STATUS, API_V1_RESOURCES } from "~/lib/api-v1-contract.server";
 
 const RESOURCE_PATHS = Array.from(new Set(API_V1_RESOURCES.map((resource) => resource.path))).sort();
+const OPERATION_SCOPES = {
+  "GET /api/v1": [],
+  "GET /api/v1/health": [],
+  "GET /api/v1/openapi.json": [],
+  "GET /api/v1/recipes": ["recipes:read"],
+  "GET /api/v1/recipes/{id}": ["recipes:read"],
+  "GET /api/v1/cookbooks": ["cookbooks:read"],
+  "GET /api/v1/cookbooks/{id}": ["cookbooks:read"],
+  "GET /api/v1/shopping-list": ["shopping_list:read"],
+  "GET /api/v1/shopping-list/sync": ["shopping_list:read"],
+  "POST /api/v1/shopping-list/items": ["shopping_list:write"],
+  "PATCH /api/v1/shopping-list/items/{itemId}": ["shopping_list:write"],
+  "DELETE /api/v1/shopping-list/items/{itemId}": ["shopping_list:write"],
+  "GET /api/v1/tokens": ["tokens:read"],
+  "POST /api/v1/tokens": ["tokens:write"],
+  "DELETE /api/v1/tokens/{credentialId}": ["tokens:write"],
+} satisfies Record<string, string[]>;
 
 function operation(document: any, path: string, method: string) {
   return document.paths[path][method.toLowerCase()];
+}
+
+function responseExample(document: any, path: string, method: string, status: string) {
+  const examples = operation(document, path, method).responses[status].content["application/json"].examples;
+  return (examples.example ?? Object.values(examples)[0] as any).value;
+}
+
+function errorExample(document: any, path: string, method: string, status: string, code: string) {
+  return operation(document, path, method).responses[status].content["application/json"].examples[code].value;
 }
 
 describe("API v1 OpenAPI document", () => {
@@ -36,7 +62,9 @@ describe("API v1 OpenAPI document", () => {
         expect(op.operationId).toMatch(new RegExp(`^${method.toLowerCase()}ApiV1`));
         expect(op.tags).toEqual(expect.any(Array));
         expect(op["x-auth"]).toBe(resource.auth);
-        expect(op["x-scopes"]).toEqual(resource.scopes);
+        expect(op["x-scopes"]).toEqual(OPERATION_SCOPES[`${method} ${resource.path}`]);
+        expect(op.responses["405"].content["application/json"].schema.$ref).toBe("#/components/schemas/ErrorEnvelope");
+        expect(op.responses["405"].content["application/json"].examples.method_not_allowed.value.error.code).toBe("method_not_allowed");
         expect(op.responses["429"].content["application/json"].schema.$ref).toBe("#/components/schemas/ErrorEnvelope");
         expect(op.responses["500"].content["application/json"].schema.$ref).toBe("#/components/schemas/ErrorEnvelope");
         expect(Object.values(op.responses)).toEqual(
@@ -53,7 +81,7 @@ describe("API v1 OpenAPI document", () => {
         );
 
         if (resource.auth === "bearer") {
-          expect(op.security).toEqual([{ bearerAuth: [] }]);
+          expect(op.security).toEqual([{ bearerAuth: OPERATION_SCOPES[`${method} ${resource.path}`] }]);
         } else {
           expect(op.security).toBeUndefined();
         }
@@ -78,6 +106,96 @@ describe("API v1 OpenAPI document", () => {
     expect(operation(document, "/api/v1/shopping-list/items/{itemId}", "PATCH").parameters).toEqual([
       expect.objectContaining({ name: "itemId", in: "path", required: true, schema: { type: "string", minLength: 1 } }),
     ]);
+  });
+
+  it("documents raw OpenAPI, method-level token scopes, health principal source, and concrete examples", () => {
+    const document = buildApiV1OpenApiDocument();
+
+    expect(operation(document, "/api/v1/openapi.json", "GET").responses["200"].content["application/json"].schema.$ref)
+      .toBe("#/components/schemas/OpenApiDocument");
+    expect(responseExample(document, "/api/v1/openapi.json", "GET", "200")).toMatchObject({
+      openapi: "3.1.0",
+      info: { title: "Spoonjoy API", version: "v1" },
+    });
+    expect(responseExample(document, "/api/v1/openapi.json", "GET", "200").ok).toBeUndefined();
+
+    expect(operation(document, "/api/v1/tokens", "GET")["x-scopes"]).toEqual(["tokens:read"]);
+    expect(operation(document, "/api/v1/tokens", "POST")["x-scopes"]).toEqual(["tokens:write"]);
+    expect(operation(document, "/api/v1/tokens", "GET").security).toEqual([{ bearerAuth: ["tokens:read"] }]);
+    expect(operation(document, "/api/v1/tokens", "POST").security).toEqual([{ bearerAuth: ["tokens:write"] }]);
+
+    expect(document.components.schemas.HealthData.properties.principal.oneOf).toEqual([
+      { $ref: "#/components/schemas/ApiPrincipalSummary" },
+      { type: "null" },
+    ]);
+    expect(document.components.schemas.ApiPrincipalSummary).toMatchObject({
+      required: ["id", "username", "source"],
+      properties: {
+        source: { type: "string", enum: ["session", "bearer", "environment"] },
+      },
+    });
+
+    expect(responseExample(document, "/api/v1/recipes", "GET", "200").data).toMatchObject({
+      query: "lemon",
+      limit: 20,
+      recipes: [expect.objectContaining({ title: "Lemon Pasta" })],
+    });
+    expect(responseExample(document, "/api/v1/tokens", "GET", "200").data.tokens[0].scopes).toEqual(["tokens:read"]);
+    expect(responseExample(document, "/api/v1/shopping-list/items", "POST", "201").data).toMatchObject({
+      created: true,
+      updated: false,
+      mutation: { clientMutationId: "mutation_123", replayed: false },
+    });
+    expect(errorExample(document, "/api/v1/health", "GET", "401", "invalid_token").error.code).toBe("invalid_token");
+    expect(errorExample(document, "/api/v1/shopping-list", "GET", "401", "authentication_required").error.code).toBe("authentication_required");
+    expect(errorExample(document, "/api/v1/shopping-list/items", "POST", "409", "idempotency_conflict").error.code).toBe("idempotency_conflict");
+    expect(errorExample(document, "/api/v1/tokens", "POST", "400", "validation_error").error.code).toBe("validation_error");
+
+    expect(operation(document, "/api/v1/tokens", "POST").requestBody.content["application/json"].examples.example.value)
+      .toEqual({ name: "Kitchen client", scopes: ["recipes:read", "tokens:read"] });
+    expect(operation(document, "/api/v1/shopping-list/items", "POST").requestBody.content["application/json"].examples.example.value)
+      .toEqual({
+        clientMutationId: "mutation_123",
+        name: "lemons",
+        quantity: 2,
+        unit: "each",
+        categoryKey: "produce",
+        iconKey: "lemon",
+      });
+  });
+
+  it("uses response examples whose status and envelope shape match each response", () => {
+    const document = buildApiV1OpenApiDocument();
+
+    for (const path of Object.keys(document.paths)) {
+      for (const method of Object.keys(document.paths[path])) {
+        const op = document.paths[path][method];
+
+        for (const [statusKey, response] of Object.entries(op.responses) as Array<[string, any]>) {
+          const status = Number(statusKey);
+          const schemaRef = response.content["application/json"].schema.$ref;
+
+          for (const example of Object.values(response.content["application/json"].examples) as any[]) {
+            const value = example.value;
+
+            if (status >= 200 && status < 300) {
+              if (schemaRef === "#/components/schemas/OpenApiDocument") {
+                expect(value).toMatchObject({ openapi: "3.1.0", info: expect.any(Object), paths: expect.any(Object) });
+                expect(value.ok).toBeUndefined();
+              } else {
+                expect(value).toMatchObject({ ok: true, requestId: "req_example" });
+                expect(value.data).not.toEqual({});
+              }
+              continue;
+            }
+
+            expect(value).toMatchObject({ ok: false, requestId: "req_example" });
+            expect(API_V1_ERROR_STATUS[value.error.code as keyof typeof API_V1_ERROR_STATUS]).toBe(status);
+            expect(value.error.status).toBe(status);
+          }
+        }
+      }
+    }
   });
 
   it("declares exact request and response schemas for tokens and shopping-list mutations", () => {

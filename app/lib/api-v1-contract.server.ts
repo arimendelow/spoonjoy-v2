@@ -14,6 +14,24 @@ export const API_V1_RESOURCES = [
   { name: "token", path: "/api/v1/tokens/{credentialId}", methods: ["DELETE"], auth: "bearer", scopes: ["tokens:write"] },
 ] as const;
 
+export const API_V1_SCOPE_REQUIREMENTS = [
+  { path: "/api/v1", method: "GET", auth: "optional", scopes: [] },
+  { path: "/api/v1/health", method: "GET", auth: "optional", scopes: [] },
+  { path: "/api/v1/openapi.json", method: "GET", auth: "optional", scopes: [] },
+  { path: "/api/v1/recipes", method: "GET", auth: "optional", scopes: ["recipes:read"] },
+  { path: "/api/v1/recipes/{id}", method: "GET", auth: "optional", scopes: ["recipes:read"] },
+  { path: "/api/v1/cookbooks", method: "GET", auth: "optional", scopes: ["cookbooks:read"] },
+  { path: "/api/v1/cookbooks/{id}", method: "GET", auth: "optional", scopes: ["cookbooks:read"] },
+  { path: "/api/v1/shopping-list", method: "GET", auth: "bearer", scopes: ["shopping_list:read"] },
+  { path: "/api/v1/shopping-list/sync", method: "GET", auth: "bearer", scopes: ["shopping_list:read"] },
+  { path: "/api/v1/shopping-list/items", method: "POST", auth: "bearer", scopes: ["shopping_list:write"] },
+  { path: "/api/v1/shopping-list/items/{itemId}", method: "PATCH", auth: "bearer", scopes: ["shopping_list:write"] },
+  { path: "/api/v1/shopping-list/items/{itemId}", method: "DELETE", auth: "bearer", scopes: ["shopping_list:write"] },
+  { path: "/api/v1/tokens", method: "GET", auth: "bearer", scopes: ["tokens:read"] },
+  { path: "/api/v1/tokens", method: "POST", auth: "bearer", scopes: ["tokens:write"] },
+  { path: "/api/v1/tokens/{credentialId}", method: "DELETE", auth: "bearer", scopes: ["tokens:write"] },
+] as const;
+
 export const API_V1_ERROR_STATUS = {
   invalid_json: 400,
   validation_error: 400,

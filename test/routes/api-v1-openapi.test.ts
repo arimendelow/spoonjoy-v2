@@ -21,6 +21,11 @@ describe("GET /api/v1/openapi.json", () => {
     expect(response.headers.get("Content-Type")).toContain("application/json");
     expect(response.headers.get("X-Request-Id")).toBe("req_openapi_full");
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(await readJson(response)).toEqual(buildApiV1OpenApiDocument());
+    const document = await readJson(response);
+
+    expect(document).toEqual(buildApiV1OpenApiDocument());
+    expect(document.ok).toBeUndefined();
+    expect(document.paths["/api/v1/openapi.json"].get.responses["200"].content["application/json"].schema.$ref)
+      .toBe("#/components/schemas/OpenApiDocument");
   });
 });

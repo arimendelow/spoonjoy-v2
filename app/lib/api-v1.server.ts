@@ -16,38 +16,28 @@ import {
 } from "~/lib/api-idempotency.server";
 import { buildApiV1OpenApiDocument } from "~/lib/api-v1-openapi.server";
 import { getRequestDb } from "~/lib/route-platform.server";
-import { API_V1_DISCOVERY_DATA, API_V1_ERROR_STATUS, type ApiV1ErrorCode } from "~/lib/api-v1-contract.server";
+import {
+  API_V1_DISCOVERY_DATA,
+  API_V1_ERROR_STATUS,
+  API_V1_RESOURCES,
+  API_V1_SCOPE_REQUIREMENTS,
+  type ApiV1ErrorCode,
+} from "~/lib/api-v1-contract.server";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 50;
 
 export interface ApiV1ScopeRequirement {
   auth: "optional" | "bearer";
-  scopes: string[];
+  scopes: readonly string[];
 }
 
 type ApiV1ScopeRule = ApiV1ScopeRequirement & {
   method: string;
-  match(path: string, segments: string[]): boolean;
+  path: string;
 };
 
-const API_V1_SCOPE_RULES: readonly ApiV1ScopeRule[] = [
-  { method: "GET", auth: "optional", scopes: [], match: (path) => path === "" },
-  { method: "GET", auth: "optional", scopes: [], match: (path) => path === "health" },
-  { method: "GET", auth: "optional", scopes: [], match: (path) => path === "openapi.json" },
-  { method: "GET", auth: "optional", scopes: ["recipes:read"], match: (path) => path === "recipes" },
-  { method: "GET", auth: "optional", scopes: ["recipes:read"], match: (_path, segments) => segments[0] === "recipes" && segments.length === 2 },
-  { method: "GET", auth: "optional", scopes: ["cookbooks:read"], match: (path) => path === "cookbooks" },
-  { method: "GET", auth: "optional", scopes: ["cookbooks:read"], match: (_path, segments) => segments[0] === "cookbooks" && segments.length === 2 },
-  { method: "GET", auth: "bearer", scopes: ["shopping_list:read"], match: (path) => path === "shopping-list" },
-  { method: "GET", auth: "bearer", scopes: ["shopping_list:read"], match: (path) => path === "shopping-list/sync" },
-  { method: "POST", auth: "bearer", scopes: ["shopping_list:write"], match: (path) => path === "shopping-list/items" },
-  { method: "PATCH", auth: "bearer", scopes: ["shopping_list:write"], match: (_path, segments) => segments[0] === "shopping-list" && segments[1] === "items" && segments.length === 3 },
-  { method: "DELETE", auth: "bearer", scopes: ["shopping_list:write"], match: (_path, segments) => segments[0] === "shopping-list" && segments[1] === "items" && segments.length === 3 },
-  { method: "GET", auth: "bearer", scopes: ["tokens:read"], match: (path) => path === "tokens" },
-  { method: "POST", auth: "bearer", scopes: ["tokens:write"], match: (path) => path === "tokens" },
-  { method: "DELETE", auth: "bearer", scopes: ["tokens:write"], match: (_path, segments) => segments[0] === "tokens" && segments.length === 2 },
-] as const;
+const API_V1_SCOPE_RULES: readonly ApiV1ScopeRule[] = API_V1_SCOPE_REQUIREMENTS;
 
 export interface ApiV1RouteArgs {
   request: Request;
@@ -123,17 +113,30 @@ export function apiV1ErrorResponse(requestId: string, error: ApiV1Error): Respon
 }
 
 function normalizeApiV1Path(path: string): string {
-  return path.split("/").filter(Boolean).join("/");
+  return path.replace(/^\/api\/v1\/?/, "").split("/").filter(Boolean).join("/");
+}
+
+function pathTemplateMatches(template: string, path: string): boolean {
+  const templateSegments = normalizeApiV1Path(template).split("/").filter(Boolean);
+  const pathSegments = normalizeApiV1Path(path).split("/").filter(Boolean);
+  if (templateSegments.length !== pathSegments.length) return false;
+  return templateSegments.every((segment, index) => {
+    if (segment.startsWith("{") && segment.endsWith("}")) return pathSegments[index].length > 0;
+    return segment === pathSegments[index];
+  });
 }
 
 export function resolveApiV1ScopeRequirement(method: string, path: string): ApiV1ScopeRequirement | null {
   const normalizedPath = normalizeApiV1Path(path);
-  const segments = normalizedPath.split("/").filter(Boolean);
   const normalizedMethod = method.toUpperCase();
   const rule = API_V1_SCOPE_RULES.find((candidate) => (
-    candidate.method === normalizedMethod && candidate.match(normalizedPath, segments)
+    candidate.method === normalizedMethod && pathTemplateMatches(candidate.path, normalizedPath)
   ));
   return rule ? { auth: rule.auth, scopes: [...rule.scopes] } : null;
+}
+
+function isKnownApiV1Path(path: string): boolean {
+  return API_V1_RESOURCES.some((resource) => pathTemplateMatches(resource.path, path));
 }
 
 export async function parseApiV1JsonBody(request: Request): Promise<Record<string, unknown>> {
@@ -997,12 +1000,8 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
       throw new ApiV1Error("method_not_allowed", "Method not allowed");
     }
 
-    if (path === "health") {
+    if (isKnownApiV1Path(path)) {
       throw new ApiV1Error("method_not_allowed", "Method not allowed");
-    }
-
-    if (args.request.method === "GET") {
-      await authorizeApiV1Route(args, path);
     }
 
     throw new ApiV1Error("not_found", `Unknown Spoonjoy API v1 endpoint: /api/v1/${path}`);

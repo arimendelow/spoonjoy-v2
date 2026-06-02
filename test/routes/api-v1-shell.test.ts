@@ -235,6 +235,27 @@ describe("/api/v1 shell", () => {
       error: { code: "method_not_allowed", status: 405 },
     });
 
+    const unsupportedKnownPath = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/recipes", {
+      method: "POST",
+      headers: { "X-Request-Id": "req_post_recipes" },
+    }) as unknown as Request, "recipes"));
+    expect(unsupportedKnownPath.status).toBe(405);
+    await expect(readJson(unsupportedKnownPath)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_post_recipes",
+      error: { code: "method_not_allowed", status: 405 },
+    });
+
+    const unsupportedKnownTemplate = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/tokens/cred_1", {
+      headers: { "X-Request-Id": "req_get_token_detail" },
+    }) as unknown as Request, "tokens/cred_1"));
+    expect(unsupportedKnownTemplate.status).toBe(405);
+    await expect(readJson(unsupportedKnownTemplate)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_get_token_detail",
+      error: { code: "method_not_allowed", status: 405 },
+    });
+
     const invalidJson = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/tokens", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Request-Id": "req_bad_json" },
