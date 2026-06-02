@@ -190,7 +190,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: `test/routes/api-v1-shopping-mutations.test.ts` asserts exact request bodies, status codes, response data fields, add/check/remove success, unknown request body fields rejected with `400 validation_error`, exact replay returns the stored response with only `requestId` and `mutation.replayed` changed, duplicate key with different operation returns 409, duplicate key with different body returns 409, duplicate key with different `itemId` path target returns 409, missing `clientMutationId` returns 400, and `shopping_list:write` enforcement from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because idempotent shopping-list mutations are not implemented.
 
-### ⬜ Unit 9b: Idempotent Shopping-List Mutations — Implementation
+### ✅ Unit 9b: Idempotent Shopping-List Mutations — Implementation
 **What**: Implement add/check/remove mutation endpoints using `app/lib/api-idempotency.server.ts` for key reservation/replay and existing shopping-list operation behavior from `app/lib/spoonjoy-api.server.ts`.
 **Output**: Updated v1 route/helper files and passing Unit 9a tests.
 **Acceptance**: Unit 9a tests PASS; legacy shopping-list mutation tests still PASS; `pnpm run build` succeeds with no warnings.
@@ -382,3 +382,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:33 Unit 8c complete: added sync ordering/cursor fallback coverage, hardened cursor parsing to reject non-round-tripping JavaScript date inputs, and verified 100% v1 coverage plus typecheck and warning-free build
 - 2026-06-01 21:37 Unit 9a complete: added red v1 shopping-list mutation tests for write scope rows, add/check/remove envelopes, restore/merge behavior, unknown fields, clientMutationId validation, idempotent replay/current request IDs, idempotency conflicts, and write-scope enforcement; red run fails on missing v1 mutation routes returning 404 and missing scope rows
 - 2026-06-01 21:41 Addressed Unit 9a reviewer finding by asserting full `ShoppingItem` shape for active `shoppingList.items` in mutation responses and normalizing restore fixtures to the API's lowercased identity rules
+- 2026-06-01 21:42 Unit 9b complete: implemented v1 shopping-list add/check/remove endpoints with write-scope rows, request validation, normalized item identity, idempotency reserve/replay/conflict handling, exact mutation envelopes, green v1 mutation tests, green legacy `/api` route tests, typecheck, and warning-free build
