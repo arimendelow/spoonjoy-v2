@@ -87,4 +87,4 @@ The long-term moon includes many client profiles, but the first implementation s
 
 ## Progress Log
 - 2026-06-01 18:31 Created
-- 2026-06-01 18:31 Tightened Tinfoil Hat findings: concrete docs route, OAuth-doc drift, and deployed verification
+- 2026-06-01 18:32 Tightened Tinfoil Hat findings: concrete docs route, OAuth-doc drift, and deployed verification
