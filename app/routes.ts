@@ -38,6 +38,7 @@ export default [
   ]),
   route("shopping-list", "routes/shopping-list.tsx"),
   route("account/settings", "routes/account.settings.tsx"),
+  route("developers", "routes/developers.tsx"),
   route("users/:identifier", "routes/users.$identifier.tsx"),
   route("users/:identifier/fellow-chefs", "routes/users.$identifier.fellow-chefs.tsx"),
   route("users/:identifier/kitchen-visitors", "routes/users.$identifier.kitchen-visitors.tsx"),
