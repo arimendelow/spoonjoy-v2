@@ -1,8 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import routes from "~/routes";
 import { action, loader } from "~/routes/api.v1.$";
+import { ApiAuthError, createApiCredential } from "~/lib/api-auth.server";
+import {
+  ApiV1Error,
+  apiV1ErrorResponse,
+  handleApiV1Request,
+  normalizeApiV1AuthError,
+  normalizeApiV1InternalError,
+} from "~/lib/api-v1.server";
 import { API_V1_ERROR_STATUS, API_V1_RESOURCES } from "~/lib/api-v1-contract.server";
+import { getLocalDb } from "~/lib/db.server";
+import { cleanupDatabase } from "../helpers/cleanup";
+import { createTestUser } from "../utils";
 
 function routeArgs(request: Request, splat: string) {
   return { request, params: { "*": splat }, context: { cloudflare: { env: null } } } as any;
@@ -22,6 +33,10 @@ function expectV1Headers(response: Response, requestId: string) {
 }
 
 describe("/api/v1 shell", () => {
+  afterEach(async () => {
+    await cleanupDatabase();
+  });
+
   it("is registered before the legacy /api/* catch-all route", () => {
     const routePaths = JSON.stringify(routes);
     expect(routePaths.indexOf("api/v1/*")).toBeGreaterThanOrEqual(0);
@@ -60,6 +75,23 @@ describe("/api/v1 shell", () => {
     });
   });
 
+  it("treats a missing splat param as the v1 root", async () => {
+    const response = await handleApiV1Request({
+      request: new UndiciRequest("http://localhost/api/v1", {
+        headers: { "X-Request-Id": "req_missing_splat" },
+      }) as unknown as Request,
+      params: {} as { "*": string },
+      context: { cloudflare: { env: null } },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: true,
+      requestId: "req_missing_splat",
+      data: { app: "spoonjoy", version: "v1" },
+    });
+  });
+
   it("serves anonymous health and generated request IDs", async () => {
     const response = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/health") as unknown as Request, "health"));
     const requestId = response.headers.get("X-Request-Id");
@@ -76,6 +108,28 @@ describe("/api/v1 shell", () => {
         authenticated: false,
         principal: null,
         scopes: [],
+      },
+    });
+  });
+
+  it("serves authenticated health with principal summary and scopes", async () => {
+    const db = await getLocalDb();
+    const user = await db.user.create({ data: createTestUser() });
+    const credential = await createApiCredential(db, user.id, "Health client", { scopes: ["kitchen:read"] });
+    const response = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/health", {
+      headers: { Authorization: `Bearer ${credential.token}`, "X-Request-Id": "req_health_auth" },
+    }) as unknown as Request, "health"));
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: true,
+      requestId: "req_health_auth",
+      data: {
+        ok: true,
+        version: "v1",
+        authenticated: true,
+        principal: { id: user.id, username: user.username, source: "bearer" },
+        scopes: ["cookbooks:read", "public:read", "recipes:read", "shopping_list:read", "tokens:read"],
       },
     });
   });
@@ -102,6 +156,23 @@ describe("/api/v1 shell", () => {
         },
       });
     }
+  });
+
+  it("serves the placeholder OpenAPI shell document", async () => {
+    const response = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/openapi.json", {
+      headers: { "X-Request-Id": "req_openapi" },
+    }) as unknown as Request, "openapi.json"));
+
+    expect(response.status).toBe(200);
+    expectV1Headers(response, "req_openapi");
+    await expect(readJson(response)).resolves.toEqual({
+      ok: true,
+      requestId: "req_openapi",
+      data: {
+        openapi: "3.1.0",
+        info: { title: "Spoonjoy API", version: "v1" },
+      },
+    });
   });
 
   it("handles CORS preflight for any v1 path", async () => {
@@ -144,6 +215,17 @@ describe("/api/v1 shell", () => {
       error: { code: "method_not_allowed", status: 405 },
     });
 
+    const unsupported = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/recipes", {
+      method: "PUT",
+      headers: { "X-Request-Id": "req_put" },
+    }) as unknown as Request, "recipes"));
+    expect(unsupported.status).toBe(405);
+    await expect(readJson(unsupported)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_put",
+      error: { code: "method_not_allowed", status: 405 },
+    });
+
     const invalidJson = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/tokens", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Request-Id": "req_bad_json" },
@@ -155,6 +237,42 @@ describe("/api/v1 shell", () => {
       ok: false,
       requestId: "req_bad_json",
       error: { code: "invalid_json", status: 400 },
+    });
+
+    const validJson = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Request-Id": "req_valid_json" },
+      body: JSON.stringify({ name: "Client" }),
+    }) as unknown as Request, "tokens"));
+    expect(validJson.status).toBe(404);
+    await expect(readJson(validJson)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_valid_json",
+      error: { code: "not_found", status: 404 },
+    });
+
+    const primitiveJson = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Request-Id": "req_primitive_json" },
+      body: JSON.stringify("token"),
+    }) as unknown as Request, "tokens"));
+    expect(primitiveJson.status).toBe(400);
+    await expect(readJson(primitiveJson)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_primitive_json",
+      error: { code: "validation_error", status: 400 },
+    });
+
+    const emptyJson = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Request-Id": "req_empty_json" },
+      body: "   ",
+    }) as unknown as Request, "tokens"));
+    expect(emptyJson.status).toBe(404);
+    await expect(readJson(emptyJson)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_empty_json",
+      error: { code: "not_found", status: 404 },
     });
   });
 
@@ -172,6 +290,81 @@ describe("/api/v1 shell", () => {
       idempotency_conflict: 409,
       rate_limited: 429,
       internal_error: 500,
+    });
+  });
+
+  it("serializes error details and internal fallback errors", async () => {
+    const detailed = apiV1ErrorResponse("req_details", new ApiV1Error("validation_error", "Bad fields", {
+      name: ["Required"],
+    }));
+    await expect(readJson(detailed)).resolves.toEqual({
+      ok: false,
+      requestId: "req_details",
+      error: {
+        code: "validation_error",
+        message: "Bad fields",
+        status: 400,
+        details: { name: ["Required"] },
+      },
+    });
+
+    expect(normalizeApiV1AuthError(new ApiAuthError("Malformed Authorization header", 400))).toMatchObject({
+      code: "validation_error",
+      status: 400,
+      message: "Malformed Authorization header",
+    });
+    expect(normalizeApiV1AuthError(new ApiAuthError("Missing scope", 403))).toMatchObject({
+      code: "insufficient_scope",
+      status: 403,
+      message: "Missing scope",
+    });
+    expect(normalizeApiV1AuthError(new ApiAuthError("Authentication required", 401))).toMatchObject({
+      code: "authentication_required",
+      status: 401,
+      message: "Authentication required",
+    });
+    expect(normalizeApiV1InternalError(new Error("Exploded"))).toMatchObject({
+      code: "internal_error",
+      status: 500,
+      message: "Exploded",
+    });
+    expect(normalizeApiV1InternalError("surprise")).toMatchObject({
+      code: "internal_error",
+      status: 500,
+      message: "Internal error",
+    });
+  });
+
+  it("normalizes unexpected optional-auth failures into internal errors", async () => {
+    let cloudflareReads = 0;
+    const context = {
+      get cloudflare() {
+        cloudflareReads += 1;
+        if (cloudflareReads > 1) {
+          throw new Error("Platform env unavailable");
+        }
+        return { env: null };
+      },
+    };
+
+    const response = await handleApiV1Request({
+      request: new UndiciRequest("http://localhost/api/v1/health", {
+        headers: { "X-Request-Id": "req_platform_error" },
+      }) as unknown as Request,
+      params: { "*": "health" },
+      context,
+    });
+
+    expect(response.status).toBe(500);
+    expectV1Headers(response, "req_platform_error");
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_platform_error",
+      error: {
+        code: "internal_error",
+        message: "Platform env unavailable",
+        status: 500,
+      },
     });
   });
 });

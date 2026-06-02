@@ -94,7 +94,7 @@ export async function parseApiV1JsonBody(request: Request): Promise<Record<strin
   throw new ApiV1Error("validation_error", "JSON body must be an object");
 }
 
-function normalizeAuthError(error: ApiAuthError): ApiV1Error {
+export function normalizeApiV1AuthError(error: ApiAuthError): ApiV1Error {
   if (error.status === 401 && error.message === "Invalid API token") {
     return new ApiV1Error("invalid_token", error.message);
   }
@@ -113,7 +113,7 @@ async function optionalPrincipal(args: ApiV1RouteArgs): Promise<ApiPrincipal | n
     return await authenticateApiRequest(db, args.request, args.context.cloudflare?.env ?? null);
   } catch (error) {
     if (error instanceof ApiAuthError) {
-      throw normalizeAuthError(error);
+      throw normalizeApiV1AuthError(error);
     }
     throw error;
   }
@@ -176,9 +176,12 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
       return apiV1ErrorResponse(requestId, error);
     }
 
-    const fallback = error instanceof Error
-      ? new ApiV1Error("internal_error", error.message)
-      : new ApiV1Error("internal_error", "Internal error");
-    return apiV1ErrorResponse(requestId, fallback);
+    return apiV1ErrorResponse(requestId, normalizeApiV1InternalError(error));
   }
+}
+
+export function normalizeApiV1InternalError(error: unknown): ApiV1Error {
+  return error instanceof Error
+    ? new ApiV1Error("internal_error", error.message)
+    : new ApiV1Error("internal_error", "Internal error");
 }
