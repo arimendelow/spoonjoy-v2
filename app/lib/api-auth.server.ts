@@ -97,8 +97,8 @@ export function generateApiToken(): string {
   return `sj_${bytesToBase64Url(bytes)}`;
 }
 
-function parseScopeParts(scopes: string | string[]): string[] {
-  const parts = Array.isArray(scopes) ? scopes : scopes.trim().split(/\s+/);
+function parseScopeParts(scopes: string | readonly string[]): string[] {
+  const parts: readonly string[] = typeof scopes === "string" ? scopes.trim().split(/\s+/) : scopes;
   return parts.map((scope) => scope.trim()).filter(Boolean);
 }
 

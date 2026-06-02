@@ -14,6 +14,8 @@ const MIGRATION_PATH = resolve(
   "migrations",
   "0016_api_idempotency_keys.sql",
 );
+const CLEANUP_PATH = resolve(__dirname, "..", "helpers", "cleanup.ts");
+const SETUP_PATH = resolve(__dirname, "..", "setup.ts");
 
 interface TableInfoRow {
   name: string;
@@ -119,5 +121,17 @@ describe("migration 0016 — API idempotency keys", () => {
     expect(hasIndex(db, ["userId", "createdAt"])).toBe(true);
     expect(hasIndex(db, ["credentialId"])).toBe(true);
     expect(hasIndex(db, ["expiresAt"])).toBe(true);
+  });
+
+  it("cleans idempotency rows before credentials in test setup hooks", () => {
+    for (const path of [CLEANUP_PATH, SETUP_PATH]) {
+      const source = readFileSync(path, "utf8");
+      const idempotencyCleanup = source.indexOf("db.apiIdempotencyKey.deleteMany");
+      const credentialCleanup = source.indexOf("db.apiCredential.deleteMany");
+
+      expect(idempotencyCleanup).toBeGreaterThanOrEqual(0);
+      expect(credentialCleanup).toBeGreaterThanOrEqual(0);
+      expect(idempotencyCleanup).toBeLessThan(credentialCleanup);
+    }
   });
 });

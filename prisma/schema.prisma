@@ -29,6 +29,7 @@ model User {
   cookbooks           Cookbook[]
   addedToCookbooks    RecipeInCookbook[]
   apiCredentials      ApiCredential[]
+  apiIdempotencyKeys  ApiIdempotencyKey[]
   agentConnections    AgentConnectionRequest[]
   oauthAuthCodes      OAuthAuthCode[]
   oauthRefreshTokens  OAuthRefreshToken[]
@@ -61,9 +62,33 @@ model ApiCredential {
   updatedAt DateTime @default(now()) @updatedAt
 
   agentConnections AgentConnectionRequest[]
+  idempotencyKeys  ApiIdempotencyKey[]
 
   @@index([userId])
   @@index([tokenPrefix])
+}
+
+model ApiIdempotencyKey {
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId   String?
+  credential     ApiCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  clientKey      String
+  key            String
+  operation      String
+  requestHash    String
+  responseStatus Int?
+  responseBody   String?
+  expiresAt      DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, clientKey, key])
+  @@index([userId, createdAt])
+  @@index([credentialId])
+  @@index([expiresAt])
 }
 
 model AgentConnectionRequest {
