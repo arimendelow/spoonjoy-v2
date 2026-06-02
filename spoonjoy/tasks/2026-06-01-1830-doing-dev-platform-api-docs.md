@@ -65,7 +65,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Notes/logs in `./2026-06-01-1830-doing-dev-platform-api-docs/` with current branch, current route files, relevant test commands, deployment command choice, and confirmation that `api-v1-contract.md` is the exact v1 contract source for execution.
 **Acceptance**: Artifacts exist; `api-v1-contract.md` is present; no code behavior changed; doing doc remains accurate after source inspection.
 
-### ⬜ Unit 1a: API Credential Scopes — Tests
+### ✅ Unit 1a: API Credential Scopes — Tests
 **What**: Write failing tests for the credential-scope storage and parsing contract in `prisma/schema.prisma`, `migrations/0015_api_credential_scopes.sql`, `app/lib/api-auth.server.ts`, `app/lib/agent-connection.server.ts`, `app/lib/oauth-server.server.ts`, `test/setup.ts`, and `test/helpers/cleanup.ts`, using the exact scope/default/legacy expansion rules from `api-v1-contract.md`.
 **Output**: `test/scripts/migration-0015-api-credential-scopes.test.ts` asserts the root migration adds `ApiCredential.scopes` as required text with database default `'kitchen:read kitchen:write'`; `test/lib/api-auth.server.test.ts` asserts default personal token scopes, scoped credential creation, principal scope exposure, empty stored scope string expands to no scopes, unknown-scope rejection, legacy expansion, and cleanup behavior; existing agent/OAuth tests assert delegated and connector tokens preserve requested legacy scopes instead of receiving personal-token defaults.
 **Acceptance**: Focused tests FAIL because `ApiCredential.scopes`, scope normalization, legacy scope expansion, scoped credential creation, and principal scope exposure are absent.
@@ -343,3 +343,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 19:40 Final Tinfoil scrutiny converged after root optional-auth invalid-token alignment
 - 2026-06-01 19:37 Review chain converged: granularity, validation, ambiguity, quality, Stranger scrutiny, and final Tinfoil scrutiny
 - 2026-06-01 19:38 Unit 0 complete: captured branch, route, migration, script, deployment, and contract baseline in `unit-0-setup-research.log`
+- 2026-06-01 19:41 Unit 1a complete: credential-scope migration/auth/delegated/OAuth tests are red for missing scopes implementation
