@@ -220,7 +220,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: `test/lib/api-v1-openapi.server.test.ts` asserts OpenAPI `3.1.0`, server URL, paths for every first-slice endpoint, request schemas, response schemas, examples, error schemas, auth requirements, and `x-scopes` requirements from `app/lib/api-v1-contract.server.ts`; `test/routes/api-v1-openapi.test.ts` asserts `GET /api/v1/openapi.json` serves the same document.
 **Acceptance**: Focused tests FAIL because OpenAPI metadata and endpoint are absent or incomplete.
 
-### ⬜ Unit 11b: OpenAPI Contract Metadata — Implementation
+### ✅ Unit 11b: OpenAPI Contract Metadata — Implementation
 **What**: Create `app/lib/api-v1-openapi.server.ts` and connect `GET /api/v1/openapi.json` to it; use the same path/scope metadata constants consumed by the v1 route helper.
 **Output**: New OpenAPI helper, updated v1 route/helper files, and passing Unit 11a tests.
 **Acceptance**: Unit 11a tests PASS; `pnpm run build` succeeds with no warnings.
@@ -388,3 +388,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:49 Unit 10b complete: accepted and ignored client timestamp fields for check/delete mutation bodies, added machine-readable missing item details, and verified conflict tests, mutation tests, typecheck, and warning-free build
 - 2026-06-01 21:50 Unit 10c complete: verified machine-readable shopping-list error and last-writer-wins branches with 100% v1/idempotency coverage, typecheck, and warning-free build; no additional refactor required
 - 2026-06-01 21:52 Unit 11a complete: added red OpenAPI helper and route tests for top-level metadata, every first-slice path, scopes/auth/security, request/response schemas, examples, error schemas, parameters, strict reusable schemas, and raw `/api/v1/openapi.json`; red run fails because `app/lib/api-v1-openapi.server.ts` does not exist
+- 2026-06-01 21:56 Unit 11b complete: added `app/lib/api-v1-openapi.server.ts`, generated the first-slice OpenAPI 3.1 contract from v1 resource metadata, served `/api/v1/openapi.json` as the raw document, and verified focused OpenAPI tests, typecheck, and warning-free build
