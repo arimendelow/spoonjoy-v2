@@ -2,7 +2,7 @@
  * Rate limiting for /api/* REST endpoints and the MCP bearer surface.
  *
  * Uses Cloudflare's native Workers `RateLimit` binding (sliding window,
- * free tier). Two bindings are declared in `wrangler.json`:
+ * free tier). Bindings are declared in `wrangler.json`:
  *
  * - `API_TOKEN_RATE_LIMITER` — keyed on SHA-256(bearer token). Allows
  *   bursty legitimate agent traffic (e.g. MCP doing bulk ops).

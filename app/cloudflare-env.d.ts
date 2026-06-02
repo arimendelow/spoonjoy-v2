@@ -41,8 +41,7 @@ declare global {
 
   /**
    * Cloudflare's native Workers Rate Limiting binding (sliding window).
-   * Configured in wrangler.json under `unsafe.bindings` until the binding
-   * leaves preview.
+   * Configured in wrangler.json under the supported `ratelimits` binding array.
    */
   interface RateLimitBinding {
     limit(input: { key: string }): Promise<{ success: boolean }>;

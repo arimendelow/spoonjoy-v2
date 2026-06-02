@@ -2,16 +2,6 @@
 > spoonjoy-v2@1.0.0 build /Users/arimendelow/Projects/spoonjoy-v2
 > react-router build
 
-[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProcessing wrangler.json configuration:[0m
-
-    - "unsafe" fields are experimental and may change or break at any time.
-
-
-[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProcessing wrangler.json configuration:[0m
-
-    - "unsafe" fields are experimental and may change or break at any time.
-
-
 Using Vite Environment API (experimental)
 vite v7.3.1 building client environment for production...
 transforming...
@@ -142,7 +132,7 @@ build/client/assets/proxy-Bm38A43m.js                                  115.78 kB
 build/client/assets/chunk-JZWAC4HX-BWgHnysW.js                         125.17 kB │ gzip: 42.32 kB
 build/client/assets/index-wnAe5EVe.js                                  175.88 kB │ gzip: 57.86 kB
 build/client/assets/entry.client-BOKXM74H.js                           187.13 kB │ gzip: 59.17 kB
-✓ built in 3.32s
+✓ built in 3.22s
 vite v7.3.1 building ssr environment for production...
 transforming...
 ✓ 3153 modules transformed.
@@ -150,7 +140,7 @@ rendering chunks...
 Using secrets defined in .env
 Using secrets defined in .env.local
 build/server/.dev.vars                                  0.35 kB
-build/server/wrangler.json                              1.81 kB
+build/server/wrangler.json                              1.73 kB
 build/server/.vite/manifest.json                        3.15 kB
 build/server/assets/yoga-sbSbVeWy.wasm                 71.74 kB
 build/server/assets/query_engine_bg-BB05z0i1.wasm   2,171.30 kB
@@ -167,4 +157,4 @@ build/server/assets/server-build-COGoklU_.js        3,277.59 kB
 ✓ 1 asset copied from React Router server build to client assets.
 build/client/assets/server-build-DSg9oJ2d.css
 
-✓ built in 4.00s
+✓ built in 3.93s
