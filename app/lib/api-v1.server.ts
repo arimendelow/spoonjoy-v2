@@ -311,12 +311,14 @@ async function handleRecipeList(args: ApiV1RouteArgs, requestId: string, princip
           }
         : {}),
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      servings: true,
+      createdAt: true,
+      updatedAt: true,
       chef: { select: { id: true, username: true } },
-      steps: {
-        include: { ingredients: { include: { ingredientRef: true, unit: true } } },
-      },
-      cookbooks: { include: { cookbook: { select: { id: true, title: true } } } },
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: limit,
