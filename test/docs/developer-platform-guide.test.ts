@@ -30,9 +30,12 @@ const CLIENT_PROFILES = [
 const GUIDE_MARKERS = [
   "External Client Guide",
   "Read the public Chef graph",
-  "Create a scoped client token",
+  "Use your Spoonjoy session",
+  "Use bearer only outside the session",
+  "There is no token to mint or paste for playground calls",
   "Sync a private shopping list",
   "Perform an idempotent shopping-list mutation",
+  "Session",
   "Authorization: Bearer",
   "clientMutationId",
   "cursor",
@@ -52,12 +55,14 @@ describe("external client guide", () => {
 
     expect(apiDocs).toContain("curl 'https://spoonjoy.app/api/v1/recipes");
     expect(apiDocs).toContain("curl 'https://spoonjoy.app/api/v1/cookbooks");
-    expect(apiDocs).toContain("curl -X POST https://spoonjoy.app/api/v1/tokens");
+    expect(apiDocs).toContain("POST /api/v1/tokens");
+    expect(apiDocs).toContain("https://spoonjoy.app/developers/playground");
     expect(apiDocs).toContain("curl 'https://spoonjoy.app/api/v1/shopping-list/sync?cursor=");
     expect(apiDocs).toContain("curl -X POST https://spoonjoy.app/api/v1/shopping-list/items");
     expect(apiDocs).toContain(scopesFor("POST", "/api/v1/tokens")[0]);
     expect(apiDocs).toContain(scopesFor("GET", "/api/v1/shopping-list/sync")[0]);
     expect(apiDocs).toContain(scopesFor("POST", "/api/v1/shopping-list/items")[0]);
+    expect(apiDocs).not.toContain("sj_owner_token");
     expect(apiDocs).not.toMatch(/pebble/i);
   });
 
@@ -81,11 +86,13 @@ describe("external client guide", () => {
     expect(renderedText).toContain("GET /api/v1/recipes");
     expect(renderedText).toContain("GET /api/v1/cookbooks");
     expect(renderedText).toContain("POST /api/v1/tokens");
+    expect(renderedText).toContain("Generated operation: POST /api/v1/tokens");
     expect(renderedText).toContain("GET /api/v1/shopping-list/sync");
     expect(renderedText).toContain("POST /api/v1/shopping-list/items");
     expect(renderedText).toContain(scopesFor("POST", "/api/v1/tokens")[0]);
     expect(renderedText).toContain(scopesFor("GET", "/api/v1/shopping-list/sync")[0]);
     expect(renderedText).toContain(scopesFor("POST", "/api/v1/shopping-list/items")[0]);
+    expect(renderedText).not.toContain("sj_owner_token");
     expect(document.body).not.toHaveTextContent(/pebble/i);
   });
 });

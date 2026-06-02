@@ -1,0 +1,193 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildApiV1OpenApiDocument } from "../app/lib/api-v1-openapi.server";
+
+type OpenApiDocument = ReturnType<typeof buildApiV1OpenApiDocument>;
+type OpenApiOperation = {
+  operationId?: string;
+  tags?: string[];
+  summary?: string;
+  "x-auth"?: "optional" | "bearer";
+  "x-scopes"?: string[];
+  parameters?: OpenApiParameter[];
+  requestBody?: {
+    required?: boolean;
+    content?: {
+      "application/json"?: {
+        examples?: Record<string, { value?: unknown }>;
+      };
+    };
+  };
+  responses?: Record<string, unknown>;
+};
+type OpenApiParameter = {
+  name?: string;
+  in?: "path" | "query";
+  required?: boolean;
+  schema?: {
+    type?: string;
+    format?: string;
+    default?: unknown;
+    minimum?: number;
+    maximum?: number;
+  };
+};
+
+const OUTPUT_FILE = "app/lib/generated/api-v1-playground.ts";
+export const OPENAPI_OPERATION_METHODS = ["get", "put", "post", "delete", "options", "head", "patch", "trace"] as const;
+const OPENAPI_OPERATION_METHOD_SET = new Set<string>(OPENAPI_OPERATION_METHODS);
+
+function titleCase(value: string) {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function defaultPathValue(path: string, name: string) {
+  if (name === "itemId") return "item_1";
+  if (name === "credentialId") return "cred_1";
+  if (name === "id" && path.includes("/recipes/")) return "recipe_1";
+  if (name === "id" && path.includes("/cookbooks/")) return "cookbook_1";
+  return "";
+}
+
+function placeholderFor(path: string, parameter: OpenApiParameter) {
+  const name = parameter.name ?? "";
+  if (parameter.in === "path") return defaultPathValue(path, name) || name;
+  if (name === "query") return "pasta";
+  if (name === "q") return "weeknight";
+  if (name === "cursor") return "2026-06-01T00:00:00.000Z";
+  if (name === "limit") return "20";
+  return name;
+}
+
+function defaultQueryValue(parameter: OpenApiParameter) {
+  const defaultValue = parameter.schema?.default;
+  return defaultValue === undefined ? "" : String(defaultValue);
+}
+
+function parameterFromOpenApi(path: string, parameter: OpenApiParameter) {
+  const name = parameter.name ?? "";
+  const location = parameter.in ?? "query";
+  return {
+    name,
+    in: location,
+    label: titleCase(name),
+    required: Boolean(parameter.required),
+    defaultValue: location === "path" ? "" : defaultQueryValue(parameter),
+    placeholder: placeholderFor(path, parameter),
+    schema: {
+      type: parameter.schema?.type ?? "string",
+      ...(parameter.schema?.format ? { format: parameter.schema.format } : {}),
+      ...(parameter.schema?.minimum !== undefined ? { minimum: parameter.schema.minimum } : {}),
+      ...(parameter.schema?.maximum !== undefined ? { maximum: parameter.schema.maximum } : {}),
+    },
+  };
+}
+
+function requestBodyExample(operation: OpenApiOperation) {
+  const examples = operation.requestBody?.content?.["application/json"]?.examples;
+  const example = examples?.example?.value ?? Object.values(examples ?? {})[0]?.value;
+  if (example === undefined) return null;
+  return {
+    required: Boolean(operation.requestBody?.required),
+    contentType: "application/json",
+    example: JSON.stringify(example, null, 2),
+  };
+}
+
+function operationFromOpenApi(path: string, method: string, operation: OpenApiOperation) {
+  const operationId = operation.operationId ?? `${method}_${path}`;
+  const tag = operation.tags?.[0] ?? "API";
+  return {
+    id: `${method.toUpperCase()} ${path}`,
+    operationId,
+    label: operation.summary ?? titleCase(operationId),
+    method: method.toUpperCase(),
+    path,
+    tag,
+    auth: operation["x-auth"] === "bearer" ? "authenticated" : "optional",
+    scopes: operation["x-scopes"] ?? [],
+    params: (operation.parameters ?? []).map((parameter) => parameterFromOpenApi(path, parameter)),
+    requestBody: requestBodyExample(operation),
+    responseStatuses: Object.keys(operation.responses ?? {}).sort((left, right) => Number(left) - Number(right)),
+  };
+}
+
+export function buildApiPlaygroundManifest(document: OpenApiDocument = buildApiV1OpenApiDocument()) {
+  const operations = [];
+
+  for (const [path, pathItem] of Object.entries(document.paths)) {
+    const operationsByMethod = pathItem as Record<string, OpenApiOperation>;
+    for (const [method, operation] of Object.entries(operationsByMethod)) {
+      if (!OPENAPI_OPERATION_METHOD_SET.has(method)) continue;
+      operations.push(operationFromOpenApi(path, method, operation));
+    }
+  }
+
+  return {
+    source: "buildApiV1OpenApiDocument",
+    version: document.info.version,
+    operations,
+  };
+}
+
+export function serializeApiPlaygroundManifest(manifest = buildApiPlaygroundManifest()) {
+  return `// Generated by scripts/generate-api-playground.ts. Do not edit by hand.
+export type ApiV1PlaygroundMethod = "GET" | "PUT" | "POST" | "DELETE" | "OPTIONS" | "HEAD" | "PATCH" | "TRACE";
+export type ApiV1PlaygroundAuth = "optional" | "authenticated";
+export type ApiV1PlaygroundParam = {
+  name: string;
+  in: "path" | "query";
+  label: string;
+  required: boolean;
+  defaultValue: string;
+  placeholder: string;
+  schema: {
+    type: string;
+    format?: string;
+    minimum?: number;
+    maximum?: number;
+  };
+};
+export type ApiV1PlaygroundOperation = {
+  id: string;
+  operationId: string;
+  label: string;
+  method: ApiV1PlaygroundMethod;
+  path: string;
+  tag: string;
+  auth: ApiV1PlaygroundAuth;
+  scopes: readonly string[];
+  params: readonly ApiV1PlaygroundParam[];
+  requestBody: null | {
+    required: boolean;
+    contentType: "application/json";
+    example: string;
+  };
+  responseStatuses: readonly string[];
+};
+export type ApiV1PlaygroundManifest = {
+  source: "buildApiV1OpenApiDocument";
+  version: string;
+  operations: readonly ApiV1PlaygroundOperation[];
+};
+
+export const API_V1_PLAYGROUND_MANIFEST = ${JSON.stringify(manifest, null, 2)} as const satisfies ApiV1PlaygroundManifest;
+`;
+}
+
+async function writeGeneratedManifest() {
+  const outputPath = fileURLToPath(new URL(`../${OUTPUT_FILE}`, import.meta.url));
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, serializeApiPlaygroundManifest(), "utf8");
+  console.log(`Generated ${OUTPUT_FILE}`);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await writeGeneratedManifest();
+}

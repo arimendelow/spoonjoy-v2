@@ -42,7 +42,7 @@ describe("/developers route", () => {
       { title: "Spoonjoy Developer Platform | Spoonjoy" },
       {
         name: "description",
-        content: "Build clients on Spoonjoy's public Chef graph, REST API, OAuth, MCP, and scoped tokens.",
+        content: "Build clients on Spoonjoy's public Chef graph, REST API, OAuth, MCP, session auth, and bearer credentials.",
       },
     ]);
   });
@@ -57,7 +57,8 @@ describe("/developers route", () => {
 
     expect(await screen.findByRole("heading", { name: "Spoonjoy Developer Platform" })).toBeInTheDocument();
     expect(screen.getByText(/public-by-default Chef graph/i)).toBeInTheDocument();
-    expect(screen.getByText(/Personal API tokens/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spoonjoy session" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bearer credentials" })).toBeInTheDocument();
     expect(screen.getByText(/OAuth\/PKCE apps/i)).toBeInTheDocument();
     expect(screen.getByText(/MCP clients/i)).toBeInTheDocument();
     expect(screen.getByText(/Delegated and device-style authorization/i)).toBeInTheDocument();
