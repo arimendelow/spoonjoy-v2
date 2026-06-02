@@ -60,7 +60,7 @@ Expose Spoonjoy as a developer-friendly platform layer on top of the existing pu
 
 Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-v1-contract.md`. Every unit that asserts v1 request fields, response fields, error codes, scope behavior, idempotency storage, docs/reference ownership, or live-smoke response shapes uses that artifact as the exact contract.
 
-### ⬜ Unit 0: Setup/Research
+### ✅ Unit 0: Setup/Research
 **What**: Confirm branch/task-doc state, verify route/deploy/test patterns, and capture the implementation baseline for API, OAuth, token, shopping-list, docs, and deployment work.
 **Output**: Notes/logs in `./2026-06-01-1830-doing-dev-platform-api-docs/` with current branch, current route files, relevant test commands, deployment command choice, and confirmation that `api-v1-contract.md` is the exact v1 contract source for execution.
 **Acceptance**: Artifacts exist; `api-v1-contract.md` is present; no code behavior changed; doing doc remains accurate after source inspection.
@@ -341,3 +341,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 19:34 Addressed final Tinfoil finding by aligning discovery, health, and OpenAPI as optional-auth routes with no required scope
 - 2026-06-01 19:35 Addressed final Tinfoil Round 2 finding by adding invalid-token behavior for optional-auth root discovery
 - 2026-06-01 19:37 Review chain converged: granularity, validation, ambiguity, quality, Stranger scrutiny, and final Tinfoil scrutiny
+- 2026-06-01 19:38 Unit 0 complete: captured branch, route, migration, script, deployment, and contract baseline in `unit-0-setup-research.log`
