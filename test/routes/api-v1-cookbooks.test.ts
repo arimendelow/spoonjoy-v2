@@ -301,6 +301,17 @@ describe("API v1 public cookbook reads", () => {
       error: { code: "validation_error", status: 400 },
     });
 
+    const malformedLimit = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/cookbooks?limit=abc", {
+      headers: { "X-Request-Id": "req_cookbook_malformed_limit" },
+    }) as unknown as Request, "cookbooks"));
+    expect(malformedLimit.status).toBe(400);
+    expectEnvelopeHeaders(malformedLimit, "req_cookbook_malformed_limit");
+    await expect(readJson(malformedLimit)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_cookbook_malformed_limit",
+      error: { code: "validation_error", status: 400 },
+    });
+
     const insufficient = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/cookbooks", {
       headers: { Authorization: `Bearer ${token.token}`, "X-Request-Id": "req_cookbook_scope" },
     }) as unknown as Request, "cookbooks"));
