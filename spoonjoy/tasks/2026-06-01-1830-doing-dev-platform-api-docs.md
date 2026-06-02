@@ -95,7 +95,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-2c-coverage.log`; any refactor stays in `app/lib/api-idempotency.server.ts` and tests.
 **Acceptance**: 100% coverage on new/changed idempotency storage code; focused tests and build still PASS with no warnings.
 
-### ⬜ Unit 3a: `/api/v1` Shell, Errors, And Request IDs — Tests
+### ✅ Unit 3a: `/api/v1` Shell, Errors, And Request IDs — Tests
 **What**: Write failing tests for route registration and shared v1 response behavior in `app/routes.ts`, `app/routes/api.v1.$.ts`, `app/lib/api-v1.server.ts`, and the future `app/lib/api-v1-contract.server.ts`.
 **Output**: `test/routes/api-v1-shell.test.ts` asserts the exact discovery document, health document, optional-auth behavior with no required scope for root/health/openapi, invalid bearer returning `401 invalid_token` for root/health/openapi, success envelope, error envelope, error code map, `OPTIONS /api/v1/*` status, unknown endpoints, malformed JSON, request ID generation/echo, and CORS headers from `api-v1-contract.md`; `test/build-output-hygiene.test.ts` or a new focused config test asserts `vitest.config.ts` coverage includes `app/routes/**/*.ts`.
 **Acceptance**: Focused tests FAIL because `app/routes/api.v1.$.ts` and the v1 shell helpers are absent.
@@ -351,3 +351,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 20:01 Addressed Unit 2a reviewer finding by adding cleanup-order assertions for `ApiIdempotencyKey` before credential cleanup
 - 2026-06-01 20:01 Unit 2b complete: added `ApiIdempotencyKey`, migration, cleanup hooks, idempotency helper, Prisma logs, green focused tests, typecheck, and build
 - 2026-06-01 20:04 Unit 2c complete: added idempotency helper behavior tests for hashing, first-use/replay/conflict, failed response replay, revoked-credential replay, expiry cleanup/reuse, and 100% helper coverage
+- 2026-06-01 20:08 Unit 3a complete: v1 shell tests are red for missing `routes/api.v1.$`, missing v1 contract helper, and missing exact `.ts` route coverage glob
