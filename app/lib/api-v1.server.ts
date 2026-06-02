@@ -13,6 +13,29 @@ import { API_V1_DISCOVERY_DATA, API_V1_ERROR_STATUS, type ApiV1ErrorCode } from 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 50;
 
+export interface ApiV1ScopeRequirement {
+  auth: "optional" | "bearer";
+  scopes: string[];
+}
+
+type ApiV1ScopeRule = ApiV1ScopeRequirement & {
+  method: string;
+  match(path: string, segments: string[]): boolean;
+};
+
+const API_V1_SCOPE_RULES: readonly ApiV1ScopeRule[] = [
+  { method: "GET", auth: "optional", scopes: [], match: (path) => path === "" },
+  { method: "GET", auth: "optional", scopes: [], match: (path) => path === "health" },
+  { method: "GET", auth: "optional", scopes: [], match: (path) => path === "openapi.json" },
+  { method: "GET", auth: "optional", scopes: ["recipes:read"], match: (path) => path === "recipes" },
+  { method: "GET", auth: "optional", scopes: ["recipes:read"], match: (_path, segments) => segments[0] === "recipes" && segments.length === 2 },
+  { method: "GET", auth: "optional", scopes: ["cookbooks:read"], match: (path) => path === "cookbooks" },
+  { method: "GET", auth: "optional", scopes: ["cookbooks:read"], match: (_path, segments) => segments[0] === "cookbooks" && segments.length === 2 },
+  { method: "GET", auth: "bearer", scopes: ["tokens:read"], match: (path) => path === "tokens" },
+  { method: "POST", auth: "bearer", scopes: ["tokens:write"], match: (path) => path === "tokens" },
+  { method: "DELETE", auth: "bearer", scopes: ["tokens:write"], match: (_path, segments) => segments[0] === "tokens" && segments.length === 2 },
+] as const;
+
 export interface ApiV1RouteArgs {
   request: Request;
   params: { "*": string };
@@ -86,6 +109,20 @@ export function apiV1ErrorResponse(requestId: string, error: ApiV1Error): Respon
   });
 }
 
+function normalizeApiV1Path(path: string): string {
+  return path.split("/").filter(Boolean).join("/");
+}
+
+export function resolveApiV1ScopeRequirement(method: string, path: string): ApiV1ScopeRequirement | null {
+  const normalizedPath = normalizeApiV1Path(path);
+  const segments = normalizedPath.split("/").filter(Boolean);
+  const normalizedMethod = method.toUpperCase();
+  const rule = API_V1_SCOPE_RULES.find((candidate) => (
+    candidate.method === normalizedMethod && candidate.match(normalizedPath, segments)
+  ));
+  return rule ? { auth: rule.auth, scopes: [...rule.scopes] } : null;
+}
+
 export async function parseApiV1JsonBody(request: Request): Promise<Record<string, unknown>> {
   const contentType = request.headers.get("Content-Type") ?? "";
   if (!contentType.includes("application/json")) return {};
@@ -145,17 +182,20 @@ function assertScope(principal: ApiPrincipal | null, scope: string) {
   }
 }
 
-function requirePrincipal(principal: ApiPrincipal | null): ApiPrincipal {
-  if (!principal) {
+async function authorizeApiV1Route(args: ApiV1RouteArgs, path: string): Promise<ApiPrincipal | null> {
+  const requirement = resolveApiV1ScopeRequirement(args.request.method, path);
+  if (!requirement) {
+    throw new ApiV1Error("not_found", `Unknown Spoonjoy API v1 endpoint: /api/v1/${path}`);
+  }
+
+  const principal = await optionalPrincipal(args);
+  if (requirement.auth === "bearer" && !principal) {
     throw new ApiV1Error("authentication_required", "Authentication required");
   }
-  return principal;
-}
-
-function assertPrincipalScope(principal: ApiPrincipal, scope: string) {
-  if (!principal.scopes.includes(scope)) {
-    throw new ApiV1Error("insufficient_scope", `Missing required scope: ${scope}`);
+  for (const scope of requirement.scopes) {
+    assertScope(principal, scope);
   }
+  return principal;
 }
 
 function parseListLimit(url: URL): number {
@@ -239,7 +279,6 @@ async function loadRecipeById(db: Awaited<ReturnType<typeof getRequestDb>>, id: 
 }
 
 async function handleRecipeList(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null) {
-  assertScope(principal, "recipes:read");
   const db = await getRequestDb(args.context);
   const url = new URL(args.request.url);
   const query = (url.searchParams.get("query") ?? url.searchParams.get("q") ?? "").trim();
@@ -275,7 +314,6 @@ async function handleRecipeList(args: ApiV1RouteArgs, requestId: string, princip
 }
 
 async function handleRecipeDetail(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null, id: string) {
-  assertScope(principal, "recipes:read");
   const db = await getRequestDb(args.context);
   const recipe = await loadRecipeById(db, id);
   if (!recipe) {
@@ -328,7 +366,6 @@ async function loadCookbookById(db: Awaited<ReturnType<typeof getRequestDb>>, id
 }
 
 async function handleCookbookList(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null) {
-  assertScope(principal, "cookbooks:read");
   const db = await getRequestDb(args.context);
   const url = new URL(args.request.url);
   const query = (url.searchParams.get("query") ?? url.searchParams.get("q") ?? "").trim();
@@ -367,7 +404,6 @@ async function handleCookbookList(args: ApiV1RouteArgs, requestId: string, princ
 }
 
 async function handleCookbookDetail(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null, id: string) {
-  assertScope(principal, "cookbooks:read");
   const db = await getRequestDb(args.context);
   const cookbook = await loadCookbookById(db, id);
   if (!cookbook) {
@@ -438,9 +474,7 @@ function assertBearerScopeSubset(principal: ApiPrincipal, storedScopes: string) 
   }
 }
 
-async function handleTokenList(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null) {
-  const authenticated = requirePrincipal(principal);
-  assertPrincipalScope(authenticated, "tokens:read");
+async function handleTokenList(args: ApiV1RouteArgs, requestId: string, authenticated: ApiPrincipal) {
   const db = await getRequestDb(args.context);
   const credentials = await db.apiCredential.findMany({
     where: { userId: authenticated.id },
@@ -450,9 +484,7 @@ async function handleTokenList(args: ApiV1RouteArgs, requestId: string, principa
   return apiV1Success(requestId, { tokens: credentials.map(credentialMetadata) });
 }
 
-async function handleTokenCreate(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null) {
-  const authenticated = requirePrincipal(principal);
-  assertPrincipalScope(authenticated, "tokens:write");
+async function handleTokenCreate(args: ApiV1RouteArgs, requestId: string, authenticated: ApiPrincipal) {
   const body = await parseApiV1JsonBody(args.request);
   assertKnownFields(body, ["name", "scopes"]);
   const name = nonblankString(body.name, "name");
@@ -475,9 +507,7 @@ async function handleTokenCreate(args: ApiV1RouteArgs, requestId: string, princi
   }, 201);
 }
 
-async function handleTokenRevoke(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null, credentialId: string) {
-  const authenticated = requirePrincipal(principal);
-  assertPrincipalScope(authenticated, "tokens:write");
+async function handleTokenRevoke(args: ApiV1RouteArgs, requestId: string, authenticated: ApiPrincipal, credentialId: string) {
   const db = await getRequestDb(args.context);
   const credential = await db.apiCredential.findFirst({
     where: { id: credentialId, userId: authenticated.id },
@@ -510,12 +540,12 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
 
     const path = args.params["*"] ?? "";
     if (args.request.method === "GET" && path === "") {
-      await optionalPrincipal(args);
+      await authorizeApiV1Route(args, path);
       return apiV1Success(requestId, API_V1_DISCOVERY_DATA);
     }
 
     if (args.request.method === "GET" && path === "health") {
-      const principal = await optionalPrincipal(args);
+      const principal = await authorizeApiV1Route(args, path);
       return apiV1Success(requestId, {
         ok: true,
         version: "v1",
@@ -526,44 +556,44 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     if (args.request.method === "GET" && path === "openapi.json") {
-      await optionalPrincipal(args);
+      await authorizeApiV1Route(args, path);
       return apiV1Success(requestId, { openapi: "3.1.0", info: { title: "Spoonjoy API", version: "v1" } });
     }
 
     if (args.request.method === "GET" && path === "recipes") {
-      const principal = await optionalPrincipal(args);
+      const principal = await authorizeApiV1Route(args, path);
       return await handleRecipeList(args, requestId, principal);
     }
 
     const segments = path.split("/").filter(Boolean);
     if (args.request.method === "GET" && segments[0] === "recipes" && segments.length === 2) {
-      const principal = await optionalPrincipal(args);
+      const principal = await authorizeApiV1Route(args, path);
       return await handleRecipeDetail(args, requestId, principal, segments[1]);
     }
 
     if (args.request.method === "GET" && path === "cookbooks") {
-      const principal = await optionalPrincipal(args);
+      const principal = await authorizeApiV1Route(args, path);
       return await handleCookbookList(args, requestId, principal);
     }
 
     if (args.request.method === "GET" && segments[0] === "cookbooks" && segments.length === 2) {
-      const principal = await optionalPrincipal(args);
+      const principal = await authorizeApiV1Route(args, path);
       return await handleCookbookDetail(args, requestId, principal, segments[1]);
     }
 
     if (args.request.method === "GET" && path === "tokens") {
-      const principal = await optionalPrincipal(args);
-      return await handleTokenList(args, requestId, principal);
+      const principal = await authorizeApiV1Route(args, path);
+      return await handleTokenList(args, requestId, principal as ApiPrincipal);
     }
 
     if (args.request.method === "POST" && path === "tokens") {
-      const principal = await optionalPrincipal(args);
-      return await handleTokenCreate(args, requestId, principal);
+      const principal = await authorizeApiV1Route(args, path);
+      return await handleTokenCreate(args, requestId, principal as ApiPrincipal);
     }
 
     if (args.request.method === "DELETE" && segments[0] === "tokens" && segments.length === 2) {
-      const principal = await optionalPrincipal(args);
-      return await handleTokenRevoke(args, requestId, principal, segments[1]);
+      const principal = await authorizeApiV1Route(args, path);
+      return await handleTokenRevoke(args, requestId, principal as ApiPrincipal, segments[1]);
     }
 
     if (args.request.method !== "GET" && args.request.method !== "POST" && args.request.method !== "PATCH" && args.request.method !== "DELETE") {
@@ -572,6 +602,10 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
 
     if (path === "health") {
       throw new ApiV1Error("method_not_allowed", "Method not allowed");
+    }
+
+    if (args.request.method === "GET") {
+      await authorizeApiV1Route(args, path);
     }
 
     throw new ApiV1Error("not_found", `Unknown Spoonjoy API v1 endpoint: /api/v1/${path}`);

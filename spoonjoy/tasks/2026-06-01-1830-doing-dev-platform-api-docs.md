@@ -160,7 +160,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: `test/routes/api-v1-scopes-public-tokens.test.ts` asserts anonymous access for discovery/health/recipes/cookbooks; authenticated `recipes:read` and `cookbooks:read` success; authenticated public-read bearer failure without the relevant read scope; `tokens:read` and `tokens:write` enforcement for token metadata; legacy `kitchen:read` and `kitchen:write` compatibility for public-read and token endpoints; and no scope requirement for authenticated discovery.
 **Acceptance**: Focused tests FAIL until v1 routes centralize and enforce the planning-doc scope rows for discovery, recipes, cookbooks, and token metadata.
 
-### ⬜ Unit 7b: Public And Token Scope Enforcement — Implementation
+### ✅ Unit 7b: Public And Token Scope Enforcement — Implementation
 **What**: Add a v1 scope-matrix helper in `app/lib/api-v1.server.ts` and route discovery, recipe, cookbook, and token metadata endpoints through it before operation dispatch or database access.
 **Output**: Updated v1 helper/route files and passing Unit 7a tests.
 **Acceptance**: Unit 7a tests PASS; previously completed v1 route tests still PASS; `pnpm run build` succeeds with no warnings.
@@ -374,3 +374,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:07 Unit 6c complete: added token branch coverage for duplicate names, no/blank/primitive JSON bodies, invalid scope payloads, missing and cross-owner revokes, already-revoked credentials, 100% coverage on v1 token code, focused route tests, typecheck, and warning-free build
 - 2026-06-01 21:09 Unit 7a complete: added public/token scope-matrix tests covering optional discovery routes, anonymous public reads, fine-grained and legacy scope success/failure, session token access, and a red structural assertion for missing `resolveApiV1ScopeRequirement`
 - 2026-06-01 21:12 Addressed Unit 7a reviewer finding by adding explicit `recipes:read` and `cookbooks:read` bearer success assertions for public recipe/cookbook list and detail routes
+- 2026-06-01 21:18 Unit 7b complete: added centralized v1 scope-matrix resolution and routed discovery, health, OpenAPI, recipe, cookbook, and token metadata endpoints through it; focused v1 route tests, 100% v1 coverage, typecheck, and warning-free build passed

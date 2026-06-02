@@ -203,6 +203,18 @@ describe("/api/v1 shell", () => {
       error: { code: "not_found", status: 404 },
     });
 
+    const unknownMutation = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/nope", {
+      method: "POST",
+      headers: { "X-Request-Id": "req_unknown_mutation" },
+    }) as unknown as Request, "nope"));
+    expect(unknownMutation.status).toBe(404);
+    expectV1Headers(unknownMutation, "req_unknown_mutation");
+    await expect(readJson(unknownMutation)).resolves.toMatchObject({
+      ok: false,
+      requestId: "req_unknown_mutation",
+      error: { code: "not_found", status: 404 },
+    });
+
     const method = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/health", {
       method: "DELETE",
       headers: { "X-Request-Id": "req_method" },
