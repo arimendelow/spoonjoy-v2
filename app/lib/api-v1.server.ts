@@ -711,7 +711,7 @@ async function handleShoppingItemCreate(args: ApiV1RouteArgs, requestId: string,
 
 async function handleShoppingItemCheck(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal, itemId: string) {
   const body = await parseApiV1JsonBody(args.request);
-  assertKnownFields(body, ["clientMutationId", "checked"]);
+  assertKnownFields(body, ["clientMutationId", "checked", "updatedAt", "checkedAt", "deletedAt"]);
   const clientMutationId = nonblankString(body.clientMutationId, "clientMutationId");
   const checked = requiredBoolean(body.checked, "checked");
 
@@ -722,7 +722,7 @@ async function handleShoppingItemCheck(args: ApiV1RouteArgs, requestId: string, 
       where: { id: itemId, shoppingListId: list.id },
     });
     if (!existing) {
-      throw new ApiV1Error("not_found", "Shopping list item not found");
+      throw new ApiV1Error("not_found", "Shopping list item not found", { resource: "shopping_list_item", itemId });
     }
 
     const item = await db.shoppingListItem.update({
@@ -750,7 +750,7 @@ async function handleShoppingItemCheck(args: ApiV1RouteArgs, requestId: string, 
 
 async function handleShoppingItemDelete(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal, itemId: string) {
   const body = await parseApiV1JsonBody(args.request);
-  assertKnownFields(body, ["clientMutationId"]);
+  assertKnownFields(body, ["clientMutationId", "updatedAt", "deletedAt"]);
   const clientMutationId = nonblankString(body.clientMutationId, "clientMutationId");
 
   return await runIdempotentShoppingMutation(args, requestId, principal, body, clientMutationId, "shopping-list.items.delete", async () => {
@@ -760,7 +760,7 @@ async function handleShoppingItemDelete(args: ApiV1RouteArgs, requestId: string,
       where: { id: itemId, shoppingListId: list.id },
     });
     if (!existing) {
-      throw new ApiV1Error("not_found", "Shopping list item not found");
+      throw new ApiV1Error("not_found", "Shopping list item not found", { resource: "shopping_list_item", itemId });
     }
 
     const item = await db.shoppingListItem.update({
