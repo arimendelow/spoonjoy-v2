@@ -5,6 +5,7 @@ import { action } from "~/routes/api.v1.$";
 import { createApiCredential } from "~/lib/api-auth.server";
 import { resolveApiV1ScopeRequirement } from "~/lib/api-v1.server";
 import { getLocalDb } from "~/lib/db.server";
+import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { createTestUser, getOrCreateIngredientRef, getOrCreateUnit } from "../utils";
 
@@ -32,6 +33,12 @@ function mutationRequest(
 
 async function readJson(response: Response) {
   return await response.json() as any;
+}
+
+async function sessionCookie(userId: string) {
+  const session = await sessionStorage.getSession();
+  session.set("userId", userId);
+  return (await sessionStorage.commitSession(session)).split(";")[0];
 }
 
 function expectExactKeys(value: Record<string, unknown>, keys: string[]) {
@@ -255,6 +262,19 @@ describe("API v1 shopping-list mutations", () => {
       "shopping-list/items",
     ));
     expect(legacyAdd.status).toBe(201);
+
+    const cookie = await sessionCookie(fixture.user.id);
+    const sessionAdd = await action(routeArgs(new UndiciRequest("http://localhost/api/v1/shopping-list/items", {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json", "X-Request-Id": "req_add_item_session" },
+      body: JSON.stringify({
+        clientMutationId: "client-add-session",
+        name: `Bread ${faker.string.alphanumeric(6)}`,
+        categoryKey: null,
+        iconKey: null,
+      }),
+    }) as unknown as Request, "shopping-list/items"));
+    expect(sessionAdd.status).toBe(201);
   });
 
   it("restores matching items, rejects unknown fields, and requires clientMutationId", async () => {
@@ -362,6 +382,182 @@ describe("API v1 shopping-list mutations", () => {
     }
   });
 
+  it("covers mutation validation, duplicate text, false checks, and missing item boundaries", async () => {
+    const fixture = await createShoppingMutationFixture(db);
+    const duplicateName = `Duplicate Pears ${faker.string.alphanumeric(6)}`;
+    const firstAdd = await action(routeArgs(
+      mutationRequest("POST", "shopping-list/items", fixture.credential.token, "req_duplicate_first", {
+        clientMutationId: "duplicate-first",
+        name: duplicateName,
+        quantity: 4,
+      }),
+      "shopping-list/items",
+    ));
+    const firstPayload = await readJson(firstAdd);
+
+    expect(firstAdd.status).toBe(201);
+    expectSuccessEnvelope(firstPayload, "req_duplicate_first");
+
+    const duplicateAdd = await action(routeArgs(
+      mutationRequest("POST", "shopping-list/items", fixture.credential.token, "req_duplicate_second", {
+        clientMutationId: "duplicate-second",
+        name: duplicateName,
+      }),
+      "shopping-list/items",
+    ));
+    const duplicatePayload = await readJson(duplicateAdd);
+
+    expect(duplicateAdd.status).toBe(200);
+    expectSuccessEnvelope(duplicatePayload, "req_duplicate_second");
+    expect(duplicatePayload.data).toMatchObject({
+      created: false,
+      updated: true,
+      item: { id: firstPayload.data.item.id, quantity: 4, checked: false, deletedAt: null },
+      mutation: { clientMutationId: "duplicate-second", replayed: false },
+    });
+    for (const item of duplicatePayload.data.shoppingList.items) {
+      expectShoppingItemShape(item);
+    }
+
+    const nullQuantityName = `Null Quantity Plums ${faker.string.alphanumeric(6)}`;
+    const nullQuantityFirst = await action(routeArgs(
+      mutationRequest("POST", "shopping-list/items", fixture.credential.token, "req_null_quantity_first", {
+        clientMutationId: "null-quantity-first",
+        name: nullQuantityName,
+        categoryKey: " ",
+        iconKey: " ",
+      }),
+      "shopping-list/items",
+    ));
+    expect(nullQuantityFirst.status).toBe(201);
+
+    const nullQuantitySecond = await action(routeArgs(
+      mutationRequest("POST", "shopping-list/items", fixture.credential.token, "req_null_quantity_second", {
+        clientMutationId: "null-quantity-second",
+        name: nullQuantityName,
+      }),
+      "shopping-list/items",
+    ));
+    const nullQuantityPayload = await readJson(nullQuantitySecond);
+
+    expect(nullQuantitySecond.status).toBe(200);
+    expectSuccessEnvelope(nullQuantityPayload, "req_null_quantity_second");
+    expect(nullQuantityPayload.data.item).toMatchObject({ quantity: null });
+
+    const nullQuantityThird = await action(routeArgs(
+      mutationRequest("POST", "shopping-list/items", fixture.credential.token, "req_null_quantity_third", {
+        clientMutationId: "null-quantity-third",
+        name: nullQuantityName,
+        quantity: 2,
+      }),
+      "shopping-list/items",
+    ));
+    const nullQuantityThirdPayload = await readJson(nullQuantityThird);
+
+    expect(nullQuantityThird.status).toBe(200);
+    expectSuccessEnvelope(nullQuantityThirdPayload, "req_null_quantity_third");
+    expect(nullQuantityThirdPayload.data.item).toMatchObject({ quantity: 2 });
+
+    const uncheck = await action(routeArgs(
+      mutationRequest("PATCH", `shopping-list/items/${firstPayload.data.item.id}`, fixture.credential.token, "req_check_false", {
+        clientMutationId: "check-false",
+        checked: false,
+      }),
+      `shopping-list/items/${firstPayload.data.item.id}`,
+    ));
+    const uncheckPayload = await readJson(uncheck);
+
+    expect(uncheck.status).toBe(200);
+    expectSuccessEnvelope(uncheckPayload, "req_check_false");
+    expect(uncheckPayload.data.item).toMatchObject({ id: firstPayload.data.item.id, checked: false, checkedAt: null });
+
+    const deleteOnce = await action(routeArgs(
+      mutationRequest("DELETE", `shopping-list/items/${firstPayload.data.item.id}`, fixture.credential.token, "req_delete_once", {
+        clientMutationId: "delete-once",
+      }),
+      `shopping-list/items/${firstPayload.data.item.id}`,
+    ));
+    expect(deleteOnce.status).toBe(200);
+
+    const deleteAgain = await action(routeArgs(
+      mutationRequest("DELETE", `shopping-list/items/${firstPayload.data.item.id}`, fixture.credential.token, "req_delete_twice", {
+        clientMutationId: "delete-twice",
+      }),
+      `shopping-list/items/${firstPayload.data.item.id}`,
+    ));
+    const deleteAgainPayload = await readJson(deleteAgain);
+
+    expect(deleteAgain.status).toBe(200);
+    expectSuccessEnvelope(deleteAgainPayload, "req_delete_twice");
+    expect(deleteAgainPayload.data).toMatchObject({
+      removed: true,
+      item: { id: firstPayload.data.item.id, deletedAt: expect.any(String) },
+      mutation: { clientMutationId: "delete-twice", replayed: false },
+    });
+    expect(deleteAgainPayload.data.shoppingList.items.map((item: { id: string }) => item.id)).not.toContain(firstPayload.data.item.id);
+    for (const item of deleteAgainPayload.data.shoppingList.items) {
+      expectShoppingItemShape(item);
+    }
+
+    const validationCases = [
+      {
+        method: "POST" as const,
+        path: "shopping-list/items",
+        requestId: "req_add_blank_name",
+        body: { clientMutationId: "blank-name", name: " " },
+      },
+      {
+        method: "POST" as const,
+        path: "shopping-list/items",
+        requestId: "req_add_bad_quantity",
+        body: { clientMutationId: "bad-quantity", name: "Tea", quantity: 0 },
+      },
+      {
+        method: "POST" as const,
+        path: "shopping-list/items",
+        requestId: "req_add_bad_unit",
+        body: { clientMutationId: "bad-unit", name: "Tea", unit: 5 },
+      },
+      {
+        method: "PATCH" as const,
+        path: `shopping-list/items/${firstPayload.data.item.id}`,
+        requestId: "req_check_bad_boolean",
+        body: { clientMutationId: "bad-boolean", checked: "yes" },
+      },
+    ];
+
+    for (const testCase of validationCases) {
+      const response = await action(routeArgs(
+        mutationRequest(testCase.method, testCase.path, fixture.credential.token, testCase.requestId, testCase.body),
+        testCase.path,
+      ));
+      expect(response.status).toBe(400);
+      expectEnvelopeHeaders(response, testCase.requestId);
+      expectErrorEnvelope(await readJson(response), testCase.requestId, "validation_error", 400);
+    }
+
+    const missingPatch = await action(routeArgs(
+      mutationRequest("PATCH", "shopping-list/items/missing-item", fixture.credential.token, "req_check_missing_item", {
+        clientMutationId: "missing-check",
+        checked: true,
+      }),
+      "shopping-list/items/missing-item",
+    ));
+    expect(missingPatch.status).toBe(404);
+    expectEnvelopeHeaders(missingPatch, "req_check_missing_item");
+    expectErrorEnvelope(await readJson(missingPatch), "req_check_missing_item", "not_found", 404);
+
+    const missingDelete = await action(routeArgs(
+      mutationRequest("DELETE", "shopping-list/items/missing-item", fixture.credential.token, "req_delete_missing_item", {
+        clientMutationId: "missing-delete",
+      }),
+      "shopping-list/items/missing-item",
+    ));
+    expect(missingDelete.status).toBe(404);
+    expectEnvelopeHeaders(missingDelete, "req_delete_missing_item");
+    expectErrorEnvelope(await readJson(missingDelete), "req_delete_missing_item", "not_found", 404);
+  });
+
   it("replays exact idempotent responses and rejects key conflicts", async () => {
     const fixture = await createShoppingMutationFixture(db);
     const addBody = {
@@ -429,6 +625,23 @@ describe("API v1 shopping-list mutations", () => {
     expect(differentPath.status).toBe(409);
     expectEnvelopeHeaders(differentPath, "req_idem_path_conflict");
     expectErrorEnvelope(await readJson(differentPath), "req_idem_path_conflict", "idempotency_conflict", 409);
+
+    await db.apiIdempotencyKey.updateMany({
+      where: { key: "idem-add" },
+      data: { expiresAt: new Date(Date.now() - 1_000) },
+    });
+    const reuseAfterExpiry = await action(routeArgs(
+      mutationRequest("POST", "shopping-list/items", fixture.credential.token, "req_idem_expired_reuse", {
+        clientMutationId: "idem-add",
+        name: `Expired Key Grapes ${faker.string.alphanumeric(6)}`,
+      }),
+      "shopping-list/items",
+    ));
+    const reuseAfterExpiryPayload = await readJson(reuseAfterExpiry);
+
+    expect(reuseAfterExpiry.status).toBe(201);
+    expectSuccessEnvelope(reuseAfterExpiryPayload, "req_idem_expired_reuse");
+    expect(reuseAfterExpiryPayload.data.mutation).toEqual({ clientMutationId: "idem-add", replayed: false });
   });
 
   it("enforces shopping_list:write before mutation body handling", async () => {

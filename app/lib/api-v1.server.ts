@@ -603,7 +603,7 @@ async function runIdempotentShoppingMutation(
   write: () => Promise<{ status: number; data: Record<string, unknown> }>,
 ) {
   const db = await getRequestDb(args.context);
-  const path = normalizeApiV1Path(args.params["*"] ?? "");
+  const path = normalizeApiV1Path(args.params["*"]);
   const requestHash = await hashIdempotencyRequest({
     method: args.request.method,
     path: `/api/v1/${path}`,
