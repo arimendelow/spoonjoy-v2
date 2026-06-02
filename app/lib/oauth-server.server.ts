@@ -7,9 +7,10 @@
  * (RFC 6749 + RFC 7636, S256 only), and scope handling. The HTTP routes layer
  * the OAuth wire format on top.
  *
- * Access tokens are long-lived `ApiCredential`s minted at the token endpoint
- * (see `createApiCredential`), so there are no refresh tokens — the
- * authorization code is the only short-lived, single-use secret here.
+ * Access tokens are expiring `ApiCredential`s minted at the token endpoint
+ * (see `createApiCredential`). The endpoint also issues rotating
+ * `refresh_token` values so OAuth clients can refresh without replaying the
+ * authorization code.
  */
 
 import type { PrismaClient as PrismaClientType } from "@prisma/client";
@@ -265,7 +266,10 @@ export async function issueConnectorTokens(
     db,
     input.userId,
     "Claude connector (OAuth)",
-    { expiresAt: new Date(now.getTime() + ACCESS_TOKEN_TTL_SECONDS * 1000) },
+    {
+      expiresAt: new Date(now.getTime() + ACCESS_TOKEN_TTL_SECONDS * 1000),
+      scopes: input.scope,
+    },
   );
   const refreshToken = randomToken("ort_");
   await db.oAuthRefreshToken.create({

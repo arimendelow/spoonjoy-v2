@@ -1,6 +1,7 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig } from "vite";
+import { shouldLogRollupBuildMessage } from "./scripts/build-output-hygiene";
 
 const appDirectory = new URL("./app", import.meta.url).pathname;
 const componentsDirectory = new URL("./app/components", import.meta.url).pathname;
@@ -11,6 +12,15 @@ export default defineConfig({
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     reactRouter(),
   ],
+  build: {
+    rollupOptions: {
+      onLog(level, log, defaultHandler) {
+        if (shouldLogRollupBuildMessage(level, log)) {
+          defaultHandler(level, log);
+        }
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": componentsDirectory,
