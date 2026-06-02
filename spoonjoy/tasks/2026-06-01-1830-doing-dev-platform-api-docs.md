@@ -195,7 +195,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Updated v1 route/helper files and passing Unit 9a tests.
 **Acceptance**: Unit 9a tests PASS; legacy shopping-list mutation tests still PASS; `pnpm run build` succeeds with no warnings.
 
-### ⬜ Unit 9c: Idempotent Shopping-List Mutations — Coverage & Refactor
+### ✅ Unit 9c: Idempotent Shopping-List Mutations — Coverage & Refactor
 **What**: Verify coverage for mutation branches: add blank text, add duplicate ingredient text, patch checked true, patch checked false, delete existing item, delete already deleted item, replay with current request ID, replay with revoked token, replay with mismatched body hash, replay conflict for same key with different path `itemId`, and key reuse after idempotency expiry.
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-9c-coverage.log`; refactors stay in shopping mutation/idempotency helpers and tests.
 **Acceptance**: 100% coverage on new/changed idempotent mutation code; focused tests and build still PASS with no warnings.
@@ -383,3 +383,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:37 Unit 9a complete: added red v1 shopping-list mutation tests for write scope rows, add/check/remove envelopes, restore/merge behavior, unknown fields, clientMutationId validation, idempotent replay/current request IDs, idempotency conflicts, and write-scope enforcement; red run fails on missing v1 mutation routes returning 404 and missing scope rows
 - 2026-06-01 21:41 Addressed Unit 9a reviewer finding by asserting full `ShoppingItem` shape for active `shoppingList.items` in mutation responses and normalizing restore fixtures to the API's lowercased identity rules
 - 2026-06-01 21:42 Unit 9b complete: implemented v1 shopping-list add/check/remove endpoints with write-scope rows, request validation, normalized item identity, idempotency reserve/replay/conflict handling, exact mutation envelopes, green v1 mutation tests, green legacy `/api` route tests, typecheck, and warning-free build
+- 2026-06-01 21:46 Unit 9c complete: added mutation branch coverage for blank/invalid add inputs, duplicate item merge with present and null quantities, checked false, repeated delete, missing patch/delete items, session idempotency, and expired idempotency-key reuse; verified 100% coverage, typecheck, and warning-free build
