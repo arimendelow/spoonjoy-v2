@@ -27,7 +27,7 @@ The connector authenticates with an owner-scoped `sj_` API token via the standar
 3. Poll `poll_agent_connection`, or `POST /api/tools/poll_agent_connection`, with the returned `deviceCode`; after approval it returns a one-time `sj_…` token.
 4. Configure the connector with that token (below). Store it like a password.
 
-You can also mint a token directly from API v1 while signed in: `POST /api/v1/tokens` with `{ "name": "Claude", "scopes": ["recipes:read", "cookbooks:read", "shopping_list:read", "shopping_list:write"] }`.
+You can also create a bearer credential directly from API v1 while signed in: `POST /api/v1/tokens` with `{ "name": "Claude", "scopes": ["recipes:read", "cookbooks:read", "shopping_list:read", "shopping_list:write"] }`.
 
 ## Auth: OAuth 2.1 (claude.ai / Claude Desktop one-click)
 

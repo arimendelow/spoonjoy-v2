@@ -9,6 +9,7 @@ import {
   Play,
   RefreshCw,
   ShieldCheck,
+  LogIn,
   ShoppingBasket,
 } from "lucide-react";
 import { API_V1_ERROR_STATUS, API_V1_RESOURCES, API_V1_SCOPE_REQUIREMENTS } from "~/lib/api-v1-contract.server";
@@ -35,7 +36,7 @@ const scopeLabels: Record<string, string> = {
   "shopping_list:read": "Shopping list read",
   "shopping_list:write": "Shopping list write",
   "tokens:read": "Token metadata read",
-  "tokens:write": "Token mint and revoke",
+  "tokens:write": "Bearer credential create and revoke",
   offline_access: "Refresh-capable authorization",
 };
 
@@ -43,8 +44,13 @@ const exactEndpointScopes = new Set(["shopping_list:write", "tokens:read", "toke
 
 const authModels = [
   {
-    title: "Personal API tokens",
-    body: "Best for one chef wiring their own tools. Token secrets are shown once, stored hashed, and scoped at creation time.",
+    title: "Spoonjoy session",
+    body: "Best for the playground and same-origin browser clients. Sign in once; your login is the credential for private API calls.",
+    icon: LogIn,
+  },
+  {
+    title: "Bearer credentials",
+    body: "Best only when a client runs outside the Spoonjoy browser session. The token API is exposed as part of the generated surface.",
     icon: KeyRound,
   },
   {
@@ -67,7 +73,7 @@ const authModels = [
 const clientProfiles = [
   ["Tiny-device clients", "Use sync cursors, small payloads, and idempotent retries when a device is offline or battery constrained."],
   ["Mobile apps", "Read public recipes without auth, then request shopping-list scopes only after a chef connects their account."],
-  ["CLI/script clients", "Use personal tokens, curl, and OpenAPI JSON to automate imports, sync, and kitchen maintenance."],
+  ["CLI/script clients", "Use bearer credentials, curl, and OpenAPI JSON only when the script cannot share a Spoonjoy session."],
   ["Browser clients", "Use OAuth/PKCE with dynamic client registration instead of embedding long-lived secrets."],
   ["Agent clients", "Use MCP or delegated connection endpoints when a chef needs to approve an assistant-style runtime."],
 ] as const;
@@ -80,10 +86,16 @@ const externalGuideSteps = [
     sample: "curl 'https://spoonjoy.app/api/v1/recipes?query=pasta&limit=20'\ncurl 'https://spoonjoy.app/api/v1/cookbooks?limit=20'",
   },
   {
-    title: "Create a scoped client token",
-    scope: "Requires tokens:write",
-    body: "Use POST /api/v1/tokens with an owner credential that has tokens:write, then hand the new token only the scopes the client needs.",
-    sample: "curl -X POST https://spoonjoy.app/api/v1/tokens\n  -H 'Authorization: Bearer sj_owner_token'\n  -H 'Content-Type: application/json'\n  -d '{\"name\":\"External client\",\"scopes\":[\"recipes:read\",\"cookbooks:read\",\"shopping_list:read\",\"shopping_list:write\"]}'",
+    title: "Use your Spoonjoy session",
+    scope: "Requires login",
+    body: "Sign into Spoonjoy, open the playground, and leave auth on Session. There is no token to mint or paste for playground calls; the browser sends your normal Spoonjoy session cookie, and private endpoints treat that as the authenticated chef.",
+    sample: "https://spoonjoy.app/developers/playground",
+  },
+  {
+    title: "Use bearer only outside the session",
+    scope: "External clients",
+    body: "Bearer mode is for clients that cannot use the logged-in Spoonjoy browser session. The generated POST /api/v1/tokens operation is available in the playground because it is part of API v1, not because private playground calls need a separate token.",
+    sample: "Playground auth: Session\nGenerated operation: POST /api/v1/tokens\nUse the returned sj_... secret only in an external client or Bearer-mode test.",
   },
   {
     title: "Sync a private shopping list",
@@ -101,7 +113,7 @@ const externalGuideSteps = [
 
 const guideSteps = [
   "Read public recipes and cookbooks anonymously before adding auth.",
-  "Mint a personal token or register an OAuth client when a client needs private or mutating access.",
+  "Use Session for logged-in playground calls; use bearer or OAuth only when a client runs outside that session.",
   "Use a stable mutation id for shopping-list writes, then retry with the same value when a network call is interrupted.",
   "Use the sync cursor to fetch shopping-list changes, including removed items.",
 ] as const;
@@ -111,7 +123,7 @@ export function meta() {
     { title: "Spoonjoy Developer Platform | Spoonjoy" },
     {
       name: "description",
-      content: "Build clients on Spoonjoy's public Chef graph, REST API, OAuth, MCP, and scoped tokens.",
+      content: "Build clients on Spoonjoy's public Chef graph, REST API, OAuth, MCP, session auth, and bearer credentials.",
     },
   ];
 }
@@ -260,7 +272,7 @@ export default function Developers() {
                   ))}
                 </div>
                 <p className="text-sm/6 text-[var(--sj-ink-soft)]">
-                  {resource.auth === "bearer" ? "Authenticated chef surface." : "Anonymous callers allowed; bearer callers are scope checked."}
+                  {resource.auth === "bearer" ? "Authenticated chef surface." : "Anonymous callers allowed; authenticated callers are scope checked."}
                 </p>
               </article>
             );

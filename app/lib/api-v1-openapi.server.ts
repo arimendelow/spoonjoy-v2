@@ -356,11 +356,11 @@ const operationMeta: Record<ResourcePath, Partial<Record<HttpMethod, OperationCo
     DELETE: { operationId: "deleteApiV1ShoppingListItem", tags: ["Shopping List"], summary: "Remove a shopping-list item", auth: "bearer", scopes: ["shopping_list:write"], success: { 200: "DeleteShoppingItemEnvelope" }, errors: ["invalid_json", "validation_error", "authentication_required", "invalid_token", "insufficient_scope", "not_found", "idempotency_conflict", "method_not_allowed", "rate_limited", "internal_error"], parameters: [pathParameters.itemId], requestBody: "DeleteShoppingItemRequest" },
   },
   "/api/v1/tokens": {
-    GET: { operationId: "getApiV1Tokens", tags: ["Tokens"], summary: "List personal API tokens", auth: "bearer", scopes: ["tokens:read"], success: { 200: "TokenListEnvelope" }, errors: ["authentication_required", "invalid_token", "insufficient_scope", "method_not_allowed", "rate_limited", "internal_error"] },
-    POST: { operationId: "postApiV1Tokens", tags: ["Tokens"], summary: "Create a personal API token", auth: "bearer", scopes: ["tokens:write"], success: { 201: "CreateTokenEnvelope" }, errors: ["invalid_json", "validation_error", "invalid_scope", "authentication_required", "invalid_token", "insufficient_scope", "method_not_allowed", "rate_limited", "internal_error"], requestBody: "CreateTokenRequest" },
+    GET: { operationId: "getApiV1Tokens", tags: ["Tokens"], summary: "List bearer credentials", auth: "bearer", scopes: ["tokens:read"], success: { 200: "TokenListEnvelope" }, errors: ["authentication_required", "invalid_token", "insufficient_scope", "method_not_allowed", "rate_limited", "internal_error"] },
+    POST: { operationId: "postApiV1Tokens", tags: ["Tokens"], summary: "Create a bearer credential", auth: "bearer", scopes: ["tokens:write"], success: { 201: "CreateTokenEnvelope" }, errors: ["invalid_json", "validation_error", "invalid_scope", "authentication_required", "invalid_token", "insufficient_scope", "method_not_allowed", "rate_limited", "internal_error"], requestBody: "CreateTokenRequest" },
   },
   "/api/v1/tokens/{credentialId}": {
-    DELETE: { operationId: "deleteApiV1Token", tags: ["Tokens"], summary: "Revoke a personal API token", auth: "bearer", scopes: ["tokens:write"], success: { 200: "RevokeTokenEnvelope" }, errors: ["authentication_required", "invalid_token", "insufficient_scope", "not_found", "method_not_allowed", "rate_limited", "internal_error"], parameters: [pathParameters.credentialId] },
+    DELETE: { operationId: "deleteApiV1Token", tags: ["Tokens"], summary: "Revoke a bearer credential", auth: "bearer", scopes: ["tokens:write"], success: { 200: "RevokeTokenEnvelope" }, errors: ["authentication_required", "invalid_token", "insufficient_scope", "not_found", "method_not_allowed", "rate_limited", "internal_error"], parameters: [pathParameters.credentialId] },
   },
 };
 

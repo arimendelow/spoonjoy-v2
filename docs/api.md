@@ -37,11 +37,13 @@ Errors include a stable code, message, HTTP status, and request id:
 
 ## Authentication
 
-Spoonjoy accepts bearer credentials through `Authorization: Bearer sj_...`. Public recipe and cookbook reads work without a token, but authenticated requests can use scoped tokens to read private resources, mutate the owner shopping list, or manage token metadata.
+Spoonjoy accepts the normal signed-in Spoonjoy session for same-origin browser requests. In the playground, leave auth on Session and private endpoints will treat the logged-in chef as the authenticated owner. There is no token to mint or paste for playground calls.
+
+External clients that run outside the Spoonjoy browser session use bearer credentials through `Authorization: Bearer sj_...`. Public recipe and cookbook reads work without a token, but authenticated external requests can use scoped tokens to read private resources, mutate the owner shopping list, or manage token metadata.
 
 Supported entry points:
 
-- Personal API tokens: `GET /api/v1/tokens`, `POST /api/v1/tokens`, and `DELETE /api/v1/tokens/{credentialId}`
+- Bearer credentials: `GET /api/v1/tokens`, `POST /api/v1/tokens`, and `DELETE /api/v1/tokens/{credentialId}`
 - OAuth/DCR clients: `POST /oauth/register`, `GET /oauth/authorize`, and `POST /oauth/token`
 - Delegated agent connection: `POST /api/tools/start_agent_connection` and `POST /api/tools/poll_agent_connection`
 - MCP clients: `POST /mcp`
@@ -50,7 +52,7 @@ OAuth access tokens are normal Spoonjoy API credentials. OAuth token responses a
 
 ## Scopes
 
-Scopes are attached to bearer tokens and OAuth-issued API credentials. Fine-grained REST scopes are:
+Fine-grained REST scopes are attached to bearer tokens and OAuth-issued API credentials. A signed-in Spoonjoy session already represents the current chef for same-origin playground requests.
 
 | Scope | Purpose |
 | --- | --- |
@@ -59,7 +61,7 @@ Scopes are attached to bearer tokens and OAuth-issued API credentials. Fine-grai
 | `shopping_list:read` | Read the authenticated owner's active shopping list and sync feed. |
 | `shopping_list:write` | Add, check, or remove items from the authenticated owner's shopping list. |
 | `tokens:read` | List token metadata for the authenticated owner. |
-| `tokens:write` | Create or revoke scoped personal tokens for the authenticated owner. |
+| `tokens:write` | Create or revoke scoped bearer credentials for the authenticated owner. |
 
 OAuth/MCP consent uses broader `kitchen:read` and `kitchen:write` scopes. The API maps those delegated credentials onto the owner-scoped kitchen operations while preventing cross-owner access.
 
@@ -74,18 +76,18 @@ API v1 is rate limited by IP and credential before authentication work. Anonymou
 | `GET` | `/api/v1` | Optional | none |
 | `GET` | `/api/v1/health` | Optional | none |
 | `GET` | `/api/v1/openapi.json` | Optional | none |
-| `GET` | `/api/v1/recipes` | Optional | `recipes:read` when bearer-authenticated |
-| `GET` | `/api/v1/recipes/{id}` | Optional | `recipes:read` when bearer-authenticated |
-| `GET` | `/api/v1/cookbooks` | Optional | `cookbooks:read` when bearer-authenticated |
-| `GET` | `/api/v1/cookbooks/{id}` | Optional | `cookbooks:read` when bearer-authenticated |
-| `GET` | `/api/v1/shopping-list` | Bearer | `shopping_list:read` |
-| `GET` | `/api/v1/shopping-list/sync` | Bearer | `shopping_list:read` |
-| `POST` | `/api/v1/shopping-list/items` | Bearer | `shopping_list:write` |
-| `PATCH` | `/api/v1/shopping-list/items/{itemId}` | Bearer | `shopping_list:write` |
-| `DELETE` | `/api/v1/shopping-list/items/{itemId}` | Bearer | `shopping_list:write` |
-| `GET` | `/api/v1/tokens` | Bearer | `tokens:read` |
-| `POST` | `/api/v1/tokens` | Bearer | `tokens:write` |
-| `DELETE` | `/api/v1/tokens/{credentialId}` | Bearer | `tokens:write` |
+| `GET` | `/api/v1/recipes` | Optional | `recipes:read` when authenticated |
+| `GET` | `/api/v1/recipes/{id}` | Optional | `recipes:read` when authenticated |
+| `GET` | `/api/v1/cookbooks` | Optional | `cookbooks:read` when authenticated |
+| `GET` | `/api/v1/cookbooks/{id}` | Optional | `cookbooks:read` when authenticated |
+| `GET` | `/api/v1/shopping-list` | Authenticated chef | `shopping_list:read` |
+| `GET` | `/api/v1/shopping-list/sync` | Authenticated chef | `shopping_list:read` |
+| `POST` | `/api/v1/shopping-list/items` | Authenticated chef | `shopping_list:write` |
+| `PATCH` | `/api/v1/shopping-list/items/{itemId}` | Authenticated chef | `shopping_list:write` |
+| `DELETE` | `/api/v1/shopping-list/items/{itemId}` | Authenticated chef | `shopping_list:write` |
+| `GET` | `/api/v1/tokens` | Authenticated chef | `tokens:read` |
+| `POST` | `/api/v1/tokens` | Authenticated chef | `tokens:write` |
+| `DELETE` | `/api/v1/tokens/{credentialId}` | Authenticated chef | `tokens:write` |
 
 ## Sync And Mutations
 
@@ -106,7 +108,7 @@ These starting points fit different client shapes without changing the underlyin
 
 - Tiny-device clients: use cursor sync, compact responses, and idempotent writes so a device can recover from interrupted network calls.
 - Mobile apps: read the public Chef graph before sign-in, then request shopping-list scopes after the chef connects their account.
-- CLI/script clients: use personal tokens, curl, and the OpenAPI contract to automate kitchen workflows.
+- CLI/script clients: use bearer credentials, curl, and the OpenAPI contract only when the script cannot share a Spoonjoy session.
 - Browser clients: use OAuth/PKCE and Dynamic Client Registration instead of embedding long-lived secrets.
 - Agent clients: use MCP or delegated connection endpoints when a chef needs to approve an external runtime.
 
@@ -119,15 +121,23 @@ curl 'https://spoonjoy.app/api/v1/recipes?query=pasta&limit=20'
 curl 'https://spoonjoy.app/api/v1/cookbooks?limit=20'
 ```
 
-### Create a scoped client token
+### Use your Spoonjoy session
 
-Create a client token with the smallest practical scope set. Token creation itself requires `tokens:write`.
+Sign into Spoonjoy, open the playground, and leave auth on Session. There is no token to mint or paste for playground calls; the browser sends your normal Spoonjoy session cookie, and private endpoints treat that as the authenticated chef.
 
-```bash
-curl -X POST https://spoonjoy.app/api/v1/tokens \
-  -H 'Authorization: Bearer sj_owner_token' \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"External client","scopes":["recipes:read","cookbooks:read","shopping_list:read","shopping_list:write"]}'
+```text
+https://spoonjoy.app/developers/playground
+```
+
+### Use bearer only outside the session
+
+Bearer mode is for clients that cannot use the logged-in Spoonjoy browser session. The generated `POST /api/v1/tokens` operation is available in the playground because it is part of API v1, not because private playground calls need a separate token.
+
+```json
+{
+  "name": "External client",
+  "scopes": ["recipes:read", "cookbooks:read", "shopping_list:read", "shopping_list:write"]
+}
 ```
 
 ### Sync a private shopping list
