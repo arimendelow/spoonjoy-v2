@@ -99,13 +99,15 @@ describe("API v1 public/token scope matrix", () => {
     });
     const tokenOwner = await db.user.create({ data: createTestUser() });
     const publicOnly = await createApiCredential(db, tokenOwner.id, "Public only", { scopes: ["public:read"] });
+    const recipeReader = await createApiCredential(db, tokenOwner.id, "Recipe reader", { scopes: ["recipes:read"] });
+    const cookbookReader = await createApiCredential(db, tokenOwner.id, "Cookbook reader", { scopes: ["cookbooks:read"] });
     const legacyRead = await createApiCredential(db, tokenOwner.id, "Legacy read", { scopes: ["kitchen:read"] });
 
-    for (const [requestId, path, splat] of [
-      ["req_scope_recipe_list", "http://localhost/api/v1/recipes", "recipes"],
-      ["req_scope_recipe_detail", `http://localhost/api/v1/recipes/${recipe.id}`, `recipes/${recipe.id}`],
-      ["req_scope_cookbook_list", "http://localhost/api/v1/cookbooks", "cookbooks"],
-      ["req_scope_cookbook_detail", `http://localhost/api/v1/cookbooks/${cookbook.id}`, `cookbooks/${cookbook.id}`],
+    for (const [requestId, path, splat, fineGrainedToken] of [
+      ["req_scope_recipe_list", "http://localhost/api/v1/recipes", "recipes", recipeReader.token],
+      ["req_scope_recipe_detail", `http://localhost/api/v1/recipes/${recipe.id}`, `recipes/${recipe.id}`, recipeReader.token],
+      ["req_scope_cookbook_list", "http://localhost/api/v1/cookbooks", "cookbooks", cookbookReader.token],
+      ["req_scope_cookbook_detail", `http://localhost/api/v1/cookbooks/${cookbook.id}`, `cookbooks/${cookbook.id}`, cookbookReader.token],
     ] as const) {
       const anonymous = await loader(routeArgs(new UndiciRequest(path, {
         headers: { "X-Request-Id": `${requestId}_anon` },
@@ -122,6 +124,12 @@ describe("API v1 public/token scope matrix", () => {
         requestId: `${requestId}_public_only`,
         error: { code: "insufficient_scope", status: 403 },
       });
+
+      const fineGrained = await loader(routeArgs(new UndiciRequest(path, {
+        headers: { Authorization: `Bearer ${fineGrainedToken}`, "X-Request-Id": `${requestId}_fine_grained` },
+      }) as unknown as Request, splat));
+      expect(fineGrained.status).toBe(200);
+      expectEnvelopeHeaders(fineGrained, `${requestId}_fine_grained`);
 
       const legacy = await loader(routeArgs(new UndiciRequest(path, {
         headers: { Authorization: `Bearer ${legacyRead.token}`, "X-Request-Id": `${requestId}_legacy` },
