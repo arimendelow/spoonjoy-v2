@@ -203,13 +203,20 @@ export default function Developers() {
 
       <SectionShell title="External Client Guide">
         <div className="grid gap-6">
-          <div className="grid gap-3 md:grid-cols-5">
-            {clientProfiles.map(([title, body]) => (
-              <article key={title} className="border-t border-[var(--sj-border)] pt-4">
-                <h3 className="font-sj-ui text-sm/5 font-bold text-[var(--sj-ink)]">{title}</h3>
-                <p className="mt-2 text-sm/6 text-[var(--sj-ink-soft)]">{body}</p>
-              </article>
-            ))}
+          <div className="border-y border-[var(--sj-border)] py-4">
+            <p className="font-sj-ui text-xs font-bold uppercase tracking-[0.16em] text-[var(--sj-ink-soft)]">
+              Client examples
+            </p>
+            <ul className="mt-3 grid gap-x-8 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
+              {clientProfiles.map(([title, body]) => (
+                <li key={title} className="flex gap-3 text-sm/6 text-[var(--sj-ink-soft)]">
+                  <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--sj-brass)]" aria-hidden="true" />
+                  <span>
+                    <strong className="font-sj-ui font-bold text-[var(--sj-ink)]">{title}:</strong> {body}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
           <div className="grid gap-4">
             {externalGuideSteps.map((step) => (
