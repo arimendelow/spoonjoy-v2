@@ -340,5 +340,6 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 19:31 Stranger scrutiny converged after idempotency path-hash fix
 - 2026-06-01 19:34 Addressed final Tinfoil finding by aligning discovery, health, and OpenAPI as optional-auth routes with no required scope
 - 2026-06-01 19:35 Addressed final Tinfoil Round 2 finding by adding invalid-token behavior for optional-auth root discovery
+- 2026-06-01 19:40 Final Tinfoil scrutiny converged after root optional-auth invalid-token alignment
 - 2026-06-01 19:37 Review chain converged: granularity, validation, ambiguity, quality, Stranger scrutiny, and final Tinfoil scrutiny
 - 2026-06-01 19:38 Unit 0 complete: captured branch, route, migration, script, deployment, and contract baseline in `unit-0-setup-research.log`
