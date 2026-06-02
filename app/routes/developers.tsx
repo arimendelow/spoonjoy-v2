@@ -111,6 +111,33 @@ const externalGuideSteps = [
   },
 ] as const;
 
+const authImplementationSteps = [
+  {
+    title: "Same-origin browser session",
+    mode: "Browser",
+    body: "After a chef signs in, your logged-in Spoonjoy session is the credential. Call relative /api/v1 URLs with credentials: \"same-origin\". Do not send Authorization; if an Authorization header is present, bearer auth wins over the session.",
+    sample: "await fetch(\"/api/v1/shopping-list\", {\n  credentials: \"same-origin\",\n  headers: { \"X-Request-Id\": \"web-shopping-list\" },\n});",
+  },
+  {
+    title: "External REST client",
+    mode: "Bearer",
+    body: "Use bearer only when a client cannot share the logged-in Spoonjoy session. In the playground, leave auth on Session and run the generated POST /api/v1/tokens operation, then store the sj_... secret outside browser bundles. Bearer-created tokens inherit the caller's scopes by default. Bearer callers cannot create a token with broader scopes than they already have.",
+    sample: "curl 'https://spoonjoy.app/api/v1/shopping-list' \\\n  -H 'Authorization: Bearer sj_client_token' \\\n  -H 'X-Request-Id: client-shopping-list'",
+  },
+  {
+    title: "OAuth/PKCE app",
+    mode: "Delegated",
+    body: "Register a public client with token_endpoint_auth_method: none and no client secret, redirect the signed-in chef through consent, then exchange the single-use 60-second code with a form-encoded POST /oauth/token request. OAuth accepts kitchen:read and kitchen:write scopes; the returned sj_... access_token lasts 30 days, and refresh_token rotates on every refresh grant.",
+    sample: "POST /oauth/register\nGET /oauth/authorize?response_type=code&scope=kitchen%3Aread+kitchen%3Awrite&code_challenge_method=S256\nPOST /oauth/token\nContent-Type: application/x-www-form-urlencoded\n\ngrant_type=authorization_code&client_id=...&code=...&code_verifier=...",
+  },
+  {
+    title: "Auth failures",
+    mode: "Errors",
+    body: "Treat authentication_required and invalid_token as 401 responses, insufficient_scope as 403, and malformed Authorization headers as validation_error. Public endpoints can be anonymous; if you send credentials to an optional endpoint, Spoonjoy validates them and checks scopes. Log requestId or X-Request-Id for support.",
+    sample: "{\n  \"ok\": false,\n  \"requestId\": \"client-shopping-list\",\n  \"error\": { \"code\": \"insufficient_scope\", \"status\": 403 }\n}",
+  },
+] as const;
+
 const guideSteps = [
   "Read public recipes and cookbooks anonymously before adding auth.",
   "Use Session for logged-in playground calls; use bearer or OAuth only when a client runs outside that session.",
@@ -239,6 +266,30 @@ export default function Developers() {
               </article>
             ))}
           </div>
+        </div>
+      </SectionShell>
+
+      <SectionShell title="Auth Implementation">
+        <div className="grid gap-4">
+          {authImplementationSteps.map((step) => (
+            <article
+              key={step.title}
+              className="grid gap-4 border-b border-[var(--sj-border)] py-4 lg:grid-cols-[minmax(13rem,18rem)_minmax(0,1fr)]"
+            >
+              <div>
+                <p className="font-sj-ui text-xs font-bold uppercase tracking-[0.16em] text-[var(--sj-ink-soft)]">
+                  {step.mode}
+                </p>
+                <h3 className="mt-2 font-sj-display text-2xl/7 font-semibold text-[var(--sj-ink)]">{step.title}</h3>
+              </div>
+              <div className="min-w-0 space-y-3">
+                <p className="text-sm/6 text-[var(--sj-ink-soft)]">{step.body}</p>
+                <pre className="overflow-x-auto whitespace-pre-wrap border border-[var(--sj-border)] bg-[var(--sj-photo-charcoal)] p-4 font-mono text-xs/5 text-[var(--sj-on-photo)]">
+                  {step.sample}
+                </pre>
+              </div>
+            </article>
+          ))}
         </div>
       </SectionShell>
 
