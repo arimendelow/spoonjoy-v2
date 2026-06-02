@@ -170,7 +170,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-7c-coverage.log`; refactors stay in v1 auth/scope helpers and tests.
 **Acceptance**: 100% coverage on new/changed public/token scope enforcement code; focused tests and build still PASS with no warnings.
 
-### ⬜ Unit 8a: Shopping-List Read, Sync, And Tombstones — Tests
+### ✅ Unit 8a: Shopping-List Read, Sync, And Tombstones — Tests
 **What**: Write failing tests for `GET /api/v1/shopping-list` and `GET /api/v1/shopping-list/sync`.
 **Output**: `test/routes/api-v1-shopping-sync.test.ts` asserts the exact shopping item shape, list envelope, sync envelope, `nextCursor`, `hasMore: false`, cursor filtering by `updatedAt > cursor`, empty list, deleted-item tombstones from `ShoppingListItem.deletedAt`, invalid cursor error envelope, `shopping_list:read` success, and missing read scope failure from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because shopping-list v1 read/sync payloads and tombstones are not implemented.
@@ -376,3 +376,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:12 Addressed Unit 7a reviewer finding by adding explicit `recipes:read` and `cookbooks:read` bearer success assertions for public recipe/cookbook list and detail routes
 - 2026-06-01 21:18 Unit 7b complete: added centralized v1 scope-matrix resolution and routed discovery, health, OpenAPI, recipe, cookbook, and token metadata endpoints through it; focused v1 route tests, 100% v1 coverage, typecheck, and warning-free build passed
 - 2026-06-01 21:20 Unit 7c complete: verified 100% coverage on v1 scope enforcement and shell route files plus warning-free build; no additional refactor required
+- 2026-06-01 21:23 Unit 8a complete: added v1 shopping-list read/sync tests for scope rows, authenticated active-list shape, empty-list creation, tombstone sync, cursor filtering, missing auth, insufficient scope, and invalid cursor; red run fails on unimplemented v1 shopping routes returning 404
