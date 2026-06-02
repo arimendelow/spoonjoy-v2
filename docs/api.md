@@ -50,6 +50,58 @@ Supported entry points:
 
 OAuth access tokens are normal Spoonjoy API credentials. OAuth token responses also include a rotating `refresh_token`; each refresh-token grant rotates the presented token and rejects replay.
 
+## Auth Implementation
+
+Choose one credential mode per request. Same-origin browser code should use the signed-in Spoonjoy session; external clients should use `Authorization: Bearer ...`; delegated browser or mobile apps should use OAuth/PKCE. If an Authorization header is present, bearer auth wins over the session.
+
+### Same-origin browser session
+
+After a chef signs in, your logged-in Spoonjoy session is the credential. Call relative `/api/v1` URLs with `credentials: "same-origin"`. Do not send Authorization from same-origin browser code.
+
+```ts
+const response = await fetch("/api/v1/shopping-list", {
+  credentials: "same-origin",
+  headers: { "X-Request-Id": "web-shopping-list" },
+});
+```
+
+This is the default mode for the generated playground. There is no token to mint or paste for playground calls; private endpoints use the chef represented by the existing session cookie.
+
+### External REST client
+
+Use bearer credentials only when a client cannot share the logged-in Spoonjoy session, such as a CLI, server job, tiny device, or Bearer-mode test. In the playground, leave auth on Session and run the generated `POST /api/v1/tokens` operation, then store the `sj_...` secret outside browser bundles.
+
+```bash
+curl 'https://spoonjoy.app/api/v1/shopping-list' \
+  -H 'Authorization: Bearer sj_client_token' \
+  -H 'X-Request-Id: client-shopping-list'
+```
+
+When a signed-in session creates a token and omits `scopes`, Spoonjoy uses the default personal REST scopes. When a bearer credential creates another token and omits `scopes`, the new token inherits the caller's scopes except `offline_access`. Bearer callers cannot create a token with broader scopes than they already have.
+
+### OAuth/PKCE app
+
+Use OAuth/PKCE when a third-party app needs the chef to consent without embedding a long-lived secret. Register a public client with `token_endpoint_auth_method: none`; there is no client secret. Redirect URIs must be HTTPS, with HTTP allowed only for `localhost` and `127.0.0.1`.
+
+OAuth accepts only `kitchen:read` and `kitchen:write` scopes. Omitting `scope` grants both. Redirect the signed-in chef through consent, then exchange the single-use 60-second code with a form-encoded `POST /oauth/token` request.
+
+```text
+POST /oauth/register
+GET /oauth/authorize?response_type=code&scope=kitchen%3Aread+kitchen%3Awrite&code_challenge_method=S256
+POST /oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&client_id=...&code=...&code_verifier=...
+```
+
+The returned `access_token` is a normal `sj_...` Bearer credential that expires after 30 days. The returned refresh_token rotates on every refresh grant as an `ort_...` token, and a replayed refresh token is rejected.
+
+### Auth failures
+
+Public recipe and cookbook endpoints can be called anonymously. If you send credentials to an optional public endpoint, Spoonjoy validates them and checks the matching read scope. Private endpoints require the authenticated chef plus the listed scopes.
+
+Treat `authentication_required` and `invalid_token` as `401` responses. Treat `insufficient_scope` as `403`. A malformed `Authorization` header returns `validation_error`. Send your own `X-Request-Id` when you have one, and log the response `requestId` so failures can be traced.
+
 ## Scopes
 
 Fine-grained REST scopes are attached to bearer tokens and OAuth-issued API credentials. A signed-in Spoonjoy session already represents the current chef for same-origin playground requests.
