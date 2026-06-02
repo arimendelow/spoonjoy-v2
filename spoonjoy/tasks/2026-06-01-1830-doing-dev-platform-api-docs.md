@@ -325,3 +325,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 18:51 Addressed granularity Round 2 ordering finding by splitting early public/token scope enforcement from the final full scope-matrix audit
 - 2026-06-01 18:52 Granularity reviewer converged after ordering fix
 - 2026-06-01 18:54 Validation reviewer converged: cited current paths and source claims match HEAD
+- 2026-06-01 19:00 Added exact v1 contract artifact and wired ambiguous unit assertions to it
