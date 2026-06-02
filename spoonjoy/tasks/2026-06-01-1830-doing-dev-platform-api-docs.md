@@ -125,7 +125,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-4c-coverage.log`; refactors stay in v1 recipe helpers and tests.
 **Acceptance**: 100% coverage on new/changed recipe v1 code; focused tests and build still PASS with no warnings.
 
-### ⬜ Unit 5a: Public Cookbook V1 Reads — Tests
+### ✅ Unit 5a: Public Cookbook V1 Reads — Tests
 **What**: Write failing tests for anonymous and scoped public cookbook endpoints `GET /api/v1/cookbooks` and `GET /api/v1/cookbooks/:id`.
 **Output**: `test/routes/api-v1-cookbooks.test.ts` asserts the exact query params, `limit` behavior, summary/detail fields, active recipe counts, deleted recipe exclusion, missing cookbook 404 envelope, anonymous success, `cookbooks:read` bearer success, and scoped bearer failure without `cookbooks:read` from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because cookbook reads are not implemented under `/api/v1`.
@@ -360,3 +360,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 20:23 Unit 4b complete: implemented public recipe list/detail formatting, query/q and limit handling, deleted exclusion, bearer scope checks, green legacy/v1 route tests, typecheck, and build
 - 2026-06-01 20:28 Unit 4c complete: added recipe branch coverage for blank/default limits, malformed limits, anonymous list access, deterministic step/ingredient ordering, verified 100% coverage on v1 shell/recipe files, and saved green build logs
 - 2026-06-01 20:33 Addressed Unit 4c reviewer finding by suppressing only Rollup `EMPTY_BUNDLE` route-module diagnostics, adding a hygiene guard test, and regenerating warning-free build/typecheck/coverage evidence
+- 2026-06-01 20:34 Unit 5a complete: added public cookbook list/detail tests for query/q, limits, active recipe counts, deleted recipe exclusion, missing cookbook errors, anonymous access, bearer success, and insufficient-scope failure; red run fails on unimplemented v1 cookbook routes returning shell 404s
