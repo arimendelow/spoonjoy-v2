@@ -31,9 +31,9 @@ Expose Spoonjoy as a developer-friendly platform layer on top of the existing pu
 - [ ] At least one sample or guide demonstrates an external client using the docs to authenticate and operate against Spoonjoy.
 - [ ] The implemented docs/spec do not drift from REST/MCP operation metadata for the supported surface.
 - [ ] Deployed verification proves the docs URL and relevant API endpoints work after deployment.
-- [ ] 100% test coverage on all new code
-- [ ] All tests pass
-- [ ] No warnings
+- [x] 100% test coverage on all new code
+- [x] All tests pass
+- [x] No warnings
 
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
@@ -290,7 +290,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Coverage/log output saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-15c-guide.log`; no unsupported endpoint claims remain in route or markdown docs.
 **Acceptance**: Guide/sample assertions PASS; focused tests and build still PASS with no warnings.
 
-### ⬜ Unit 16a: Full Verification Gate
+### ✅ Unit 16a: Full Verification Gate
 **What**: Run the full required local verification gate before deployment.
 **Output**: Logs saved to artifacts for `pnpm test:coverage`, `pnpm run typecheck` from `package.json`, `pnpm run build`, and a targeted v1/docs test run.
 **Acceptance**: All verification commands PASS with no warnings.
@@ -402,3 +402,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:52 Unit 11a complete: added red OpenAPI helper and route tests for top-level metadata, every first-slice path, scopes/auth/security, request/response schemas, examples, error schemas, parameters, strict reusable schemas, and raw `/api/v1/openapi.json`; red run fails because `app/lib/api-v1-openapi.server.ts` does not exist
 - 2026-06-01 21:56 Unit 11b complete: added `app/lib/api-v1-openapi.server.ts`, generated the first-slice OpenAPI 3.1 contract from v1 resource metadata, served `/api/v1/openapi.json` as the raw document, and verified focused OpenAPI tests, typecheck, and warning-free build
 - 2026-06-01 21:58 Unit 11c complete: removed unreachable OpenAPI metadata guard, verified 100% coverage on OpenAPI/v1/idempotency helper files, and saved green typecheck/build logs
+- 2026-06-01 23:16 Unit 16a complete: full `pnpm run test:coverage` passed cleanly with 271 files, 5309 tests, and 100% statement/branch/function/line coverage; `pnpm run typecheck`, `pnpm run build`, and targeted v1/docs tests also passed with no warning/stderr markers in the saved logs
