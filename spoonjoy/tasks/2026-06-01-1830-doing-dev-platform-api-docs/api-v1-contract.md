@@ -147,7 +147,19 @@ Error code map:
     "docsUrl": "https://spoonjoy.app/developers",
     "openapiUrl": "/api/v1/openapi.json",
     "resources": [
-      { "name": "recipes", "path": "/api/v1/recipes", "methods": ["GET"], "auth": "optional", "scopes": ["recipes:read"] }
+      { "name": "root", "path": "/api/v1", "methods": ["GET"], "auth": "none", "scopes": [] },
+      { "name": "health", "path": "/api/v1/health", "methods": ["GET"], "auth": "none", "scopes": [] },
+      { "name": "openapi", "path": "/api/v1/openapi.json", "methods": ["GET"], "auth": "none", "scopes": [] },
+      { "name": "recipes", "path": "/api/v1/recipes", "methods": ["GET"], "auth": "optional", "scopes": ["recipes:read"] },
+      { "name": "recipe", "path": "/api/v1/recipes/{id}", "methods": ["GET"], "auth": "optional", "scopes": ["recipes:read"] },
+      { "name": "cookbooks", "path": "/api/v1/cookbooks", "methods": ["GET"], "auth": "optional", "scopes": ["cookbooks:read"] },
+      { "name": "cookbook", "path": "/api/v1/cookbooks/{id}", "methods": ["GET"], "auth": "optional", "scopes": ["cookbooks:read"] },
+      { "name": "shopping-list", "path": "/api/v1/shopping-list", "methods": ["GET"], "auth": "bearer", "scopes": ["shopping_list:read"] },
+      { "name": "shopping-list-sync", "path": "/api/v1/shopping-list/sync", "methods": ["GET"], "auth": "bearer", "scopes": ["shopping_list:read"] },
+      { "name": "shopping-list-items", "path": "/api/v1/shopping-list/items", "methods": ["POST"], "auth": "bearer", "scopes": ["shopping_list:write"] },
+      { "name": "shopping-list-item", "path": "/api/v1/shopping-list/items/{itemId}", "methods": ["PATCH", "DELETE"], "auth": "bearer", "scopes": ["shopping_list:write"] },
+      { "name": "tokens", "path": "/api/v1/tokens", "methods": ["GET", "POST"], "auth": "bearer", "scopes": ["tokens:read", "tokens:write"] },
+      { "name": "token", "path": "/api/v1/tokens/{credentialId}", "methods": ["DELETE"], "auth": "bearer", "scopes": ["tokens:write"] }
     ],
     "auth": {
       "type": "bearer",
@@ -159,7 +171,7 @@ Error code map:
 }
 ```
 
-`resources` contains every supported v1 endpoint, not only the example row above.
+`resources` order is exactly the order shown above. `auth: "none"` means no credentials are used, `auth: "optional"` means anonymous is allowed but scoped bearer credentials are checked when present, and `auth: "bearer"` means session or bearer authentication is required.
 
 `GET /api/v1/health` returns status `200`:
 
@@ -413,10 +425,12 @@ Response data:
   "created": true,
   "updated": false,
   "item": { "id": "item_1", "name": "eggs", "quantity": 12, "unit": "each", "checked": false, "checkedAt": null, "deletedAt": null, "categoryKey": null, "iconKey": null, "sortIndex": 0, "updatedAt": "2026-06-01T00:00:00.000Z" },
-  "shoppingList": { "id": "list_1", "items": [] },
+  "shoppingList": { "id": "list_1", "chef": { "id": "chef_1", "username": "ari" }, "items": [], "updatedAt": "2026-06-01T00:00:00.000Z" },
   "mutation": { "clientMutationId": "device-uuid-1", "replayed": false }
 }
 ```
+
+`item` is the full shopping item shape. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list`.
 
 `PATCH /api/v1/shopping-list/items/:itemId`
 
@@ -430,11 +444,13 @@ Response status `200`; response data:
 
 ```json
 {
-  "item": { "id": "item_1", "checked": true },
-  "shoppingList": { "id": "list_1", "items": [] },
+  "item": { "id": "item_1", "name": "eggs", "quantity": 12, "unit": "each", "checked": true, "checkedAt": "2026-06-01T00:00:00.000Z", "deletedAt": null, "categoryKey": null, "iconKey": null, "sortIndex": 1, "updatedAt": "2026-06-01T00:00:00.000Z" },
+  "shoppingList": { "id": "list_1", "chef": { "id": "chef_1", "username": "ari" }, "items": [], "updatedAt": "2026-06-01T00:00:00.000Z" },
   "mutation": { "clientMutationId": "device-uuid-2", "replayed": false }
 }
 ```
+
+`item` is the full shopping item shape. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list`.
 
 `DELETE /api/v1/shopping-list/items/:itemId`
 
@@ -449,11 +465,13 @@ Response status `200`; response data:
 ```json
 {
   "removed": true,
-  "item": { "id": "item_1", "deletedAt": "2026-06-01T00:00:00.000Z" },
-  "shoppingList": { "id": "list_1", "items": [] },
+  "item": { "id": "item_1", "name": "eggs", "quantity": 12, "unit": "each", "checked": true, "checkedAt": "2026-06-01T00:00:00.000Z", "deletedAt": "2026-06-01T00:00:00.000Z", "categoryKey": null, "iconKey": null, "sortIndex": 1, "updatedAt": "2026-06-01T00:00:00.000Z" },
+  "shoppingList": { "id": "list_1", "chef": { "id": "chef_1", "username": "ari" }, "items": [], "updatedAt": "2026-06-01T00:00:00.000Z" },
   "mutation": { "clientMutationId": "device-uuid-3", "replayed": false }
 }
 ```
+
+`item` is the full shopping item shape, including its tombstone `deletedAt`. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list`, so the deleted item is absent from `shoppingList.items`.
 
 Conflict semantics:
 
