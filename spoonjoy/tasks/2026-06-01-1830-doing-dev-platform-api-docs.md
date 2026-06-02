@@ -140,7 +140,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-5c-coverage.log`; refactors stay in v1 cookbook helpers and tests.
 **Acceptance**: 100% coverage on new/changed cookbook v1 code; focused tests and build still PASS with no warnings.
 
-### ⬜ Unit 6a: Personal API Token V1 Metadata — Tests
+### ✅ Unit 6a: Personal API Token V1 Metadata — Tests
 **What**: Write failing tests for authenticated personal API token metadata endpoints `GET /api/v1/tokens`, `POST /api/v1/tokens`, and `DELETE /api/v1/tokens/:credentialId`.
 **Output**: `test/routes/api-v1-tokens.test.ts` asserts the exact credential metadata fields, `token` one-time secret field, requested scope normalization, default personal token scopes, bearer-created token scopes capped to the caller's expanded fine-grained scopes, bearer scope escalation returning `403 insufficient_scope`, unknown request body fields rejected with `400 validation_error`, revoke response fields, self-revoke succeeds for the current request and fails on later requests, missing auth 401, invalid JSON 400, and `tokens:read` / `tokens:write` enforcement from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because token metadata endpoints are not implemented under `/api/v1`.
@@ -367,3 +367,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 20:45 Addressed Unit 5a Round 2 reviewer findings by covering `cookbooks:read` bearer success on cookbook list and insufficient-scope bearer failure on cookbook detail; regenerated red evidence from the pre-implementation worktree and green Unit 5b logs
 - 2026-06-01 20:48 Unit 5c complete: added cookbook branch coverage for blank/default limits, `limit=50`, zero active recipes, ordered active recipes, malformed limits, missing cookbooks, anonymous access, and bearer insufficient scope; simplified active recipe filtering and verified 100% coverage on v1 shell/recipe/cookbook files plus warning-free build
 - 2026-06-01 20:51 Addressed Unit 5c reviewer finding by explicitly asserting malformed cookbook `limit=abc`, with regenerated 100% coverage and warning-free build logs
+- 2026-06-01 20:52 Unit 6a complete: added v1 token metadata tests for session and bearer list/create/revoke, token secret one-time return, scope normalization/defaults/capping/escalation, self-revoke, auth failures, unknown body fields, invalid JSON, blank names, and invalid scopes; red run fails on unimplemented v1 token routes returning shell 404s
