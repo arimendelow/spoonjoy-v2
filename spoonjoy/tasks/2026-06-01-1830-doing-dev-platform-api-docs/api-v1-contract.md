@@ -510,7 +510,7 @@ Schema exactness rules:
 - `query`, `q`, and `cursor` query parameters are optional strings.
 - Path parameters `id`, `itemId`, and `credentialId` are required nonblank strings.
 - Unknown request body fields are rejected by schema and route validation.
-- Every route has documented `400`, `401`, `403`, `404`, `405`, `409`, `429`, and `500` error responses where that status can be returned by the route; every error response uses `ErrorEnvelope`.
+- Every route documents the exact non-2xx status codes in the status matrix below; every error response uses `ErrorEnvelope`.
 - Every success envelope schema has required fields `ok`, `requestId`, and `data`, with `ok` const `true`.
 - Every error envelope schema has required fields `ok`, `requestId`, and `error`, with `ok` const `false`.
 
@@ -553,6 +553,27 @@ Success data schemas by operation:
 - `POST /api/v1/shopping-list/items`: required `created`, `updated`, `item`, `shoppingList`, `mutation`; `created` and `updated` booleans; `item` is `ShoppingItem`; `shoppingList` is `ShoppingList`; `mutation` is `MutationMetadata`.
 - `PATCH /api/v1/shopping-list/items/{itemId}`: required `item`, `shoppingList`, `mutation`; `item` is `ShoppingItem`; `shoppingList` is `ShoppingList`; `mutation` is `MutationMetadata`.
 - `DELETE /api/v1/shopping-list/items/{itemId}`: required `removed`, `item`, `shoppingList`, `mutation`; `removed` boolean; `item` is `ShoppingItem`; `shoppingList` is `ShoppingList`; `mutation` is `MutationMetadata`.
+
+OpenAPI response status matrix:
+
+- All routes: `429 rate_limited`, `500 internal_error`.
+- All routes except `OPTIONS`: `405 method_not_allowed` for unsupported methods on the route path.
+- `GET /api/v1`: `200`, `429`, `500`.
+- `GET /api/v1/health`: `200`, `401 invalid_token`, `429`, `500`. Health has no `403` because it has no required scope.
+- `GET /api/v1/openapi.json`: `200`, `401 invalid_token`, `429`, `500`. OpenAPI has no `403` because it has no required scope.
+- `GET /api/v1/recipes`: `200`, `400 validation_error`, `401 invalid_token`, `403 insufficient_scope`, `429`, `500`.
+- `GET /api/v1/recipes/{id}`: `200`, `401 invalid_token`, `403 insufficient_scope`, `404 not_found`, `429`, `500`.
+- `GET /api/v1/cookbooks`: `200`, `400 validation_error`, `401 invalid_token`, `403 insufficient_scope`, `429`, `500`.
+- `GET /api/v1/cookbooks/{id}`: `200`, `401 invalid_token`, `403 insufficient_scope`, `404 not_found`, `429`, `500`.
+- `GET /api/v1/tokens`: `200`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `429`, `500`.
+- `POST /api/v1/tokens`: `201`, `400 invalid_json`, `400 validation_error`, `400 invalid_scope`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `429`, `500`.
+- `DELETE /api/v1/tokens/{credentialId}`: `200`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `404 not_found`, `429`, `500`.
+- `GET /api/v1/shopping-list`: `200`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `429`, `500`.
+- `GET /api/v1/shopping-list/sync`: `200`, `400 invalid_cursor`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `429`, `500`.
+- `POST /api/v1/shopping-list/items`: `200`, `201`, `400 invalid_json`, `400 validation_error`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `409 idempotency_conflict`, `429`, `500`.
+- `PATCH /api/v1/shopping-list/items/{itemId}`: `200`, `400 invalid_json`, `400 validation_error`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `404 not_found`, `409 idempotency_conflict`, `429`, `500`.
+- `DELETE /api/v1/shopping-list/items/{itemId}`: `200`, `400 invalid_json`, `400 validation_error`, `401 authentication_required`, `401 invalid_token`, `403 insufficient_scope`, `404 not_found`, `409 idempotency_conflict`, `429`, `500`.
+- `OPTIONS /api/v1/*`: `204`.
 
 ## Live Smoke Status Codes
 
