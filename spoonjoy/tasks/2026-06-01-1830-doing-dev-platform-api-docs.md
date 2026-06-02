@@ -265,7 +265,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: `test/docs/developer-platform-docs.test.ts` imports `app/lib/api-v1-contract.server.ts` and asserts `docs/api.md` contains the supported endpoint list, scope list, OpenAPI URL, and rate-limit guidance; it also asserts docs and OAuth server comments mention refresh-token rotation, OAuth/DCR routes, MCP `/mcp`, delegated `/api/tools/start_agent_connection` and `/api/tools/poll_agent_connection`, and do not claim remote MCP has no refresh tokens.
 **Acceptance**: Focused tests FAIL because existing docs/comment drift remains.
 
-### ⬜ Unit 14b: Existing Docs Drift — Implementation
+### ✅ Unit 14b: Existing Docs Drift — Implementation
 **What**: Update `docs/api.md`, `docs/claude-connector.md`, `docs/ouroboros-mcp.md`, and the stale refresh-token comments in `app/lib/oauth-routes.server.ts` and `app/lib/oauth-server.server.ts` to match implemented REST/MCP/OAuth behavior and point developers to `/developers`.
 **Output**: Updated docs/comment files and passing Unit 14a tests.
 **Acceptance**: Unit 14a tests PASS; `pnpm run build` succeeds with no warnings.
@@ -385,6 +385,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 22:22 Unit 13b complete: registered `/developers`, added a contract-backed developer docs route, passed the focused route test, and completed a clean production build
 - 2026-06-01 22:27 Unit 13c complete: removed the developers-route fallback branch after contract-backed scope labels made it unreachable; focused route tests, route coverage, local desktop/mobile render checks, and production build all passed
 - 2026-06-01 22:31 Unit 14a complete: added docs drift assertions for `/developers`, OpenAPI, v1 endpoints/scopes, auth entry points, sync/idempotency, MCP links, and rotating OAuth refresh tokens; red run fails against stale docs/comments as expected
+- 2026-06-01 22:34 Unit 14b complete: rewrote `docs/api.md` around API v1, aligned MCP docs with `/developers` and `/api/v1/openapi.json`, removed stale no-refresh-token prose, and passed focused docs drift tests plus production build
 - 2026-06-01 21:27 Unit 8b complete: implemented v1 shopping-list read and sync endpoints with scope rows, active-list formatting, empty-list creation, tombstone-inclusive sync, cursor filtering, invalid cursor errors, focused route tests, typecheck, and warning-free build
 - 2026-06-01 21:33 Unit 8c complete: added sync ordering/cursor fallback coverage, hardened cursor parsing to reject non-round-tripping JavaScript date inputs, and verified 100% v1 coverage plus typecheck and warning-free build
 - 2026-06-01 21:37 Unit 9a complete: added red v1 shopping-list mutation tests for write scope rows, add/check/remove envelopes, restore/merge behavior, unknown fields, clientMutationId validation, idempotent replay/current request IDs, idempotency conflicts, and write-scope enforcement; red run fails on missing v1 mutation routes returning 404 and missing scope rows
