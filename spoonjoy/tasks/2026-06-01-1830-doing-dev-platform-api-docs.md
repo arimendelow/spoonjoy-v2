@@ -333,3 +333,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 19:08 Quality reviewer converged: unit structure, TDD ordering, and contract artifact passed
 - 2026-06-01 19:13 Addressed Tinfoil scrutiny findings: server/client docs boundary, Prisma generate/push, route coverage config, rate-limit guidance, unknown-field tests, and token revoke ownership
 - 2026-06-01 19:16 Addressed Tinfoil Round 2 findings: live smoke now covers private auth boundaries and idempotent replay uses current request IDs
+- 2026-06-01 19:19 Addressed Tinfoil Round 3 findings: bearer token creation cannot escalate scopes and expired idempotency keys can be reused after cleanup
