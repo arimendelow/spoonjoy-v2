@@ -210,7 +210,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Updated v1 shopping mutation helpers and passing Unit 10a tests.
 **Acceptance**: Unit 10a tests PASS; Unit 9 mutation replay tests still PASS; `pnpm run build` succeeds with no warnings.
 
-### ⬜ Unit 10c: Shopping-List Conflict And Error Semantics — Coverage & Refactor
+### ✅ Unit 10c: Shopping-List Conflict And Error Semantics — Coverage & Refactor
 **What**: Verify coverage for all machine-readable shopping-list error codes and last-writer-wins branches.
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-10c-coverage.log`; refactors stay in shopping mutation helpers and tests.
 **Acceptance**: 100% coverage on new/changed conflict/error code; focused tests and build still PASS with no warnings.
@@ -386,3 +386,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:46 Unit 9c complete: added mutation branch coverage for blank/invalid add inputs, duplicate item merge with present and null quantities, checked false, repeated delete, missing patch/delete items, session idempotency, and expired idempotency-key reuse; verified 100% coverage, typecheck, and warning-free build
 - 2026-06-01 21:48 Unit 10a complete: added red conflict/error tests for server-order check/delete/restore semantics with ignored client timestamp fields, not-found item error details, invalid item ids, and malformed mutation JSON; red run fails on timestamp fields being treated as unknown and missing item details absent
 - 2026-06-01 21:49 Unit 10b complete: accepted and ignored client timestamp fields for check/delete mutation bodies, added machine-readable missing item details, and verified conflict tests, mutation tests, typecheck, and warning-free build
+- 2026-06-01 21:50 Unit 10c complete: verified machine-readable shopping-list error and last-writer-wins branches with 100% v1/idempotency coverage, typecheck, and warning-free build; no additional refactor required
