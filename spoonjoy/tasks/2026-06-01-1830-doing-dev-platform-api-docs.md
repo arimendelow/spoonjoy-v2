@@ -200,7 +200,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-9c-coverage.log`; refactors stay in shopping mutation/idempotency helpers and tests.
 **Acceptance**: 100% coverage on new/changed idempotent mutation code; focused tests and build still PASS with no warnings.
 
-### ⬜ Unit 10a: Shopping-List Conflict And Error Semantics — Tests
+### ✅ Unit 10a: Shopping-List Conflict And Error Semantics — Tests
 **What**: Write failing tests for documented last-writer-wins checked/delete behavior and machine-readable shopping-list mutation errors.
 **Output**: `test/routes/api-v1-shopping-conflicts.test.ts` asserts remove after check, check after remove restores the item and clears `deletedAt`, stale client timestamp ignored in favor of server write order, unknown item 404 envelope, invalid item id 404 envelope, and malformed mutation JSON 400 envelope from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL until shopping-list v1 mutations have explicit conflict/error semantics.
@@ -384,3 +384,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 21:41 Addressed Unit 9a reviewer finding by asserting full `ShoppingItem` shape for active `shoppingList.items` in mutation responses and normalizing restore fixtures to the API's lowercased identity rules
 - 2026-06-01 21:42 Unit 9b complete: implemented v1 shopping-list add/check/remove endpoints with write-scope rows, request validation, normalized item identity, idempotency reserve/replay/conflict handling, exact mutation envelopes, green v1 mutation tests, green legacy `/api` route tests, typecheck, and warning-free build
 - 2026-06-01 21:46 Unit 9c complete: added mutation branch coverage for blank/invalid add inputs, duplicate item merge with present and null quantities, checked false, repeated delete, missing patch/delete items, session idempotency, and expired idempotency-key reuse; verified 100% coverage, typecheck, and warning-free build
+- 2026-06-01 21:48 Unit 10a complete: added red conflict/error tests for server-order check/delete/restore semantics with ignored client timestamp fields, not-found item error details, invalid item ids, and malformed mutation JSON; red run fails on timestamp fields being treated as unknown and missing item details absent
