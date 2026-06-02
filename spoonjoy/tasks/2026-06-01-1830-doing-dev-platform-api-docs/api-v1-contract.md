@@ -425,12 +425,12 @@ Response data:
   "created": true,
   "updated": false,
   "item": { "id": "item_1", "name": "eggs", "quantity": 12, "unit": "each", "checked": false, "checkedAt": null, "deletedAt": null, "categoryKey": null, "iconKey": null, "sortIndex": 0, "updatedAt": "2026-06-01T00:00:00.000Z" },
-  "shoppingList": { "id": "list_1", "chef": { "id": "chef_1", "username": "ari" }, "items": [], "updatedAt": "2026-06-01T00:00:00.000Z" },
+  "shoppingList": { "id": "list_1", "chef": { "id": "chef_1", "username": "ari" }, "items": [{ "id": "item_1", "name": "eggs", "quantity": 12, "unit": "each", "checked": false, "checkedAt": null, "deletedAt": null, "categoryKey": null, "iconKey": null, "sortIndex": 0, "updatedAt": "2026-06-01T00:00:00.000Z" }], "updatedAt": "2026-06-01T00:00:00.000Z" },
   "mutation": { "clientMutationId": "device-uuid-1", "replayed": false }
 }
 ```
 
-`item` is the full shopping item shape. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list`.
+`item` is the full shopping item shape. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list` and contains the full current active list after the mutation.
 
 `PATCH /api/v1/shopping-list/items/:itemId`
 
@@ -445,12 +445,12 @@ Response status `200`; response data:
 ```json
 {
   "item": { "id": "item_1", "name": "eggs", "quantity": 12, "unit": "each", "checked": true, "checkedAt": "2026-06-01T00:00:00.000Z", "deletedAt": null, "categoryKey": null, "iconKey": null, "sortIndex": 1, "updatedAt": "2026-06-01T00:00:00.000Z" },
-  "shoppingList": { "id": "list_1", "chef": { "id": "chef_1", "username": "ari" }, "items": [], "updatedAt": "2026-06-01T00:00:00.000Z" },
+  "shoppingList": { "id": "list_1", "chef": { "id": "chef_1", "username": "ari" }, "items": [{ "id": "item_1", "name": "eggs", "quantity": 12, "unit": "each", "checked": true, "checkedAt": "2026-06-01T00:00:00.000Z", "deletedAt": null, "categoryKey": null, "iconKey": null, "sortIndex": 1, "updatedAt": "2026-06-01T00:00:00.000Z" }], "updatedAt": "2026-06-01T00:00:00.000Z" },
   "mutation": { "clientMutationId": "device-uuid-2", "replayed": false }
 }
 ```
 
-`item` is the full shopping item shape. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list`.
+`item` is the full shopping item shape. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list` and contains the full current active list after the mutation.
 
 `DELETE /api/v1/shopping-list/items/:itemId`
 
@@ -471,7 +471,7 @@ Response status `200`; response data:
 }
 ```
 
-`item` is the full shopping item shape, including its tombstone `deletedAt`. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list`, so the deleted item is absent from `shoppingList.items`.
+`item` is the full shopping item shape, including its tombstone `deletedAt`. `shoppingList` is the same object shape returned by `GET /api/v1/shopping-list` and contains the full current active list after the mutation, so the deleted item is absent from `shoppingList.items`.
 
 Conflict semantics:
 
@@ -498,6 +498,61 @@ Required top-level fields:
 - reusable envelope/error schemas
 - operation examples matching this artifact
 - operation `x-scopes` arrays matching the scope matrix
+
+Schema exactness rules:
+
+- Use OpenAPI 3.1 JSON Schema dialect.
+- Every object schema uses `additionalProperties: false` except `ErrorDetails`, which uses `additionalProperties: true`.
+- Nullable fields use type arrays, for example `{ "type": ["string", "null"] }`.
+- Datetimes are `{ "type": "string", "format": "date-time" }`.
+- IDs are `{ "type": "string", "minLength": 1 }`.
+- `limit` query parameter is `{ "type": "integer", "minimum": 1, "maximum": 50, "default": 20 }`.
+- `query`, `q`, and `cursor` query parameters are optional strings.
+- Path parameters `id`, `itemId`, and `credentialId` are required nonblank strings.
+- Unknown request body fields are rejected by schema and route validation.
+- Every route has documented `400`, `401`, `403`, `404`, `405`, `409`, `429`, and `500` error responses where that status can be returned by the route; every error response uses `ErrorEnvelope`.
+- Every success envelope schema has required fields `ok`, `requestId`, and `data`, with `ok` const `true`.
+- Every error envelope schema has required fields `ok`, `requestId`, and `error`, with `ok` const `false`.
+
+Reusable schema required fields:
+
+- `ChefSummary`: `id`, `username`; no nullable fields.
+- `RecipeSummary`: `id`, `title`, `description`, `servings`, `chef`, `href`, `createdAt`, `updatedAt`; `description` and `servings` nullable strings.
+- `RecipeIngredient`: `id`, `name`, `quantity`, `unit`; `unit` nullable string, `quantity` number.
+- `RecipeStep`: `id`, `stepNum`, `stepTitle`, `description`, `duration`, `ingredients`; `stepNum` integer, `stepTitle` nullable string, `duration` nullable integer, `ingredients` array of `RecipeIngredient`.
+- `RecipeDetail`: all `RecipeSummary` fields plus `steps` and `cookbooks`; `steps` array of `RecipeStep`; `cookbooks` array of `CookbookLink`.
+- `CookbookLink`: `id`, `title`, `href`; no nullable fields.
+- `CookbookSummary`: `id`, `title`, `chef`, `recipeCount`, `href`, `createdAt`, `updatedAt`; `recipeCount` integer.
+- `CookbookDetail`: all `CookbookSummary` fields plus `recipes`; `recipes` array of `RecipeSummary`.
+- `CredentialMetadata`: `id`, `name`, `tokenPrefix`, `scopes`, `createdAt`, `updatedAt`, `lastUsedAt`, `revokedAt`, `expiresAt`; `scopes` array of strings; date metadata fields except `createdAt` and `updatedAt` are nullable date-time strings.
+- `ShoppingItem`: `id`, `name`, `quantity`, `unit`, `checked`, `checkedAt`, `deletedAt`, `categoryKey`, `iconKey`, `sortIndex`, `updatedAt`; `quantity` nullable number; `unit`, `checkedAt`, `deletedAt`, `categoryKey`, and `iconKey` nullable; `checked` boolean; `sortIndex` integer.
+- `ShoppingList`: `id`, `chef`, `items`, `updatedAt`; `chef` is `ChefSummary`; `items` array of active `ShoppingItem` objects.
+- `MutationMetadata`: `clientMutationId`, `replayed`; `clientMutationId` nonblank string; `replayed` boolean.
+- `ErrorObject`: `code`, `message`, `status`, optional `details`; `code` enum is the error code map above; `status` integer.
+
+Request body schemas:
+
+- `CreateTokenRequest`: required `name`; optional `scopes`; `name` nonblank string; `scopes` is either string or array of strings.
+- `CreateShoppingItemRequest`: required `clientMutationId` and `name`; optional `quantity`, `unit`, `categoryKey`, `iconKey`; `clientMutationId` and `name` nonblank strings; `quantity` number greater than 0; optional string fields allow null.
+- `CheckShoppingItemRequest`: required `clientMutationId` and `checked`; `clientMutationId` nonblank string; `checked` boolean.
+- `DeleteShoppingItemRequest`: required `clientMutationId`; `clientMutationId` nonblank string.
+
+Success data schemas by operation:
+
+- `GET /api/v1`: `DiscoveryData`
+- `GET /api/v1/health`: `HealthData`
+- `GET /api/v1/recipes`: required `query`, `limit`, `recipes`; `query` nullable string; `limit` integer; `recipes` array of `RecipeSummary`.
+- `GET /api/v1/recipes/{id}`: required `recipe`; `recipe` is `RecipeDetail`.
+- `GET /api/v1/cookbooks`: required `query`, `limit`, `cookbooks`; `query` nullable string; `limit` integer; `cookbooks` array of `CookbookSummary`.
+- `GET /api/v1/cookbooks/{id}`: required `cookbook`; `cookbook` is `CookbookDetail`.
+- `GET /api/v1/tokens`: required `tokens`; `tokens` array of `CredentialMetadata`.
+- `POST /api/v1/tokens`: required `token`, `credential`; `token` string; `credential` is `CredentialMetadata`.
+- `DELETE /api/v1/tokens/{credentialId}`: required `revoked`, `credential`; `revoked` boolean; `credential` is `CredentialMetadata`.
+- `GET /api/v1/shopping-list`: required `shoppingList`, `nextCursor`; `shoppingList` is `ShoppingList`; `nextCursor` date-time string.
+- `GET /api/v1/shopping-list/sync`: required `items`, `nextCursor`, `hasMore`; `items` array of `ShoppingItem`, including tombstones; `nextCursor` date-time string; `hasMore` const `false`.
+- `POST /api/v1/shopping-list/items`: required `created`, `updated`, `item`, `shoppingList`, `mutation`; `created` and `updated` booleans; `item` is `ShoppingItem`; `shoppingList` is `ShoppingList`; `mutation` is `MutationMetadata`.
+- `PATCH /api/v1/shopping-list/items/{itemId}`: required `item`, `shoppingList`, `mutation`; `item` is `ShoppingItem`; `shoppingList` is `ShoppingList`; `mutation` is `MutationMetadata`.
+- `DELETE /api/v1/shopping-list/items/{itemId}`: required `removed`, `item`, `shoppingList`, `mutation`; `removed` boolean; `item` is `ShoppingItem`; `shoppingList` is `ShoppingList`; `mutation` is `MutationMetadata`.
 
 ## Live Smoke Status Codes
 
