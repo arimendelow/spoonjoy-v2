@@ -359,3 +359,4 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 20:23 Addressed Unit 4a reviewer finding by asserting v1 headers on recipe 404, validation, and insufficient-scope errors
 - 2026-06-01 20:23 Unit 4b complete: implemented public recipe list/detail formatting, query/q and limit handling, deleted exclusion, bearer scope checks, green legacy/v1 route tests, typecheck, and build
 - 2026-06-01 20:28 Unit 4c complete: added recipe branch coverage for blank/default limits, malformed limits, anonymous list access, deterministic step/ingredient ordering, verified 100% coverage on v1 shell/recipe files, and saved green build logs
+- 2026-06-01 20:33 Addressed Unit 4c reviewer finding by suppressing only Rollup `EMPTY_BUNDLE` route-module diagnostics, adding a hygiene guard test, and regenerating warning-free build/typecheck/coverage evidence
