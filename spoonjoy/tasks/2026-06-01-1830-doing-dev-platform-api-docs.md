@@ -75,7 +75,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Updated schema, root migration, updated cleanup hooks in `test/setup.ts` and `test/helpers/cleanup.ts`, no tracked Prisma client artifacts, `pnpm prisma:generate` log saved to artifacts, `pnpm prisma:push` log saved to artifacts, and passing Unit 1a tests.
 **Acceptance**: Unit 1a tests PASS; `pnpm run build` succeeds with no warnings.
 
-### ⬜ Unit 1c: API Credential Scopes — Coverage & Refactor
+### ✅ Unit 1c: API Credential Scopes — Coverage & Refactor
 **What**: Verify coverage for new credential-scope branches: omitted scopes, duplicate scopes, legacy `kitchen:read`, legacy `kitchen:write`, mixed legacy/fine-grained scopes, expired token with scopes, revoked token with scopes, and invalid scope input.
 **Output**: Coverage log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-1c-coverage.log`; any refactor stays in `app/lib/api-auth.server.ts` and related tests.
 **Acceptance**: 100% coverage on new/changed API credential scope code; focused tests and build still PASS with no warnings.
@@ -345,3 +345,5 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 19:38 Unit 0 complete: captured branch, route, migration, script, deployment, and contract baseline in `unit-0-setup-research.log`
 - 2026-06-01 19:41 Unit 1a complete: credential-scope migration/auth/delegated/OAuth tests are red for missing scopes implementation
 - 2026-06-01 19:48 Unit 1b complete: added `ApiCredential.scopes`, normalized personal/delegated/OAuth scopes, preserved legacy expansion, and saved green focused-test/build/Prisma logs
+- 2026-06-01 19:53 Addressed Unit 1b reviewer blocker by moving Cloudflare rate-limit bindings from deprecated `unsafe.bindings` to supported `ratelimits` config and refreshing warning-free build logs
+- 2026-06-01 19:53 Unit 1c complete: added expansion boundary tests, verified 100% coverage on `app/lib/api-auth.server.ts`, and saved green focused-test/build logs
