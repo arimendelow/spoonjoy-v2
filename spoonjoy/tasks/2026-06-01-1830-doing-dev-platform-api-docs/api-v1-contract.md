@@ -6,7 +6,8 @@ This artifact is normative for the first implementation slice. If a unit says "p
 
 - Implementation creates `app/lib/api-v1-contract.server.ts`.
 - `app/lib/api-v1-contract.server.ts` owns endpoint metadata, scope requirements, examples, error codes, and schema fragments.
-- `app/lib/api-v1.server.ts`, `app/lib/api-v1-openapi.server.ts`, and `app/routes/developers.tsx` import the contract module.
+- `app/lib/api-v1.server.ts`, `app/lib/api-v1-openapi.server.ts`, and `/developers` loader code may import the contract module.
+- `app/routes/developers.tsx` must not import `.server.ts` modules in client-rendered component code. Its loader imports server-only contract/OpenAPI modules and returns serializable docs data for the component.
 - `docs/api.md` is markdown, so it does not import the module; docs tests import `app/lib/api-v1-contract.server.ts` and read `docs/api.md` to assert the public endpoint list, scope list, and guide snippets stay aligned.
 
 ## Scopes
@@ -131,6 +132,13 @@ Error code map:
 - `idempotency_conflict` -> 409
 - `rate_limited` -> 429
 - `internal_error` -> 500
+
+Rate-limit guidance for docs:
+
+- Public docs must say v1 endpoints are rate limited by IP and credential where applicable.
+- Clients should treat `429 rate_limited` as retryable, use exponential backoff, and preserve the same `clientMutationId` when retrying idempotent shopping-list mutations.
+- The first slice does not guarantee a `Retry-After` header. If a future implementation adds it, clients may honor it.
+- The OpenAPI document includes `429` responses according to the status matrix but does not promise a numeric quota.
 
 ## Discovery And Health
 

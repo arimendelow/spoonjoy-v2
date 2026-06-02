@@ -66,13 +66,13 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Acceptance**: Artifacts exist; `api-v1-contract.md` is present; no code behavior changed; doing doc remains accurate after source inspection.
 
 ### ⬜ Unit 1a: API Credential Scopes — Tests
-**What**: Write failing tests for the credential-scope storage and parsing contract in `prisma/schema.prisma`, `migrations/0015_api_credential_scopes.sql`, `app/lib/api-auth.server.ts`, `test/setup.ts`, and `test/helpers/cleanup.ts`, using the exact scope/default/legacy expansion rules from `api-v1-contract.md`.
-**Output**: `test/scripts/migration-0015-api-credential-scopes.test.ts` asserts the root migration adds `ApiCredential.scopes` as required text with database default `'kitchen:read kitchen:write'`; `test/lib/api-auth.server.test.ts` asserts default personal token scopes, scoped credential creation, principal scope exposure, empty stored scope string expands to no scopes, unknown-scope rejection, legacy expansion, and cleanup behavior.
+**What**: Write failing tests for the credential-scope storage and parsing contract in `prisma/schema.prisma`, `migrations/0015_api_credential_scopes.sql`, `app/lib/api-auth.server.ts`, `app/lib/agent-connection.server.ts`, `app/lib/oauth-server.server.ts`, `test/setup.ts`, and `test/helpers/cleanup.ts`, using the exact scope/default/legacy expansion rules from `api-v1-contract.md`.
+**Output**: `test/scripts/migration-0015-api-credential-scopes.test.ts` asserts the root migration adds `ApiCredential.scopes` as required text with database default `'kitchen:read kitchen:write'`; `test/lib/api-auth.server.test.ts` asserts default personal token scopes, scoped credential creation, principal scope exposure, empty stored scope string expands to no scopes, unknown-scope rejection, legacy expansion, and cleanup behavior; existing agent/OAuth tests assert delegated and connector tokens preserve requested legacy scopes instead of receiving personal-token defaults.
 **Acceptance**: Focused tests FAIL because `ApiCredential.scopes`, scope normalization, legacy scope expansion, scoped credential creation, and principal scope exposure are absent.
 
 ### ⬜ Unit 1b: API Credential Scopes — Implementation
-**What**: Add `ApiCredential.scopes` to `prisma/schema.prisma` and `migrations/0015_api_credential_scopes.sql`; update `app/lib/api-auth.server.ts` so credentials store normalized scopes and authenticated principals expose expanded scopes.
-**Output**: Updated schema, root migration, updated cleanup hooks in `test/setup.ts` and `test/helpers/cleanup.ts`, no tracked Prisma client artifacts, and passing Unit 1a tests.
+**What**: Add `ApiCredential.scopes` to `prisma/schema.prisma` and `migrations/0015_api_credential_scopes.sql`; update `app/lib/api-auth.server.ts` so credentials store normalized scopes and authenticated principals expose expanded scopes; update `app/lib/agent-connection.server.ts` and `app/lib/oauth-server.server.ts` to pass delegated/OAuth scopes explicitly to `createApiCredential`.
+**Output**: Updated schema, root migration, updated cleanup hooks in `test/setup.ts` and `test/helpers/cleanup.ts`, no tracked Prisma client artifacts, `pnpm prisma:generate` log saved to artifacts, `pnpm prisma:push` log saved to artifacts, and passing Unit 1a tests.
 **Acceptance**: Unit 1a tests PASS; `pnpm run build` succeeds with no warnings.
 
 ### ⬜ Unit 1c: API Credential Scopes — Coverage & Refactor
@@ -87,7 +87,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 
 ### ⬜ Unit 2b: API Idempotency Storage — Implementation
 **What**: Add `ApiIdempotencyKey` to `prisma/schema.prisma` and `migrations/0016_api_idempotency_keys.sql`; create `app/lib/api-idempotency.server.ts` with helpers to reserve, replay, complete, and reject mismatched idempotency keys.
-**Output**: Updated schema, root migration, updated cleanup hooks, no tracked Prisma client artifacts, new idempotency helper, and passing Unit 2a tests.
+**Output**: Updated schema, root migration, updated cleanup hooks, no tracked Prisma client artifacts, `pnpm prisma:generate` log saved to artifacts, `pnpm prisma:push` log saved to artifacts, new idempotency helper, and passing Unit 2a tests.
 **Acceptance**: Unit 2a tests PASS; `pnpm run build` succeeds with no warnings.
 
 ### ⬜ Unit 2c: API Idempotency Storage — Coverage & Refactor
@@ -97,12 +97,12 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 
 ### ⬜ Unit 3a: `/api/v1` Shell, Errors, And Request IDs — Tests
 **What**: Write failing tests for route registration and shared v1 response behavior in `app/routes.ts`, `app/routes/api.v1.$.ts`, `app/lib/api-v1.server.ts`, and the future `app/lib/api-v1-contract.server.ts`.
-**Output**: `test/routes/api-v1-shell.test.ts` asserts the exact discovery document, health document, success envelope, error envelope, error code map, `OPTIONS /api/v1/*` status, unknown endpoints, malformed JSON, request ID generation/echo, and CORS headers from `api-v1-contract.md`.
+**Output**: `test/routes/api-v1-shell.test.ts` asserts the exact discovery document, health document, success envelope, error envelope, error code map, `OPTIONS /api/v1/*` status, unknown endpoints, malformed JSON, request ID generation/echo, and CORS headers from `api-v1-contract.md`; `test/build-output-hygiene.test.ts` or a new focused config test asserts `vitest.config.ts` coverage includes `app/routes/**/*.ts`.
 **Acceptance**: Focused tests FAIL because `app/routes/api.v1.$.ts` and the v1 shell helpers are absent.
 
 ### ⬜ Unit 3b: `/api/v1` Shell, Errors, And Request IDs — Implementation
-**What**: Register `route("api/v1/*", "routes/api.v1.$.ts")`; create `app/routes/api.v1.$.ts`, `app/lib/api-v1.server.ts`, and `app/lib/api-v1-contract.server.ts` with discovery, health, OPTIONS, request IDs, CORS, JSON body parsing, and error-envelope helpers.
-**Output**: Updated `app/routes.ts`, new v1 route/helper/contract files, and passing Unit 3a tests.
+**What**: Register `route("api/v1/*", "routes/api.v1.$.ts")`; create `app/routes/api.v1.$.ts`, `app/lib/api-v1.server.ts`, and `app/lib/api-v1-contract.server.ts` with discovery, health, OPTIONS, request IDs, CORS, JSON body parsing, and error-envelope helpers; update `vitest.config.ts` so coverage includes new `.ts` route files.
+**Output**: Updated `app/routes.ts`, `vitest.config.ts`, new v1 route/helper/contract files, and passing Unit 3a tests.
 **Acceptance**: Unit 3a tests PASS; legacy `/api/*` tests still PASS; `pnpm run build` succeeds with no warnings.
 
 ### ⬜ Unit 3c: `/api/v1` Shell, Errors, And Request IDs — Coverage & Refactor
@@ -142,11 +142,11 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 
 ### ⬜ Unit 6a: Personal API Token V1 Metadata — Tests
 **What**: Write failing tests for authenticated personal API token metadata endpoints `GET /api/v1/tokens`, `POST /api/v1/tokens`, and `DELETE /api/v1/tokens/:credentialId`.
-**Output**: `test/routes/api-v1-tokens.test.ts` asserts the exact credential metadata fields, `token` one-time secret field, requested scope normalization, default personal token scopes, revoke response fields, self-revoke succeeds for the current request and fails on later requests, missing auth 401, invalid JSON 400, and `tokens:read` / `tokens:write` enforcement from `api-v1-contract.md`.
+**Output**: `test/routes/api-v1-tokens.test.ts` asserts the exact credential metadata fields, `token` one-time secret field, requested scope normalization, default personal token scopes, unknown request body fields rejected with `400 validation_error`, revoke response fields, self-revoke succeeds for the current request and fails on later requests, missing auth 401, invalid JSON 400, and `tokens:read` / `tokens:write` enforcement from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because token metadata endpoints are not implemented under `/api/v1`.
 
 ### ⬜ Unit 6b: Personal API Token V1 Metadata — Implementation
-**What**: Implement the three token metadata endpoints in the v1 route/helper layer using `createApiCredential`, `revoke_api_token`, and existing credential formatting rules from `app/lib/api-auth.server.ts` and `app/lib/spoonjoy-api.server.ts`.
+**What**: Implement the three token metadata endpoints in the v1 route/helper layer using `createApiCredential` for creation and direct `db.apiCredential.findMany` / `findFirst` / `update` logic for list and revoke behavior; do not treat the `revoke_api_token` operation name in `app/lib/spoonjoy-api.server.ts` as an exported helper.
 **Output**: Updated v1 route/helper files, token response formatting implemented in `app/lib/api-v1.server.ts`, and passing Unit 6a tests.
 **Acceptance**: Unit 6a tests PASS; legacy `/api/tokens` tests still PASS; `pnpm run build` succeeds with no warnings.
 
@@ -187,7 +187,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 
 ### ⬜ Unit 9a: Idempotent Shopping-List Mutations — Tests
 **What**: Write failing tests for `POST /api/v1/shopping-list/items`, `PATCH /api/v1/shopping-list/items/:itemId`, and `DELETE /api/v1/shopping-list/items/:itemId` with `clientMutationId` replay behavior.
-**Output**: `test/routes/api-v1-shopping-mutations.test.ts` asserts exact request bodies, status codes, response data fields, add/check/remove success, exact replay returns the stored response with only `mutation.replayed` changed to `true`, duplicate key with different operation returns 409, duplicate key with different body returns 409, missing `clientMutationId` returns 400, and `shopping_list:write` enforcement from `api-v1-contract.md`.
+**Output**: `test/routes/api-v1-shopping-mutations.test.ts` asserts exact request bodies, status codes, response data fields, add/check/remove success, unknown request body fields rejected with `400 validation_error`, exact replay returns the stored response with only `mutation.replayed` changed to `true`, duplicate key with different operation returns 409, duplicate key with different body returns 409, missing `clientMutationId` returns 400, and `shopping_list:write` enforcement from `api-v1-contract.md`.
 **Acceptance**: Focused tests FAIL because idempotent shopping-list mutations are not implemented.
 
 ### ⬜ Unit 9b: Idempotent Shopping-List Mutations — Implementation
@@ -247,11 +247,11 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 
 ### ⬜ Unit 13a: `/developers` Route — Tests
 **What**: Write failing tests for the deployed developer-docs page route, route metadata, and route registration.
-**Output**: `test/routes/developers.test.tsx` asserts page title/meta, visible `/api/v1` endpoints, auth mode distinctions, public-by-default Chef graph language, scope list, idempotency/sync guidance, OpenAPI link, OAuth/DCR/MCP route references, and no Pebble-specific framing, with endpoint/scope/example data imported from `app/lib/api-v1-contract.server.ts`.
+**Output**: `test/routes/developers.test.tsx` asserts page title/meta, visible `/api/v1` endpoints, auth mode distinctions, public-by-default Chef graph language, scope list, idempotency/sync guidance, rate-limit guidance text, OpenAPI link, OAuth/DCR/MCP route references, and no Pebble-specific framing, with endpoint/scope/example data returned by the route loader from `app/lib/api-v1-contract.server.ts`.
 **Acceptance**: Focused tests FAIL because `/developers` is not registered or rendered.
 
 ### ⬜ Unit 13b: `/developers` Route — Implementation
-**What**: Add `route("developers", "routes/developers.tsx")`; implement `app/routes/developers.tsx` using existing page primitives from `app/components/cookbook/page.tsx` and reference data from `app/lib/api-v1-openapi.server.ts`.
+**What**: Add `route("developers", "routes/developers.tsx")`; implement `app/routes/developers.tsx` using existing page primitives from `app/components/cookbook/page.tsx`; its loader imports server-only reference data from `app/lib/api-v1-contract.server.ts` or `app/lib/api-v1-openapi.server.ts` and returns serializable docs data, while the component imports no `.server.ts` modules.
 **Output**: Updated `app/routes.ts`, new developers route, and passing Unit 13a tests.
 **Acceptance**: Unit 13a tests PASS; `pnpm run build` succeeds with no warnings.
 
@@ -262,7 +262,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 
 ### ⬜ Unit 14a: Existing Docs Drift — Tests
 **What**: Write failing docs assertions for `docs/api.md`, `docs/claude-connector.md`, `docs/ouroboros-mcp.md`, and `app/lib/oauth-routes.server.ts`.
-**Output**: `test/docs/developer-platform-docs.test.ts` imports `app/lib/api-v1-contract.server.ts` and asserts `docs/api.md` contains the supported endpoint list, scope list, and OpenAPI URL; it also asserts docs mention `/developers`, refresh-token behavior, OAuth/DCR routes, MCP `/mcp`, delegated `/api/tools/start_agent_connection` and `/api/tools/poll_agent_connection`, and do not claim remote MCP has no refresh tokens.
+**Output**: `test/docs/developer-platform-docs.test.ts` imports `app/lib/api-v1-contract.server.ts` and asserts `docs/api.md` contains the supported endpoint list, scope list, OpenAPI URL, and rate-limit guidance; it also asserts docs mention `/developers`, refresh-token behavior, OAuth/DCR routes, MCP `/mcp`, delegated `/api/tools/start_agent_connection` and `/api/tools/poll_agent_connection`, and do not claim remote MCP has no refresh tokens.
 **Acceptance**: Focused tests FAIL because existing docs/comment drift remains.
 
 ### ⬜ Unit 14b: Existing Docs Drift — Implementation
