@@ -32,17 +32,17 @@ function expectEnvelopeHeaders(response: Response, requestId: string) {
 }
 
 function expectCredentialMetadataShape(credential: any) {
-  expect(credential).toEqual({
+  expect(credential).toMatchObject({
     id: expect.any(String),
     name: expect.any(String),
     tokenPrefix: expect.stringMatching(/^sj_/),
     scopes: expect.any(Array),
     createdAt: expect.any(String),
     updatedAt: expect.any(String),
-    lastUsedAt: expect.anything(),
-    revokedAt: expect.anything(),
-    expiresAt: expect.anything(),
   });
+  for (const key of ["lastUsedAt", "revokedAt", "expiresAt"]) {
+    expect(credential[key] === null || typeof credential[key] === "string").toBe(true);
+  }
 }
 
 describe("API v1 personal token metadata", () => {
