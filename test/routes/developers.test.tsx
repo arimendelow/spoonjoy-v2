@@ -57,6 +57,8 @@ describe("/developers route", () => {
 
     expect(await screen.findByRole("heading", { name: "Spoonjoy Developer Platform" })).toBeInTheDocument();
     expect(screen.getByText(/public-by-default Chef graph/i)).toBeInTheDocument();
+    expect(screen.getByText("Client examples")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Tiny-device clients/i })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Spoonjoy session" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Bearer credentials" })).toBeInTheDocument();
     expect(screen.getByText(/OAuth\/PKCE apps/i)).toBeInTheDocument();
