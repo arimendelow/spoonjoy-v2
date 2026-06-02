@@ -475,8 +475,11 @@ function shoppingListPayload(list: ShoppingListRow) {
 function parseSyncCursor(url: URL): Date | null {
   const raw = url.searchParams.get("cursor");
   if (raw === null || raw.trim() === "") return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(raw)) {
+    throw new ApiV1Error("invalid_cursor", "cursor must be an ISO datetime");
+  }
   const cursor = new Date(raw);
-  if (Number.isNaN(cursor.getTime())) {
+  if (Number.isNaN(cursor.getTime()) || cursor.toISOString() !== raw) {
     throw new ApiV1Error("invalid_cursor", "cursor must be an ISO datetime");
   }
   return cursor;

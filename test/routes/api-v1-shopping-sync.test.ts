@@ -211,6 +211,18 @@ describe("API v1 shopping-list read and sync", () => {
       },
     });
     expect(payload.data.nextCursor).toBe(payload.data.shoppingList.updatedAt);
+
+    const sync = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/shopping-list/sync", {
+      headers: { Authorization: `Bearer ${credential.token}`, "X-Request-Id": "req_shopping_empty_sync" },
+    }) as unknown as Request, "shopping-list/sync"));
+    const syncPayload = await readJson(sync);
+
+    expect(sync.status).toBe(200);
+    expectSuccessEnvelope(syncPayload, "req_shopping_empty_sync");
+    expectExactKeys(syncPayload.data, ["items", "nextCursor", "hasMore"]);
+    expect(syncPayload.data.items).toEqual([]);
+    expect(syncPayload.data.hasMore).toBe(false);
+    expect(syncPayload.data.nextCursor).toBe(payload.data.shoppingList.updatedAt);
   });
 
   it("syncs active items and tombstones, filters by cursor, and reports hasMore false", async () => {
@@ -264,6 +276,54 @@ describe("API v1 shopping-list read and sync", () => {
     expect(filteredPayload.data.nextCursor).toBe(filteredPayload.data.items[0].updatedAt);
   });
 
+  it("uses deterministic sync ordering and cursor fallbacks", async () => {
+    const fixture = await createShoppingFixture(db);
+    const tiedAt = new Date(Date.now() - 60_000);
+    await db.shoppingListItem.updateMany({
+      where: { id: { in: [fixture.active.id, fixture.tombstone.id] } },
+      data: { updatedAt: tiedAt },
+    });
+
+    const tied = await loader(routeArgs(new UndiciRequest(
+      `http://localhost/api/v1/shopping-list/sync?cursor=${encodeURIComponent(new Date(tiedAt.getTime() - 1_000).toISOString())}`,
+      { headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": "req_shopping_sync_tied" } },
+    ) as unknown as Request, "shopping-list/sync"));
+    const tiedPayload = await readJson(tied);
+    const expectedTiedOrder = [fixture.active.id, fixture.tombstone.id].sort();
+
+    expect(tied.status).toBe(200);
+    expectSuccessEnvelope(tiedPayload, "req_shopping_sync_tied");
+    expectExactKeys(tiedPayload.data, ["items", "nextCursor", "hasMore"]);
+    expect(tiedPayload.data.items.map((item: { id: string }) => item.id)).toEqual(expectedTiedOrder);
+
+    const emptyCursor = new Date(tiedAt.getTime() + 1_000).toISOString();
+    const empty = await loader(routeArgs(new UndiciRequest(
+      `http://localhost/api/v1/shopping-list/sync?cursor=${encodeURIComponent(emptyCursor)}`,
+      { headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": "req_shopping_sync_empty_cursor" } },
+    ) as unknown as Request, "shopping-list/sync"));
+    const emptyPayload = await readJson(empty);
+
+    expect(empty.status).toBe(200);
+    expectSuccessEnvelope(emptyPayload, "req_shopping_sync_empty_cursor");
+    expectExactKeys(emptyPayload.data, ["items", "nextCursor", "hasMore"]);
+    expect(emptyPayload.data.items).toEqual([]);
+    expect(emptyPayload.data.nextCursor).toBe(emptyCursor);
+
+    const listUpdatedAt = new Date(tiedAt.getTime() + 120_000);
+    await db.shoppingList.update({
+      where: { id: fixture.list.id },
+      data: { updatedAt: listUpdatedAt },
+    });
+    const list = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/shopping-list", {
+      headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": "req_shopping_list_newer_list" },
+    }) as unknown as Request, "shopping-list"));
+    const listPayload = await readJson(list);
+
+    expect(list.status).toBe(200);
+    expectSuccessEnvelope(listPayload, "req_shopping_list_newer_list");
+    expect(listPayload.data.nextCursor).toBe(listPayload.data.shoppingList.updatedAt);
+  });
+
   it("requires authentication, enforces shopping_list:read, and validates cursors", async () => {
     const fixture = await createShoppingFixture(db);
 
@@ -300,15 +360,28 @@ describe("API v1 shopping-list read and sync", () => {
       error: { code: "insufficient_scope", status: 403 },
     });
 
-    const invalidCursor = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/shopping-list/sync?cursor=not-a-date", {
-      headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": "req_shopping_invalid_cursor" },
-    }) as unknown as Request, "shopping-list/sync"));
-    expect(invalidCursor.status).toBe(400);
-    expectEnvelopeHeaders(invalidCursor, "req_shopping_invalid_cursor");
-    await expect(readJson(invalidCursor)).resolves.toMatchObject({
-      ok: false,
-      requestId: "req_shopping_invalid_cursor",
-      error: { code: "invalid_cursor", status: 400 },
-    });
+    const invalidCursors = [
+      "not-a-date",
+      "2026",
+      "2026-06-01",
+      "2026-06-01T00:00:00",
+      "2026-06-01T00:00:00Z",
+      "2026-02-30T00:00:00.000Z",
+    ];
+
+    for (const [index, cursor] of invalidCursors.entries()) {
+      const requestId = `req_shopping_invalid_cursor_${index}`;
+      const invalidCursor = await loader(routeArgs(new UndiciRequest(
+        `http://localhost/api/v1/shopping-list/sync?cursor=${encodeURIComponent(cursor)}`,
+        { headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": requestId } },
+      ) as unknown as Request, "shopping-list/sync"));
+      expect(invalidCursor.status).toBe(400);
+      expectEnvelopeHeaders(invalidCursor, requestId);
+      await expect(readJson(invalidCursor)).resolves.toMatchObject({
+        ok: false,
+        requestId,
+        error: { code: "invalid_cursor", status: 400 },
+      });
+    }
   });
 });
