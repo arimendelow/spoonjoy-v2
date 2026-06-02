@@ -275,9 +275,9 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 **Output**: Verification log saved to `./2026-06-01-1830-doing-dev-platform-api-docs/unit-14c-docs-drift.log`; docs wording changes remain limited to the files named in Unit 14b.
 **Acceptance**: Docs-drift tests PASS; no stale no-refresh-token claim remains; build still PASS with no warnings.
 
-### ⬜ Unit 15a: External Client Guide And Sample — Tests
+### ✅ Unit 15a: External Client Guide And Sample — Tests
 **What**: Write failing docs assertions for a complete external-client guide that reads public recipes/cookbooks, creates a scoped personal token, syncs a private shopping list, and performs an idempotent shopping-list mutation.
-**Output**: `test/docs/developer-platform-guide.test.ts` imports `app/lib/api-v1-contract.server.ts` and asserts sample curl commands and prose reference actual implemented paths, required scopes, `Authorization: Bearer`, `clientMutationId`, sync cursor, and OpenAPI URL from the contract module.
+**Output**: `test/docs/developer-platform-guide.test.ts` imports `app/lib/api-v1-contract.server.ts` and asserts sample curl commands and prose reference actual implemented paths, required scopes, `Authorization: Bearer`, `clientMutationId`, sync cursor, client-profile breadth, and OpenAPI URL from the contract module.
 **Acceptance**: Focused tests FAIL until the guide/sample is added and aligned with implemented endpoints.
 
 ### ⬜ Unit 15b: External Client Guide And Sample — Implementation
@@ -387,6 +387,7 @@ Normative contract artifact: `./2026-06-01-1830-doing-dev-platform-api-docs/api-
 - 2026-06-01 22:31 Unit 14a complete: added docs drift assertions for `/developers`, OpenAPI, v1 endpoints/scopes, auth entry points, sync/idempotency, MCP links, and rotating OAuth refresh tokens; red run fails against stale docs/comments as expected
 - 2026-06-01 22:34 Unit 14b complete: rewrote `docs/api.md` around API v1, aligned MCP docs with `/developers` and `/api/v1/openapi.json`, removed stale no-refresh-token prose, and passed focused docs drift tests plus production build
 - 2026-06-01 22:35 Unit 14c complete: recorded a no-drift checklist covering every v1 contract path/scope, delegated/OAuth/MCP links, refresh-token rotation wording, absence of stale no-refresh claims, and intended-file-only docs changes
+- 2026-06-01 22:37 Unit 15a complete: added red external-client guide tests for docs/api.md and `/developers`, covering client profiles, public graph reads, scoped token creation, shopping-list sync, idempotent mutation samples, required scopes, bearer auth, cursor, clientMutationId, OpenAPI, and no Pebble framing
 - 2026-06-01 21:27 Unit 8b complete: implemented v1 shopping-list read and sync endpoints with scope rows, active-list formatting, empty-list creation, tombstone-inclusive sync, cursor filtering, invalid cursor errors, focused route tests, typecheck, and warning-free build
 - 2026-06-01 21:33 Unit 8c complete: added sync ordering/cursor fallback coverage, hardened cursor parsing to reject non-round-tripping JavaScript date inputs, and verified 100% v1 coverage plus typecheck and warning-free build
 - 2026-06-01 21:37 Unit 9a complete: added red v1 shopping-list mutation tests for write scope rows, add/check/remove envelopes, restore/merge behavior, unknown fields, clientMutationId validation, idempotent replay/current request IDs, idempotency conflicts, and write-scope enforcement; red run fails on missing v1 mutation routes returning 404 and missing scope rows
