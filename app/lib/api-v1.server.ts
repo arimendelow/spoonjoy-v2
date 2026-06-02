@@ -147,7 +147,17 @@ function parseListLimit(url: URL): number {
   return limit;
 }
 
-function recipeSummary(recipe: RecipeRow) {
+type RecipeSummaryRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  servings: string | null;
+  chef: { id: string; username: string };
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function recipeSummary(recipe: RecipeSummaryRow) {
   return {
     id: recipe.id,
     title: recipe.title,
@@ -189,6 +199,7 @@ function recipeDetail(recipe: RecipeRow) {
 }
 
 type RecipeRow = NonNullable<Awaited<ReturnType<typeof loadRecipeById>>>;
+type CookbookRow = NonNullable<Awaited<ReturnType<typeof loadCookbookById>>>;
 
 async function loadRecipeById(db: Awaited<ReturnType<typeof getRequestDb>>, id: string) {
   return db.recipe.findFirst({
@@ -253,6 +264,100 @@ async function handleRecipeDetail(args: ApiV1RouteArgs, requestId: string, princ
   return apiV1Success(requestId, { recipe: recipeDetail(recipe) });
 }
 
+function activeCookbookRecipeEntries(cookbook: CookbookRow) {
+  return cookbook.recipes
+    .filter((entry) => !entry.recipe.deletedAt)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.recipe.id.localeCompare(b.recipe.id));
+}
+
+function cookbookSummary(cookbook: CookbookRow) {
+  return {
+    id: cookbook.id,
+    title: cookbook.title,
+    chef: { id: cookbook.author.id, username: cookbook.author.username },
+    recipeCount: activeCookbookRecipeEntries(cookbook).length,
+    href: `/cookbooks/${cookbook.id}`,
+    createdAt: cookbook.createdAt.toISOString(),
+    updatedAt: cookbook.updatedAt.toISOString(),
+  };
+}
+
+function cookbookDetail(cookbook: CookbookRow) {
+  return {
+    ...cookbookSummary(cookbook),
+    recipes: activeCookbookRecipeEntries(cookbook).map((entry) => recipeSummary(entry.recipe)),
+  };
+}
+
+async function loadCookbookById(db: Awaited<ReturnType<typeof getRequestDb>>, id: string) {
+  return db.cookbook.findUnique({
+    where: { id },
+    include: {
+      author: { select: { id: true, username: true } },
+      recipes: {
+        include: {
+          recipe: {
+            include: {
+              chef: { select: { id: true, username: true } },
+            },
+          },
+        },
+        orderBy: [{ createdAt: "asc" }, { recipeId: "asc" }],
+      },
+    },
+  });
+}
+
+async function handleCookbookList(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null) {
+  assertScope(principal, "cookbooks:read");
+  const db = await getRequestDb(args.context);
+  const url = new URL(args.request.url);
+  const query = (url.searchParams.get("query") ?? url.searchParams.get("q") ?? "").trim();
+  const limit = parseListLimit(url);
+  const cookbooks = await db.cookbook.findMany({
+    where: query
+      ? {
+          OR: [
+            { title: { contains: query } },
+            { author: { username: { contains: query } } },
+          ],
+        }
+      : {},
+    include: {
+      author: { select: { id: true, username: true } },
+      recipes: {
+        include: {
+          recipe: {
+            include: {
+              chef: { select: { id: true, username: true } },
+            },
+          },
+        },
+        orderBy: [{ createdAt: "asc" }, { recipeId: "asc" }],
+      },
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: limit,
+  });
+
+  return apiV1Success(requestId, {
+    query: query || null,
+    limit,
+    cookbooks: cookbooks.map(cookbookSummary),
+  });
+}
+
+async function handleCookbookDetail(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal | null, id: string) {
+  assertScope(principal, "cookbooks:read");
+  const db = await getRequestDb(args.context);
+  const cookbook = await loadCookbookById(db, id);
+  if (!cookbook) {
+    throw new ApiV1Error("not_found", "Cookbook not found");
+  }
+
+  return apiV1Success(requestId, { cookbook: cookbookDetail(cookbook) });
+}
+
 export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response> {
   const requestId = requestIdFor(args.request);
 
@@ -292,6 +397,16 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     if (args.request.method === "GET" && segments[0] === "recipes" && segments.length === 2) {
       const principal = await optionalPrincipal(args);
       return await handleRecipeDetail(args, requestId, principal, segments[1]);
+    }
+
+    if (args.request.method === "GET" && path === "cookbooks") {
+      const principal = await optionalPrincipal(args);
+      return await handleCookbookList(args, requestId, principal);
+    }
+
+    if (args.request.method === "GET" && segments[0] === "cookbooks" && segments.length === 2) {
+      const principal = await optionalPrincipal(args);
+      return await handleCookbookDetail(args, requestId, principal, segments[1]);
     }
 
     if (args.request.method !== "GET" && args.request.method !== "POST" && args.request.method !== "PATCH" && args.request.method !== "DELETE") {
