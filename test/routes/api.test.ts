@@ -57,7 +57,9 @@ function expectLegacyEvent(input: {
 }) {
   const eventInput = legacyTelemetryInputs().find((candidate) => (
     candidate.event === "spoonjoy.legacy_api.request" &&
-    candidate.properties?.request_id === input.requestId
+    candidate.properties?.request_id === input.requestId &&
+    candidate.properties?.status === input.status &&
+    (!input.routeTemplate || candidate.properties?.route_template === input.routeTemplate)
   ));
 
   expect(eventInput).toMatchObject({
@@ -434,6 +436,21 @@ describe("Spoonjoy REST API route", () => {
       forbidden: ["token=secret", "curl/8.7.1"],
     });
 
+    const unsafeRequestId = "Bearer sj_request_id_secret";
+    const unsafeRequestIdResponse = await loader(routeArgs(new UndiciRequest("http://localhost/api/health", {
+      headers: {
+        "X-Request-Id": unsafeRequestId,
+      },
+    }), "health", telemetryEnv));
+    expect(unsafeRequestIdResponse.status).toBe(200);
+    expectLegacyEvent({
+      requestId: "unknown",
+      operation: "health",
+      status: 200,
+      authMode: "anonymous",
+      forbidden: [unsafeRequestId, "sj_request_id_secret"],
+    });
+
     const user = await db.user.create({ data: { email: uniqueEmail("telemetry"), username: faker.internet.username() } });
     const credential = await createApiCredential(db, user.id, "Legacy Telemetry Reader", { scopes: ["kitchen:read"] });
     const bearerResponse = await loader(routeArgs(new UndiciRequest("http://localhost/api/shopping-list", {
@@ -505,6 +522,25 @@ describe("Spoonjoy REST API route", () => {
       routeTemplate: "/api/{unknown}",
       errorCode: "api_auth_error",
       forbidden: ["unknown-secret-path"],
+    });
+
+    const rawToolName = "sj_tool_path_secret@example.com";
+    const unknownTool = await action(routeArgs(new UndiciRequest(`http://localhost/api/tools/${encodeURIComponent(rawToolName)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Request-Id": "req_legacy_unknown_tool",
+      },
+      body: "{}",
+    }), `tools/${rawToolName}`, telemetryEnv));
+    expect(unknownTool.status).toBe(404);
+    expectLegacyEvent({
+      requestId: "req_legacy_unknown_tool",
+      status: 404,
+      authMode: "anonymous",
+      routeTemplate: "/api/{unknown}",
+      errorCode: "api_auth_error",
+      forbidden: [rawToolName, "sj_tool_path_secret"],
     });
 
     const malformedSplat = "%E0%A4%A";

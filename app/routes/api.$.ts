@@ -33,11 +33,15 @@ const SECRET_BEARING_OPERATIONS = new Set([
 
 const NUMERIC_QUERY_KEYS = new Set(["duration", "limit", "quantity"]);
 const BOOLEAN_QUERY_KEYS = new Set(["checked"]);
+const LEGACY_SAFE_REQUEST_ID_RE = /^req_[a-z0-9][a-z0-9_-]{0,63}$/i;
+const LEGACY_UUID_REQUEST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type ApiDispatch = {
   operation: string;
   args: Record<string, unknown>;
 };
+
+const LEGACY_TOOL_OPERATION_NAMES = new Set(listSpoonjoyApiOperations().map((operation) => operation.name));
 
 type LegacyApiTelemetryInput = {
   request: Request;
@@ -61,7 +65,11 @@ function apiJson(payload: unknown, status = 200, extraHeaders?: HeadersInit): Re
 
 function legacyRequestId(request: Request): string {
   const requestId = request.headers.get("X-Request-Id")?.trim();
-  return requestId || "unknown";
+  if (!requestId) return "unknown";
+  if (LEGACY_SAFE_REQUEST_ID_RE.test(requestId) || LEGACY_UUID_REQUEST_ID_RE.test(requestId)) {
+    return requestId;
+  }
+  return "unknown";
 }
 
 function legacyAuthMode(principal: ApiPrincipal | null): string {
@@ -208,6 +216,7 @@ async function dispatchMutation(method: string, path: string, segments: string[]
   const args = await bodyArgs(request);
 
   if (method === "POST" && segments[0] === "tools" && segments.length === 2) {
+    if (!LEGACY_TOOL_OPERATION_NAMES.has(segments[1])) notFound(path);
     return { operation: segments[1], args };
   }
   if (method === "POST" && path === "recipes") return { operation: "create_recipe", args };

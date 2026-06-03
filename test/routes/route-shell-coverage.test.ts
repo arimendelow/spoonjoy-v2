@@ -99,17 +99,26 @@ describe("route shell coverage", () => {
   });
 
   it("maps legacy REST operation not-found errors to 404", async () => {
+    const captureEvent = vi.fn(async () => undefined);
     vi.doMock("~/lib/spoonjoy-api.server", () => ({
       listSpoonjoyApiOperations: () => [],
       callSpoonjoyApiOperation: vi.fn(async () => {
         throw new Error("Recipe not found");
       }),
     }));
+    vi.doMock("~/lib/analytics-server", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("~/lib/analytics-server")>()),
+      captureEvent,
+    }));
 
     const { loader } = await import("~/routes/api.$");
+    const waitUntil = vi.fn();
     const response = await loader(routeArgs(
       new Request("https://spoonjoy.app/api/health"),
-      { params: { "*": "health" } },
+      {
+        params: { "*": "health" },
+        context: { cloudflare: { env: { POSTHOG_KEY: "ph_test" }, ctx: { waitUntil } } },
+      },
     ));
 
     expect(response.status).toBe(404);
@@ -117,6 +126,21 @@ describe("route shell coverage", () => {
       ok: false,
       error: { status: 404, message: "Recipe not found" },
     });
+    expect(captureEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true, key: "ph_test" }),
+      expect.objectContaining({
+        event: "spoonjoy.legacy_api.request",
+        properties: expect.objectContaining({
+          route_template: "/api/{operation}",
+          operation: "health",
+          status: 404,
+          error_code: "not_found",
+          request_id: "unknown",
+        }),
+      }),
+    );
+    expect(JSON.stringify(captureEvent.mock.calls)).not.toContain("Recipe not found");
+    expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
   });
 
   it("captures unexpected legacy REST operation errors with waitUntil", async () => {
