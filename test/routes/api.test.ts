@@ -1,19 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Request as UndiciRequest } from "undici";
 import { faker } from "@faker-js/faker";
 import { action, loader } from "~/routes/api.$";
 import { createApiCredential } from "~/lib/api-auth.server";
+import { captureEvent } from "~/lib/analytics-server";
 import { getLocalDb } from "~/lib/db.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { getOrCreateIngredientRef } from "../utils";
 
+vi.mock("~/lib/analytics-server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("~/lib/analytics-server")>()),
+  captureEvent: vi.fn(async () => undefined),
+}));
+
 function uniqueEmail(prefix = "rest") {
   return `${prefix}-${faker.string.alphanumeric(8).toLowerCase()}@example.com`;
 }
 
-function routeArgs(request: Request, splat: string) {
-  return { request, params: { "*": splat }, context: { cloudflare: { env: null } } } as any;
+function routeArgs(request: Request, splat: string, env: Record<string, unknown> | null = null) {
+  const waitUntil = vi.fn((promise: Promise<unknown>) => {
+    void promise;
+  });
+  return {
+    request,
+    params: { "*": splat },
+    context: { cloudflare: { env, ctx: { waitUntil } } },
+    waitUntil,
+  } as any;
 }
 
 async function readJson(response: Response) {
@@ -26,10 +40,60 @@ async function sessionCookie(userId: string) {
   return (await sessionStorage.commitSession(session)).split(";")[0];
 }
 
+function legacyTelemetryInputs() {
+  return vi.mocked(captureEvent).mock.calls.map(([, input]) => input);
+}
+
+function expectLegacyEvent(input: {
+  requestId: string;
+  operation?: string;
+  status: number;
+  authMode: "anonymous" | "bearer" | "session";
+  routeTemplate?: string;
+  errorCode?: string;
+  rateLimitScope?: string;
+  forbidden?: readonly string[];
+}) {
+  const eventInput = legacyTelemetryInputs().find((candidate) => (
+    candidate.event === "spoonjoy.legacy_api.request" &&
+    candidate.properties?.request_id === input.requestId
+  ));
+
+  expect(eventInput).toMatchObject({
+    event: "spoonjoy.legacy_api.request",
+    properties: {
+      route_template: input.routeTemplate ?? "/api/{operation}",
+      operation: input.operation,
+      status: input.status,
+      request_id: input.requestId,
+      auth_mode: input.authMode,
+      error_code: input.errorCode,
+      latency_ms: expect.any(Number),
+    },
+  });
+
+  const properties = eventInput!.properties as Record<string, unknown>;
+  if (input.rateLimitScope) {
+    expect(properties.rate_limit_scope).toBe(input.rateLimitScope);
+  } else {
+    expect(properties.rate_limit_scope).toBeUndefined();
+  }
+
+  const serialized = JSON.stringify(eventInput);
+  for (const forbidden of input.forbidden ?? []) {
+    expect(serialized).not.toContain(forbidden);
+  }
+  expect(serialized).not.toContain("Authorization");
+  expect(serialized).not.toContain("Bearer ");
+  expect(serialized).not.toContain("__session=");
+  return eventInput;
+}
+
 describe("Spoonjoy REST API route", () => {
   let db: Awaited<ReturnType<typeof getLocalDb>>;
 
   beforeEach(async () => {
+    vi.mocked(captureEvent).mockClear();
     await cleanupDatabase();
     db = await getLocalDb();
   });
@@ -346,6 +410,99 @@ describe("Spoonjoy REST API route", () => {
     expect(body).toMatchObject({
       error: "rate_limited",
       retryAfterSeconds: 60,
+    });
+  });
+
+  it("captures safe legacy REST telemetry for public success, bearer success, auth errors, not-found, and rate limits", async () => {
+    const telemetryEnv = { POSTHOG_KEY: "ph_test" };
+    const publicResponse = await loader(routeArgs(new UndiciRequest("http://localhost/api/health", {
+      headers: {
+        "X-Request-Id": "req_legacy_health",
+        Origin: "https://client.example",
+        Referer: "https://docs.example/start?token=secret",
+        "User-Agent": "curl/8.7.1",
+      },
+    }), "health", telemetryEnv));
+
+    expect(publicResponse.status).toBe(200);
+    expectLegacyEvent({
+      requestId: "req_legacy_health",
+      operation: "health",
+      status: 200,
+      authMode: "anonymous",
+      forbidden: ["token=secret", "curl/8.7.1"],
+    });
+
+    const user = await db.user.create({ data: { email: uniqueEmail("telemetry"), username: faker.internet.username() } });
+    const credential = await createApiCredential(db, user.id, "Legacy Telemetry Reader", { scopes: ["kitchen:read"] });
+    const bearerResponse = await loader(routeArgs(new UndiciRequest("http://localhost/api/shopping-list", {
+      headers: {
+        Authorization: `Bearer ${credential.token}`,
+        "X-Request-Id": "req_legacy_bearer",
+      },
+    }), "shopping-list", telemetryEnv));
+
+    expect(bearerResponse.status).toBe(200);
+    expectLegacyEvent({
+      requestId: "req_legacy_bearer",
+      operation: "get_shopping_list",
+      status: 200,
+      authMode: "bearer",
+      forbidden: [
+        credential.token,
+        credential.credential.tokenPrefix,
+        "Legacy Telemetry Reader",
+        user.email,
+        user.username,
+      ],
+    });
+
+    const missingAuth = await loader(routeArgs(new UndiciRequest("http://localhost/api/shopping-list", {
+      headers: { "X-Request-Id": "req_legacy_missing_auth" },
+    }), "shopping-list", telemetryEnv));
+    expect(missingAuth.status).toBe(401);
+    expectLegacyEvent({
+      requestId: "req_legacy_missing_auth",
+      operation: "get_shopping_list",
+      status: 401,
+      authMode: "anonymous",
+      errorCode: "api_auth_error",
+    });
+
+    const unknown = await loader(routeArgs(new UndiciRequest("http://localhost/api/unknown-secret-path", {
+      headers: { "X-Request-Id": "req_legacy_unknown" },
+    }), "unknown-secret-path", telemetryEnv));
+    expect(unknown.status).toBe(404);
+    expectLegacyEvent({
+      requestId: "req_legacy_unknown",
+      status: 404,
+      authMode: "anonymous",
+      routeTemplate: "/api/{unknown}",
+      errorCode: "api_auth_error",
+      forbidden: ["unknown-secret-path"],
+    });
+
+    const token = "sj_legacy_rate_limited_secret";
+    const throttled = await loader(routeArgs(new UndiciRequest("http://localhost/api/health", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Request-Id": "req_legacy_rate_limited",
+      },
+    }), "health", {
+      POSTHOG_KEY: "ph_test",
+      API_TOKEN_RATE_LIMITER: {
+        limit: async () => ({ success: false }),
+      },
+    }));
+    expect(throttled.status).toBe(429);
+    expectLegacyEvent({
+      requestId: "req_legacy_rate_limited",
+      operation: "health",
+      status: 429,
+      authMode: "anonymous",
+      errorCode: "rate_limited",
+      rateLimitScope: "token",
+      forbidden: [token],
     });
   });
 });

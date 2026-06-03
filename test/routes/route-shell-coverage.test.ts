@@ -121,6 +121,7 @@ describe("route shell coverage", () => {
 
   it("captures unexpected legacy REST operation errors with waitUntil", async () => {
     const captureException = vi.fn(async () => undefined);
+    const captureEvent = vi.fn(async () => undefined);
     vi.doMock("~/lib/spoonjoy-api.server", () => ({
       listSpoonjoyApiOperations: () => [],
       callSpoonjoyApiOperation: vi.fn(async () => {
@@ -130,6 +131,7 @@ describe("route shell coverage", () => {
     vi.doMock("~/lib/analytics-server", async (importOriginal) => ({
       ...(await importOriginal<typeof import("~/lib/analytics-server")>()),
       captureException,
+      captureEvent,
     }));
 
     const { loader } = await import("~/routes/api.$");
@@ -147,6 +149,24 @@ describe("route shell coverage", () => {
       expect.objectContaining({ enabled: true, key: "ph_test" }),
       expect.objectContaining({ distinctId: "server", route: "/api/health", method: "GET" }),
     );
+    expect(captureEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true, key: "ph_test" }),
+      expect.objectContaining({
+        event: "spoonjoy.legacy_api.request",
+        distinctId: "anon",
+        properties: expect.objectContaining({
+          route_template: "/api/{operation}",
+          operation: "health",
+          method: "GET",
+          status: 500,
+          error_code: "internal_error",
+          auth_mode: "anonymous",
+          request_id: "unknown",
+          latency_ms: expect.any(Number),
+        }),
+      }),
+    );
+    expect(JSON.stringify(captureEvent.mock.calls)).not.toContain("unexpected route bug");
     expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
   });
 
