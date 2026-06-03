@@ -137,7 +137,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Tests proving `spoonjoy.legacy_api.request` emits operation name, auth/source metadata when known, status/error, request id if present, latency, and safe request context.
 **Acceptance**: Tests fail before implementation and prove legacy API telemetry does not send args/request bodies or secrets.
 
-### ⬜ Unit 4b: Legacy API Telemetry — Implementation
+### ✅ Unit 4b: Legacy API Telemetry — Implementation
 **What**: Instrument `handleApiRequest` in `app/routes/api.$.ts` without duplicating operation logic. Preserve existing exception capture while adding lifecycle telemetry.
 **Output**: Best-effort legacy API lifecycle telemetry for REST/MCP bootstrap operations routed through `/api/*`.
 **Acceptance**: Legacy API telemetry tests pass and existing route-shell tests still pass.
@@ -348,3 +348,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 08:08 Unit 3i complete: API v1 telemetry coverage/refactor tests added; focused API v1 tests/typecheck/build pass; coverage command limitation documented for pre-existing route-module gaps
 - 2026-06-03 08:08 Unit 4a started: legacy API telemetry tests
 - 2026-06-03 08:14 Unit 4a complete: legacy REST telemetry tests fail red on missing lifecycle capture for success, auth error, not-found, rate-limit, and unexpected-error paths
+- 2026-06-03 08:19 Unit 4b complete: legacy REST lifecycle telemetry implemented with shared analytics request-context helpers; focused legacy/API v1 analytics tests, typecheck, and build pass
