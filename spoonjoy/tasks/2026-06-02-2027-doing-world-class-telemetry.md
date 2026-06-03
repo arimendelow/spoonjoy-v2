@@ -72,12 +72,12 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Clean helper code with test coverage for enabled, disabled, missing-key, trailing-slash host, fetch failure, and unsafe property handling.
 **Acceptance**: Focused analytics-server tests pass with no warnings.
 
-### 🔄 Unit 2a: API v1 WaitUntil Context — Tests
+### ✅ Unit 2a: API v1 WaitUntil Context — Tests
 **What**: Add failing tests or type-focused route-shell coverage proving `app/lib/api-v1.server.ts` can receive a `waitUntil` function from React Router Cloudflare context before it attempts telemetry capture.
 **Output**: Tests proving API v1 telemetry can be scheduled through the Worker execution context without blocking the response.
 **Acceptance**: Tests fail before implementation because `ApiV1RouteArgs` only types `context.cloudflare.env` and no API v1 telemetry scheduling hook is exposed.
 
-### ⬜ Unit 2b: API v1 WaitUntil Context — Implementation
+### 🔄 Unit 2b: API v1 WaitUntil Context — Implementation
 **What**: Update `ApiV1RouteArgs` in `app/lib/api-v1.server.ts` so `context.cloudflare.ctx` is typed, and update `app/routes/api.v1.$.ts` only if TypeScript requires a route-shell binding to preserve the existing call signature.
 **Output**: API v1 has the same best-effort background scheduling capability already used by legacy `/api/*` and `/mcp`.
 **Acceptance**: Unit 2a tests pass and API v1 route behavior/wire format is unchanged.
@@ -322,3 +322,5 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 07:22 Unit 1c started: analytics helper coverage/refactor check
 - 2026-06-03 07:24 Unit 1c complete: analytics-server helper reached 100% per-file coverage; global focused coverage threshold behavior documented
 - 2026-06-03 07:24 Unit 2a started: API v1 waitUntil context tests
+- 2026-06-03 07:26 Unit 2a complete: API v1 shell tests fail red on missing waitUntil scheduler helper
+- 2026-06-03 07:26 Unit 2b started: implement API v1 waitUntil context helper
