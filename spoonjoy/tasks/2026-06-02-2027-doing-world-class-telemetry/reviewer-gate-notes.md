@@ -100,3 +100,9 @@
   - `test/routes/oauth-revoke-telemetry.test.ts` now sends raw `Authorization` and `Cookie` values on success and invalid-body paths, and explicitly forbids those values in lifecycle telemetry.
   - The shared revoke telemetry assertion also forbids `Cookie`, `Authorization`, raw IP literals, and raw body markers across events.
   - The strengthened contract still fails red against pre-implementation code because `spoonjoy.oauth.revoke` is missing.
+
+## 2026-06-03 09:40
+
+- Unit 6i fresh reviewer returned `CONVERGED`.
+- Reviewer reran the focused OAuth suite successfully: 9 files, 73 tests, no warning output.
+- Reviewer confirmed Unit 6i is tests/docs only, the doing doc status and completion log are present, the coverage caveat is honest, and privacy assertions remain meaningful across raw redirect/body/token/state/header/IP cases.

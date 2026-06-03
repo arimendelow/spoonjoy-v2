@@ -227,7 +227,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Covered OAuth telemetry with privacy assertions.
 **Acceptance**: Focused OAuth tests pass with no warnings.
 
-### ⬜ Unit 7a: Client PostHog Bootstrap — Tests
+### 🔄 Unit 7a: Client PostHog Bootstrap — Tests
 **What**: Add failing tests for `app/lib/analytics.ts` and the client bootstrap contract in `app/entry.client.tsx`/`app/vite-env.d.ts`: missing/blank `VITE_POSTHOG_KEY` disables initialization, truthy `VITE_POSTHOG_DISABLED` disables initialization, configured host is honored, pageview URL remains origin+pathname only, session recording masks text and inputs, and exception capture remains enabled only when PostHog initializes.
 **Output**: Tests proving client analytics is build-time gated by `VITE_POSTHOG_KEY` and never always-on.
 **Acceptance**: Tests fail before any needed implementation/doc fixes and prove no query string, hash, or page text is included in the client pageview helper.
@@ -379,3 +379,5 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 09:27 Unit 6h complete: OAuth revoke telemetry implemented for success, not-found, binding/form/method errors, and rate limits; focused tests, OAuth regressions, typecheck, and build pass
 - 2026-06-03 09:28 Unit 6i started: OAuth telemetry coverage and refactor verification
 - 2026-06-03 09:40 Unit 6i complete: OAuth route shells reached 100% focused coverage; defensive OAuth helper coverage, focused OAuth regressions, typecheck, and build pass; global focused coverage threshold limitation documented
+- 2026-06-03 09:40 Unit 6i reviewer gate converged: tests/docs only, focused OAuth suite rerun passed, no runtime changes
+- 2026-06-03 09:40 Unit 7a started: client PostHog bootstrap tests
