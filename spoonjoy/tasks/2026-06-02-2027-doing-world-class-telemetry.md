@@ -127,12 +127,12 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: API v1 error/rate-limit lifecycle telemetry.
 **Acceptance**: Unit 3g tests pass and existing API v1 route tests still pass.
 
-### 🔄 Unit 3i: API v1 Telemetry — Coverage & Refactor
+### ✅ Unit 3i: API v1 Telemetry — Coverage & Refactor
 **What**: Run focused API v1 telemetry and existing API v1 route tests. Refactor only within `app/lib/api-v1.server.ts` and `app/lib/analytics-server.ts`; any new cross-surface helper file or broader extraction requires updating this doing doc first.
 **Output**: Covered, centralized API v1 telemetry helpers with no duplicated per-endpoint capture calls.
 **Acceptance**: Focused API v1 tests pass with no warnings.
 
-### ⬜ Unit 4a: Legacy API Telemetry — Tests
+### 🔄 Unit 4a: Legacy API Telemetry — Tests
 **What**: Add failing tests in `test/routes/route-shell-coverage.test.ts` or a focused legacy API route test for `app/routes/api.$.ts`. Cover success, `ApiAuthError`, not-found, rate-limit, and unexpected-error capture.
 **Output**: Tests proving `spoonjoy.legacy_api.request` emits operation name, auth/source metadata when known, status/error, request id if present, latency, and safe request context.
 **Acceptance**: Tests fail before implementation and prove legacy API telemetry does not send args/request bodies or secrets.
@@ -345,3 +345,5 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 07:59 Unit 3h started: implement API v1 rate-limit and internal-error telemetry
 - 2026-06-03 08:03 Unit 3h complete: API v1 rate-limit/internal-error telemetry implemented, Unit 3f reviewer path-template blocker remediated, focused tests/regressions/typecheck/build passing
 - 2026-06-03 08:03 Unit 3i started: API v1 telemetry coverage and refactor verification
+- 2026-06-03 08:08 Unit 3i complete: API v1 telemetry coverage/refactor tests added; focused API v1 tests/typecheck/build pass; coverage command limitation documented for pre-existing route-module gaps
+- 2026-06-03 08:08 Unit 4a started: legacy API telemetry tests
