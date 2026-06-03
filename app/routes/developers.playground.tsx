@@ -1,5 +1,6 @@
 import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLoaderData } from "react-router";
+import { usePostHog } from "@posthog/react";
 import { Braces, CheckCircle2, Clipboard, KeyRound, LogIn, Play, RefreshCw, Search, ShieldOff, Terminal, XCircle } from "lucide-react";
 import {
   API_V1_PLAYGROUND_MANIFEST,
@@ -7,6 +8,7 @@ import {
   type ApiV1PlaygroundOperation,
   type ApiV1PlaygroundParam,
 } from "~/lib/generated/api-v1-playground";
+import { captureSafeClientEvent, latencyBucket, responseStatusClass } from "~/lib/analytics";
 import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, PAGE_OG_CARDS, absoluteUrlFromPreferredBase, pageOgPath } from "~/lib/og-metadata";
 import { getUserId } from "~/lib/session.server";
 import { Badge } from "~/components/ui/badge";
@@ -303,6 +305,30 @@ export function playgroundOperationGroups(operations: readonly ApiV1PlaygroundOp
   return groups;
 }
 
+function playgroundAuthStatus(isAuthenticated: boolean) {
+  return isAuthenticated ? "authenticated" : "anonymous";
+}
+
+function playgroundOperationTelemetry(operation: ApiV1PlaygroundOperation) {
+  return {
+    operation_id: operation.id,
+    operation_group: operation.tag,
+    operation_kind: operation.kind,
+    operation_risk: operation.risk,
+    operation_auth: operation.auth,
+    method: operation.method,
+  };
+}
+
+function playgroundOutcomeForStatus(status: number) {
+  if (status === 0) return "network_error";
+  return status >= 200 && status < 400 ? "success" : "error";
+}
+
+function operationCountForSurface(operations: readonly ApiV1PlaygroundOperation[], surface: PlaygroundSurface) {
+  return operations.filter((operation) => operation.profiles.includes(surface)).length;
+}
+
 export function meta({ data }: { data?: { canonicalUrl?: string; ogImageUrl?: string } } = {}) {
   const canonicalUrl = data?.canonicalUrl ?? `https://spoonjoy.app${PLAYGROUND_CANONICAL_PATH}`;
   const ogImageUrl = data?.ogImageUrl ?? `https://spoonjoy.app${PLAYGROUND_OG_PATH}`;
@@ -487,6 +513,7 @@ function rovingRadioKeyDown<T extends string>(
 
 export default function DeveloperPlayground() {
   const { manifest, viewer } = useLoaderData<typeof loader>();
+  const posthog = usePostHog();
   const isAuthenticated = viewer.isAuthenticated;
   const operations: readonly ApiV1PlaygroundOperation[] = manifest.operations;
   const [surface, setSurface] = useState<PlaygroundSurface>("full");
@@ -526,6 +553,7 @@ export default function DeveloperPlayground() {
   const selectedHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const focusSelectedOperation = useRef(false);
   const wasAuthenticated = useRef(isAuthenticated);
+  const viewedTelemetrySent = useRef(false);
 
   const params = paramsByOperation[selected.id]!;
   const bodyText = bodiesByOperation[selected.id]!;
@@ -570,6 +598,19 @@ export default function DeveloperPlayground() {
     }
   }, [isAuthenticated, selected.credentialModes, selected.id]);
 
+  useEffect(() => {
+    if (viewedTelemetrySent.current || !posthog) return;
+    viewedTelemetrySent.current = true;
+    captureSafeClientEvent(posthog, "spoonjoy.developer.playground.viewed", {
+      page: "api_playground",
+      auth_status: playgroundAuthStatus(isAuthenticated),
+      surface,
+      operation_count: operations.length,
+      auth_mode: authMode,
+      ...playgroundOperationTelemetry(selected),
+    });
+  }, [authMode, isAuthenticated, operations.length, posthog, selected, surface]);
+
   function nextAuthModeFor(operation: ApiV1PlaygroundOperation, current: PlaygroundAuthMode): PlaygroundAuthMode {
     const modes = allowedAuthModes(operation).map((mode) => mode.id);
     return modes.includes(current) ? current : defaultAuthModeFor(operation, isAuthenticated);
@@ -582,15 +623,34 @@ export default function DeveloperPlayground() {
     focusSelectedOperation.current = Boolean(options.focusBuilder);
     setConfirmedRisk(false);
     setResponse(null);
+    capturePlaygroundTelemetry(
+      "spoonjoy.developer.playground.operation_selected",
+      { auth_mode: nextAuthModeFor(operation, authMode) },
+      operation,
+    );
   }
 
   function selectSurface(nextSurface: PlaygroundSurface) {
     setSurface(nextSurface);
     setOperationQuery("");
+    captureSafeClientEvent(posthog, "spoonjoy.developer.playground.surface_selected", {
+      page: "api_playground",
+      auth_status: playgroundAuthStatus(isAuthenticated),
+      surface: nextSurface,
+      operation_count: operationCountForSurface(operations, nextSurface),
+    });
     const nextOperation = operations.find((operation) => operation.profiles.includes(nextSurface));
     if (nextOperation && !selected.profiles.includes(nextSurface)) {
       selectOperation(nextOperation.id);
     }
+  }
+
+  function selectAuthMode(nextMode: PlaygroundAuthMode) {
+    setAuthMode(nextMode);
+    setConfirmedRisk(false);
+    capturePlaygroundTelemetry("spoonjoy.developer.playground.auth_mode_selected", {
+      auth_mode: nextMode,
+    });
   }
 
   function updateParam(name: string, value: string) {
@@ -624,6 +684,10 @@ export default function DeveloperPlayground() {
 	  async function sendRequest(event: FormEvent<HTMLFormElement>) {
 	    event.preventDefault();
 	    if (validationErrors.length) return;
+	    capturePlaygroundTelemetry("spoonjoy.developer.playground.request_submitted", {
+	      request_body_present: Boolean(bodyText.trim() && selected.method !== "GET"),
+	      validation_error_count: validationErrors.length,
+	    });
 	    if (selected.kind === "redirect") {
 	      if (pkceVerifier) {
 	        window.sessionStorage?.setItem(PKCE_SESSION_STORAGE_KEY, JSON.stringify({
@@ -641,17 +705,31 @@ export default function DeveloperPlayground() {
     const startedAt = Date.now();
     try {
       const result = await fetch(path, playgroundFetchOptions(selected, authMode, token, bodyText, playgroundRequestId(), params));
+      const elapsedMs = Date.now() - startedAt;
       setResponse(await playgroundResponseFromFetchResult(result, {
         method: selected.method,
         path,
-        elapsedMs: Date.now() - startedAt,
+        elapsedMs,
       }, { maskSecrets: selected.risk === "secret" }));
+      capturePlaygroundTelemetry("spoonjoy.developer.playground.response_received", {
+        outcome: playgroundOutcomeForStatus(result.status),
+        response_status: result.status,
+        response_status_class: responseStatusClass(result.status),
+        latency_bucket: latencyBucket(elapsedMs),
+      });
     } catch (error) {
+      const elapsedMs = Date.now() - startedAt;
       setResponse({
         ...playgroundNetworkError(error),
         method: selected.method,
         path,
-        elapsedMs: Date.now() - startedAt,
+        elapsedMs,
+      });
+      capturePlaygroundTelemetry("spoonjoy.developer.playground.response_received", {
+        outcome: "network_error",
+        response_status: 0,
+        response_status_class: responseStatusClass(0),
+        latency_bucket: latencyBucket(elapsedMs),
       });
     } finally {
       setIsSending(false);
@@ -724,6 +802,21 @@ export default function DeveloperPlayground() {
   }
 
   const bodyLabel = selected.requestBody?.contentType === "application/x-www-form-urlencoded" ? "Form body" : "JSON body";
+
+  function capturePlaygroundTelemetry(
+    event: string,
+    properties: Record<string, unknown> = {},
+    operation: ApiV1PlaygroundOperation = selected,
+  ) {
+    captureSafeClientEvent(posthog, event, {
+      page: "api_playground",
+      auth_status: playgroundAuthStatus(isAuthenticated),
+      surface,
+      auth_mode: authMode,
+      ...playgroundOperationTelemetry(operation),
+      ...properties,
+    });
+  }
 
   return (
     <CookbookPage className="sj-developer-playground">
@@ -881,14 +974,8 @@ export default function DeveloperPlayground() {
 	                    aria-checked={authMode === id}
 	                    tabIndex={authMode === id ? 0 : -1}
 	                    data-radio-value={id}
-	                    onClick={() => {
-	                      setAuthMode(id);
-	                      setConfirmedRisk(false);
-	                    }}
-	                    onKeyDown={(event) => rovingRadioKeyDown(event, visibleAuthModes.map((mode) => mode.id), authMode, (next) => {
-	                      setAuthMode(next);
-	                      setConfirmedRisk(false);
-	                    })}
+	                    onClick={() => selectAuthMode(id)}
+	                    onKeyDown={(event) => rovingRadioKeyDown(event, visibleAuthModes.map((mode) => mode.id), authMode, selectAuthMode)}
                     className={`flex min-h-11 items-center justify-center gap-2 border px-3 font-sj-ui text-sm font-semibold transition ${
                       authMode === id
                         ? "border-[var(--sj-brass)] bg-[color-mix(in_srgb,var(--sj-brass)_12%,var(--sj-panel-solid))] text-[var(--sj-ink)]"
@@ -921,7 +1008,13 @@ export default function DeveloperPlayground() {
                   <p className="text-sm/6 text-[var(--sj-ink-soft)]">
                     Session mode is browser-only. If a private request returns 401, sign in and come back to the same operation.
                     {" "}
-                    <a href="/login?redirectTo=/api/playground" className="font-sj-ui font-bold text-[var(--sj-ink)] underline decoration-[var(--sj-brass)] underline-offset-4">
+                    <a
+                      href="/login?redirectTo=/api/playground"
+                      onClick={() => capturePlaygroundTelemetry("spoonjoy.developer.playground.sign_in_clicked", {
+                        auth_mode: "session",
+                      })}
+                      className="font-sj-ui font-bold text-[var(--sj-ink)] underline decoration-[var(--sj-brass)] underline-offset-4"
+                    >
                       Sign in
                     </a>
                   </p>

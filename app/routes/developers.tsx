@@ -1,5 +1,6 @@
 import { useLoaderData } from "react-router";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { usePostHog } from "@posthog/react";
 import {
   Activity,
   BookOpen,
@@ -13,6 +14,7 @@ import {
   ShoppingBasket,
 } from "lucide-react";
 import { API_V1_ERROR_STATUS, API_V1_RESOURCES, API_V1_SCOPE_REQUIREMENTS } from "~/lib/api-v1-contract.server";
+import { captureSafeClientEvent } from "~/lib/analytics";
 import { API_V1_PLAYGROUND_MANIFEST } from "~/lib/generated/api-v1-playground";
 import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, PAGE_OG_CARDS, absoluteUrlFromPreferredBase, pageOgPath } from "~/lib/og-metadata";
 import { Button } from "~/components/ui/button";
@@ -375,6 +377,19 @@ function scopeTone(scope: string) {
 
 export default function Developers() {
   const { resources, scopeRequirements, errorStatus, openapiUrl, sdkOpenapiUrl, connectorOpenapiUrl, scopes, authFlows, oauthScopeMap, currentCapabilities } = useLoaderData<typeof loader>();
+  const posthog = usePostHog();
+  const docsViewTelemetrySent = useRef(false);
+
+  useEffect(() => {
+    if (docsViewTelemetrySent.current || !posthog) return;
+    docsViewTelemetrySent.current = true;
+    captureSafeClientEvent(posthog, "spoonjoy.developer.docs.viewed", {
+      page: "api_docs",
+      operation_count: API_V1_PLAYGROUND_MANIFEST.operations.length,
+      auth_flow_count: authFlows.length,
+      client_scenario_count: API_V1_PLAYGROUND_MANIFEST.clientScenarios.length,
+    });
+  }, [authFlows.length, posthog]);
 
   return (
     <CookbookPage className="sj-developer-page">
