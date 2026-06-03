@@ -222,7 +222,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Safe OAuth revoke telemetry.
 **Acceptance**: Unit 6g tests pass and existing OAuth revoke tests still pass.
 
-### 🔄 Unit 6i: OAuth Telemetry — Coverage & Refactor
+### ✅ Unit 6i: OAuth Telemetry — Coverage & Refactor
 **What**: Run focused OAuth tests. Refactor only within OAuth route shells, `app/lib/oauth-routes.server.ts`, and `app/lib/analytics-server.ts`; any new cross-surface helper file or broader extraction requires updating this doing doc first.
 **Output**: Covered OAuth telemetry with privacy assertions.
 **Acceptance**: Focused OAuth tests pass with no warnings.
@@ -378,3 +378,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 09:24 Unit 6h started: implement OAuth revoke telemetry
 - 2026-06-03 09:27 Unit 6h complete: OAuth revoke telemetry implemented for success, not-found, binding/form/method errors, and rate limits; focused tests, OAuth regressions, typecheck, and build pass
 - 2026-06-03 09:28 Unit 6i started: OAuth telemetry coverage and refactor verification
+- 2026-06-03 09:40 Unit 6i complete: OAuth route shells reached 100% focused coverage; defensive OAuth helper coverage, focused OAuth regressions, typecheck, and build pass; global focused coverage threshold limitation documented
