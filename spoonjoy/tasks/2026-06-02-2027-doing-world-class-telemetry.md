@@ -287,7 +287,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Deployment version id and live smoke artifact paths recorded in `final-verification.md`.
 **Acceptance**: Deployment succeeds only after Unit 8d is complete or explicitly documented as externally blocked, live smoke checks pass, production does not require PostHog to respond to serve app/API traffic, and no secret values appear in command output or committed files.
 
-### ⬜ Unit 9c: Completion Notification
+### 🔄 Unit 9c: Completion Notification
 **What**: Commit/push final state and notify Slugger with a concise completion summary.
 **Output**: Final git commit/push and Slugger notification.
 **Acceptance**: `git status --short` is clean, branch is pushed, Slugger acknowledges completion, and final response includes the deployed API docs/playground link plus verification summary.
@@ -404,3 +404,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 10:30 Unit 9a complete: typecheck, focused telemetry tests (25 files/264 tests), full Vitest (286 files/5,452 tests), build, and secret scan completed; final verification artifact records Unit 8d unavailable-key status
 - 2026-06-03 10:31 Unit 9b started: deploy production Worker and run live smoke/API smoke checks
 - 2026-06-03 10:34 Unit 9b complete: deployed Worker version `1b0cc956-4d31-4446-a03c-57739fc7a230`, live smoke and API smoke passed, explicit `/api`, `/api/playground`, `/api/v1/health`, `/mcp`, and OAuth metadata probes passed, and remote smoke user cleanup changed 8 rows
+- 2026-06-03 10:35 Unit 9c started: final clean-status check, branch push, and Slugger completion notification
