@@ -8,7 +8,7 @@ vi.mock("~/lib/analytics-server", async (importOriginal) => ({
   captureException: vi.fn(async () => undefined),
 }));
 
-import { handleMcpHttpRequest } from "~/lib/mcp/http-mcp.server";
+import { handleMcpHttpRequest, jsonRpcErrorCode, mcpJsonRpcTelemetry } from "~/lib/mcp/http-mcp.server";
 import { captureEvent, captureException } from "~/lib/analytics-server";
 import { createApiCredential } from "~/lib/api-auth.server";
 import { getLocalDb } from "~/lib/db.server";
@@ -541,6 +541,24 @@ describe("handleMcpHttpRequest", () => {
       ],
     });
     expect(JSON.stringify(mcpTelemetryInputs())).not.toContain("No such tool");
+  });
+
+  it("normalizes MCP JSON-RPC telemetry helper edge cases without leaking unknown values", () => {
+    expect(mcpJsonRpcTelemetry("not json")).toEqual({});
+    expect(mcpJsonRpcTelemetry("[]")).toEqual({});
+    expect(mcpJsonRpcTelemetry(JSON.stringify({ jsonrpc: "2.0", id: 61, method: 42 }))).toEqual({});
+    expect(mcpJsonRpcTelemetry(JSON.stringify({ jsonrpc: "2.0", id: 62, method: "resources/read" }))).toEqual({});
+    expect(mcpJsonRpcTelemetry(JSON.stringify({
+      jsonrpc: "2.0",
+      id: 63,
+      method: "tools/call",
+      params: { name: "raw_secret_tool_name" },
+    }))).toEqual({ jsonRpcMethod: "tools/call", toolName: undefined });
+
+    expect(jsonRpcErrorCode(null)).toBeUndefined();
+    expect(jsonRpcErrorCode({ error: null })).toBeUndefined();
+    expect(jsonRpcErrorCode({ error: { code: "raw-error-code" } })).toBeUndefined();
+    expect(jsonRpcErrorCode({ error: { code: -32000 } })).toBe(-32000);
   });
 
   // A tools/call with an unknown operation name throws from the API layer →

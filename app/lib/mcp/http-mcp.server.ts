@@ -130,7 +130,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function mcpJsonRpcTelemetry(body: string): Pick<McpTelemetryInput, "jsonRpcMethod" | "toolName"> {
+export function mcpJsonRpcTelemetry(body: string): Pick<McpTelemetryInput, "jsonRpcMethod" | "toolName"> {
   try {
     const parsed = JSON.parse(body) as unknown;
     if (!isRecord(parsed)) return {};
@@ -154,7 +154,7 @@ function isJsonRpcSuccessResponse(response: unknown): boolean {
   return isRecord(response) && "result" in response && !("error" in response);
 }
 
-function jsonRpcErrorCode(response: unknown): number | undefined {
+export function jsonRpcErrorCode(response: unknown): number | undefined {
   if (!isRecord(response) || !isRecord(response.error)) return undefined;
   return typeof response.error.code === "number" ? response.error.code : undefined;
 }
