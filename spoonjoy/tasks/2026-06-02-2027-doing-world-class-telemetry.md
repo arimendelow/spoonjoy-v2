@@ -242,7 +242,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Covered client bootstrap and analytics config behavior.
 **Acceptance**: Focused client analytics tests pass with no warnings.
 
-### ⬜ Unit 7d: Developer Docs/Playground Client Telemetry — Tests
+### 🔄 Unit 7d: Developer Docs/Playground Client Telemetry — Tests
 **What**: Add failing tests for safe client-side developer telemetry helpers in `test/lib/analytics.test.ts` and focused component/route tests for `app/routes/developers.tsx` and `app/routes/developers.playground.tsx`.
 **Output**: Tests proving docs/playground events use controlled event names, generated operation ids/groups, auth mode, request method, response status class, latency bucket, and outcome fields.
 **Acceptance**: Tests fail before implementation and prove no bearer token, OAuth code, form body, request body, response body, raw query string, raw URL, header value, free-text example, or clientMutationId reaches client telemetry.
@@ -386,3 +386,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 09:46 Unit 7b complete: no app-code change required; focused bootstrap tests, typecheck, and build confirm existing PostHog initialization is gated, kill-switchable, host-configurable, exception-enabled only when initialized, and session-recording masked
 - 2026-06-03 09:46 Unit 7c started: client PostHog bootstrap coverage/refactor verification
 - 2026-06-03 09:48 Unit 7c complete: focused client bootstrap tests passed under coverage; `app/lib/analytics.ts` reached 100% statements/branches/functions/lines; global threshold limitation documented for unrelated app files
+- 2026-06-03 09:48 Unit 7d started: developer docs/playground client telemetry tests
