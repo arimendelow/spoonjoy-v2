@@ -117,12 +117,12 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: API v1 mutation telemetry that preserves existing response wire formats.
 **Acceptance**: Unit 3e tests pass and existing shopping-list/token API v1 tests still pass.
 
-### 🔄 Unit 3g: API v1 Rate-Limit/Internal-Error Telemetry — Tests
+### ✅ Unit 3g: API v1 Rate-Limit/Internal-Error Telemetry — Tests
 **What**: Add failing tests for rate-limited requests, method-not-allowed, unknown path, authentication required, insufficient scope, invalid token, and internal errors.
 **Output**: Tests proving API v1 error telemetry emits safe error code/status/rate-limit scope and preserves existing exception logging/capture behavior.
 **Acceptance**: Tests fail before implementation and assert internal error telemetry includes no stack trace except through the existing `$exception` capture path.
 
-### ⬜ Unit 3h: API v1 Rate-Limit/Internal-Error Telemetry — Implementation
+### 🔄 Unit 3h: API v1 Rate-Limit/Internal-Error Telemetry — Implementation
 **What**: Extend API v1 telemetry across early rate-limit returns and catch blocks, preserving `logApiV1InternalError` and any existing response behavior.
 **Output**: API v1 error/rate-limit lifecycle telemetry.
 **Acceptance**: Unit 3g tests pass and existing API v1 route tests still pass.
@@ -341,3 +341,5 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 07:52 Unit 3f started: implement API v1 mutation and validation telemetry
 - 2026-06-03 07:56 Unit 3f complete: API v1 operation, error code, idempotency, and request byte telemetry implemented with focused tests, regressions, typecheck, and build passing
 - 2026-06-03 07:56 Unit 3g started: API v1 rate-limit and internal-error telemetry tests
+- 2026-06-03 07:59 Unit 3g complete: API v1 rate-limit/internal-error telemetry tests fail red on early-response/internal-error gaps and missing known-principal insufficient-scope metadata
+- 2026-06-03 07:59 Unit 3h started: implement API v1 rate-limit and internal-error telemetry
