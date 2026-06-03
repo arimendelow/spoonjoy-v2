@@ -159,6 +159,7 @@ function expectOAuthTokenEvent(input: {
   expect(serialized).not.toContain("access_token");
   expect(serialized).not.toContain("refresh_token");
   expect(serialized).not.toContain("requestBody");
+  expect(serialized).not.toContain("203.0.113.");
   return eventInput;
 }
 
@@ -180,6 +181,8 @@ describe("OAuth token telemetry", () => {
       client_id: client.clientId,
       redirect_uri: REDIRECT_URI,
       code_verifier: VERIFIER,
+    }, {
+      "CF-Connecting-IP": "203.0.113.21",
     });
     const { args: codeArgs, response: codeResponse } = await invokeAction(codeExchange.request);
 
@@ -202,6 +205,7 @@ describe("OAuth token telemetry", () => {
         codeBody.refresh_token,
         "sj_",
         "ort_",
+        "203.0.113.21",
       ],
     });
     expectCaptureScheduled(codeArgs);
@@ -284,6 +288,21 @@ describe("OAuth token telemetry", () => {
       ],
     });
     expectCaptureScheduled(invalidGrantResponse.args);
+
+    const invalidForm = rawPost("{\"code\":\"oac_raw_json_code\"}", {
+      "Content-Type": "application/json",
+      "CF-Connecting-IP": "203.0.113.12",
+    });
+    const invalidFormResponse = await invokeAction(invalidForm.request);
+    expect(invalidFormResponse.response.status).toBe(400);
+    expectOAuthTokenEvent({
+      status: 400,
+      outcome: "error",
+      grantType: "unknown",
+      errorCode: "invalid_request",
+      forbidden: ["oac_raw_json_code", invalidForm.bodyText, "203.0.113.12"],
+    });
+    expectCaptureScheduled(invalidFormResponse.args);
 
     const oversized = rawPost("x".repeat(8 * 1024 + 1));
     const oversizedResponse = await invokeAction(oversized.request);
