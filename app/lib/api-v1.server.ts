@@ -57,6 +57,12 @@ export interface ApiV1RouteArgs {
   context: AppLoadContext;
 }
 
+interface ApiV1TelemetryMetadata {
+  operation?: string;
+  errorCode?: ApiV1ErrorCode;
+  idempotencyOutcome?: "aborted" | "committed" | "conflict" | "in_progress" | "none" | "not_attempted" | "replayed";
+}
+
 export class ApiV1Error extends Error {
   code: ApiV1ErrorCode;
   status: number;
@@ -234,6 +240,77 @@ function authModeForPrincipal(principal: ApiPrincipal | null): string {
   return principal.source;
 }
 
+const API_V1_TELEMETRY = Symbol("apiV1Telemetry");
+
+type ApiV1TelemetryResponse = Response & { [API_V1_TELEMETRY]?: ApiV1TelemetryMetadata };
+
+function withApiV1Telemetry(response: Response, telemetry: ApiV1TelemetryMetadata): Response {
+  Object.defineProperty(response, API_V1_TELEMETRY, {
+    value: telemetry,
+    configurable: true,
+  });
+  return response;
+}
+
+function responseTelemetry(response: Response): ApiV1TelemetryMetadata {
+  return (response as ApiV1TelemetryResponse)[API_V1_TELEMETRY] ?? {};
+}
+
+function apiV1OperationFor(method: string, path: string): string | undefined {
+  const resource = apiV1RouteResource(method, path);
+  if (!resource) return undefined;
+
+  switch (`${method.toUpperCase()} ${resource.name}`) {
+    case "GET root":
+      return "root.read";
+    case "GET health":
+      return "health.read";
+    case "GET openapi":
+      return "openapi.read";
+    case "GET openapi-sdk":
+      return "openapi.sdk.read";
+    case "GET openapi-connector":
+      return "openapi.connector.read";
+    case "GET recipes":
+      return "recipes.list";
+    case "GET recipe":
+      return "recipes.get";
+    case "GET cookbooks":
+      return "cookbooks.list";
+    case "GET cookbook":
+      return "cookbooks.get";
+    case "GET shopping-list":
+      return "shopping-list.read";
+    case "GET shopping-list-sync":
+      return "shopping-list.sync";
+    case "POST shopping-list-items":
+      return "shopping-list.items.create";
+    case "PATCH shopping-list-item":
+      return "shopping-list.items.check";
+    case "DELETE shopping-list-item":
+      return "shopping-list.items.delete";
+    case "GET tokens":
+      return "tokens.list";
+    case "POST tokens":
+      return "tokens.create";
+    case "DELETE token":
+      return "tokens.revoke";
+    default:
+      return undefined;
+  }
+}
+
+function defaultIdempotencyOutcome(operation: string | undefined, errorCode: ApiV1ErrorCode | undefined) {
+  if (!operation) return undefined;
+  if (operation.startsWith("tokens.")) return "none";
+  if (!operation.startsWith("shopping-list.items.")) return undefined;
+  if (errorCode === "idempotency_conflict") return "conflict";
+  if (errorCode === "idempotency_in_progress") return "in_progress";
+  if (errorCode === "invalid_json" || errorCode === "validation_error") return "not_attempted";
+  if (errorCode) return "aborted";
+  return undefined;
+}
+
 function observeApiV1Response(
   args: ApiV1RouteArgs,
   input: {
@@ -242,6 +319,7 @@ function observeApiV1Response(
     response: Response;
     startedAt: number;
     principal?: ApiPrincipal | null;
+    telemetry?: ApiV1TelemetryMetadata;
   },
 ): Response {
   const env = args.context.cloudflare?.env;
@@ -253,6 +331,12 @@ function observeApiV1Response(
 
   const resource = apiV1RouteResource(args.request.method, input.path);
   const principal = input.principal ?? null;
+  const responseMetadata = responseTelemetry(input.response);
+  const operation = input.telemetry?.operation ?? responseMetadata.operation ?? apiV1OperationFor(args.request.method, input.path);
+  const errorCode = input.telemetry?.errorCode ?? responseMetadata.errorCode;
+  const idempotencyOutcome = input.telemetry?.idempotencyOutcome
+    ?? responseMetadata.idempotencyOutcome
+    ?? defaultIdempotencyOutcome(operation, errorCode);
   waitUntil(
     captureEvent(postHogConfig, {
       event: "spoonjoy.api_v1.request",
@@ -263,6 +347,8 @@ function observeApiV1Response(
         method: args.request.method,
         status: input.response.status,
         request_id: input.requestId,
+        operation,
+        error_code: errorCode,
         auth_mode: authModeForPrincipal(principal),
         principal_id: principal?.id,
         credential_id: principal?.credentialId,
@@ -275,6 +361,7 @@ function observeApiV1Response(
         origin_host: headerHost(args.request.headers.get("Origin")),
         referrer_host: headerHost(args.request.headers.get("Referer")),
         user_agent_family: userAgentFamily(args.request.headers.get("User-Agent")),
+        idempotency_outcome: idempotencyOutcome,
         latency_ms: Math.max(0, Date.now() - input.startedAt),
       },
     }),
@@ -1148,10 +1235,10 @@ async function runIdempotentShoppingMutation(
 
   if (reservation.status === "replay") {
     const replay = replayIdempotencyResponse(reservation.record, requestId);
-    return Response.json(replay.body, {
+    return withApiV1Telemetry(Response.json(replay.body, {
       status: replay.status,
       headers: apiV1PrivateHeaders(requestId),
-    });
+    }), { idempotencyOutcome: "replayed", operation });
   }
 
   if (reservation.status === "in_flight") {
@@ -1180,10 +1267,10 @@ async function runIdempotentShoppingMutation(
     body: responseBody,
   });
 
-  return Response.json(responseBody, {
+  return withApiV1Telemetry(Response.json(responseBody, {
     status: result.status,
     headers: apiV1PrivateHeaders(requestId),
-  });
+  }), { idempotencyOutcome: "committed", operation });
 }
 
 async function handleShoppingItemCreate(args: ApiV1RouteArgs, requestId: string, principal: ApiPrincipal) {
@@ -1393,7 +1480,10 @@ async function handleTokenList(args: ApiV1RouteArgs, requestId: string, authenti
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 
-  return apiV1PrivateSuccess(requestId, { tokens: credentials.map(credentialMetadata) });
+  return withApiV1Telemetry(
+    apiV1PrivateSuccess(requestId, { tokens: credentials.map(credentialMetadata) }),
+    { idempotencyOutcome: "none" },
+  );
 }
 
 async function handleTokenCreate(args: ApiV1RouteArgs, requestId: string, authenticated: ApiPrincipal) {
@@ -1413,10 +1503,10 @@ async function handleTokenCreate(args: ApiV1RouteArgs, requestId: string, authen
   const db = await getRequestDb(args.context);
   const created = await createApiCredential(db, authenticated.id, name, { scopes: storedScopes });
 
-  return apiV1PrivateSuccess(requestId, {
+  return withApiV1Telemetry(apiV1PrivateSuccess(requestId, {
     token: created.token,
     credential: credentialMetadata(created.credential),
-  }, 201, TOKEN_RESPONSE_HEADERS);
+  }, 201, TOKEN_RESPONSE_HEADERS), { idempotencyOutcome: "none" });
 }
 
 async function handleTokenRevoke(args: ApiV1RouteArgs, requestId: string, authenticated: ApiPrincipal, credentialId: string) {
@@ -1436,15 +1526,22 @@ async function handleTokenRevoke(args: ApiV1RouteArgs, requestId: string, authen
       })
     : credential;
 
-  return apiV1PrivateSuccess(requestId, {
+  return withApiV1Telemetry(apiV1PrivateSuccess(requestId, {
     revoked,
     credential: credentialMetadata(updated),
-  });
+  }), { idempotencyOutcome: "none" });
 }
 
 export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response> {
   const requestId = requestIdFor(args.request);
   const startedAt = Date.now();
+  const path = args.params["*"] ?? "";
+  let telemetryPrincipal: ApiPrincipal | null = null;
+  const authorize = async (candidatePath: string): Promise<ApiPrincipal | null> => {
+    const principal = await authorizeApiV1Route(args, candidatePath);
+    telemetryPrincipal = principal;
+    return principal;
+  };
 
   try {
     if (args.request.method === "OPTIONS") {
@@ -1454,9 +1551,8 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     const throttled = await enforceApiV1RateLimit(args, requestId);
     if (throttled) return throttled;
 
-    const path = args.params["*"] ?? "";
     if (args.request.method === "GET" && path === "") {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       return observeApiV1Response(args, {
         requestId,
         path,
@@ -1467,7 +1563,7 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     if (args.request.method === "GET" && path === "health") {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const health = {
         ok: true,
         version: "v1",
@@ -1482,7 +1578,7 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     if (args.request.method === "GET" && path === "openapi.json") {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const response = Response.json(buildApiV1OpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
@@ -1490,7 +1586,7 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     if (args.request.method === "GET" && path === "openapi.connector.json") {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const response = Response.json(buildApiV1ConnectorOpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
@@ -1498,7 +1594,7 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     if (args.request.method === "GET" && path === "openapi.sdk.json") {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const response = Response.json(buildApiV1SdkOpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
@@ -1506,74 +1602,74 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     if (args.request.method === "GET" && path === "recipes") {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const response = await handleRecipeList(args, requestId, principal);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     const segments = path.split("/").filter(Boolean);
     if (args.request.method === "GET" && segments[0] === "recipes" && segments.length === 2) {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const response = await handleRecipeDetail(args, requestId, principal, segments[1]);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "cookbooks") {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const response = await handleCookbookList(args, requestId, principal);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && segments[0] === "cookbooks" && segments.length === 2) {
-      const principal = await authorizeApiV1Route(args, path);
+      const principal = await authorize(path);
       const response = await handleCookbookDetail(args, requestId, principal, segments[1]);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "shopping-list") {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleShoppingListRead(args, requestId, principal);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "shopping-list/sync") {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleShoppingListSync(args, requestId, principal);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "POST" && path === "shopping-list/items") {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleShoppingItemCreate(args, requestId, principal);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "PATCH" && segments[0] === "shopping-list" && segments[1] === "items" && segments.length === 3) {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleShoppingItemCheck(args, requestId, principal, segments[2]);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "DELETE" && segments[0] === "shopping-list" && segments[1] === "items" && segments.length === 3) {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleShoppingItemDelete(args, requestId, principal, segments[2]);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "tokens") {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleTokenList(args, requestId, principal);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "POST" && path === "tokens") {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleTokenCreate(args, requestId, principal);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "DELETE" && segments[0] === "tokens" && segments.length === 2) {
-      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const principal = await authorize(path) as ApiPrincipal;
       const response = await handleTokenRevoke(args, requestId, principal, segments[1]);
       return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
@@ -1587,13 +1683,21 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     if (args.request.method === "GET") {
-      await authorizeApiV1Route(args, path);
+      await authorize(path);
     }
 
     throw new ApiV1Error("not_found", `Unknown Spoonjoy API v1 endpoint: /api/v1/${path}`);
   } catch (error) {
     if (error instanceof ApiV1Error) {
-      return apiV1ErrorResponse(requestId, error);
+      const response = apiV1ErrorResponse(requestId, error);
+      return observeApiV1Response(args, {
+        requestId,
+        path,
+        response,
+        startedAt,
+        principal: telemetryPrincipal,
+        telemetry: { errorCode: error.code },
+      });
     }
 
     logApiV1InternalError(args, requestId, error);
