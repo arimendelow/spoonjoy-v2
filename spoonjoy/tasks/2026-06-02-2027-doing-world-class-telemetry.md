@@ -97,12 +97,12 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Best-effort `ctx.waitUntil(captureEvent(...))` public API v1 telemetry.
 **Acceptance**: Unit 3a tests pass and existing public API v1 tests still pass.
 
-### 🔄 Unit 3c: API v1 Authenticated Metadata — Tests
+### ✅ Unit 3c: API v1 Authenticated Metadata — Tests
 **What**: Add failing tests for session and bearer authenticated API v1 reads, including bearer credential id, OAuth client id/resource when present, principal id, scopes, and auth source.
 **Output**: Tests proving authenticated API v1 telemetry identifies who called without leaking token values or Authorization headers.
 **Acceptance**: Tests fail before implementation and assert no email, username, bearer token, token prefix, raw header, cookie, or free text appears in telemetry.
 
-### ⬜ Unit 3d: API v1 Authenticated Metadata — Implementation
+### 🔄 Unit 3d: API v1 Authenticated Metadata — Implementation
 **What**: Extend API v1 telemetry to include principal/source/scope metadata after `authorizeApiV1Route` resolves a principal.
 **Output**: Authenticated API v1 telemetry for session, personal bearer, OAuth bearer, and self-revoke cases.
 **Acceptance**: Unit 3c tests pass and existing auth/scopes API v1 tests still pass.
@@ -332,3 +332,5 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 07:32 Unit 3b started: implement API v1 public/discovery telemetry
 - 2026-06-03 07:38 Unit 3b complete: public/discovery API v1 request telemetry implemented with focused tests, regressions, typecheck, and build passing
 - 2026-06-03 07:38 Unit 3c started: authenticated API v1 metadata tests
+- 2026-06-03 07:41 Unit 3c complete: authenticated API v1 private-read tests fail red on missing request telemetry
+- 2026-06-03 07:41 Unit 3d started: implement authenticated API v1 metadata telemetry
