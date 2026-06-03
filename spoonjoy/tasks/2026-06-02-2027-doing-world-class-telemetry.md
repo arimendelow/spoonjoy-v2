@@ -217,7 +217,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Tests proving `spoonjoy.oauth.revoke` emits status/error code, token type hint class when present, client id when safely known, latency, and safe request context.
 **Acceptance**: Tests fail before implementation and prove no refresh token, access token, raw form body, or token value appears in telemetry.
 
-### ⬜ Unit 6h: OAuth Revoke Telemetry — Implementation
+### 🔄 Unit 6h: OAuth Revoke Telemetry — Implementation
 **What**: Instrument `app/routes/oauth.revoke.ts` for route-shell timing/rate-limit metadata and `app/lib/oauth-routes.server.ts` for revoke result/error metadata.
 **Output**: Safe OAuth revoke telemetry.
 **Acceptance**: Unit 6g tests pass and existing OAuth revoke tests still pass.
@@ -375,3 +375,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 09:20 Unit 6f complete: OAuth token/refresh telemetry implemented for code exchange, refresh, method/form/grant errors, and rate limits; focused tests, OAuth regressions, typecheck, and build pass
 - 2026-06-03 09:21 Unit 6g started: OAuth revoke telemetry tests
 - 2026-06-03 09:23 Unit 6g complete: OAuth revoke telemetry tests fail red on missing `spoonjoy.oauth.revoke` lifecycle capture
+- 2026-06-03 09:24 Unit 6h started: implement OAuth revoke telemetry
