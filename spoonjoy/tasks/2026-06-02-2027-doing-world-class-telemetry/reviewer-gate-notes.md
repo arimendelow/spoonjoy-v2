@@ -76,3 +76,13 @@
 
 - Unit 6c fresh reviewer returned `CONVERGED`.
 - Unit 6d fresh reviewer returned `CONVERGED`.
+
+## 2026-06-03 09:17
+
+- Unit 6e fresh reviewer returned `FINDINGS`.
+- Major finding: token telemetry tests covered oversized form bodies but not invalid content-type/malformed form bodies, while the red artifact claimed both.
+- Minor finding: raw IP exclusion was only asserted on the rate-limit branch.
+- Remediation path:
+  - `test/routes/oauth-token-telemetry.test.ts` now covers an `application/json` token request as an invalid form body and asserts safe `invalid_request` telemetry.
+  - A success-path request now carries `CF-Connecting-IP`, and the shared assertion forbids raw IP literals in every token telemetry event.
+  - The red artifact now distinguishes token values/prefixes from the controlled `refresh_token` grant class.

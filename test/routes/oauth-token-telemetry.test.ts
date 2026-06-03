@@ -157,7 +157,6 @@ function expectOAuthTokenEvent(input: {
   expect(serialized).not.toContain("code_verifier");
   expect(serialized).not.toContain("authorizationCode");
   expect(serialized).not.toContain("access_token");
-  expect(serialized).not.toContain("refresh_token");
   expect(serialized).not.toContain("requestBody");
   expect(serialized).not.toContain("203.0.113.");
   return eventInput;
