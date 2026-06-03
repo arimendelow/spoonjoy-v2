@@ -266,8 +266,8 @@ function observeApiV1Response(
         auth_mode: authModeForPrincipal(principal),
         principal_id: principal?.id,
         credential_id: principal?.credentialId,
-        oauth_client_id: principal?.oauthClientId,
-        oauth_resource: principal?.oauthResource,
+        oauth_client_id: principal?.oauthClientId || undefined,
+        oauth_resource: principal?.oauthClientId ? (principal.oauthResource ?? null) : undefined,
         scopes: principal?.scopes,
         request_bytes: requestContentBytes(args.request),
         privacy_class: principal ? "authenticated" : resource?.auth === "bearer" ? "private" : "public",
@@ -1456,13 +1456,13 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
 
     const path = args.params["*"] ?? "";
     if (args.request.method === "GET" && path === "") {
-      await authorizeApiV1Route(args, path);
+      const principal = await authorizeApiV1Route(args, path);
       return observeApiV1Response(args, {
         requestId,
         path,
         response: apiV1Success(requestId, API_V1_DISCOVERY_DATA),
         startedAt,
-        principal: null,
+        principal,
       });
     }
 
@@ -1478,96 +1478,104 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
       const response = principal
         ? apiV1PrivateSuccess(requestId, health)
         : apiV1Success(requestId, health);
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "openapi.json") {
-      await authorizeApiV1Route(args, path);
+      const principal = await authorizeApiV1Route(args, path);
       const response = Response.json(buildApiV1OpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "openapi.connector.json") {
-      await authorizeApiV1Route(args, path);
+      const principal = await authorizeApiV1Route(args, path);
       const response = Response.json(buildApiV1ConnectorOpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "openapi.sdk.json") {
-      await authorizeApiV1Route(args, path);
+      const principal = await authorizeApiV1Route(args, path);
       const response = Response.json(buildApiV1SdkOpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "recipes") {
       const principal = await authorizeApiV1Route(args, path);
       const response = await handleRecipeList(args, requestId, principal);
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     const segments = path.split("/").filter(Boolean);
     if (args.request.method === "GET" && segments[0] === "recipes" && segments.length === 2) {
       const principal = await authorizeApiV1Route(args, path);
       const response = await handleRecipeDetail(args, requestId, principal, segments[1]);
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "cookbooks") {
       const principal = await authorizeApiV1Route(args, path);
       const response = await handleCookbookList(args, requestId, principal);
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && segments[0] === "cookbooks" && segments.length === 2) {
       const principal = await authorizeApiV1Route(args, path);
       const response = await handleCookbookDetail(args, requestId, principal, segments[1]);
-      return observeApiV1Response(args, { requestId, path, response, startedAt, principal: null });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "shopping-list") {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleShoppingListRead(args, requestId, principal as ApiPrincipal);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleShoppingListRead(args, requestId, principal);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "shopping-list/sync") {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleShoppingListSync(args, requestId, principal as ApiPrincipal);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleShoppingListSync(args, requestId, principal);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "POST" && path === "shopping-list/items") {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleShoppingItemCreate(args, requestId, principal as ApiPrincipal);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleShoppingItemCreate(args, requestId, principal);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "PATCH" && segments[0] === "shopping-list" && segments[1] === "items" && segments.length === 3) {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleShoppingItemCheck(args, requestId, principal as ApiPrincipal, segments[2]);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleShoppingItemCheck(args, requestId, principal, segments[2]);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "DELETE" && segments[0] === "shopping-list" && segments[1] === "items" && segments.length === 3) {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleShoppingItemDelete(args, requestId, principal as ApiPrincipal, segments[2]);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleShoppingItemDelete(args, requestId, principal, segments[2]);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "tokens") {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleTokenList(args, requestId, principal as ApiPrincipal);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleTokenList(args, requestId, principal);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "POST" && path === "tokens") {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleTokenCreate(args, requestId, principal as ApiPrincipal);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleTokenCreate(args, requestId, principal);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "DELETE" && segments[0] === "tokens" && segments.length === 2) {
-      const principal = await authorizeApiV1Route(args, path);
-      return await handleTokenRevoke(args, requestId, principal as ApiPrincipal, segments[1]);
+      const principal = await authorizeApiV1Route(args, path) as ApiPrincipal;
+      const response = await handleTokenRevoke(args, requestId, principal, segments[1]);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method !== "GET" && args.request.method !== "POST" && args.request.method !== "PATCH" && args.request.method !== "DELETE") {
