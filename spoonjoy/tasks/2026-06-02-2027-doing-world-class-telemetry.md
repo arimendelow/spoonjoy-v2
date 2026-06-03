@@ -107,12 +107,12 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Authenticated API v1 telemetry for session, personal bearer, OAuth bearer, and self-revoke cases.
 **Acceptance**: Unit 3c tests pass and existing auth/scopes API v1 tests still pass.
 
-### 🔄 Unit 3e: API v1 Mutation And Validation Telemetry — Tests
+### ✅ Unit 3e: API v1 Mutation And Validation Telemetry — Tests
 **What**: Add failing tests for shopping-list create/check/delete, token list/create/revoke, idempotency replay/in-progress/conflict, JSON validation errors, and not-found validation paths.
 **Output**: Tests proving mutation telemetry includes controlled operation names, status/error code, idempotency outcome, request byte count, and latency without payload contents.
 **Acceptance**: Tests fail before implementation and assert no shopping item name, unit name, token name, returned token secret, clientMutationId raw value, or request/response body appears in telemetry.
 
-### ⬜ Unit 3f: API v1 Mutation And Validation Telemetry — Implementation
+### 🔄 Unit 3f: API v1 Mutation And Validation Telemetry — Implementation
 **What**: Extend centralized API v1 telemetry so mutation and validation branches report controlled operation/resource names, error codes, idempotency class, and status.
 **Output**: API v1 mutation telemetry that preserves existing response wire formats.
 **Acceptance**: Unit 3e tests pass and existing shopping-list/token API v1 tests still pass.
@@ -337,3 +337,5 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 07:42 Unit 3b reviewer found authenticated metadata had landed too early on optional public routes; remediated by constraining Unit 3b and adding supplemental Unit 3c red coverage
 - 2026-06-03 07:48 Unit 3d complete: authenticated API v1 metadata telemetry implemented with focused telemetry tests, API v1 regressions, typecheck, and build passing
 - 2026-06-03 07:48 Unit 3e started: API v1 mutation and validation telemetry tests
+- 2026-06-03 07:52 Unit 3e complete: API v1 mutation, idempotency, token, validation, and not-found telemetry tests fail red on missing operation/error/idempotency metadata
+- 2026-06-03 07:52 Unit 3f started: implement API v1 mutation and validation telemetry
