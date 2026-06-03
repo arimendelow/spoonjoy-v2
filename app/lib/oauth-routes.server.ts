@@ -430,24 +430,60 @@ export async function handleOAuthToken(
  */
 export async function handleOAuthRevoke(request: Request, db: Database): Promise<Response> {
   if (request.method !== "POST") {
-    return Response.json({ error: "invalid_request", error_description: "POST required" }, { status: 405 });
+    return withOAuthRevokeTelemetry(
+      Response.json({ error: "invalid_request", error_description: "POST required" }, { status: 405 }),
+      {
+        outcome: "error",
+        errorCode: "invalid_request",
+        tokenTypeHint: "unknown",
+      },
+    );
   }
 
   let form: URLSearchParams;
   try {
     form = await readLimitedFormBody(request);
   } catch (error) {
-    if (error instanceof OAuthError) return oauthErrorResponse(error);
-    return Response.json({ error: "invalid_request", error_description: "Invalid form body" }, { status: 400 });
+    if (error instanceof OAuthError) {
+      return withOAuthRevokeTelemetry(oauthErrorResponse(error), {
+        outcome: "error",
+        errorCode: error.code,
+        tokenTypeHint: "unknown",
+      });
+    }
+    return withOAuthRevokeTelemetry(
+      Response.json({ error: "invalid_request", error_description: "Invalid form body" }, { status: 400 }),
+      {
+        outcome: "error",
+        errorCode: "invalid_request",
+        tokenTypeHint: "unknown",
+      },
+    );
   }
+  const clientId = (form.get("client_id") ?? "").toString() || undefined;
+  const tokenTypeHint = oauthRevokeTokenHint((form.get("token_type_hint") ?? "").toString());
 
   try {
-    await revokeConnectorRefreshToken(db, {
+    const revoked = await revokeConnectorRefreshToken(db, {
       refreshToken: (form.get("token") ?? "").toString(),
-      clientId: (form.get("client_id") ?? "").toString() || undefined,
+      clientId,
     });
-    return new Response(null, { status: 204 });
+    return withOAuthRevokeTelemetry(
+      new Response(null, { status: 204 }),
+      {
+        outcome: revoked ? "revoked" : "not_found",
+        clientId: revoked ? clientId : undefined,
+        tokenTypeHint,
+      },
+    );
   } catch (error) {
+    if (error instanceof OAuthError) {
+      return withOAuthRevokeTelemetry(oauthErrorResponse(error), {
+        outcome: "error",
+        errorCode: error.code,
+        tokenTypeHint,
+      });
+    }
     return oauthErrorResponse(error);
   }
 }
@@ -531,6 +567,40 @@ export function oauthTokenTelemetryFor(response: Response): OAuthTokenTelemetryM
 
 function oauthTokenGrantType(value: string): OAuthTokenGrantType {
   if (value === "authorization_code" || value === "refresh_token") return value;
+  if (value) return "unsupported";
+  return "unknown";
+}
+
+type OAuthRevokeTokenHint = "refresh_token" | "unsupported" | "unknown";
+
+export interface OAuthRevokeTelemetryMetadata {
+  outcome?: "revoked" | "not_found" | "error" | "rate_limited";
+  clientId?: string;
+  errorCode?: string;
+  tokenTypeHint?: OAuthRevokeTokenHint;
+}
+
+const oauthRevokeTelemetrySymbol = Symbol("spoonjoy.oauth.revoke.telemetry");
+
+export function withOAuthRevokeTelemetry(
+  response: Response,
+  metadata: OAuthRevokeTelemetryMetadata,
+): Response {
+  Object.defineProperty(response, oauthRevokeTelemetrySymbol, {
+    value: metadata,
+    enumerable: false,
+  });
+  return response;
+}
+
+export function oauthRevokeTelemetryFor(response: Response): OAuthRevokeTelemetryMetadata {
+  return (response as Response & {
+    [oauthRevokeTelemetrySymbol]?: OAuthRevokeTelemetryMetadata;
+  })[oauthRevokeTelemetrySymbol] ?? {};
+}
+
+function oauthRevokeTokenHint(value: string): OAuthRevokeTokenHint {
+  if (value === "refresh_token") return "refresh_token";
   if (value) return "unsupported";
   return "unknown";
 }
