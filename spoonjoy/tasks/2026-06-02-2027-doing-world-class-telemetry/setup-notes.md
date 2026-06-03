@@ -12,6 +12,27 @@
 - No actual local `VITE_POSTHOG_KEY` value was found by name in `.env`, `.env.local`, or `.dev.vars`.
 - `wrangler.json` production vars currently include `NODE_ENV` and `SPOONJOY_BASE_URL`, not PostHog vars.
 
+## Unit 8d PostHog Setup Check
+
+- Rechecked Cloudflare Worker secrets with `pnpm exec wrangler secret list --format=json` on 2026-06-03 at 10:20.
+- `POSTHOG_KEY`: missing.
+- Required runtime secrets checked at the same time:
+  - `SESSION_SECRET`: present.
+  - `VAPID_PUBLIC_KEY`: present.
+  - `VAPID_PRIVATE_KEY`: present.
+  - `VAPID_SUBJECT`: present.
+- Rechecked local deploy/build env files for variable names only; no values were printed.
+  - `.env.local`: `VITE_POSTHOG_KEY` missing, `POSTHOG_KEY` missing.
+  - `.env`: `VITE_POSTHOG_KEY` missing, `POSTHOG_KEY` missing.
+  - `.dev.vars`: absent.
+- `wrangler.json` still does not commit `POSTHOG_KEY` or `VITE_POSTHOG_KEY`, which is the correct secret posture.
+- External setup still required to enable telemetry capture:
+  - Obtain the PostHog project API key from PostHog project settings.
+  - Set the Worker runtime ingestion key with `wrangler secret put POSTHOG_KEY`.
+  - Provide the same public project key to the environment that runs `pnpm run build` as `VITE_POSTHOG_KEY`.
+  - Keep `POSTHOG_DISABLED` and `VITE_POSTHOG_DISABLED` unset or false-ish unless intentionally disabling telemetry.
+- Until those values are supplied, the deployed app remains telemetry-disabled by design while the API/docs/playground code paths continue to function.
+
 ## Existing Telemetry State
 
 - Client analytics is already gated by `VITE_POSTHOG_KEY` in `app/entry.client.tsx` through `resolvePostHogConfig` in `app/lib/analytics.ts`.
