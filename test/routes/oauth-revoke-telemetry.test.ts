@@ -166,6 +166,8 @@ function expectOAuthRevokeEvent(input: {
   expect(serialized).not.toContain("token=");
   expect(serialized).not.toContain("requestBody");
   expect(serialized).not.toContain("203.0.113.");
+  expect(serialized).not.toContain("Cookie");
+  expect(serialized).not.toContain("Authorization");
   return eventInput;
 }
 
@@ -188,6 +190,8 @@ describe("OAuth revoke telemetry", () => {
       token_type_hint: "refresh_token",
     }, {
       "CF-Connecting-IP": "203.0.113.31",
+      Authorization: "Bearer sj_raw_revoke_bearer",
+      Cookie: "session=raw_revoke_cookie",
     });
     const successResponse = await invokeAction(success.request);
     expect(successResponse.response.status).toBe(204);
@@ -196,7 +200,14 @@ describe("OAuth revoke telemetry", () => {
       outcome: "revoked",
       clientId: client.clientId,
       tokenTypeHint: "refresh_token",
-      forbidden: [refreshToken, success.bodyText, "ort_", "203.0.113.31"],
+      forbidden: [
+        refreshToken,
+        success.bodyText,
+        "ort_",
+        "203.0.113.31",
+        "sj_raw_revoke_bearer",
+        "raw_revoke_cookie",
+      ],
     });
     expectCaptureScheduled(successResponse.args);
 
@@ -251,6 +262,8 @@ describe("OAuth revoke telemetry", () => {
     const invalidBody = rawPost("{\"token\":\"ort_raw_json_secret\"}", {
       "Content-Type": "application/json",
       "CF-Connecting-IP": "203.0.113.32",
+      Authorization: "Bearer sj_raw_invalid_revoke_bearer",
+      Cookie: "session=raw_invalid_revoke_cookie",
     });
     const invalidBodyResponse = await invokeAction(invalidBody.request);
     expect(invalidBodyResponse.response.status).toBe(400);
@@ -258,7 +271,13 @@ describe("OAuth revoke telemetry", () => {
       status: 400,
       outcome: "error",
       errorCode: "invalid_request",
-      forbidden: ["ort_raw_json_secret", invalidBody.bodyText, "203.0.113.32"],
+      forbidden: [
+        "ort_raw_json_secret",
+        invalidBody.bodyText,
+        "203.0.113.32",
+        "sj_raw_invalid_revoke_bearer",
+        "raw_invalid_revoke_cookie",
+      ],
     });
     expectCaptureScheduled(invalidBodyResponse.args);
 

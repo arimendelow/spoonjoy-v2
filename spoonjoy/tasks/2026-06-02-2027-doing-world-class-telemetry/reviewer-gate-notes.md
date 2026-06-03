@@ -91,3 +91,12 @@
 ## 2026-06-03 09:22
 
 - Unit 6f fresh reviewer returned `CONVERGED`.
+
+## 2026-06-03 09:26
+
+- Unit 6g fresh reviewer returned `FINDINGS`.
+- Major finding: revoke telemetry tests claimed cookie/auth-header exclusion but did not send or forbid those values.
+- Remediation path:
+  - `test/routes/oauth-revoke-telemetry.test.ts` now sends raw `Authorization` and `Cookie` values on success and invalid-body paths, and explicitly forbids those values in lifecycle telemetry.
+  - The shared revoke telemetry assertion also forbids `Cookie`, `Authorization`, raw IP literals, and raw body markers across events.
+  - The strengthened contract still fails red against pre-implementation code because `spoonjoy.oauth.revoke` is missing.

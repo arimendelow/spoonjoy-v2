@@ -14,6 +14,6 @@ Summary:
 - The contract also covers not-found revokes, client-binding errors, invalid content-type form bodies, and rate limits once the first missing event is implemented.
 
 Privacy and scheduling assertions in the red contract:
-- No refresh token value, token prefix, raw form body, raw IP, raw client id from unsafe branches, cookie, or auth header may appear in lifecycle telemetry.
+- No refresh token value, token prefix, raw form body, raw IP, raw client id from unsafe branches, cookie value, or auth header value may appear in lifecycle telemetry.
 - The controlled token hint class `refresh_token` is allowed; unsupported hint text is collapsed to `unsupported`.
 - Each event must be scheduled through the Cloudflare Worker `ctx.waitUntil` hook with the exact `captureEvent` promise.
