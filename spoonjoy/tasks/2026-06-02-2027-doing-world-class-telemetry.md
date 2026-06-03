@@ -187,7 +187,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Tests proving `spoonjoy.oauth.register` emits status/error code, client id when created, redirect URI count, scope metadata class, latency, and safe request context.
 **Acceptance**: Tests fail before implementation and prove no raw redirect URI query, raw JSON body, client supplied free-text beyond controlled counts/ids, or request body appears in telemetry.
 
-### ⬜ Unit 6b: OAuth Register Telemetry — Implementation
+### ✅ Unit 6b: OAuth Register Telemetry — Implementation
 **What**: Instrument `app/routes/oauth.register.ts` for route-shell timing/rate-limit metadata and `app/lib/oauth-routes.server.ts` for registration result/error metadata.
 **Output**: Safe OAuth registration telemetry.
 **Acceptance**: Unit 6a tests pass and existing OAuth registration tests still pass.
@@ -364,3 +364,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 08:47 Unit 5g complete: MCP handler and shared analytics helper coverage reached 100% statements/branches/functions/lines; telemetry regressions, typecheck, and build pass
 - 2026-06-03 08:48 Unit 6a started: OAuth register telemetry tests
 - 2026-06-03 08:51 Unit 6a complete: OAuth register telemetry tests fail red on missing `spoonjoy.oauth.register` lifecycle capture
+- 2026-06-03 08:54 Unit 6b complete: OAuth register telemetry implemented for success, validation errors, method errors, and rate limits; focused register/OAuth regression tests, typecheck, and build pass
