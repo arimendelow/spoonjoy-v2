@@ -282,7 +282,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Final verification command summaries saved in `spoonjoy/tasks/2026-06-02-2027-doing-world-class-telemetry/final-verification.md`.
 **Acceptance**: All checks pass with no warnings, no secret values appear in output or artifacts, and `final-verification.md` explicitly states whether Unit 8d completed or remains blocked by unavailable PostHog key access.
 
-### ⬜ Unit 9b: Deploy And Live Smoke
+### 🔄 Unit 9b: Deploy And Live Smoke
 **What**: Run `pnpm run deploy`, `pnpm run smoke:live`, and `pnpm run smoke:api`. Verify deployed `/api/playground`, `/api/v1/health`, `/mcp` challenge, and OAuth metadata still respond.
 **Output**: Deployment version id and live smoke artifact paths recorded in `final-verification.md`.
 **Acceptance**: Deployment succeeds only after Unit 8d is complete or explicitly documented as externally blocked, live smoke checks pass, production does not require PostHog to respond to serve app/API traffic, and no secret values appear in command output or committed files.
@@ -402,3 +402,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 10:22 Unit 8d complete: Cloudflare secret names and local build env names checked without printing values; `POSTHOG_KEY`/`VITE_POSTHOG_KEY` are unavailable, so setup-notes record the remaining external PostHog key step and telemetry remains disabled by default
 - 2026-06-03 10:23 Unit 9a started: final typecheck, focused telemetry tests, full Vitest, build, and secret scan
 - 2026-06-03 10:30 Unit 9a complete: typecheck, focused telemetry tests (25 files/264 tests), full Vitest (286 files/5,452 tests), build, and secret scan completed; final verification artifact records Unit 8d unavailable-key status
+- 2026-06-03 10:31 Unit 9b started: deploy production Worker and run live smoke/API smoke checks
