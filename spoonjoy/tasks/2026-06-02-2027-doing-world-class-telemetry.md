@@ -87,12 +87,12 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Covered API v1 context plumbing ready for later telemetry units.
 **Acceptance**: Focused tests pass with no warnings.
 
-### 🔄 Unit 3a: API v1 Public/Discovery Telemetry — Tests
+### ✅ Unit 3a: API v1 Public/Discovery Telemetry — Tests
 **What**: Add failing tests for `app/lib/api-v1.server.ts` covering anonymous GET `/api/v1`, `/health`, OpenAPI docs, recipe list/detail, and cookbook list/detail.
 **Output**: Tests proving `spoonjoy.api_v1.request` emits route template/resource, method, status, request id, auth mode `anonymous`, latency, request byte count, cache/privacy class, origin/referrer host, and coarse user-agent family.
 **Acceptance**: Tests fail before implementation and assert no raw query string, cookies, authorization header, request body, response body, recipe title, cookbook title, or other free text appears in telemetry.
 
-### ⬜ Unit 3b: API v1 Public/Discovery Telemetry — Implementation
+### 🔄 Unit 3b: API v1 Public/Discovery Telemetry — Implementation
 **What**: Instrument `handleApiV1Request` in `app/lib/api-v1.server.ts` for public/discovery success paths using shared helper functions in `app/lib/analytics-server.ts`; any API v1-only helper must stay inside `app/lib/api-v1.server.ts`.
 **Output**: Best-effort `ctx.waitUntil(captureEvent(...))` public API v1 telemetry.
 **Acceptance**: Unit 3a tests pass and existing public API v1 tests still pass.
@@ -328,3 +328,5 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 07:28 Unit 2c started: focused API v1 context verification
 - 2026-06-03 07:30 Unit 2c complete: API v1 waitUntil context tests, typecheck, and build pass after AppLoadContext refactor
 - 2026-06-03 07:30 Unit 3a started: API v1 public/discovery telemetry tests
+- 2026-06-03 07:32 Unit 3a complete: API v1 public/discovery telemetry tests fail red on missing capture scheduling
+- 2026-06-03 07:32 Unit 3b started: implement API v1 public/discovery telemetry
