@@ -347,7 +347,6 @@ async function handleApiRequest({ request, context, params }: Route.LoaderArgs |
         startedAt,
         operation,
         principal,
-        routeTemplate: operation ? undefined : "/api/{unknown}",
         errorCode: "not_found",
       });
     }

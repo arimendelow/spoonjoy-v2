@@ -12,6 +12,7 @@ import { getOrCreateIngredientRef } from "../utils";
 vi.mock("~/lib/analytics-server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/lib/analytics-server")>()),
   captureEvent: vi.fn(async () => undefined),
+  captureException: vi.fn(async () => undefined),
 }));
 
 function uniqueEmail(prefix = "rest") {
@@ -48,7 +49,7 @@ function expectLegacyEvent(input: {
   requestId: string;
   operation?: string;
   status: number;
-  authMode: "anonymous" | "bearer" | "session";
+  authMode: "anonymous" | "bearer" | "oauth_bearer" | "session";
   routeTemplate?: string;
   errorCode?: string;
   rateLimitScope?: string;
@@ -457,6 +458,30 @@ describe("Spoonjoy REST API route", () => {
       ],
     });
 
+    const oauthCredential = await createApiCredential(db, user.id, "Legacy OAuth Client Reader", {
+      scopes: ["kitchen:read"],
+      oauthClientId: "legacy-oauth-client",
+    });
+    const oauthBearerResponse = await loader(routeArgs(new UndiciRequest("http://localhost/api/shopping-list", {
+      headers: {
+        Authorization: `Bearer ${oauthCredential.token}`,
+        "X-Request-Id": "req_legacy_oauth_bearer",
+      },
+    }), "shopping-list", telemetryEnv));
+
+    expect(oauthBearerResponse.status).toBe(200);
+    const oauthEvent = expectLegacyEvent({
+      requestId: "req_legacy_oauth_bearer",
+      operation: "get_shopping_list",
+      status: 200,
+      authMode: "oauth_bearer",
+      forbidden: [oauthCredential.token, oauthCredential.credential.tokenPrefix, "Legacy OAuth Client Reader"],
+    });
+    expect(oauthEvent!.properties).toMatchObject({
+      oauth_client_id: "legacy-oauth-client",
+      oauth_resource: null,
+    });
+
     const missingAuth = await loader(routeArgs(new UndiciRequest("http://localhost/api/shopping-list", {
       headers: { "X-Request-Id": "req_legacy_missing_auth" },
     }), "shopping-list", telemetryEnv));
@@ -482,6 +507,20 @@ describe("Spoonjoy REST API route", () => {
       forbidden: ["unknown-secret-path"],
     });
 
+    const malformedSplat = "%E0%A4%A";
+    const malformed = await loader(routeArgs(new UndiciRequest(`http://localhost/api/${malformedSplat}`, {
+      headers: { "X-Request-Id": "req_legacy_malformed_path" },
+    }), malformedSplat, telemetryEnv));
+    expect(malformed.status).toBe(500);
+    expectLegacyEvent({
+      requestId: "req_legacy_malformed_path",
+      status: 500,
+      authMode: "anonymous",
+      routeTemplate: "/api/{unknown}",
+      errorCode: "internal_error",
+      forbidden: [malformedSplat],
+    });
+
     const token = "sj_legacy_rate_limited_secret";
     const throttled = await loader(routeArgs(new UndiciRequest("http://localhost/api/health", {
       headers: {
@@ -503,6 +542,108 @@ describe("Spoonjoy REST API route", () => {
       errorCode: "rate_limited",
       rateLimitScope: "token",
       forbidden: [token],
+    });
+
+    const throttledTools = await loader(routeArgs(new UndiciRequest("http://localhost/api/tools", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Request-Id": "req_legacy_rate_limited_tools",
+      },
+    }), "tools", {
+      POSTHOG_KEY: "ph_test",
+      API_TOKEN_RATE_LIMITER: {
+        limit: async () => ({ success: false }),
+      },
+    }));
+    expect(throttledTools.status).toBe(429);
+    expectLegacyEvent({
+      requestId: "req_legacy_rate_limited_tools",
+      operation: "tools",
+      status: 429,
+      authMode: "anonymous",
+      errorCode: "rate_limited",
+      rateLimitScope: "token",
+      forbidden: [token],
+    });
+
+    const throttledMissingSplat = await loader({
+      request: new UndiciRequest("http://localhost/api/health", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Request-Id": "req_legacy_rate_limited_missing_splat",
+        },
+      }),
+      params: {},
+      context: {
+        cloudflare: {
+          env: {
+            POSTHOG_KEY: "ph_test",
+            API_TOKEN_RATE_LIMITER: {
+              limit: async () => ({ success: false }),
+            },
+          },
+          ctx: {
+            waitUntil: vi.fn((promise: Promise<unknown>) => {
+              void promise;
+            }),
+          },
+        },
+      },
+    } as any);
+    expect(throttledMissingSplat.status).toBe(429);
+    expectLegacyEvent({
+      requestId: "req_legacy_rate_limited_missing_splat",
+      operation: "root",
+      status: 429,
+      authMode: "anonymous",
+      errorCode: "rate_limited",
+      rateLimitScope: "token",
+      forbidden: [token],
+    });
+
+    const throttledPost = await action(routeArgs(new UndiciRequest("http://localhost/api/health", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Request-Id": "req_legacy_rate_limited_post",
+      },
+    }), "health", {
+      POSTHOG_KEY: "ph_test",
+      API_TOKEN_RATE_LIMITER: {
+        limit: async () => ({ success: false }),
+      },
+    }));
+    expect(throttledPost.status).toBe(429);
+    expectLegacyEvent({
+      requestId: "req_legacy_rate_limited_post",
+      status: 429,
+      authMode: "anonymous",
+      routeTemplate: "/api/{unknown}",
+      errorCode: "rate_limited",
+      rateLimitScope: "token",
+      forbidden: [token],
+    });
+
+    const throttledMalformed = await loader(routeArgs(new UndiciRequest(`http://localhost/api/${malformedSplat}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Request-Id": "req_legacy_rate_limited_malformed",
+      },
+    }), malformedSplat, {
+      POSTHOG_KEY: "ph_test",
+      API_TOKEN_RATE_LIMITER: {
+        limit: async () => ({ success: false }),
+      },
+    }));
+    expect(throttledMalformed.status).toBe(429);
+    expectLegacyEvent({
+      requestId: "req_legacy_rate_limited_malformed",
+      status: 429,
+      authMode: "anonymous",
+      routeTemplate: "/api/{unknown}",
+      errorCode: "rate_limited",
+      rateLimitScope: "token",
+      forbidden: [token, malformedSplat],
     });
   });
 });
