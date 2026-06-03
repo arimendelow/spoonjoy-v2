@@ -60,3 +60,13 @@
 ## 2026-06-03 08:51
 
 - Units 5c-5g fresh reviewer returned `CONVERGED`.
+
+## 2026-06-03 09:01
+
+- Units 6a-6b fresh reviewer returned `FINDINGS`.
+- Major finding: `/oauth/register` parsed JSON `null` could throw before the guarded OAuth validation response path, skipping safe 400 telemetry.
+- Minor finding: register telemetry tests asserted `captureEvent` calls but not Worker `waitUntil` scheduling.
+- Remediation path:
+  - `handleOAuthRegister` now rejects top-level non-object JSON, including `null` and arrays, with a CORS-preserved 400 `invalid_request` response before metadata access.
+  - `test/routes/oauth-register-telemetry.test.ts` now covers null/array bodies and asserts every success, error, method, and rate-limit capture promise is handed to `waitUntil`.
+  - Focused register telemetry tests, existing OAuth route tests, typecheck, and build pass after the remediation.

@@ -92,6 +92,10 @@ async function readLimitedJsonBody(request: Request): Promise<RegisterBody> {
   return JSON.parse(text) as RegisterBody;
 }
 
+function isRegisterBody(value: unknown): value is RegisterBody {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 async function readLimitedFormBody(request: Request): Promise<URLSearchParams> {
   return new URLSearchParams(await readLimitedBodyText(request, MAX_OAUTH_FORM_BODY_BYTES));
 }
@@ -256,6 +260,12 @@ export async function handleOAuthRegister(request: Request, db: Database): Promi
     }
     return withOAuthRegisterTelemetry(
       Response.json({ error: "invalid_request", error_description: "Invalid JSON body" }, { status: 400 }),
+      { errorCode: "invalid_request" },
+    );
+  }
+  if (!isRegisterBody(body)) {
+    return withOAuthRegisterTelemetry(
+      Response.json({ error: "invalid_request", error_description: "Registration metadata must be a JSON object" }, { status: 400 }),
       { errorCode: "invalid_request" },
     );
   }

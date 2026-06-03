@@ -9,7 +9,14 @@ vi.mock("~/lib/analytics-server", async (importOriginal) => ({
   captureEvent: vi.fn(async () => undefined),
 }));
 
-function routeArgs(request: Request, env: Record<string, unknown> = { POSTHOG_KEY: "ph_test" }) {
+type RegisterActionArgs = Parameters<typeof action>[0] & {
+  waitUntil: ReturnType<typeof vi.fn>;
+};
+
+function routeArgs(
+  request: Request,
+  env: Record<string, unknown> = { POSTHOG_KEY: "ph_test" },
+): RegisterActionArgs {
   const waitUntil = vi.fn((promise: Promise<unknown>) => {
     void promise;
   });
@@ -18,7 +25,13 @@ function routeArgs(request: Request, env: Record<string, unknown> = { POSTHOG_KE
     params: {},
     context: { cloudflare: { env, ctx: { waitUntil } } },
     waitUntil,
-  } as never;
+  } as unknown as RegisterActionArgs;
+}
+
+async function invokeAction(request: Request, env?: Record<string, unknown>) {
+  const args = routeArgs(request, env);
+  const response = await action(args);
+  return { args, response };
 }
 
 function registerRequest(body: unknown, headers: Record<string, string> = {}) {
@@ -35,6 +48,13 @@ function registerRequest(body: unknown, headers: Record<string, string> = {}) {
 
 function oauthRegisterInputs() {
   return vi.mocked(captureEvent).mock.calls.map(([, input]) => input);
+}
+
+function expectCaptureScheduled(args: RegisterActionArgs) {
+  const captureResult = vi.mocked(captureEvent).mock.results.at(-1);
+  expect(captureResult?.type).toBe("return");
+  expect(args.waitUntil).toHaveBeenCalledOnce();
+  expect(args.waitUntil).toHaveBeenCalledWith(captureResult!.value);
 }
 
 function expectOAuthRegisterEvent(input: {
@@ -109,7 +129,7 @@ describe("OAuth register telemetry", () => {
       token_endpoint_auth_method: "none",
       scope: "recipes:read shopping_list:write",
     });
-    const successResponse = await action(routeArgs(success.request));
+    const { args: successArgs, response: successResponse } = await invokeAction(success.request);
 
     expect(successResponse.status).toBe(201);
     const successBody = await successResponse.json() as { client_id: string };
@@ -120,19 +140,39 @@ describe("OAuth register telemetry", () => {
       scopeCount: 2,
       forbidden: [redirectUri, "code=secret", "Kitchen Widget", success.bodyText],
     });
+    expectCaptureScheduled(successArgs);
 
     const invalidJson = registerRequest("{ raw invalid json secret");
-    const invalidJsonResponse = await action(routeArgs(invalidJson.request));
+    const { args: invalidJsonArgs, response: invalidJsonResponse } = await invokeAction(invalidJson.request);
     expect(invalidJsonResponse.status).toBe(400);
     expectOAuthRegisterEvent({
       status: 400,
       errorCode: "invalid_request",
       forbidden: [invalidJson.bodyText, "raw invalid json secret"],
     });
+    expectCaptureScheduled(invalidJsonArgs);
+
+    const nullJson = registerRequest(null);
+    const { args: nullJsonArgs, response: nullJsonResponse } = await invokeAction(nullJson.request);
+    expect(nullJsonResponse.status).toBe(400);
+    expectOAuthRegisterEvent({
+      status: 400,
+      errorCode: "invalid_request",
+    });
+    expectCaptureScheduled(nullJsonArgs);
+
+    const arrayJson = registerRequest([]);
+    const { args: arrayJsonArgs, response: arrayJsonResponse } = await invokeAction(arrayJson.request);
+    expect(arrayJsonResponse.status).toBe(400);
+    expectOAuthRegisterEvent({
+      status: 400,
+      errorCode: "invalid_request",
+    });
+    expectCaptureScheduled(arrayJsonArgs);
 
     const badRedirect = "http://evil.example.com/callback?token=raw";
     const invalidRedirect = registerRequest({ redirect_uris: [badRedirect] });
-    const invalidRedirectResponse = await action(routeArgs(invalidRedirect.request));
+    const { args: invalidRedirectArgs, response: invalidRedirectResponse } = await invokeAction(invalidRedirect.request);
     expect(invalidRedirectResponse.status).toBe(400);
     expectOAuthRegisterEvent({
       status: 400,
@@ -140,12 +180,13 @@ describe("OAuth register telemetry", () => {
       redirectUriCount: 1,
       forbidden: [badRedirect, "token=raw"],
     });
+    expectCaptureScheduled(invalidRedirectArgs);
 
     const invalidScope = registerRequest({
       redirect_uris: ["https://client.example/oauth/callback"],
       scope: "recipes:delete",
     });
-    const invalidScopeResponse = await action(routeArgs(invalidScope.request));
+    const { args: invalidScopeArgs, response: invalidScopeResponse } = await invokeAction(invalidScope.request);
     expect(invalidScopeResponse.status).toBe(400);
     expectOAuthRegisterEvent({
       status: 400,
@@ -154,12 +195,13 @@ describe("OAuth register telemetry", () => {
       scopeCount: 1,
       forbidden: [invalidScope.bodyText, "recipes:delete"],
     });
+    expectCaptureScheduled(invalidScopeArgs);
 
     const unsupportedMetadata = registerRequest({
       redirect_uris: ["https://client.example/oauth/callback"],
       client_secret: "raw-client-secret",
     });
-    const unsupportedMetadataResponse = await action(routeArgs(unsupportedMetadata.request));
+    const { args: unsupportedMetadataArgs, response: unsupportedMetadataResponse } = await invokeAction(unsupportedMetadata.request);
     expect(unsupportedMetadataResponse.status).toBe(400);
     expectOAuthRegisterEvent({
       status: 400,
@@ -167,23 +209,25 @@ describe("OAuth register telemetry", () => {
       redirectUriCount: 1,
       forbidden: [unsupportedMetadata.bodyText, "raw-client-secret"],
     });
+    expectCaptureScheduled(unsupportedMetadataArgs);
   });
 
   it("captures safe method and rate-limit telemetry", async () => {
-    const methodResponse = await action(routeArgs(new UndiciRequest("https://spoonjoy.app/oauth/register", {
+    const { args: methodArgs, response: methodResponse } = await invokeAction(new UndiciRequest("https://spoonjoy.app/oauth/register", {
       method: "GET",
-    }) as unknown as Request));
+    }) as unknown as Request);
     expect(methodResponse.status).toBe(405);
     expectOAuthRegisterEvent({
       status: 405,
       method: "GET",
       errorCode: "invalid_request",
     });
+    expectCaptureScheduled(methodArgs);
 
     const rateLimited = registerRequest({ redirect_uris: ["https://client.example/oauth/callback"] }, {
       "CF-Connecting-IP": "203.0.113.9",
     });
-    const rateLimitedResponse = await action(routeArgs(rateLimited.request, {
+    const { args: rateLimitedArgs, response: rateLimitedResponse } = await invokeAction(rateLimited.request, {
       POSTHOG_KEY: "ph_test",
       API_IP_RATE_LIMITER: {
         limit: async ({ key }: { key: string }) => {
@@ -191,7 +235,7 @@ describe("OAuth register telemetry", () => {
           return { success: false };
         },
       },
-    }));
+    });
     expect(rateLimitedResponse.status).toBe(429);
     expectOAuthRegisterEvent({
       status: 429,
@@ -199,5 +243,6 @@ describe("OAuth register telemetry", () => {
       rateLimitScope: "ip",
       forbidden: ["203.0.113.9", rateLimited.bodyText],
     });
+    expectCaptureScheduled(rateLimitedArgs);
   });
 });
