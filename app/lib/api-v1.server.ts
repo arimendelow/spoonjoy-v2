@@ -8,6 +8,7 @@ import {
   normalizeCredentialScopes,
   type ApiPrincipal,
 } from "~/lib/api-auth.server";
+import { captureEvent, resolvePostHogServerConfig } from "~/lib/analytics-server";
 import {
   completeIdempotencyKey,
   hashIdempotencyRequest,
@@ -180,6 +181,106 @@ async function enforceApiV1RateLimit(args: ApiV1RouteArgs, requestId: string): P
 export function apiV1WaitUntilFor(args: ApiV1RouteArgs): ((promise: Promise<unknown>) => void) | undefined {
   const ctx = args.context.cloudflare?.ctx;
   return ctx?.waitUntil ? ctx.waitUntil.bind(ctx) : undefined;
+}
+
+function requestContentBytes(request: Request): number {
+  const raw = request.headers.get("Content-Length");
+  if (!raw) return 0;
+  const bytes = Number(raw);
+  return Number.isFinite(bytes) && bytes >= 0 ? bytes : 0;
+}
+
+function headerHost(value: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    return new URL(value).host.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+function userAgentFamily(userAgent: string | null): string {
+  const value = (userAgent ?? "").toLowerCase();
+  if (!value) return "unknown";
+  if (value.includes("pebble")) return "pebble";
+  if (value.includes("curl")) return "curl";
+  if (value.includes("postman")) return "postman";
+  if (value.includes("undici") || value.includes("node")) return "node";
+  if (value.includes("mozilla") || value.includes("chrome") || value.includes("safari") || value.includes("firefox")) {
+    return "browser";
+  }
+  return "other";
+}
+
+function cacheClassFor(response: Response): string {
+  const cacheControl = (response.headers.get("Cache-Control") ?? "").toLowerCase();
+  if (cacheControl.includes("no-store")) return "no_store";
+  if (cacheControl.includes("private")) return "private";
+  if (cacheControl.includes("public")) return "public";
+  return "none";
+}
+
+function apiV1RouteResource(method: string, path: string) {
+  const normalizedMethod = method.toUpperCase();
+  return API_V1_RESOURCES.find((resource) => (
+    (resource.methods as readonly string[]).includes(normalizedMethod) &&
+    pathTemplateMatches(resource.path, path)
+  ));
+}
+
+function authModeForPrincipal(principal: ApiPrincipal | null): string {
+  if (!principal) return "anonymous";
+  if (principal.oauthClientId) return "oauth_bearer";
+  return principal.source;
+}
+
+function observeApiV1Response(
+  args: ApiV1RouteArgs,
+  input: {
+    requestId: string;
+    path: string;
+    response: Response;
+    startedAt: number;
+    principal?: ApiPrincipal | null;
+  },
+): Response {
+  const env = args.context.cloudflare?.env;
+  const waitUntil = apiV1WaitUntilFor(args);
+  if (!env || !waitUntil) return input.response;
+
+  const postHogConfig = resolvePostHogServerConfig(env);
+  if (!postHogConfig.enabled) return input.response;
+
+  const resource = apiV1RouteResource(args.request.method, input.path);
+  const principal = input.principal ?? null;
+  waitUntil(
+    captureEvent(postHogConfig, {
+      event: "spoonjoy.api_v1.request",
+      distinctId: principal?.id ?? "anon",
+      properties: {
+        route_template: resource?.path ?? `/api/v1${input.path ? `/${input.path}` : ""}`,
+        resource: resource?.name ?? "unknown",
+        method: args.request.method,
+        status: input.response.status,
+        request_id: input.requestId,
+        auth_mode: authModeForPrincipal(principal),
+        principal_id: principal?.id,
+        credential_id: principal?.credentialId,
+        oauth_client_id: principal?.oauthClientId,
+        oauth_resource: principal?.oauthResource,
+        scopes: principal?.scopes,
+        request_bytes: requestContentBytes(args.request),
+        privacy_class: principal ? "authenticated" : resource?.auth === "bearer" ? "private" : "public",
+        cache_class: cacheClassFor(input.response),
+        origin_host: headerHost(args.request.headers.get("Origin")),
+        referrer_host: headerHost(args.request.headers.get("Referer")),
+        user_agent_family: userAgentFamily(args.request.headers.get("User-Agent")),
+        latency_ms: Math.max(0, Date.now() - input.startedAt),
+      },
+    }),
+  );
+
+  return input.response;
 }
 
 function normalizeApiV1Path(path: string): string {
@@ -1343,6 +1444,7 @@ async function handleTokenRevoke(args: ApiV1RouteArgs, requestId: string, authen
 
 export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response> {
   const requestId = requestIdFor(args.request);
+  const startedAt = Date.now();
 
   try {
     if (args.request.method === "OPTIONS") {
@@ -1354,8 +1456,14 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
 
     const path = args.params["*"] ?? "";
     if (args.request.method === "GET" && path === "") {
-      await authorizeApiV1Route(args, path);
-      return apiV1Success(requestId, API_V1_DISCOVERY_DATA);
+      const principal = await authorizeApiV1Route(args, path);
+      return observeApiV1Response(args, {
+        requestId,
+        path,
+        response: apiV1Success(requestId, API_V1_DISCOVERY_DATA),
+        startedAt,
+        principal,
+      });
     }
 
     if (args.request.method === "GET" && path === "health") {
@@ -1367,51 +1475,59 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
         principal: principalSummary(principal),
         scopes: principal?.scopes ?? [],
       };
-      return principal
+      const response = principal
         ? apiV1PrivateSuccess(requestId, health)
         : apiV1Success(requestId, health);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "openapi.json") {
-      await authorizeApiV1Route(args, path);
-      return Response.json(buildApiV1OpenApiDocument({ serverUrl: publicOrigin(args) }), {
+      const principal = await authorizeApiV1Route(args, path);
+      const response = Response.json(buildApiV1OpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "openapi.connector.json") {
-      await authorizeApiV1Route(args, path);
-      return Response.json(buildApiV1ConnectorOpenApiDocument({ serverUrl: publicOrigin(args) }), {
+      const principal = await authorizeApiV1Route(args, path);
+      const response = Response.json(buildApiV1ConnectorOpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "openapi.sdk.json") {
-      await authorizeApiV1Route(args, path);
-      return Response.json(buildApiV1SdkOpenApiDocument({ serverUrl: publicOrigin(args) }), {
+      const principal = await authorizeApiV1Route(args, path);
+      const response = Response.json(buildApiV1SdkOpenApiDocument({ serverUrl: publicOrigin(args) }), {
         headers: apiV1Headers(requestId),
       });
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "recipes") {
       const principal = await authorizeApiV1Route(args, path);
-      return await handleRecipeList(args, requestId, principal);
+      const response = await handleRecipeList(args, requestId, principal);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     const segments = path.split("/").filter(Boolean);
     if (args.request.method === "GET" && segments[0] === "recipes" && segments.length === 2) {
       const principal = await authorizeApiV1Route(args, path);
-      return await handleRecipeDetail(args, requestId, principal, segments[1]);
+      const response = await handleRecipeDetail(args, requestId, principal, segments[1]);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "cookbooks") {
       const principal = await authorizeApiV1Route(args, path);
-      return await handleCookbookList(args, requestId, principal);
+      const response = await handleCookbookList(args, requestId, principal);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && segments[0] === "cookbooks" && segments.length === 2) {
       const principal = await authorizeApiV1Route(args, path);
-      return await handleCookbookDetail(args, requestId, principal, segments[1]);
+      const response = await handleCookbookDetail(args, requestId, principal, segments[1]);
+      return observeApiV1Response(args, { requestId, path, response, startedAt, principal });
     }
 
     if (args.request.method === "GET" && path === "shopping-list") {
