@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import { Request as UndiciRequest } from "undici";
 import {
+  requestContentBytes,
   buildCaptureEventPayload,
   buildCaptureExceptionPayload,
   captureEvent,
   captureException,
   resolvePostHogServerConfig,
+  safeHeaderHost,
+  userAgentFamily,
 } from "~/lib/analytics-server";
 import { DEFAULT_POSTHOG_HOST } from "~/lib/analytics";
 
@@ -71,6 +75,39 @@ describe("resolvePostHogServerConfig", () => {
       key: "ph_test",
       host: DEFAULT_POSTHOG_HOST,
     });
+  });
+});
+
+describe("analytics request context helpers", () => {
+  it("reports valid content length values and treats invalid lengths as zero", () => {
+    expect(requestContentBytes(new Request("https://spoonjoy.app/api"))).toBe(0);
+    expect(requestContentBytes(new UndiciRequest("https://spoonjoy.app/api", {
+      headers: { "Content-Length": "42" },
+    }) as unknown as Request)).toBe(42);
+    expect(requestContentBytes(new UndiciRequest("https://spoonjoy.app/api", {
+      headers: { "Content-Length": "-1" },
+    }) as unknown as Request)).toBe(0);
+    expect(requestContentBytes(new UndiciRequest("https://spoonjoy.app/api", {
+      headers: { "Content-Length": "many" },
+    }) as unknown as Request)).toBe(0);
+  });
+
+  it("keeps domain hosts and omits malformed or IP-literal hosts", () => {
+    expect(safeHeaderHost("https://Docs.Example:8443/start?token=secret")).toBe("docs.example:8443");
+    expect(safeHeaderHost("not a url")).toBeUndefined();
+    expect(safeHeaderHost("http://203.0.113.4:8443")).toBeUndefined();
+    expect(safeHeaderHost("http://[2001:db8::1]/docs")).toBeUndefined();
+    expect(safeHeaderHost(null)).toBeUndefined();
+  });
+
+  it("classifies user agents into coarse families only", () => {
+    expect(userAgentFamily(null)).toBe("unknown");
+    expect(userAgentFamily("PebbleKit/4.4")).toBe("pebble");
+    expect(userAgentFamily("curl/8.7.1")).toBe("curl");
+    expect(userAgentFamily("PostmanRuntime/7.39.0")).toBe("postman");
+    expect(userAgentFamily("undici/7 node")).toBe("node");
+    expect(userAgentFamily("Mozilla/5.0 Safari/605.1.15")).toBe("browser");
+    expect(userAgentFamily("KitchenSyncBot/1.0")).toBe("other");
   });
 });
 

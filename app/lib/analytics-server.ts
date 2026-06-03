@@ -41,6 +41,49 @@ export function resolvePostHogServerConfig(env: PostHogServerEnv): PostHogServer
   return { enabled: true, key, host };
 }
 
+export function requestContentBytes(request: Request): number {
+  const raw = request.headers.get("Content-Length");
+  if (!raw) return 0;
+  const bytes = Number(raw);
+  return Number.isFinite(bytes) && bytes >= 0 ? bytes : 0;
+}
+
+export function safeHeaderHost(value: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    if (isIpLiteralHost(hostname)) return undefined;
+    return url.host.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+function isIpLiteralHost(hostname: string): boolean {
+  const normalized = hostname.replace(/^\[|\]$/g, "");
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(normalized)) {
+    return normalized.split(".").every((segment) => {
+      const byte = Number(segment);
+      return Number.isInteger(byte) && byte >= 0 && byte <= 255;
+    });
+  }
+  return normalized.includes(":") && /^[0-9a-f:.]+$/i.test(normalized);
+}
+
+export function userAgentFamily(userAgent: string | null): string {
+  const value = (userAgent ?? "").toLowerCase();
+  if (!value) return "unknown";
+  if (value.includes("pebble")) return "pebble";
+  if (value.includes("curl")) return "curl";
+  if (value.includes("postman")) return "postman";
+  if (value.includes("undici") || value.includes("node")) return "node";
+  if (value.includes("mozilla") || value.includes("chrome") || value.includes("safari") || value.includes("firefox")) {
+    return "browser";
+  }
+  return "other";
+}
+
 export interface CaptureExceptionInput {
   /** The error to capture. */
   error: unknown;

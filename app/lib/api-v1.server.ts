@@ -8,7 +8,13 @@ import {
   normalizeCredentialScopes,
   type ApiPrincipal,
 } from "~/lib/api-auth.server";
-import { captureEvent, resolvePostHogServerConfig } from "~/lib/analytics-server";
+import {
+  captureEvent,
+  requestContentBytes,
+  resolvePostHogServerConfig,
+  safeHeaderHost,
+  userAgentFamily,
+} from "~/lib/analytics-server";
 import {
   completeIdempotencyKey,
   hashIdempotencyRequest,
@@ -209,49 +215,6 @@ function apiV1CloudflareFor(args: ApiV1RouteArgs): ApiV1CloudflareContext | unde
   }
 }
 
-function requestContentBytes(request: Request): number {
-  const raw = request.headers.get("Content-Length");
-  if (!raw) return 0;
-  const bytes = Number(raw);
-  return Number.isFinite(bytes) && bytes >= 0 ? bytes : 0;
-}
-
-function headerHost(value: string | null): string | undefined {
-  if (!value) return undefined;
-  try {
-    const url = new URL(value);
-    const hostname = url.hostname.toLowerCase();
-    if (isIpLiteralHost(hostname)) return undefined;
-    return url.host.toLowerCase();
-  } catch {
-    return undefined;
-  }
-}
-
-function isIpLiteralHost(hostname: string): boolean {
-  const normalized = hostname.replace(/^\[|\]$/g, "");
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(normalized)) {
-    return normalized.split(".").every((segment) => {
-      const byte = Number(segment);
-      return Number.isInteger(byte) && byte >= 0 && byte <= 255;
-    });
-  }
-  return normalized.includes(":") && /^[0-9a-f:.]+$/i.test(normalized);
-}
-
-function userAgentFamily(userAgent: string | null): string {
-  const value = (userAgent ?? "").toLowerCase();
-  if (!value) return "unknown";
-  if (value.includes("pebble")) return "pebble";
-  if (value.includes("curl")) return "curl";
-  if (value.includes("postman")) return "postman";
-  if (value.includes("undici") || value.includes("node")) return "node";
-  if (value.includes("mozilla") || value.includes("chrome") || value.includes("safari") || value.includes("firefox")) {
-    return "browser";
-  }
-  return "other";
-}
-
 function cacheClassFor(response: Response): string {
   const cacheControl = (response.headers.get("Cache-Control") ?? "").toLowerCase();
   if (cacheControl.includes("no-store")) return "no_store";
@@ -400,8 +363,8 @@ function observeApiV1Response(
         request_bytes: requestContentBytes(args.request),
         privacy_class: principal ? "authenticated" : routeResource?.auth === "bearer" ? "private" : "public",
         cache_class: cacheClassFor(input.response),
-        origin_host: headerHost(args.request.headers.get("Origin")),
-        referrer_host: headerHost(args.request.headers.get("Referer")),
+        origin_host: safeHeaderHost(args.request.headers.get("Origin")),
+        referrer_host: safeHeaderHost(args.request.headers.get("Referer")),
         user_agent_family: userAgentFamily(args.request.headers.get("User-Agent")),
         idempotency_outcome: idempotencyOutcome,
         rate_limit_scope: rateLimitScope,
