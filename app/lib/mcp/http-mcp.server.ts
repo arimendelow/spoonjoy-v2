@@ -28,16 +28,26 @@ import {
   buildSpoonjoyApiContext,
 } from "~/lib/spoonjoy-api-request.server";
 import {
+  ApiAuthError,
   authenticateApiToken,
   extractBearerToken,
+  type ApiPrincipal,
 } from "~/lib/api-auth.server";
 import { mcpResourceUrl, protectedResourceMetadataUrl, resolveIssuerOrigin } from "~/lib/oauth-metadata.server";
 import {
   enforceRateLimit,
   rateLimitedResponse,
+  type RateLimitScope,
   type RateLimiterBinding,
 } from "~/lib/rate-limit.server";
-import { captureException, resolvePostHogServerConfig } from "~/lib/analytics-server";
+import {
+  captureEvent,
+  captureException,
+  requestContentBytes,
+  resolvePostHogServerConfig,
+  safeHeaderHost,
+  userAgentFamily,
+} from "~/lib/analytics-server";
 
 interface CloudflareEnvLike {
   SESSION_SECRET?: string;
@@ -60,6 +70,14 @@ export interface HandleMcpHttpRequestParams {
   tokenLimiter?: RateLimiterBinding;
   ipLimiter?: RateLimiterBinding;
 }
+
+type McpTelemetryInput = {
+  response: Response;
+  startedAt: number;
+  principal?: ApiPrincipal | null;
+  errorCode?: string;
+  rateLimitScope?: RateLimitScope;
+};
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -91,14 +109,58 @@ function authChallengeResponse(
   );
 }
 
+function mcpAuthMode(principal: ApiPrincipal | null): string {
+  if (!principal) return "anonymous";
+  return principal.oauthClientId ? "oauth_bearer" : principal.source;
+}
+
+function observeMcpResponse(
+  params: HandleMcpHttpRequestParams,
+  input: McpTelemetryInput,
+): Response {
+  const { request, cloudflareEnv, waitUntil } = params;
+  if (!cloudflareEnv || !waitUntil) return input.response;
+
+  const postHogConfig = resolvePostHogServerConfig(cloudflareEnv);
+  if (!postHogConfig.enabled) return input.response;
+
+  const principal = input.principal ?? null;
+  waitUntil(captureEvent(postHogConfig, {
+    event: "spoonjoy.mcp.request",
+    distinctId: principal?.id ?? "anon",
+    properties: {
+      route_template: "/mcp",
+      method: request.method,
+      status: input.response.status,
+      error_code: input.errorCode,
+      auth_mode: mcpAuthMode(principal),
+      principal_id: principal?.id,
+      credential_id: principal?.credentialId,
+      oauth_client_id: principal?.oauthClientId || undefined,
+      oauth_resource: principal?.oauthClientId ? (principal.oauthResource ?? null) : undefined,
+      scopes: principal?.scopes,
+      request_bytes: requestContentBytes(request),
+      origin_host: safeHeaderHost(request.headers.get("Origin")),
+      referrer_host: safeHeaderHost(request.headers.get("Referer")),
+      user_agent_family: userAgentFamily(request.headers.get("User-Agent")),
+      rate_limit_scope: input.rateLimitScope,
+      latency_ms: Math.max(0, Date.now() - input.startedAt),
+    },
+  }));
+
+  return input.response;
+}
+
 export async function handleMcpHttpRequest(params: HandleMcpHttpRequestParams): Promise<Response> {
   const { request, db, cloudflareEnv, waitUntil, tokenLimiter, ipLimiter } = params;
+  const startedAt = Date.now();
 
   if (request.method !== "POST") {
-    return jsonResponse(
+    const response = jsonResponse(
       { error: "method_not_allowed", message: "The MCP endpoint accepts POST." },
       405,
     );
+    return observeMcpResponse(params, { response, startedAt, errorCode: "method_not_allowed" });
   }
 
   const rateLimit = await enforceRateLimit({
@@ -108,23 +170,47 @@ export async function handleMcpHttpRequest(params: HandleMcpHttpRequestParams): 
     ipLimiter,
   });
   if (!rateLimit.allowed) {
-    return rateLimitedResponse(rateLimit.retryAfterSeconds);
+    const response = rateLimitedResponse(rateLimit.retryAfterSeconds);
+    return observeMcpResponse(params, {
+      response,
+      startedAt,
+      errorCode: "rate_limited",
+      rateLimitScope: rateLimit.scope,
+    });
   }
 
-  let principal;
+  let principal: ApiPrincipal;
   try {
     const bearerToken = extractBearerToken(request);
-    if (!bearerToken) return authChallengeResponse(request, cloudflareEnv);
+    if (!bearerToken) {
+      const response = authChallengeResponse(request, cloudflareEnv);
+      return observeMcpResponse(params, {
+        response,
+        startedAt,
+        errorCode: "authentication_required",
+      });
+    }
     principal = await authenticateApiToken(db, bearerToken);
-  } catch {
-    return authChallengeResponse(request, cloudflareEnv);
+  } catch (error) {
+    const response = authChallengeResponse(request, cloudflareEnv);
+    return observeMcpResponse(params, {
+      response,
+      startedAt,
+      errorCode: error instanceof ApiAuthError && error.status === 400 ? "malformed_authorization" : "invalid_token",
+    });
   }
   const expectedResource = mcpResourceUrl(resolveIssuerOrigin(request.url, cloudflareEnv?.SPOONJOY_BASE_URL));
   if (principal.oauthClientId && principal.oauthResource !== expectedResource) {
-    return jsonResponse(
+    const response = jsonResponse(
       { error: "invalid_token", message: "OAuth access token is not audience-bound to this MCP resource." },
       403,
     );
+    return observeMcpResponse(params, {
+      response,
+      startedAt,
+      principal,
+      errorCode: "invalid_token",
+    });
   }
 
   const router: JsonRpcToolRouter = {
