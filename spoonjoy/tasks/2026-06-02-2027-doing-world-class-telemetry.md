@@ -162,7 +162,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Tests proving MCP telemetry includes principal id, credential id, OAuth client/resource, JSON-RPC method, and tool name when safely present.
 **Acceptance**: Tests fail before implementation and prove no JSON-RPC args or tool argument values are captured.
 
-### ⬜ Unit 5d: MCP Success Metadata — Implementation
+### ✅ Unit 5d: MCP Success Metadata — Implementation
 **What**: Extend MCP telemetry to parse only top-level JSON-RPC `method` and string `params.name` for `tools/call` after authentication.
 **Output**: MCP success telemetry for tool listing and tool calls.
 **Acceptance**: Unit 5c tests pass and existing MCP success tests still pass.
@@ -356,3 +356,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 08:34 Unit 5b complete: MCP auth/rate-limit lifecycle telemetry implemented; focused MCP tests, related telemetry regressions, typecheck, and build pass
 - 2026-06-03 08:36 Unit 5c started: MCP success metadata telemetry tests
 - 2026-06-03 08:38 Unit 5c complete: MCP success metadata tests fail red on missing `tools/list` and `tools/call` lifecycle capture
+- 2026-06-03 08:40 Unit 5d complete: MCP success lifecycle telemetry implemented with allowlisted JSON-RPC method/tool metadata; focused MCP tests, related telemetry regressions, typecheck, and build pass
