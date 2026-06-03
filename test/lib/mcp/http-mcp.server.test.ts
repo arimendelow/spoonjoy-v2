@@ -483,7 +483,10 @@ describe("handleMcpHttpRequest", () => {
 
     const parseSecret = "raw-parse-error-secret";
     const parseResponse = await handleMcpHttpRequest({
-      request: rpcRequest(`{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"get_recipe","arguments":{"id":"${parseSecret}"}`),
+      request: rpcRequest(
+        `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"get_recipe","arguments":{"id":"${parseSecret}"}`,
+        bearer(personal.token),
+      ),
       db,
       cloudflareEnv,
       waitUntil,
@@ -584,7 +587,7 @@ describe("handleMcpHttpRequest", () => {
       cloudflareEnv: { POSTHOG_KEY: "phc_test" },
       waitUntil,
     });
-    expect(waitUntil).toHaveBeenCalledTimes(1);
+    expect(waitUntil.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(captureException).toHaveBeenCalledWith(
       expect.objectContaining({ enabled: true, key: "phc_test" }),
       expect.objectContaining({
@@ -592,6 +595,19 @@ describe("handleMcpHttpRequest", () => {
         error: expect.any(Error),
         route: "/mcp",
         method: "POST",
+      }),
+    );
+    expect(captureEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true, key: "phc_test" }),
+      expect.objectContaining({
+        event: "spoonjoy.mcp.request",
+        properties: expect.objectContaining({
+          route_template: "/mcp",
+          status: 200,
+          error_code: "jsonrpc_error",
+          jsonrpc_method: "tools/call",
+          jsonrpc_error_code: -32602,
+        }),
       }),
     );
   });

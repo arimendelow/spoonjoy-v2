@@ -85,6 +85,8 @@ type McpTelemetryInput = {
   principal?: ApiPrincipal | null;
   errorCode?: string;
   jsonRpcMethod?: string;
+  jsonRpcErrorCode?: number;
+  notification?: boolean;
   toolName?: string;
   rateLimitScope?: RateLimitScope;
 };
@@ -152,6 +154,11 @@ function isJsonRpcSuccessResponse(response: unknown): boolean {
   return isRecord(response) && "result" in response && !("error" in response);
 }
 
+function jsonRpcErrorCode(response: unknown): number | undefined {
+  if (!isRecord(response) || !isRecord(response.error)) return undefined;
+  return typeof response.error.code === "number" ? response.error.code : undefined;
+}
+
 function observeMcpResponse(
   params: HandleMcpHttpRequestParams,
   input: McpTelemetryInput,
@@ -178,6 +185,8 @@ function observeMcpResponse(
       oauth_resource: principal?.oauthClientId ? (principal.oauthResource ?? null) : undefined,
       scopes: principal?.scopes,
       jsonrpc_method: input.jsonRpcMethod,
+      jsonrpc_error_code: input.jsonRpcErrorCode,
+      notification: input.notification,
       tool_name: input.toolName,
       request_bytes: requestContentBytes(request),
       origin_host: safeHeaderHost(request.headers.get("Origin")),
@@ -287,11 +296,26 @@ export async function handleMcpHttpRequest(params: HandleMcpHttpRequestParams): 
 
   // Notifications (no id) produce no JSON-RPC response — ack with 202.
   if (response === null) {
-    return new Response(null, { status: 202 });
+    return observeMcpResponse(params, {
+      response: new Response(null, { status: 202 }),
+      startedAt,
+      principal,
+      ...jsonRpcTelemetry,
+      notification: true,
+    });
   }
 
   const httpResponse = jsonResponse(response);
-  if (!isJsonRpcSuccessResponse(response)) return httpResponse;
+  if (!isJsonRpcSuccessResponse(response)) {
+    return observeMcpResponse(params, {
+      response: httpResponse,
+      startedAt,
+      principal,
+      ...jsonRpcTelemetry,
+      errorCode: "jsonrpc_error",
+      jsonRpcErrorCode: jsonRpcErrorCode(response),
+    });
+  }
   return observeMcpResponse(params, {
     response: httpResponse,
     startedAt,
