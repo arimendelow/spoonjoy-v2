@@ -20,3 +20,12 @@
   - Constrain Unit 3b public/discovery telemetry to anonymous/public metadata while preserving authorization behavior and response wire format.
   - Add supplemental Unit 3c red coverage for authenticated optional public reads.
   - Reintroduce authenticated metadata in Unit 3d under the now-explicit test contract.
+
+## 2026-06-03 08:02
+
+- Unit 3f fresh reviewer returned `FINDINGS`.
+- Blocker finding: method-mismatch telemetry could fall back to a raw request path and leak actual path ids, for example `POST /api/v1/shopping-list/items/{actualItemId}`.
+- Remediation path:
+  - Unit 3h now derives `route_template` from a method-matching resource, then a path-matching resource, then `/api/v1/{unknown}`.
+  - Unit 3g added explicit unknown-path telemetry coverage asserting arbitrary path text is not emitted.
+  - Unit 3h keeps method-not-allowed routes on the controlled resource template rather than the raw path.

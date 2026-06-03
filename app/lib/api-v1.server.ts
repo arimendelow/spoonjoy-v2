@@ -57,16 +57,20 @@ export interface ApiV1RouteArgs {
   context: AppLoadContext;
 }
 
+type ApiV1CloudflareContext = ApiV1RouteArgs["context"]["cloudflare"];
+
 interface ApiV1TelemetryMetadata {
   operation?: string;
   errorCode?: ApiV1ErrorCode;
   idempotencyOutcome?: "aborted" | "committed" | "conflict" | "in_progress" | "none" | "not_attempted" | "replayed";
+  rateLimitScope?: "ip" | "skip" | "token";
 }
 
 export class ApiV1Error extends Error {
   code: ApiV1ErrorCode;
   status: number;
   details?: unknown;
+  principal?: ApiPrincipal | null;
 
   constructor(code: ApiV1ErrorCode, message: string, details?: unknown) {
     super(message);
@@ -75,6 +79,11 @@ export class ApiV1Error extends Error {
     this.status = API_V1_ERROR_STATUS[code];
     this.details = details;
   }
+}
+
+function withApiV1ErrorPrincipal(error: ApiV1Error, principal: ApiPrincipal | null): ApiV1Error {
+  error.principal = principal;
+  return error;
 }
 
 export function requestIdFor(request: Request): string {
@@ -181,12 +190,23 @@ async function enforceApiV1RateLimit(args: ApiV1RouteArgs, requestId: string): P
     }),
   );
   response.headers.set("Retry-After", String(rateLimit.retryAfterSeconds));
-  return response;
+  return withApiV1Telemetry(response, {
+    errorCode: "rate_limited",
+    rateLimitScope: rateLimit.scope,
+  });
 }
 
 export function apiV1WaitUntilFor(args: ApiV1RouteArgs): ((promise: Promise<unknown>) => void) | undefined {
-  const ctx = args.context.cloudflare?.ctx;
+  const ctx = apiV1CloudflareFor(args)?.ctx;
   return ctx?.waitUntil ? ctx.waitUntil.bind(ctx) : undefined;
+}
+
+function apiV1CloudflareFor(args: ApiV1RouteArgs): ApiV1CloudflareContext | undefined {
+  try {
+    return args.context.cloudflare;
+  } catch {
+    return undefined;
+  }
 }
 
 function requestContentBytes(request: Request): number {
@@ -232,6 +252,10 @@ function apiV1RouteResource(method: string, path: string) {
     (resource.methods as readonly string[]).includes(normalizedMethod) &&
     pathTemplateMatches(resource.path, path)
   ));
+}
+
+function apiV1PathResource(path: string) {
+  return API_V1_RESOURCES.find((resource) => pathTemplateMatches(resource.path, path));
 }
 
 function authModeForPrincipal(principal: ApiPrincipal | null): string {
@@ -322,14 +346,17 @@ function observeApiV1Response(
     telemetry?: ApiV1TelemetryMetadata;
   },
 ): Response {
-  const env = args.context.cloudflare?.env;
-  const waitUntil = apiV1WaitUntilFor(args);
+  const cloudflare = apiV1CloudflareFor(args);
+  const env = cloudflare?.env;
+  const ctx = cloudflare?.ctx;
+  const waitUntil = ctx?.waitUntil ? ctx.waitUntil.bind(ctx) : undefined;
   if (!env || !waitUntil) return input.response;
 
   const postHogConfig = resolvePostHogServerConfig(env);
   if (!postHogConfig.enabled) return input.response;
 
   const resource = apiV1RouteResource(args.request.method, input.path);
+  const routeResource = resource ?? apiV1PathResource(input.path);
   const principal = input.principal ?? null;
   const responseMetadata = responseTelemetry(input.response);
   const operation = input.telemetry?.operation ?? responseMetadata.operation ?? apiV1OperationFor(args.request.method, input.path);
@@ -337,13 +364,14 @@ function observeApiV1Response(
   const idempotencyOutcome = input.telemetry?.idempotencyOutcome
     ?? responseMetadata.idempotencyOutcome
     ?? defaultIdempotencyOutcome(operation, errorCode);
+  const rateLimitScope = input.telemetry?.rateLimitScope ?? responseMetadata.rateLimitScope;
   waitUntil(
     captureEvent(postHogConfig, {
       event: "spoonjoy.api_v1.request",
       distinctId: principal?.id ?? "anon",
       properties: {
-        route_template: resource?.path ?? `/api/v1${input.path ? `/${input.path}` : ""}`,
-        resource: resource?.name ?? "unknown",
+        route_template: routeResource?.path ?? "/api/v1/{unknown}",
+        resource: routeResource?.name ?? "unknown",
         method: args.request.method,
         status: input.response.status,
         request_id: input.requestId,
@@ -356,12 +384,13 @@ function observeApiV1Response(
         oauth_resource: principal?.oauthClientId ? (principal.oauthResource ?? null) : undefined,
         scopes: principal?.scopes,
         request_bytes: requestContentBytes(args.request),
-        privacy_class: principal ? "authenticated" : resource?.auth === "bearer" ? "private" : "public",
+        privacy_class: principal ? "authenticated" : routeResource?.auth === "bearer" ? "private" : "public",
         cache_class: cacheClassFor(input.response),
         origin_host: headerHost(args.request.headers.get("Origin")),
         referrer_host: headerHost(args.request.headers.get("Referer")),
         user_agent_family: userAgentFamily(args.request.headers.get("User-Agent")),
         idempotency_outcome: idempotencyOutcome,
+        rate_limit_scope: rateLimitScope,
         latency_ms: Math.max(0, Date.now() - input.startedAt),
       },
     }),
@@ -486,14 +515,17 @@ async function authorizeApiV1Route(args: ApiV1RouteArgs, path: string): Promise<
 
   const principal = await optionalPrincipal(args);
   if (principal?.oauthResource) {
-    throw new ApiV1Error("insufficient_scope", "This OAuth access token is bound to a different protected resource");
+    throw withApiV1ErrorPrincipal(
+      new ApiV1Error("insufficient_scope", "This OAuth access token is bound to a different protected resource"),
+      principal,
+    );
   }
   if (requirement.auth === "bearer" && !principal) {
     throw new ApiV1Error("authentication_required", "Authentication required");
   }
   for (const scope of requirement.scopes) {
     if (!principalHasScope(principal, scope) && !canSelfRevokeCredential(principal, args.request.method, path, scope)) {
-      throw new ApiV1Error("insufficient_scope", `Missing required scope: ${scope}`);
+      throw withApiV1ErrorPrincipal(new ApiV1Error("insufficient_scope", `Missing required scope: ${scope}`), principal);
     }
   }
   return principal;
@@ -1549,7 +1581,9 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
     }
 
     const throttled = await enforceApiV1RateLimit(args, requestId);
-    if (throttled) return throttled;
+    if (throttled) {
+      return observeApiV1Response(args, { requestId, path, response: throttled, startedAt });
+    }
 
     if (args.request.method === "GET" && path === "") {
       const principal = await authorize(path);
@@ -1695,13 +1729,22 @@ export async function handleApiV1Request(args: ApiV1RouteArgs): Promise<Response
         path,
         response,
         startedAt,
-        principal: telemetryPrincipal,
+        principal: error.principal ?? telemetryPrincipal,
         telemetry: { errorCode: error.code },
       });
     }
 
     logApiV1InternalError(args, requestId, error);
-    return apiV1ErrorResponse(requestId, normalizeApiV1InternalError(error));
+    const internalError = normalizeApiV1InternalError(error);
+    const response = apiV1ErrorResponse(requestId, internalError);
+    return observeApiV1Response(args, {
+      requestId,
+      path,
+      response,
+      startedAt,
+      principal: telemetryPrincipal,
+      telemetry: { errorCode: internalError.code },
+    });
   }
 }
 
