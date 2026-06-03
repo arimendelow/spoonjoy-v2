@@ -264,12 +264,12 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 ### ⬜ Unit 9a: Final Verification
 **What**: Run `pnpm run typecheck`, all focused telemetry-related tests, full `pnpm exec vitest run`, and `pnpm run build`.
 **Output**: Final verification command summaries saved in `spoonjoy/tasks/2026-06-02-2027-doing-world-class-telemetry/final-verification.md`.
-**Acceptance**: All checks pass with no warnings and no secret values appear in output or artifacts.
+**Acceptance**: All checks pass with no warnings, no secret values appear in output or artifacts, and `final-verification.md` explicitly states whether Unit 8d completed or remains blocked by unavailable PostHog key access.
 
 ### ⬜ Unit 9b: Deploy And Live Smoke
 **What**: Run `pnpm run deploy`, `pnpm run smoke:live`, and `pnpm run smoke:api`. Verify deployed `/api/playground`, `/api/v1/health`, `/mcp` challenge, and OAuth metadata still respond.
 **Output**: Deployment version id and live smoke artifact paths recorded in `final-verification.md`.
-**Acceptance**: Deployment succeeds, live smoke checks pass, production does not require PostHog to respond to serve app/API traffic, and no secret values appear in command output or committed files.
+**Acceptance**: Deployment succeeds only after Unit 8d is complete or explicitly documented as externally blocked, live smoke checks pass, production does not require PostHog to respond to serve app/API traffic, and no secret values appear in command output or committed files.
 
 ### ⬜ Unit 9c: Completion Notification
 **What**: Commit/push final state and notify Slugger with a concise completion summary.
@@ -284,6 +284,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - **All artifacts**: Save outputs, logs, data to `./2026-06-02-2027-doing-world-class-telemetry/`
 - **Fixes/blockers**: Spawn sub-agent immediately — don't ask, just do it
 - **Decisions made**: Update docs immediately, commit right away
+- **Command style**: Use `pnpm` commands consistently in docs, verification notes, and final reporting.
 
 ## Progress Log
 - 2026-06-02 21:32 Created from planning doc
@@ -294,3 +295,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-02 21:32 Ambiguity pass converged after retrying two rate-limited reviewer attempts
 - 2026-06-02 21:32 Quality pass converged
 - 2026-06-02 21:32 Scrutiny pass 6 Tinfoil Hat addressed by adding explicit client PostHog bootstrap units
+- 2026-06-02 21:32 Scrutiny pass 6 Tinfoil Hat Round 2 converged; minor hardening added for pnpm consistency and PostHog-key blocker reporting
