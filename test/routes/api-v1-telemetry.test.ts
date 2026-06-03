@@ -100,12 +100,16 @@ function captureInputs() {
   return vi.mocked(captureEvent).mock.calls.map(([, input]) => input);
 }
 
-function expectSafeApiV1Event(routeTemplate: string, requestId: string) {
-  const input = captureInputs().find((candidate) => (
+function apiV1Event(routeTemplate: string, requestId: string) {
+  return captureInputs().find((candidate) => (
     candidate.event === "spoonjoy.api_v1.request" &&
     candidate.properties?.route_template === routeTemplate &&
     candidate.properties?.request_id === requestId
   ));
+}
+
+function expectSafeApiV1Event(routeTemplate: string, requestId: string) {
+  const input = apiV1Event(routeTemplate, requestId);
 
   expect(input).toMatchObject({
     event: "spoonjoy.api_v1.request",
@@ -349,6 +353,8 @@ describe("API v1 public telemetry", () => {
       ["http://localhost/api/v1", "", "/api/v1", "req_api_root"],
       ["http://localhost/api/v1/health", "health", "/api/v1/health", "req_api_health"],
       ["http://localhost/api/v1/openapi.json", "openapi.json", "/api/v1/openapi.json", "req_api_openapi"],
+      ["http://localhost/api/v1/openapi.connector.json", "openapi.connector.json", "/api/v1/openapi.connector.json", "req_api_openapi_connector"],
+      ["http://localhost/api/v1/openapi.sdk.json", "openapi.sdk.json", "/api/v1/openapi.sdk.json", "req_api_openapi_sdk"],
     ] as const) {
       const context = routeArgs(publicRequest(url, requestId), splat);
       const response = await loader(context.args);
@@ -356,6 +362,38 @@ describe("API v1 public telemetry", () => {
       expect(response.status).toBe(200);
       expect(context.waitUntil).toHaveBeenCalledWith(expect.any(Promise));
       expectSafeApiV1Event(routeTemplate, requestId);
+    }
+
+    expect(apiV1Event("/api/v1/openapi.connector.json", "req_api_openapi_connector")?.properties?.operation)
+      .toBe("openapi.connector.read");
+    expect(apiV1Event("/api/v1/openapi.sdk.json", "req_api_openapi_sdk")?.properties?.operation)
+      .toBe("openapi.sdk.read");
+  });
+
+  it("classifies coarse user-agent families and omits malformed origin hosts", async () => {
+    for (const [userAgent, family, requestId] of [
+      ["undici/7.20.0 node", "node", "req_api_ua_node"],
+      ["Mozilla/5.0 Safari/605.1.15", "browser", "req_api_ua_browser"],
+      ["KitchenSyncBot/1.0", "other", "req_api_ua_other"],
+      ["", "unknown", "req_api_ua_unknown"],
+    ] as const) {
+      const request = new UndiciRequest("http://localhost/api/v1/health", {
+        headers: {
+          "X-Request-Id": requestId,
+          Origin: "not a url",
+          Referer: "also not a url",
+          ...(userAgent ? { "User-Agent": userAgent } : {}),
+        },
+      }) as unknown as Request;
+      const response = await loader(routeArgs(request, "health").args);
+
+      expect(response.status).toBe(200);
+      const input = apiV1Event("/api/v1/health", requestId);
+      expect(input?.properties).toMatchObject({
+        user_agent_family: family,
+        origin_host: undefined,
+        referrer_host: undefined,
+      });
     }
   });
 
@@ -823,6 +861,26 @@ describe("API v1 rate-limit and error telemetry", () => {
       errorCode: "method_not_allowed",
       authMode: "anonymous",
       privacyClass: "public",
+    });
+
+    const itemId = "actual-item-id-should-not-ship";
+    const itemMethodNotAllowed = await action(routeArgs(new UndiciRequest(
+      `http://localhost/api/v1/shopping-list/items/${itemId}`,
+      {
+        method: "POST",
+        headers: { "X-Request-Id": "req_error_item_method_not_allowed" },
+      },
+    ) as unknown as Request, `shopping-list/items/${itemId}`).args);
+    expect(itemMethodNotAllowed.status).toBe(405);
+    expectApiV1ErrorEvent({
+      routeTemplate: "/api/v1/shopping-list/items/{itemId}",
+      requestId: "req_error_item_method_not_allowed",
+      status: 405,
+      errorCode: "method_not_allowed",
+      authMode: "anonymous",
+      operation: undefined,
+      privacyClass: "private",
+      forbidden: [itemId],
     });
 
     const missingPath = "missing-secret-path";
