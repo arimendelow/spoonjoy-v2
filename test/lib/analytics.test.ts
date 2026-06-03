@@ -48,6 +48,15 @@ describe("analytics configuration", () => {
       enabled: false,
       reason: "disabled",
     });
+    expect(
+      resolvePostHogConfig({
+        VITE_POSTHOG_KEY: "ph_test_key",
+        VITE_POSTHOG_DISABLED: true,
+      })
+    ).toEqual({
+      enabled: false,
+      reason: "disabled",
+    });
   });
 
   it("uses the default PostHog host when no custom host is configured", () => {
@@ -76,5 +85,13 @@ describe("analytics configuration", () => {
     expect(toAnalyticsPageUrl(new URL("https://spoonjoy.app/recipes/abc?token=secret#step-2"))).toBe(
       "https://spoonjoy.app/recipes/abc"
     );
+    expect(
+      toAnalyticsPageUrl({
+        origin: "https://spoonjoy.app",
+        pathname: "/api/playground",
+        search: "?access_token=secret",
+        hash: "#oauth-code",
+      } as Location)
+    ).toBe("https://spoonjoy.app/api/playground");
   });
 });
