@@ -55,6 +55,7 @@ export interface ApiV1RouteArgs {
   context: {
     cloudflare?: {
       env?: Env | null;
+      ctx?: Pick<ExecutionContext, "waitUntil"> | null;
     };
   };
 }
@@ -178,6 +179,11 @@ async function enforceApiV1RateLimit(args: ApiV1RouteArgs, requestId: string): P
   );
   response.headers.set("Retry-After", String(rateLimit.retryAfterSeconds));
   return response;
+}
+
+export function apiV1WaitUntilFor(args: ApiV1RouteArgs): ((promise: Promise<unknown>) => void) | undefined {
+  const ctx = args.context.cloudflare?.ctx;
+  return ctx?.waitUntil ? ctx.waitUntil.bind(ctx) : undefined;
 }
 
 function normalizeApiV1Path(path: string): string {
