@@ -232,7 +232,7 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 **Output**: Tests proving client analytics is build-time gated by `VITE_POSTHOG_KEY` and never always-on.
 **Acceptance**: Tests fail before any needed implementation/doc fixes and prove no query string, hash, or page text is included in the client pageview helper.
 
-### ⬜ Unit 7b: Client PostHog Bootstrap — Implementation
+### 🔄 Unit 7b: Client PostHog Bootstrap — Implementation
 **What**: Update `app/lib/analytics.ts`, `app/entry.client.tsx`, and `app/vite-env.d.ts` only if Unit 7a exposes a gap; otherwise record in the test commit that existing bootstrap behavior satisfies the contract.
 **Output**: Verified client PostHog initialization that is disabled without `VITE_POSTHOG_KEY`, kill-switchable by `VITE_POSTHOG_DISABLED`, and privacy-masked when enabled.
 **Acceptance**: Unit 7a tests pass and existing client analytics/pageview tests still pass.
@@ -382,3 +382,4 @@ Give Spoonjoy full production visibility across client behavior, REST API usage,
 - 2026-06-03 09:40 Unit 6i reviewer gate converged: tests/docs only, focused OAuth suite rerun passed, no runtime changes
 - 2026-06-03 09:40 Unit 7a started: client PostHog bootstrap tests
 - 2026-06-03 09:44 Unit 7a complete: client analytics and entry-client bootstrap tests cover build-time key gate, disable flag, custom host, masked session recording, exception capture, hydration without init, and query/hash-free page URLs; tests passed immediately because existing bootstrap already satisfies the contract
+- 2026-06-03 09:44 Unit 7b started: client PostHog bootstrap implementation verification
