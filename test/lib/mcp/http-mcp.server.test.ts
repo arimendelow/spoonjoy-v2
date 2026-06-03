@@ -39,7 +39,7 @@ function mcpTelemetryInputs() {
 
 function expectMcpTelemetryEvent(input: {
   status: number;
-  errorCode: string;
+  errorCode?: string;
   authMode: "anonymous" | "bearer" | "oauth_bearer";
   method?: string;
   rateLimitScope?: string;
@@ -48,7 +48,11 @@ function expectMcpTelemetryEvent(input: {
   const eventInput = mcpTelemetryInputs().find((candidate) => (
     candidate.event === "spoonjoy.mcp.request" &&
     candidate.properties?.status === input.status &&
-    candidate.properties?.error_code === input.errorCode &&
+    (
+      input.errorCode === undefined
+        ? candidate.properties?.error_code === undefined
+        : candidate.properties?.error_code === input.errorCode
+    ) &&
     candidate.properties?.auth_mode === input.authMode &&
     (input.rateLimitScope ? candidate.properties?.rate_limit_scope === input.rateLimitScope : true)
   ));
@@ -101,19 +105,27 @@ describe("handleMcpHttpRequest", () => {
   });
 
   async function mintToken(): Promise<string> {
-    const user = await db.user.create({ data: { email: uniqueEmail(), username: faker.internet.username() } });
-    const { token } = await createApiCredential(db, user.id, "mcp connector");
-    return token;
+    return (await mintCredential()).token;
   }
 
-  async function mintOAuthToken(options: { oauthResource?: string | null } = {}): Promise<string> {
+  async function mintCredential(options: Parameters<typeof createApiCredential>[3] = {}) {
+    const user = await db.user.create({ data: { email: uniqueEmail(), username: faker.internet.username() } });
+    const created = await createApiCredential(db, user.id, "mcp connector", options);
+    return { user, token: created.token, credential: created.credential };
+  }
+
+  async function mintOAuthCredential(options: { oauthResource?: string | null } = {}) {
     const user = await db.user.create({ data: { email: uniqueEmail("oauth-mcp"), username: faker.internet.username() } });
-    const { token } = await createApiCredential(db, user.id, "oauth mcp token", {
+    const created = await createApiCredential(db, user.id, "oauth mcp token", {
       scopes: ["kitchen:read", "kitchen:write"],
       oauthClientId: "oauth_client_1",
       oauthResource: options.oauthResource ?? null,
     });
-    return token;
+    return { user, token: created.token, credential: created.credential };
+  }
+
+  async function mintOAuthToken(options: { oauthResource?: string | null } = {}): Promise<string> {
+    return (await mintOAuthCredential(options)).token;
   }
 
   function bearer(token: string): Record<string, string> {
@@ -366,6 +378,72 @@ describe("handleMcpHttpRequest", () => {
       authMode: "anonymous",
       rateLimitScope: "token",
       forbidden: [rateLimitedToken, "203.0.113.55", "tools/list"],
+    });
+  });
+
+  it("captures safe MCP success metadata for tools/list and tools/call", async () => {
+    const waitUntil = vi.fn((promise: Promise<unknown>) => {
+      void promise;
+    });
+    const cloudflareEnv = { POSTHOG_KEY: "ph_test", SPOONJOY_BASE_URL: "https://spoonjoy.app" };
+
+    const personal = await mintCredential({ scopes: ["kitchen:read", "kitchen:write"] });
+    const listResponse = await handleMcpHttpRequest({
+      request: rpcRequest(init(46, "tools/list"), bearer(personal.token)),
+      db,
+      cloudflareEnv,
+      waitUntil,
+    });
+    expect(listResponse.status).toBe(200);
+    const listEvent = expectMcpTelemetryEvent({
+      status: 200,
+      authMode: "bearer",
+      forbidden: [
+        personal.token,
+        personal.credential.tokenPrefix,
+        personal.user.email,
+        personal.user.username,
+      ],
+    });
+    expect(listEvent!.distinctId).toBe(personal.user.id);
+    expect(listEvent!.properties).toMatchObject({
+      principal_id: personal.user.id,
+      credential_id: personal.credential.id,
+      jsonrpc_method: "tools/list",
+    });
+    expect((listEvent!.properties as Record<string, unknown>).tool_name).toBeUndefined();
+
+    const oauth = await mintOAuthCredential({ oauthResource: "https://spoonjoy.app/mcp" });
+    const rawArgument = "raw-mcp-tool-argument-secret";
+    const callResponse = await handleMcpHttpRequest({
+      request: rpcRequest(init(47, "tools/call", {
+        name: "search_spoonjoy",
+        arguments: { query: rawArgument },
+      }), bearer(oauth.token)),
+      db,
+      cloudflareEnv,
+      waitUntil,
+    });
+    expect(callResponse.status).toBe(200);
+    const callEvent = expectMcpTelemetryEvent({
+      status: 200,
+      authMode: "oauth_bearer",
+      forbidden: [
+        oauth.token,
+        oauth.credential.tokenPrefix,
+        oauth.user.email,
+        oauth.user.username,
+        rawArgument,
+      ],
+    });
+    expect(callEvent!.distinctId).toBe(oauth.user.id);
+    expect(callEvent!.properties).toMatchObject({
+      principal_id: oauth.user.id,
+      credential_id: oauth.credential.id,
+      oauth_client_id: "oauth_client_1",
+      oauth_resource: "https://spoonjoy.app/mcp",
+      jsonrpc_method: "tools/call",
+      tool_name: "search_spoonjoy",
     });
   });
 
