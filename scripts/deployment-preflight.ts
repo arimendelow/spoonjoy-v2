@@ -39,6 +39,9 @@ const REQUIRED_SECRET_NAMES = [
   "APPLE_KEY_ID",
   "APPLE_PRIVATE_KEY",
   "OPENAI_API_KEY",
+  "VAPID_PUBLIC_KEY",
+  "VAPID_PRIVATE_KEY",
+  "VAPID_SUBJECT",
 ] as const;
 
 const REQUIRED_PACKAGE_SCRIPTS = [
@@ -49,6 +52,7 @@ const REQUIRED_PACKAGE_SCRIPTS = [
   "typecheck",
   "test:coverage",
   "test:e2e",
+  "smoke:api",
   "db:seed",
 ] as const;
 

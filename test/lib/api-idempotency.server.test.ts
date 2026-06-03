@@ -81,15 +81,15 @@ describe("API idempotency helpers", () => {
       id: userId,
       source: "bearer",
       credentialId: "cred-1",
-    })).toBe("credential:cred-1");
+    })).toBe(`chef:${userId}`);
     expect(idempotencyClientKey({
       id: userId,
       source: "session",
-    })).toBe(`session:${userId}`);
+    })).toBe(`chef:${userId}`);
     expect(idempotencyClientKey({
       id: userId,
       source: "bearer",
-    })).toBe(`session:${userId}`);
+    })).toBe(`chef:${userId}`);
   });
 
   it("reserves first use, completes it, and replays exact requests with the current request id", async () => {
@@ -215,7 +215,7 @@ describe("API idempotency helpers", () => {
     expect(new IdempotencyConflictError("custom")).toMatchObject({ message: "custom" });
   });
 
-  it("replays stored error responses and fallback response bodies", async () => {
+  it("replays stored error responses and rejects incomplete response rows", async () => {
     const failed = replayIdempotencyResponse({
       responseStatus: 400,
       responseBody: JSON.stringify({
@@ -224,7 +224,6 @@ describe("API idempotency helpers", () => {
         error: { code: "validation_error", message: "Bad", status: 400 },
       }),
     }, "req_new");
-    const pending = replayIdempotencyResponse({ responseStatus: null, responseBody: null }, "req_pending");
     const primitive = replayIdempotencyResponse({
       responseStatus: 202,
       responseBody: JSON.stringify("accepted"),
@@ -238,8 +237,52 @@ describe("API idempotency helpers", () => {
         error: { code: "validation_error", message: "Bad", status: 400 },
       },
     });
-    expect(pending).toEqual({ status: 500, body: { requestId: "req_pending" } });
+    expect(() => replayIdempotencyResponse({ responseStatus: null, responseBody: null }, "req_pending"))
+      .toThrow("not complete");
     expect(primitive).toEqual({ status: 202, body: "accepted" });
+  });
+
+  it("returns in-flight for incomplete rows until the idempotency key expires", async () => {
+    const requestHash = await hashIdempotencyRequest({
+      method: "POST",
+      path: "/api/v1/shopping-list/items",
+      body: { clientMutationId: "m-pending", name: "Eggs" },
+    });
+    const clientKey = idempotencyClientKey({ id: userId, source: "session" });
+    const first = await reserveIdempotencyKey(db, {
+      userId,
+      clientKey,
+      key: "m-pending",
+      operation: "shopping_list.items.create",
+      requestHash,
+      now,
+    });
+    if (first.status !== "reserved") throw new Error("expected reservation");
+
+    await expect(reserveIdempotencyKey(db, {
+      userId,
+      clientKey,
+      key: "m-pending",
+      operation: "shopping_list.items.create",
+      requestHash,
+      now: new Date(now.getTime() + 1_000),
+    })).resolves.toMatchObject({ status: "in_flight" });
+
+    await db.apiIdempotencyKey.update({
+      where: { id: first.record.id },
+      data: { updatedAt: new Date(now.getTime() - 60_001) },
+    });
+
+    const stillInFlight = await reserveIdempotencyKey(db, {
+      userId,
+      clientKey,
+      key: "m-pending",
+      operation: "shopping_list.items.create",
+      requestHash,
+      now,
+    });
+
+    expect(stillInFlight).toMatchObject({ status: "in_flight", record: { id: first.record.id } });
   });
 
   it("replays stored rows even if their original credential was later revoked", async () => {

@@ -9,6 +9,7 @@ import DeveloperPlayground, {
   playgroundNetworkError,
   playgroundOperationGroups,
   playgroundPath,
+  playgroundBodyError,
   playgroundResponseFromFetchResult,
   playgroundRequestId,
   PLAYGROUND_OPERATIONS,
@@ -54,7 +55,8 @@ describe("/developers/playground", () => {
 
     expect(data.manifest).toEqual(API_V1_PLAYGROUND_MANIFEST);
     expect(data.manifest.operations).toEqual(PLAYGROUND_OPERATIONS);
-    expect(data.manifest.operations.map((operation) => ({
+    const v1Operations = data.manifest.operations.filter((operation) => operation.path.startsWith("/api/v1"));
+    expect(v1Operations.map((operation) => ({
       method: operation.method,
       path: operation.path,
       auth: operation.auth,
@@ -67,7 +69,36 @@ describe("/developers/playground", () => {
     })));
     expect(data.manifest.operations.map((operation) => operation.id)).toContain("POST /api/v1/tokens");
     expect(data.manifest.operations.map((operation) => operation.id)).toContain("PATCH /api/v1/shopping-list/items/{itemId}");
-    expect(data.manifest.operations.length).toBe(15);
+    expect(data.manifest.operations.map((operation) => operation.id)).toEqual(expect.arrayContaining([
+      "POST /oauth/register",
+      "GET /oauth/authorize",
+      "POST /oauth/token",
+      "POST /oauth/revoke",
+      "POST /api/tools/start_agent_connection",
+      "POST /api/tools/poll_agent_connection",
+      "POST /mcp",
+    ]));
+    expect(data.manifest.authFlows.map((flow) => flow.id)).toEqual(["oauth-pkce", "delegated-approval", "mcp"]);
+    expect(data.manifest.oauthScopeMap["kitchen:read"]).toEqual([
+      "cookbooks:read",
+      "public:read",
+      "recipes:read",
+      "shopping_list:read",
+    ]);
+    expect(data.manifest.oauthScopeMap["shopping_list:write"]).toEqual(["shopping_list:write"]);
+    expect(data.manifest.currentCapabilities.notYetAvailable).toContain("webhooks, REST Hooks, SSE, and event subscriptions");
+    expect(data.manifest.clientScenarios.map((scenario) => scenario.id)).toEqual([
+      "cloudflare-worker-sync",
+      "browser-extension-shopping-sync",
+      "no-code-connector",
+      "public-data-export",
+    ]);
+    expect(data.manifest.operations.find((operation) => operation.id === "POST /oauth/token")?.risk).toBe("secret");
+    expect(data.manifest.operations.find((operation) => operation.id === "POST /api/tools/poll_agent_connection")?.risk).toBe("secret");
+    expect(data.manifest.operations.find((operation) => operation.id === "GET /api/v1/recipes")?.profiles).toEqual(["full", "connector", "sdk"]);
+    expect(data.manifest.operations.find((operation) => operation.id === "POST /oauth/token")?.profiles).toEqual(["full", "sdk"]);
+    expect(data.manifest.operations.find((operation) => operation.id === "POST /mcp")?.profiles).toEqual(["full"]);
+    expect(data.manifest.operations.length).toBe(24);
   });
 
   it("groups generated operations by OpenAPI tag", () => {
@@ -77,6 +108,9 @@ describe("/developers/playground", () => {
       "Cookbooks",
       "Shopping List",
       "Tokens",
+      "OAuth",
+      "Agent Approval",
+      "MCP",
     ]);
   });
 
@@ -97,7 +131,7 @@ describe("/developers/playground", () => {
     expect(playgroundPath(recipeSearch, { query: "pasta", q: "", limit: "10" })).toBe("/api/v1/recipes?query=pasta&limit=10");
     expect(playgroundPath(recipeSearch, { query: "", q: "", limit: "" })).toBe("/api/v1/recipes");
     expect(playgroundPath(recipeDetail, { id: "recipe/with/slash" })).toBe("/api/v1/recipes/recipe%2Fwith%2Fslash");
-    expect(playgroundPath(recipeDetail, { id: "" })).toBe("/api/v1/recipes/{id}");
+    expect(playgroundPath(recipeDetail, { id: "" })).toBe("/api/v1/recipes/REPLACE_id");
   });
 
   it("builds timestamp request IDs when crypto UUIDs are unavailable", () => {
@@ -108,6 +142,7 @@ describe("/developers/playground", () => {
   it("builds fetch options for session, anonymous, bearer, and JSON-body requests", () => {
     const root = PLAYGROUND_OPERATIONS.find((operation) => operation.id === "GET /api/v1")!;
     const createToken = PLAYGROUND_OPERATIONS.find((operation) => operation.id === "POST /api/v1/tokens")!;
+    const deleteItem = PLAYGROUND_OPERATIONS.find((operation) => operation.id === "DELETE /api/v1/shopping-list/items/{itemId}")!;
 
     expect(playgroundFetchOptions(root, "session", "", "", "pg_session")).toEqual({
       method: "GET",
@@ -135,9 +170,24 @@ describe("/developers/playground", () => {
       headers: { "Content-Type": "application/json", "X-Request-Id": "pg_post" },
       body: "{\"name\":\"Client\"}",
     });
+    expect(playgroundFetchOptions(deleteItem, "bearer", "sj_delete", "", "pg_delete", {
+      itemId: "item_1",
+      "X-Client-Mutation-Id": "delete:item_1:test",
+    })).toEqual({
+      method: "DELETE",
+      credentials: "omit",
+      headers: {
+        Authorization: "Bearer sj_delete",
+        "X-Client-Mutation-Id": "delete:item_1:test",
+        "X-Request-Id": "pg_delete",
+      },
+    });
+    expect(playgroundBodyError(createToken, "")).toBe("This operation requires a request body.");
+    expect(playgroundBodyError(createToken, "{bad")).toBe("JSON body is not valid.");
+    expect(playgroundBodyError(createToken, "{\"name\":\"Client\"}")).toBeNull();
   });
 
-  it("renders all operations and sends the default request with the signed-in session", async () => {
+  it("renders all operations and sends the default public recipes request anonymously", async () => {
     const fetchMock = vi.fn(async () => mockApiResponse({
       ok: true,
       requestId: "req_playground",
@@ -149,20 +199,23 @@ describe("/developers/playground", () => {
     expect(await screen.findByRole("heading", { name: "Spoonjoy API Playground" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Create a bearer credential/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Remove a shopping-list item/i })).toBeInTheDocument();
-    expect(screen.getByText("Uses your current Spoonjoy login for same-origin API calls.")).toBeInTheDocument();
-    expect(screen.getByText(/signed-in Spoonjoy session cookie/i)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "All APIs" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Connector" })).toBeInTheDocument();
+    expect(screen.getAllByText("/api/v1/openapi.json").length).toBeGreaterThan(0);
+    expect(screen.getByText("Omits cookies and Authorization for public-only requests.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Send Request" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/recipes?limit=20", {
       method: "GET",
-      credentials: "same-origin",
+      credentials: "omit",
       headers: expect.objectContaining({ "X-Request-Id": expect.stringMatching(/^pg_/) }),
     });
     expect((fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers.Authorization).toBeUndefined();
     expect(await screen.findByText("200 OK")).toBeInTheDocument();
     expect(screen.getByText("Request ID: req_playground")).toBeInTheDocument();
+    expect(screen.getByText(/GET \/api\/v1\/recipes\?limit=20 - \d+ ms/)).toBeInTheDocument();
     expect(screen.getByText(/"app": "spoonjoy"/)).toBeInTheDocument();
 
     fetchMock.mockRejectedValueOnce(new Error("offline"));
@@ -182,8 +235,8 @@ describe("/developers/playground", () => {
     renderPlayground();
     fireEvent.click(await screen.findByRole("button", { name: /Search public recipes/i }));
     fireEvent.change(screen.getByLabelText(/Query/), { target: { value: "pasta" } });
-    fireEvent.change(screen.getByLabelText(/Limit/), { target: { value: "5" } });
-    fireEvent.click(screen.getByRole("button", { name: "Bearer" }));
+    fireEvent.change(document.querySelector<HTMLInputElement>("#param-query-limit")!, { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Bearer" }));
     fireEvent.change(screen.getByLabelText("Bearer token"), { target: { value: "sj_test_token" } });
     fireEvent.click(screen.getByRole("button", { name: "Send Request" }));
 
@@ -196,6 +249,21 @@ describe("/developers/playground", () => {
         "X-Request-Id": expect.stringMatching(/^pg_/),
       }),
     });
+  });
+
+  it("filters operations by generated connector profile and search text", async () => {
+    renderPlayground();
+    await screen.findByRole("heading", { name: "Spoonjoy API Playground" });
+
+    fireEvent.click(screen.getByRole("radio", { name: "Connector" }));
+    expect(screen.getByRole("radio", { name: "Connector" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("link", { name: /Open Spec/i })).toHaveAttribute("href", "/api/v1/openapi.connector.json");
+    expect(screen.queryByRole("button", { name: /Exchange or refresh an OAuth token/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Search public recipes/i })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Search operations/i), { target: { value: "cookbooks/{id}" } });
+    expect(await screen.findByRole("button", { name: /Read one public cookbook/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Search public recipes/i })).not.toBeInTheDocument();
   });
 
   it("sends generated JSON-body operations with session auth by default", async () => {
@@ -213,6 +281,8 @@ describe("/developers/playground", () => {
     fireEvent.change(screen.getByLabelText("JSON body"), {
       target: { value: "{\"name\":\"External client\",\"scopes\":[\"recipes:read\"]}" },
     });
+    expect(screen.getByRole("button", { name: "Send Request" })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText(/I understand this request can change real Spoonjoy data/i));
     fireEvent.click(screen.getByRole("button", { name: "Send Request" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -228,13 +298,29 @@ describe("/developers/playground", () => {
     expect(await screen.findByText("201 Created")).toBeInTheDocument();
   });
 
+  it("blocks blank bearer mode before sending private requests", async () => {
+    const fetchMock = vi.fn(async () => mockApiResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPlayground();
+    fireEvent.click(await screen.findByRole("button", { name: /Read the authenticated shopping list/i }));
+    fireEvent.click(screen.getByRole("radio", { name: "Bearer" }));
+
+    expect(screen.getAllByText("Paste a bearer token before sending in Bearer mode.").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Send Request" })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("renders required path parameters for generated detail operations", async () => {
     renderPlayground();
 
     fireEvent.click(await screen.findByRole("button", { name: /Read one public recipe/i }));
 
-    expect(await screen.findByText("path required")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Id/)).toHaveAttribute("placeholder", "recipe_1");
+    expect(await screen.findByText(/path required/i)).toBeInTheDocument();
+    expect(document.querySelector<HTMLInputElement>("#param-path-id")).toHaveAttribute("placeholder", "recipe_1");
+    expect(screen.getAllByText(/REPLACE_id/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Set required parameters before sending/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Send Request" })).toBeDisabled();
   });
 
   it("can intentionally omit auth for public requests", async () => {
@@ -242,11 +328,11 @@ describe("/developers/playground", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderPlayground();
-    fireEvent.click(await screen.findByRole("button", { name: "Anonymous" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Anonymous" }));
     fireEvent.click(screen.getByRole("button", { name: "Send Request" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/recipes?limit=20", {
       method: "GET",
       credentials: "omit",
       headers: expect.objectContaining({ "X-Request-Id": expect.stringMatching(/^pg_/) }),
@@ -257,19 +343,44 @@ describe("/developers/playground", () => {
     const root = PLAYGROUND_OPERATIONS.find((operation) => operation.id === "GET /api/v1")!;
     const createToken = PLAYGROUND_OPERATIONS.find((operation) => operation.id === "POST /api/v1/tokens")!;
 
-    expect(curlFor("/api/v1", root, "session", "")).toContain("this curl runs anonymously");
+    expect(curlFor("/api/v1", root, "session", "")).toContain("Session mode is browser-only");
+    expect(curlFor("/api/v1", root, "session", "")).toContain("await fetch(\"/api/v1\"");
     expect(curlFor("/api/v1", root, "anonymous", "")).toBe(
       "curl 'https://spoonjoy.app/api/v1' \\\n  -H 'X-Request-Id: pg_example'",
     );
     expect(curlFor("/api/v1/tokens", createToken, "session", "{\"name\":\"Client\"}")).toBe(
-      "# Session mode is browser-only: the playground sends your signed-in Spoonjoy cookie.\n# Press Send Request here, or switch to Bearer mode for a terminal curl after copying a token.",
+      "// Session mode is browser-only: run from a signed-in Spoonjoy page.\nawait fetch(\"/api/v1/tokens\", {\n  method: \"POST\",\n  credentials: \"same-origin\",\n  headers: {\n    \"Content-Type\": \"application/json\",\n  },\n  body: \"{\\\"name\\\":\\\"Client\\\"}\",\n});",
     );
     expect(curlFor("/api/v1/tokens", createToken, "bearer", "{\"name\":\"Client\"}")).toContain(
-      "-H 'Authorization: Bearer sj_token'",
+      "-H 'Authorization: Bearer $SPOONJOY_TOKEN'",
     );
     expect(curlFor("/api/v1/tokens", createToken, "bearer", "{\"name\":\"Client\"}")).toContain(
       "--data '{\"name\":\"Client\"}'",
     );
+  });
+
+  it("redacts token-bearing responses while preserving explicit copyable secrets", async () => {
+    const response = await playgroundResponseFromFetchResult(new Response(JSON.stringify({
+      ok: true,
+      data: {
+        token: "sj_secret_token_value",
+        refresh_token: "ort_refresh_token_value",
+        nested: { deviceCode: "sjdc_device_code_value" },
+      },
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "X-Request-Id": "req_secret" },
+    }), {}, { maskSecrets: true });
+
+    expect(response.body).toContain("sj_...redacted");
+    expect(response.body).toContain("ort_...redacted");
+    expect(response.body).toContain("sjdc_...redacted");
+    expect(response.body).not.toContain("sj_secret_token_value");
+    expect(response.secrets).toEqual([
+      { label: "token", value: "sj_secret_token_value" },
+      { label: "refresh token", value: "ort_refresh_token_value" },
+      { label: "device code", value: "sjdc_device_code_value" },
+    ]);
   });
 
   it("formats empty non-JSON responses", async () => {
@@ -282,6 +393,7 @@ describe("/developers/playground", () => {
       status: 204,
       statusText: "OK",
       requestId: null,
+      headers: [{ name: "Content-Type", value: "text/plain" }],
       body: "(empty response)",
     });
   });
@@ -289,12 +401,17 @@ describe("/developers/playground", () => {
   it("formats non-OK text responses without a status text", async () => {
     const response = await playgroundResponseFromFetchResult(new Response("Too many requests", {
       status: 429,
+      headers: { "Retry-After": "60" },
     }));
 
     expect(response).toEqual({
       status: 429,
       statusText: "ERROR",
       requestId: null,
+      headers: [
+        { name: "Retry-After", value: "60" },
+        { name: "Content-Type", value: "text/plain;charset=UTF-8" },
+      ],
       body: "Too many requests",
     });
   });
@@ -304,6 +421,7 @@ describe("/developers/playground", () => {
       status: 0,
       statusText: "NETWORK ERROR",
       requestId: null,
+      headers: [],
       body: "offline",
     });
   });
@@ -313,6 +431,7 @@ describe("/developers/playground", () => {
       status: 0,
       statusText: "NETWORK ERROR",
       requestId: null,
+      headers: [],
       body: "Request failed",
     });
   });

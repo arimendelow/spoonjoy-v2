@@ -36,6 +36,9 @@ wrangler secret put APPLE_TEAM_ID
 wrangler secret put APPLE_KEY_ID
 wrangler secret put APPLE_PRIVATE_KEY
 wrangler secret put OPENAI_API_KEY
+wrangler secret put VAPID_PUBLIC_KEY
+wrangler secret put VAPID_PRIVATE_KEY
+wrangler secret put VAPID_SUBJECT
 ```
 
 Notes:
@@ -43,6 +46,7 @@ Notes:
 - `SESSION_SECRET` protects auth sessions and must be high entropy in production.
 - Google, GitHub, and Apple OAuth secrets are required for the corresponding OAuth login/account-linking provider.
 - `OPENAI_API_KEY` enables ingredient parsing. Missing local keys fall back to deterministic parsing paths where supported, but production should set the secret before enabling AI-assisted flows.
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` are required for `/api/push/public-key` and web-push subscription flows.
 - Optional ingredient parsing runtime knobs are `INGREDIENT_PARSE_PROVIDER`, `INGREDIENT_PARSE_MODEL`, `INGREDIENT_PARSE_TIMEOUT_MS`, and `INGREDIENT_PARSE_MAX_RETRIES`. The safe default is OpenAI with `gpt-4o-mini`, an 8000ms timeout, and 1 retry.
 
 ## Local `.dev.vars`
@@ -60,6 +64,9 @@ APPLE_TEAM_ID=your-apple-team-id
 APPLE_KEY_ID=your-apple-key-id
 APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 OPENAI_API_KEY=sk-...
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
 INGREDIENT_PARSE_PROVIDER=openai
 INGREDIENT_PARSE_MODEL=gpt-4o-mini
 INGREDIENT_PARSE_TIMEOUT_MS=8000
@@ -80,6 +87,7 @@ The preflight verifies:
 
 - `wrangler.json` has the Worker entry, `nodejs_compat`, D1 `DB`, and R2 `PHOTOS`.
 - `package.json` exposes the expected build, test, e2e, deploy, `deploy:auto`, and preflight scripts.
+- `package.json` exposes `smoke:api` for live third-party API/docs/playground drift checks.
 - `app/cloudflare-env.d.ts` types the Cloudflare bindings and documented secrets.
 - README/deployment docs mention required bindings, secrets, and deploy commands.
 - Numbered SQL migrations exist in `migrations/`.

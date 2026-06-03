@@ -77,6 +77,28 @@ describe("Spoonjoy REST API route", () => {
     expect(payload.data.results.some((result: { type: string }) => result.type === "shopping-list-item")).toBe(false);
   });
 
+  it("rejects MCP audience-bound OAuth tokens on the legacy REST surface", async () => {
+    const user = await db.user.create({ data: { email: uniqueEmail(), username: faker.internet.username() } });
+    const { token } = await createApiCredential(db, user.id, "MCP-bound OAuth token", {
+      scopes: ["kitchen:read"],
+      oauthClientId: "oauth_client_mcp",
+      oauthResource: "https://spoonjoy.app/mcp",
+    });
+
+    const response = await loader(routeArgs(new UndiciRequest("http://localhost/api/search?query=pasta", {
+      headers: { Authorization: `Bearer ${token}` },
+    }), "search"));
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      error: {
+        status: 403,
+        message: "OAuth access token is bound to a protected resource and cannot call legacy /api routes.",
+      },
+    });
+  });
+
   it("coerces legacy REST query and body edge cases before dispatch", async () => {
     await expect(readJson(await loader(routeArgs(
       new UndiciRequest("http://localhost/api/search?duration=2&limit=abc&quantity=3&checked=true"),
@@ -224,7 +246,7 @@ describe("Spoonjoy REST API route", () => {
 
   it("routes recipe and cookbook REST endpoints through the shared operation layer", async () => {
     const user = await db.user.create({ data: { email: uniqueEmail(), username: faker.internet.username() } });
-    const { token } = await createApiCredential(db, user.id, "REST recipe token");
+    const { token } = await createApiCredential(db, user.id, "REST recipe token", { scopes: ["kitchen:read", "kitchen:write"] });
     const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
     const recipeResponse = await action(routeArgs(new UndiciRequest("http://localhost/api/recipes", {
@@ -288,6 +310,17 @@ describe("Spoonjoy REST API route", () => {
 
     const missingEndpoint = await loader(routeArgs(new UndiciRequest("http://localhost/api/nope"), "nope"));
     await expect(readJson(missingEndpoint)).resolves.toMatchObject({ ok: false, error: { status: 404 } });
+
+    const missingDeviceCode = await action(routeArgs(new UndiciRequest("http://localhost/api/tools/poll_agent_connection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    }), "tools/poll_agent_connection"));
+    expect(missingDeviceCode.status).toBe(400);
+    await expect(readJson(missingDeviceCode)).resolves.toMatchObject({
+      ok: false,
+      error: { status: 400, message: "deviceCode is required" },
+    });
   });
 
   it("returns 429 with Retry-After when the rate limiter denies the request", async () => {

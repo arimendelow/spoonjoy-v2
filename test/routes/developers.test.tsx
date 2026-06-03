@@ -25,15 +25,18 @@ describe("/developers route", () => {
     expect(data.scopeRequirements).toEqual(API_V1_SCOPE_REQUIREMENTS);
     expect(data.errorStatus).toEqual(API_V1_ERROR_STATUS);
     expect(data.openapiUrl).toBe("/api/v1/openapi.json");
+    expect(data.sdkOpenapiUrl).toBe("/api/v1/openapi.sdk.json");
+    expect(data.connectorOpenapiUrl).toBe("/api/v1/openapi.connector.json");
     expect(data.scopes).toEqual([
       "public:read",
+      "kitchen:read",
+      "kitchen:write",
       "recipes:read",
       "cookbooks:read",
       "shopping_list:read",
       "shopping_list:write",
       "tokens:read",
       "tokens:write",
-      "offline_access",
     ]);
   });
 
@@ -58,7 +61,7 @@ describe("/developers route", () => {
     expect(await screen.findByRole("heading", { name: "Spoonjoy Developer Platform" })).toBeInTheDocument();
     expect(screen.getByText(/public-by-default Chef graph/i)).toBeInTheDocument();
     expect(screen.getByText("Client examples")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Tiny-device clients/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Tiny-device clients/i })).toHaveAttribute("href", "#scenario-quickstarts");
     expect(screen.getByRole("heading", { name: "Token Acquisition" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "No token: signed-in browser" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Personal token: signed-in chef creates one" })).toBeInTheDocument();
@@ -71,8 +74,8 @@ describe("/developers route", () => {
     expect(screen.getByText(/The client never handles the chef's password/i)).toBeInTheDocument();
     expect(screen.getByText(/Spoonjoy does not support an OAuth password grant/i)).toBeInTheDocument();
     expect(screen.getByText(/Email\/password login creates a session cookie, not an API token/i)).toBeInTheDocument();
-    expect(screen.getByText(/grant_type=password/i)).toBeInTheDocument();
-    expect(screen.getByText(/Response: \{ "token": "sj_\.\.\." \}/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/grant_type=password/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Response: \{ "ok": true, "data": \{ "token": "sj_\.\.\."/i)).toBeInTheDocument();
     expect(screen.getAllByText(/POST \/api\/tools\/start_agent_connection/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/POST \/api\/tools\/poll_agent_connection/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Auth Implementation" })).toBeInTheDocument();
@@ -83,15 +86,15 @@ describe("/developers route", () => {
     expect(screen.getByText(/Do not send Authorization/i)).toBeInTheDocument();
     expect(screen.getByText(/bearer auth wins over the session/i)).toBeInTheDocument();
     expect(screen.getByText(/cannot create a token with broader scopes/i)).toBeInTheDocument();
-    expect(screen.getByText(/token_endpoint_auth_method: none/i)).toBeInTheDocument();
-    expect(screen.getByText(/no client secret/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/token_endpoint_auth_method: none/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/no client secret/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/kitchen:read/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/single-use 60-second code/i)).toBeInTheDocument();
-    expect(screen.getByText(/access_token lasts 30 days/i)).toBeInTheDocument();
-    expect(screen.getByText(/Content-Type: application\/x-www-form-urlencoded/i)).toBeInTheDocument();
+    expect(screen.getByText(/access_token lasts 15 minutes/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Content-Type: application\/x-www-form-urlencoded/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/refresh_token rotates/i)).toBeInTheDocument();
     expect(screen.getByText(/validation_error/i)).toBeInTheDocument();
-    expect(screen.getByText(/invalid_token/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/invalid_token/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/insufficient_scope/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/X-Request-Id/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Spoonjoy session" })).toBeInTheDocument();
@@ -99,21 +102,25 @@ describe("/developers route", () => {
     expect(screen.getByText(/OAuth\/PKCE apps/i)).toBeInTheDocument();
     expect(screen.getByText(/MCP clients/i)).toBeInTheDocument();
     expect(screen.getByText(/Delegated and device-style authorization/i)).toBeInTheDocument();
+    expect(screen.getByText(/API v1 REST response shape/i)).toBeInTheDocument();
+    expect(screen.getByText(/Protocol exceptions/i)).toBeInTheDocument();
     expect(screen.getByText(/Idempotent shopping-list mutations/i)).toBeInTheDocument();
     expect(screen.getByText(/cursor sync/i)).toBeInTheDocument();
-    expect(screen.getByText(/tombstones/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/tombstones/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/rate limited by IP and credential/i)).toBeInTheDocument();
 
-    const openApiLink = screen.getByRole("link", { name: /OpenAPI JSON/i });
-    expect(openApiLink).toHaveAttribute("href", "/api/v1/openapi.json");
+    expect(screen.getByRole("link", { name: /Full Spec/i })).toHaveAttribute("href", "/api/v1/openapi.json");
+    expect(screen.getByRole("link", { name: /SDK Spec/i })).toHaveAttribute("href", "/api/v1/openapi.sdk.json");
+    expect(screen.getByRole("link", { name: /Connector Spec/i })).toHaveAttribute("href", "/api/v1/openapi.connector.json");
 
     for (const resource of API_V1_RESOURCES) {
       expect(screen.getByText(resource.path)).toBeInTheDocument();
     }
 
     for (const scope of data.scopes) {
-      expect(screen.getByText(scope)).toBeInTheDocument();
+      expect(screen.getAllByText(scope).length).toBeGreaterThan(0);
     }
+    expect(screen.queryByText("offline_access")).not.toBeInTheDocument();
 
     const tokenEndpoint = screen.getByTestId("developer-resource-tokens");
     expect(within(tokenEndpoint).getByText("GET")).toBeInTheDocument();

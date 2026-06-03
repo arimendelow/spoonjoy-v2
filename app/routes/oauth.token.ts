@@ -1,4 +1,5 @@
 import type { Route } from "./+types/oauth.token";
+import { applyOAuthCorsHeaders, oauthCorsPreflightResponse } from "~/lib/oauth-cors.server";
 import { getRequestDb } from "~/lib/route-platform.server";
 import { handleOAuthToken } from "~/lib/oauth-routes.server";
 import { enforceRateLimit, rateLimitedResponse } from "~/lib/rate-limit.server";
@@ -9,13 +10,20 @@ import { enforceRateLimit, rateLimitedResponse } from "~/lib/rate-limit.server";
 // endpoint. (Codes are 256-bit random with a 60s TTL, so success probability
 // is already negligible — but the endpoint shouldn't be uncapped.)
 export async function action({ request, context }: Route.ActionArgs) {
+  const preflight = oauthCorsPreflightResponse(request);
+  if (preflight) return preflight;
+
   const cfEnv = context.cloudflare?.env;
   const rateLimit = await enforceRateLimit({
     ip: request.headers.get("CF-Connecting-IP"),
     ipLimiter: cfEnv?.API_IP_RATE_LIMITER,
   });
-  if (!rateLimit.allowed) return rateLimitedResponse(rateLimit.retryAfterSeconds);
+  if (!rateLimit.allowed) {
+    const response = rateLimitedResponse(rateLimit.retryAfterSeconds);
+    return applyOAuthCorsHeaders(response);
+  }
 
   const db = await getRequestDb(context);
-  return handleOAuthToken(request, db, cfEnv);
+  const response = await handleOAuthToken(request, db, cfEnv);
+  return applyOAuthCorsHeaders(response);
 }

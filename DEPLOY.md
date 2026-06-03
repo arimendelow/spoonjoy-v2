@@ -8,7 +8,7 @@ Complete guide for deploying Spoonjoy v2 to Cloudflare Workers with D1 database.
 
 - [Cloudflare account](https://dash.cloudflare.com/sign-up)
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) installed (`npm install -g wrangler`)
-- Node.js 20+
+- Node.js 22.x (`package.json` requires `>=22 <23`)
 - Git
 
 ## Step 1: Authenticate with Cloudflare
@@ -278,6 +278,9 @@ The deploy output will show your Worker URL: `https://spoonjoy-v2.<account>.work
 | `APPLE_KEY_ID` | If using Apple login | Apple OAuth |
 | `APPLE_PRIVATE_KEY` | If using Apple login | Apple OAuth |
 | `OPENAI_API_KEY` | Optional | AI features |
+| `VAPID_PUBLIC_KEY` | ✅ Yes | Web push public key |
+| `VAPID_PRIVATE_KEY` | ✅ Yes | Web push private key |
+| `VAPID_SUBJECT` | ✅ Yes | Web push contact subject |
 
 ## Troubleshooting
 

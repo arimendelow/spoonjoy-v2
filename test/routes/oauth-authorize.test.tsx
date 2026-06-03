@@ -43,7 +43,7 @@ describe("oauth.authorize route", () => {
       code_challenge: await challengeFor(VERIFIER),
       code_challenge_method: "S256",
       scope: "kitchen:read",
-      state: "xyz",
+      state: "state_0123456789abcdef",
       resource: "https://spoonjoy.app/mcp",
     });
     return { userId: user.id, clientId: client.clientId, query };
@@ -136,11 +136,20 @@ describe("oauth.authorize route", () => {
       kind: "consent",
       clientName: "Claude",
       scope: "kitchen:read kitchen:write",
-      params: { clientId: "c", redirectUri, state: "s", scope: "kitchen:read kitchen:write", codeChallenge: "cc", resource: "r" },
+      params: {
+        clientId: "c",
+        redirectUri,
+        responseType: "code",
+        state: "state_0123456789abcdef",
+        scope: "kitchen:read kitchen:write",
+        codeChallenge: "cc",
+        codeChallengeMethod: "S256",
+        resource: "r",
+      },
     });
     expect(await screen.findByRole("heading", { name: /authorize claude/i })).toBeInTheDocument();
-    expect(screen.getByText(/view your recipes/i)).toBeInTheDocument();
-    expect(screen.getByText(/add and edit your recipes/i)).toBeInTheDocument();
+    expect(screen.getByText(/view public recipes/i)).toBeInTheDocument();
+    expect(screen.getByText(/add, edit, and remove/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /allow access/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /deny/i })).toBeInTheDocument();
     // Consent is only shown to a signed-in user, so the sidebar must not say "Sign in to…".
@@ -153,7 +162,16 @@ describe("oauth.authorize route", () => {
       kind: "consent",
       clientName: null,
       scope: "kitchen:read kitchen:future",
-      params: { clientId: "c", redirectUri, state: "", scope: "kitchen:read kitchen:future", codeChallenge: "cc", resource: "" },
+      params: {
+        clientId: "c",
+        redirectUri,
+        responseType: "code",
+        state: "",
+        scope: "kitchen:read kitchen:future",
+        codeChallenge: "cc",
+        codeChallengeMethod: "S256",
+        resource: "",
+      },
     });
     expect(await screen.findByRole("heading", { name: /authorize this app/i })).toBeInTheDocument();
     expect(screen.getByText(/kitchen:future/)).toBeInTheDocument();

@@ -44,8 +44,13 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 const SCOPE_LABELS: Record<string, string> = {
-  "kitchen:read": "View your recipes, cookbooks, and shopping list",
-  "kitchen:write": "Add and edit your recipes, cookbooks, and shopping list",
+  "cookbooks:read": "View public cookbook data",
+  "kitchen:read": "View public recipes, cookbooks, and your shopping list",
+  "kitchen:write": "Add, edit, and remove Spoonjoy kitchen data through MCP tools and shopping-list operations",
+  "public:read": "View public Spoonjoy data",
+  "recipes:read": "View public recipe data",
+  "shopping_list:read": "View your shopping list",
+  "shopping_list:write": "Add, check, and remove items on your shopping list",
 };
 
 // The consent screen is only ever reached by a signed-in user, so its marketing
@@ -62,7 +67,9 @@ function HiddenParams({ params }: { params: AuthorizeRequestParams }) {
     <>
       <input type="hidden" name="client_id" value={params.clientId} />
       <input type="hidden" name="redirect_uri" value={params.redirectUri} />
+      <input type="hidden" name="response_type" value={params.responseType} />
       <input type="hidden" name="code_challenge" value={params.codeChallenge} />
+      <input type="hidden" name="code_challenge_method" value={params.codeChallengeMethod} />
       <input type="hidden" name="scope" value={params.scope} />
       <input type="hidden" name="state" value={params.state} />
       <input type="hidden" name="resource" value={params.resource} />
@@ -87,12 +94,15 @@ export default function OAuthAuthorize() {
   }
 
   const appName = view.clientName || "This app";
+  const redirectOrigin = new URL(view.params.redirectUri).origin;
+  const resourceLabel = view.params.resource || "REST API";
+  const broadScopes = view.scope.split(" ").filter((scope) => scope === "kitchen:read" || scope === "kitchen:write");
   return (
     <AuthLayout {...CONNECTOR_AUTH_COPY}>
       <div className="w-full max-w-sm">
         <Heading>Authorize {appName}</Heading>
         <Text className="mt-4">
-          {appName} wants to connect to your Spoonjoy kitchen and will be able to:
+          {appName} is an unverified OAuth app name supplied by the developer. It wants to connect to your Spoonjoy kitchen and will be able to:
         </Text>
         <ul className="mt-4 space-y-2">
           {view.scope.split(" ").map((scope) => (
@@ -101,6 +111,28 @@ export default function OAuthAuthorize() {
             </li>
           ))}
         </ul>
+        <dl className="mt-5 space-y-2 border-y border-[var(--sj-border)] py-4 text-sm text-[var(--sj-ink)]">
+          <div>
+            <dt className="font-semibold">Redirect origin</dt>
+            <dd className="break-words">{redirectOrigin}</dd>
+          </div>
+          <div>
+            <dt className="font-semibold">Client id</dt>
+            <dd className="break-all font-mono text-xs">{view.params.clientId}</dd>
+          </div>
+          <div>
+            <dt className="font-semibold">Resource</dt>
+            <dd className="break-words">{resourceLabel}</dd>
+          </div>
+        </dl>
+        {broadScopes.length ? (
+          <Text className="mt-4" role="alert">
+            This request includes broad kitchen scopes. Approve only if you trust this app to act across Spoonjoy kitchen data.
+          </Text>
+        ) : null}
+        <Text className="mt-4">
+          Access tokens are short-lived; refresh tokens rotate and can be disconnected by revoking the app's refresh token.
+        </Text>
         <div className="mt-6 flex flex-wrap gap-3">
           <Form method="post">
             <HiddenParams params={view.params} />

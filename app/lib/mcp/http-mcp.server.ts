@@ -26,9 +26,12 @@ import {
 } from "~/lib/mcp/spoonjoy-tools.server";
 import {
   buildSpoonjoyApiContext,
-  resolveApiPrincipal,
 } from "~/lib/spoonjoy-api-request.server";
-import { protectedResourceMetadataUrl, resolveIssuerOrigin } from "~/lib/oauth-metadata.server";
+import {
+  authenticateApiToken,
+  extractBearerToken,
+} from "~/lib/api-auth.server";
+import { mcpResourceUrl, protectedResourceMetadataUrl, resolveIssuerOrigin } from "~/lib/oauth-metadata.server";
 import {
   enforceRateLimit,
   rateLimitedResponse,
@@ -64,11 +67,6 @@ function jsonResponse(payload: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
-
-// Any operation name that isn't a public bootstrap op; used so the principal
-// resolver rethrows on an invalid token (rather than swallowing it) and we can
-// uniformly treat "no token" and "bad token" as unauthenticated.
-const MCP_AUTH_OPERATION = "mcp";
 
 /**
  * Build the 401 that tells an MCP client to authenticate. The
@@ -113,18 +111,20 @@ export async function handleMcpHttpRequest(params: HandleMcpHttpRequestParams): 
     return rateLimitedResponse(rateLimit.retryAfterSeconds);
   }
 
-  // The connector is an OAuth-protected resource: every request — including
-  // `initialize` — must carry a valid token. An unauthenticated request gets a
-  // 401 + WWW-Authenticate so the client runs OAuth before connecting. (Claude
-  // Code's existing bearer-token connection authenticates the same way.)
   let principal;
   try {
-    principal = await resolveApiPrincipal(db, request, cloudflareEnv, MCP_AUTH_OPERATION);
+    const bearerToken = extractBearerToken(request);
+    if (!bearerToken) return authChallengeResponse(request, cloudflareEnv);
+    principal = await authenticateApiToken(db, bearerToken);
   } catch {
-    principal = null; // an invalid/expired token is treated as unauthenticated
-  }
-  if (!principal) {
     return authChallengeResponse(request, cloudflareEnv);
+  }
+  const expectedResource = mcpResourceUrl(resolveIssuerOrigin(request.url, cloudflareEnv?.SPOONJOY_BASE_URL));
+  if (principal.oauthClientId && principal.oauthResource !== expectedResource) {
+    return jsonResponse(
+      { error: "invalid_token", message: "OAuth access token is not audience-bound to this MCP resource." },
+      403,
+    );
   }
 
   const router: JsonRpcToolRouter = {

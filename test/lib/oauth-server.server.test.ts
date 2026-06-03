@@ -36,6 +36,10 @@ describe("verifyPkceS256", () => {
     expect(await verifyPkceS256("wrong", await challengeFor(VERIFIER))).toBe(false);
   });
 
+  it("rejects a verifier outside the PKCE length contract", async () => {
+    expect(await verifyPkceS256("short", await challengeFor("short"))).toBe(false);
+  });
+
   it("rejects empty inputs", async () => {
     expect(await verifyPkceS256("", "x")).toBe(false);
     expect(await verifyPkceS256("x", "")).toBe(false);
@@ -52,6 +56,12 @@ describe("isValidRedirectUri", () => {
   it("rejects plain http on a remote host and malformed URLs", () => {
     expect(isValidRedirectUri("http://evil.example.com/cb")).toBe(false);
     expect(isValidRedirectUri("not a url")).toBe(false);
+  });
+
+  it("rejects fragments, wildcard hosts, and embedded credentials", () => {
+    expect(isValidRedirectUri("https://example.com/cb#fragment")).toBe(false);
+    expect(isValidRedirectUri("https://*.example.com/cb")).toBe(false);
+    expect(isValidRedirectUri("https://user:pass@example.com/cb")).toBe(false);
   });
 });
 
@@ -258,7 +268,7 @@ describe("connector token issuance + rotation", () => {
   });
 
   it("issues an expiring access token plus a refresh token", async () => {
-    const tokens = await issueConnectorTokens(db, { userId, clientId, scope: "kitchen:read" });
+    const tokens = await issueConnectorTokens(db, { userId, clientId, scope: "kitchen:read", resource: "https://spoonjoy.app/mcp" });
     expect(tokens.accessToken).toMatch(/^/);
     expect(tokens.refreshToken).toMatch(/^ort_/);
     expect(tokens.expiresIn).toBeGreaterThan(0);
@@ -267,7 +277,9 @@ describe("connector token issuance + rotation", () => {
     const credential = await db.apiCredential.findFirst({ where: { userId } });
     expect(credential?.expiresAt).toBeInstanceOf(Date);
     expect(credential?.scopes).toBe("kitchen:read");
-    expect(await db.oAuthRefreshToken.count({ where: { userId } })).toBe(1);
+    expect(credential?.oauthClientId).toBe(clientId);
+    expect(credential?.oauthResource).toBe("https://spoonjoy.app/mcp");
+    expect(await db.oAuthRefreshToken.count({ where: { userId, resource: "https://spoonjoy.app/mcp" } })).toBe(1);
   });
 
   it("rotates a refresh token, revoking the old one", async () => {
@@ -302,7 +314,7 @@ describe("connector token issuance + rotation", () => {
   it("treats a lost rotation race as already-used", async () => {
     const stub = {
       oAuthRefreshToken: {
-        findUnique: async () => ({ id: "race", revokedAt: null, clientId, userId, scope: "kitchen:read" }),
+        findUnique: async () => ({ id: "race", revokedAt: null, clientId, userId, scope: "kitchen:read", resource: null }),
         updateMany: async () => ({ count: 0 }),
       },
     } as never;

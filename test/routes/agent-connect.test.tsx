@@ -23,9 +23,10 @@ async function sessionCookie(userId: string) {
   return (await sessionStorage.commitSession(session)).split(";")[0];
 }
 
-function formRequest(url: string, intent: string, cookie?: string) {
+function formRequest(url: string, intent: string, cookie?: string, userCode?: string) {
   const formData = new UndiciFormData();
   formData.set("intent", intent);
+  if (userCode) formData.set("userCode", userCode);
   const headers = new Headers();
   if (cookie) headers.set("Cookie", cookie);
   return new UndiciRequest(url, { method: "POST", body: formData, headers });
@@ -81,7 +82,7 @@ describe("agent connect route", () => {
       now: activeNow,
     });
     const cookie = await sessionCookie(userId);
-    const request = new UndiciRequest(`http://localhost/agent/connect/${started.request.id}`, {
+    const request = new UndiciRequest(`http://localhost/agent/connect/${started.request.id}?code=${started.request.userCode}`, {
       headers: { Cookie: cookie },
     });
 
@@ -90,6 +91,7 @@ describe("agent connect route", () => {
       agentName: "slugger",
       userCode: started.request.userCode,
       userEmail,
+      scopes: ["shopping_list:read", "shopping_list:write"],
     });
 
     await expect(loader(routeArgs(new UndiciRequest("http://localhost/agent/connect/missing"), "missing")))
@@ -114,6 +116,7 @@ describe("agent connect route", () => {
       agentName: "slugger",
       userCode: started.request.userCode,
       userEmail: null,
+      scopes: ["shopping_list:read", "shopping_list:write"],
     });
   });
 
@@ -123,7 +126,7 @@ describe("agent connect route", () => {
     const cookie = await sessionCookie(userId);
 
     await expect(action(routeArgs(
-      formRequest(`http://localhost/agent/connect/${approveTarget.request.id}`, "approve", cookie),
+      formRequest(`http://localhost/agent/connect/${approveTarget.request.id}`, "approve", cookie, approveTarget.request.userCode),
       approveTarget.request.id,
     ))).rejects.toSatisfy((response: Response) => {
       expect(response.status).toBe(302);
@@ -134,7 +137,7 @@ describe("agent connect route", () => {
       .resolves.toMatchObject({ status: "approved", approvedById: userId });
 
     await expect(action(routeArgs(
-      formRequest(`http://localhost/agent/connect/${denyTarget.request.id}`, "deny", cookie),
+      formRequest(`http://localhost/agent/connect/${denyTarget.request.id}`, "deny", cookie, denyTarget.request.userCode),
       denyTarget.request.id,
     ))).rejects.toSatisfy((response: Response) => {
       expect(response.status).toBe(302);
@@ -144,7 +147,7 @@ describe("agent connect route", () => {
       .resolves.toMatchObject({ status: "denied" });
 
     const invalid = await action(routeArgs(
-      formRequest(`http://localhost/agent/connect/${denyTarget.request.id}`, "later", cookie),
+      formRequest(`http://localhost/agent/connect/${denyTarget.request.id}`, "later", cookie, denyTarget.request.userCode),
       denyTarget.request.id,
     ));
     expect((invalid as any).init.status).toBe(400);

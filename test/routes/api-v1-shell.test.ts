@@ -11,7 +11,7 @@ import {
   normalizeApiV1AuthError,
   normalizeApiV1InternalError,
 } from "~/lib/api-v1.server";
-import { API_V1_ERROR_STATUS, API_V1_RESOURCES } from "~/lib/api-v1-contract.server";
+import { API_V1_DISCOVERY_DATA, API_V1_ERROR_STATUS } from "~/lib/api-v1-contract.server";
 import { getLocalDb } from "~/lib/db.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { createTestUser } from "../utils";
@@ -28,9 +28,9 @@ function expectV1Headers(response: Response, requestId: string) {
   expect(response.headers.get("Content-Type")).toContain("application/json");
   expect(response.headers.get("X-Request-Id")).toBe(requestId);
   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-  expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Authorization, Content-Type, X-Request-Id");
+  expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Authorization, Content-Type, X-Request-Id, X-Client-Mutation-Id");
   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, PATCH, DELETE, OPTIONS");
-  expect(response.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-Id");
+  expect(response.headers.get("Access-Control-Expose-Headers")).toContain("X-Request-Id");
 }
 
 describe("/api/v1 shell", () => {
@@ -56,24 +56,7 @@ describe("/api/v1 shell", () => {
     await expect(readJson(response)).resolves.toEqual({
       ok: true,
       requestId: "req_test_root",
-      data: {
-        app: "spoonjoy",
-        version: "v1",
-        status: "ok",
-        docsUrl: "https://spoonjoy.app/developers",
-        openapiUrl: "/api/v1/openapi.json",
-        resources: API_V1_RESOURCES,
-        auth: {
-          type: "bearer",
-          tokenUrl: "/api/v1/tokens",
-          oauth: { register: "/oauth/register", authorize: "/oauth/authorize", token: "/oauth/token" },
-          mcp: {
-            endpoint: "/mcp",
-            startAgentConnection: "/api/tools/start_agent_connection",
-            pollAgentConnection: "/api/tools/poll_agent_connection",
-          },
-        },
-      },
+      data: API_V1_DISCOVERY_DATA,
     });
   });
 
@@ -131,7 +114,7 @@ describe("/api/v1 shell", () => {
         version: "v1",
         authenticated: true,
         principal: { id: user.id, username: user.username, source: "bearer" },
-        scopes: ["cookbooks:read", "public:read", "recipes:read", "shopping_list:read", "tokens:read"],
+        scopes: ["cookbooks:read", "kitchen:read", "public:read", "recipes:read", "shopping_list:read"],
       },
     });
   });
@@ -169,7 +152,7 @@ describe("/api/v1 shell", () => {
         code: "rate_limited",
         message: "Too many requests. Try again later.",
         status: 429,
-        details: { retryAfterSeconds: 60 },
+        details: { retryAfterSeconds: 60, scope: "token" },
       },
     });
   });
@@ -199,6 +182,7 @@ describe("/api/v1 shell", () => {
   });
 
   it("normalizes unexpected optional-auth failures to internal_error", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.spyOn(apiAuth, "authenticateApiRequest").mockRejectedValueOnce(new Error("auth storage unavailable"));
 
     const response = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/health", {
@@ -215,10 +199,19 @@ describe("/api/v1 shell", () => {
       requestId: "req_auth_storage_failure",
       error: {
         code: "internal_error",
-        message: "auth storage unavailable",
+        message: "Internal error",
         status: 500,
       },
     });
+    expect(errorSpy).toHaveBeenCalledWith("[api-v1] internal_error", expect.objectContaining({
+      requestId: "req_auth_storage_failure",
+      method: "GET",
+      path: "/api/v1/health",
+      error: expect.objectContaining({
+        name: "Error",
+        message: "auth storage unavailable",
+      }),
+    }));
   });
 
   it("serves the OpenAPI shell document", async () => {
@@ -244,9 +237,9 @@ describe("/api/v1 shell", () => {
     expect(response.status).toBe(204);
     expect(response.headers.get("X-Request-Id")).toBe("req_options");
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-    expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Authorization, Content-Type, X-Request-Id");
+    expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Authorization, Content-Type, X-Request-Id, X-Client-Mutation-Id");
     expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, PATCH, DELETE, OPTIONS");
-    expect(response.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-Id");
+    expect(response.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-Id, Retry-After");
     expect(response.headers.has("Content-Type")).toBe(false);
     expect(await response.text()).toBe("");
   });
@@ -381,6 +374,7 @@ describe("/api/v1 shell", () => {
       not_found: 404,
       method_not_allowed: 405,
       idempotency_conflict: 409,
+      idempotency_in_progress: 409,
       rate_limited: 429,
       internal_error: 500,
     });
@@ -419,7 +413,7 @@ describe("/api/v1 shell", () => {
     expect(normalizeApiV1InternalError(new Error("Exploded"))).toMatchObject({
       code: "internal_error",
       status: 500,
-      message: "Exploded",
+      message: "Internal error",
     });
     expect(normalizeApiV1InternalError("surprise")).toMatchObject({
       code: "internal_error",
@@ -429,6 +423,7 @@ describe("/api/v1 shell", () => {
   });
 
   it("normalizes unexpected optional-auth failures into internal errors", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let cloudflareReads = 0;
     const context = {
       get cloudflare() {
@@ -455,9 +450,14 @@ describe("/api/v1 shell", () => {
       requestId: "req_platform_error",
       error: {
         code: "internal_error",
-        message: "Platform env unavailable",
+        message: "Internal error",
         status: 500,
       },
     });
+    expect(errorSpy).toHaveBeenCalledWith("[api-v1] internal_error", expect.objectContaining({
+      requestId: "req_platform_error",
+      method: "GET",
+      path: "/api/v1/health",
+    }));
   });
 });

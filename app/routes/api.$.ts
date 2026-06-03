@@ -13,6 +13,17 @@ const API_HEADERS = {
   "Access-Control-Max-Age": "86400",
 };
 
+const TOKEN_RESPONSE_HEADERS = {
+  "Cache-Control": "no-store",
+  Pragma: "no-cache",
+};
+
+const SECRET_BEARING_OPERATIONS = new Set([
+  "start_agent_connection",
+  "poll_agent_connection",
+  "create_api_token",
+]);
+
 const NUMERIC_QUERY_KEYS = new Set(["duration", "limit", "quantity"]);
 const BOOLEAN_QUERY_KEYS = new Set(["checked"]);
 
@@ -21,8 +32,12 @@ type ApiDispatch = {
   args: Record<string, unknown>;
 };
 
-function apiJson(payload: unknown, status = 200): Response {
-  return Response.json(payload, { status, headers: API_HEADERS });
+function apiJson(payload: unknown, status = 200, extraHeaders?: HeadersInit): Response {
+  const headers = new Headers(API_HEADERS);
+  if (extraHeaders) {
+    new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+  }
+  return Response.json(payload, { status, headers });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -169,15 +184,22 @@ async function handleApiRequest({ request, context, params }: Route.LoaderArgs |
       ? dispatchGet(path, segments, url)
       : await dispatchMutation(request.method, path, segments, request);
 
-    const db = await getRequestDb(context);
-    const principal = await resolveApiPrincipal(db, request, context.cloudflare?.env, dispatch.operation);
-
-    const data = await callSpoonjoyApiOperation(
+	    const db = await getRequestDb(context);
+	    const principal = await resolveApiPrincipal(db, request, context.cloudflare?.env, dispatch.operation);
+	    if (principal?.oauthResource) {
+	      throw new ApiAuthError("OAuth access token is bound to a protected resource and cannot call legacy /api routes.", 403);
+	    }
+	
+	    const data = await callSpoonjoyApiOperation(
       dispatch.operation,
       dispatch.args,
       buildSpoonjoyApiContext({ db, principal, cloudflareEnv: cfEnv ?? null, waitUntil }),
     );
-    return apiJson({ ok: true, data });
+    return apiJson(
+      { ok: true, data },
+      200,
+      SECRET_BEARING_OPERATIONS.has(dispatch.operation) ? TOKEN_RESPONSE_HEADERS : undefined,
+    );
   } catch (error) {
     // ApiAuthError and "Recipe/Cookbook not found"-style errors are intentional
     // client-visible failures — surface them at their proper status. Anything

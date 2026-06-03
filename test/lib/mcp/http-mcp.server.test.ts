@@ -56,6 +56,16 @@ describe("handleMcpHttpRequest", () => {
     return token;
   }
 
+  async function mintOAuthToken(options: { oauthResource?: string | null } = {}): Promise<string> {
+    const user = await db.user.create({ data: { email: uniqueEmail("oauth-mcp"), username: faker.internet.username() } });
+    const { token } = await createApiCredential(db, user.id, "oauth mcp token", {
+      scopes: ["kitchen:read", "kitchen:write"],
+      oauthClientId: "oauth_client_1",
+      oauthResource: options.oauthResource ?? null,
+    });
+    return token;
+  }
+
   function bearer(token: string): Record<string, string> {
     return { Authorization: `Bearer ${token}` };
   }
@@ -148,6 +158,19 @@ describe("handleMcpHttpRequest", () => {
     const body = await response.json() as { result: { content: { text: string }[] } };
     const payload = JSON.parse(body.result.content[0].text);
     expect(payload).toHaveProperty("shoppingList");
+  });
+
+  it("rejects OAuth tokens that are not audience-bound to the MCP resource", async () => {
+    const response = await handleMcpHttpRequest({
+      request: rpcRequest(init(6, "tools/list"), bearer(await mintOAuthToken({ oauthResource: null }))),
+      db,
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "invalid_token",
+      message: "OAuth access token is not audience-bound to this MCP resource.",
+    });
   });
 
   it("returns a JSON-RPC parse error for an invalid (authenticated) body", async () => {

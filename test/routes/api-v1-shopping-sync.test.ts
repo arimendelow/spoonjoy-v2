@@ -20,9 +20,9 @@ function expectEnvelopeHeaders(response: Response, requestId: string) {
   expect(response.headers.get("Content-Type")).toContain("application/json");
   expect(response.headers.get("X-Request-Id")).toBe(requestId);
   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-  expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Authorization, Content-Type, X-Request-Id");
+  expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Authorization, Content-Type, X-Request-Id, X-Client-Mutation-Id");
   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST, PATCH, DELETE, OPTIONS");
-  expect(response.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-Id");
+  expect(response.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-Id, Retry-After");
 }
 
 function expectExactKeys(value: Record<string, unknown>, keys: string[]) {
@@ -259,9 +259,9 @@ describe("API v1 shopping-list read and sync", () => {
     for (const item of allPayload.data.items) {
       expectShoppingItemShape(item);
     }
-    expect(allPayload.data.nextCursor).toBe(allPayload.data.items[1].updatedAt);
+    expect(allPayload.data.nextCursor).toMatch(/^v1\./);
 
-    const cursor = encodeURIComponent(allPayload.data.items[0].updatedAt);
+    const cursor = encodeURIComponent(allPayload.data.nextCursor);
     const filtered = await loader(routeArgs(new UndiciRequest(`http://localhost/api/v1/shopping-list/sync?cursor=${cursor}`, {
       headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": "req_shopping_sync_cursor" },
     }) as unknown as Request, "shopping-list/sync"));
@@ -271,9 +271,32 @@ describe("API v1 shopping-list read and sync", () => {
     expectEnvelopeHeaders(filtered, "req_shopping_sync_cursor");
     expectSuccessEnvelope(filteredPayload, "req_shopping_sync_cursor");
     expectExactKeys(filteredPayload.data, ["items", "nextCursor", "hasMore"]);
-    expect(filteredPayload.data.items.map((item: { id: string }) => item.id)).toEqual([fixture.tombstone.id]);
+    expect(filteredPayload.data.items).toEqual([]);
     expect(filteredPayload.data.hasMore).toBe(false);
-    expect(filteredPayload.data.nextCursor).toBe(filteredPayload.data.items[0].updatedAt);
+    expect(filteredPayload.data.nextCursor).toBe(allPayload.data.nextCursor);
+
+    const limited = await loader(routeArgs(new UndiciRequest("http://localhost/api/v1/shopping-list/sync?limit=1", {
+      headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": "req_shopping_sync_limited" },
+    }) as unknown as Request, "shopping-list/sync"));
+    const limitedPayload = await readJson(limited);
+
+    expect(limited.status).toBe(200);
+    expectSuccessEnvelope(limitedPayload, "req_shopping_sync_limited");
+    expectExactKeys(limitedPayload.data, ["items", "nextCursor", "hasMore"]);
+    expect(limitedPayload.data.items.map((item: { id: string }) => item.id)).toEqual([fixture.active.id]);
+    expect(limitedPayload.data.nextCursor).toMatch(/^v1\./);
+    expect(limitedPayload.data.hasMore).toBe(true);
+
+    const limitedNext = await loader(routeArgs(new UndiciRequest(
+      `http://localhost/api/v1/shopping-list/sync?limit=1&cursor=${encodeURIComponent(limitedPayload.data.nextCursor)}`,
+      { headers: { Authorization: `Bearer ${fixture.credential.token}`, "X-Request-Id": "req_shopping_sync_limited_next" } },
+    ) as unknown as Request, "shopping-list/sync"));
+    const limitedNextPayload = await readJson(limitedNext);
+
+    expect(limitedNext.status).toBe(200);
+    expectSuccessEnvelope(limitedNextPayload, "req_shopping_sync_limited_next");
+    expect(limitedNextPayload.data.items.map((item: { id: string }) => item.id)).toEqual([fixture.tombstone.id]);
+    expect(limitedNextPayload.data.hasMore).toBe(false);
   });
 
   it("uses deterministic sync ordering and cursor fallbacks", async () => {
@@ -295,6 +318,7 @@ describe("API v1 shopping-list read and sync", () => {
     expectSuccessEnvelope(tiedPayload, "req_shopping_sync_tied");
     expectExactKeys(tiedPayload.data, ["items", "nextCursor", "hasMore"]);
     expect(tiedPayload.data.items.map((item: { id: string }) => item.id)).toEqual(expectedTiedOrder);
+    expect(tiedPayload.data.nextCursor).toMatch(/^v1\./);
 
     const emptyCursor = new Date(tiedAt.getTime() + 1_000).toISOString();
     const empty = await loader(routeArgs(new UndiciRequest(

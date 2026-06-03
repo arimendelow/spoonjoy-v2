@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { createTestRoutesStub } from "../utils";
 import { db } from "~/lib/db.server";
 import { createUser } from "~/lib/auth.server";
+import { createApiCredential } from "~/lib/api-auth.server";
 import { sessionStorage } from "~/lib/session.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 import { faker } from "@faker-js/faker";
@@ -102,6 +103,70 @@ describe("Account Settings Route", () => {
       expect(result.user.oauthAccounts).toHaveLength(1);
       expect(result.user.oauthAccounts[0].provider).toBe("google");
       expect(result.user.oauthAccounts[0].providerUsername).toBe("testuser@gmail.com");
+    });
+
+    it("returns active API credentials and OAuth app connections", async () => {
+      const personal = await createApiCredential(db, testUserId, "Kitchen CLI", {
+        scopes: ["shopping_list:read", "shopping_list:write"],
+      });
+      const revoked = await createApiCredential(db, testUserId, "Old script", {
+        scopes: ["recipes:read"],
+      });
+      await db.apiCredential.update({
+        where: { id: revoked.credential.id },
+        data: { revokedAt: new Date() },
+      });
+      const client = await db.oAuthClient.create({
+        data: {
+          clientName: "Grocery helper",
+          redirectUris: JSON.stringify(["https://example.com/callback"]),
+        },
+      });
+      await db.oAuthRefreshToken.create({
+        data: {
+          tokenHash: `refresh-${faker.string.alphanumeric(12)}`,
+          userId: testUserId,
+          clientId: client.id,
+          scope: "shopping_list:read shopping_list:write",
+          resource: null,
+        },
+      });
+      await createApiCredential(db, testUserId, "Grocery helper (OAuth)", {
+        scopes: ["shopping_list:read", "shopping_list:write"],
+        oauthClientId: client.id,
+        oauthResource: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const cookieValue = (await sessionStorage.commitSession(session)).split(";")[0];
+      const request = new UndiciRequest("http://localhost:3000/account/settings", {
+        headers: { Cookie: cookieValue },
+      });
+
+      const result = await loader({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+
+      expect(result.user.apiCredentials).toEqual([
+        expect.objectContaining({
+          id: personal.credential.id,
+          name: "Kitchen CLI",
+          scopes: ["shopping_list:read", "shopping_list:write"],
+        }),
+      ]);
+      expect(result.user.oauthConnections).toEqual([
+        expect.objectContaining({
+          clientId: client.id,
+          clientName: "Grocery helper",
+          scopes: ["shopping_list:read", "shopping_list:write"],
+          refreshTokenCount: 1,
+          accessTokenCount: 1,
+        }),
+      ]);
     });
 
     it("should indicate if user has a password set", async () => {
@@ -251,6 +316,55 @@ describe("Account Settings Route", () => {
       render(<Stub initialEntries={["/account/settings"]} />);
 
       expect(await screen.findByRole("heading", { name: /account settings/i })).toBeInTheDocument();
+    });
+
+    it("renders API credential and OAuth app revocation controls", async () => {
+      const mockData = {
+        user: {
+          id: testUserId,
+          email: testUserEmail.toLowerCase(),
+          username: testUsername,
+          hasPassword: true,
+          oauthAccounts: [],
+          photoUrl: null,
+          passkeys: [],
+          apiCredentials: [{
+            id: "cred-1",
+            name: "Kitchen CLI",
+            tokenPrefix: "sj_abc123456",
+            scopes: ["shopping_list:read", "shopping_list:write"],
+            createdAt: "2026-06-01T00:00:00.000Z",
+            lastUsedAt: null,
+            expiresAt: null,
+          }],
+          oauthConnections: [{
+            clientId: "client-1",
+            clientName: "Grocery helper",
+            resource: null,
+            scopes: ["shopping_list:read"],
+            createdAt: "2026-06-01T00:00:00.000Z",
+            refreshTokenCount: 1,
+            accessTokenCount: 1,
+          }],
+        },
+        notifications: { pushSubscribed: false },
+      };
+
+      const Stub = createTestRoutesStub([
+        {
+          path: "/account/settings",
+          Component: AccountSettings,
+          loader: () => mockData,
+        },
+      ]);
+
+      render(<Stub initialEntries={["/account/settings"]} />);
+
+      const section = await screen.findByTestId("api-access-section");
+      expect(section).toHaveTextContent("Kitchen CLI");
+      expect(section).toHaveTextContent("Grocery helper");
+      expect(screen.getByRole("button", { name: /revoke kitchen cli/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /disconnect grocery helper/i })).toBeInTheDocument();
     });
 
     it("should render user info section", async () => {
@@ -1175,6 +1289,78 @@ describe("Account Settings Route", () => {
       } as any);
 
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("action - API and app access", () => {
+    async function authenticatedPost(formData: FormData) {
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const cookieValue = (await sessionStorage.commitSession(session)).split(";")[0];
+      const headers = new Headers();
+      headers.set("Cookie", cookieValue);
+      headers.set("Content-Type", "application/x-www-form-urlencoded");
+      const request = new UndiciRequest("http://localhost:3000/account/settings", {
+        method: "POST",
+        headers,
+        body: new URLSearchParams(formData as any).toString(),
+      });
+      return action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: {},
+      } as any);
+    }
+
+    it("revokes an active API credential owned by the signed-in chef", async () => {
+      const created = await createApiCredential(db, testUserId, "Script token", {
+        scopes: ["shopping_list:read"],
+      });
+      const formData = new FormData();
+      formData.append("intent", "revokeApiCredential");
+      formData.append("credentialId", created.credential.id);
+
+      const result = await authenticatedPost(formData);
+
+      expect(result).toMatchObject({ success: true });
+      await expect(db.apiCredential.findUniqueOrThrow({ where: { id: created.credential.id } }))
+        .resolves.toMatchObject({ revokedAt: expect.any(Date) });
+    });
+
+    it("disconnects an OAuth app by revoking refresh and live access credentials", async () => {
+      const client = await db.oAuthClient.create({
+        data: {
+          clientName: "Grocery helper",
+          redirectUris: JSON.stringify(["https://example.com/callback"]),
+        },
+      });
+      await db.oAuthRefreshToken.create({
+        data: {
+          tokenHash: `refresh-${faker.string.alphanumeric(12)}`,
+          userId: testUserId,
+          clientId: client.id,
+          scope: "shopping_list:read",
+          resource: null,
+        },
+      });
+      const access = await createApiCredential(db, testUserId, "Grocery helper (OAuth)", {
+        scopes: ["shopping_list:read"],
+        oauthClientId: client.id,
+        oauthResource: null,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      const formData = new FormData();
+      formData.append("intent", "disconnectOAuthClient");
+      formData.append("clientId", client.id);
+      formData.append("resource", "");
+
+      const result = await authenticatedPost(formData);
+
+      expect(result).toMatchObject({ success: true });
+      await expect(db.oAuthRefreshToken.findFirstOrThrow({ where: { clientId: client.id } }))
+        .resolves.toMatchObject({ revokedAt: expect.any(Date) });
+      await expect(db.apiCredential.findUniqueOrThrow({ where: { id: access.credential.id } }))
+        .resolves.toMatchObject({ revokedAt: expect.any(Date) });
     });
   });
 

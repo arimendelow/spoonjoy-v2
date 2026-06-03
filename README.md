@@ -177,6 +177,9 @@ pnpm exec prisma migrate diff --from-empty --to-schema-datamodel=./prisma/schema
    wrangler secret put APPLE_KEY_ID
    wrangler secret put APPLE_PRIVATE_KEY
    wrangler secret put OPENAI_API_KEY
+   wrangler secret put VAPID_PUBLIC_KEY
+   wrangler secret put VAPID_PRIVATE_KEY
+   wrangler secret put VAPID_SUBJECT
    ```
 
 6. Run the deployment preflight:
