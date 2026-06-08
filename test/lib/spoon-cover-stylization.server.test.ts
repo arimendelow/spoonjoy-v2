@@ -511,7 +511,7 @@ describe("scheduleSpoonCoverStylization", () => {
     const cover = await db.recipeCover.findUniqueOrThrow({ where: { id: coverId } });
     expect(cover.stylizedImageUrl).toMatch(/^\/photos\/covers\/1780920000000-[a-f0-9-]+\.png$/);
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://generativelanguage.googleapis.com/v1/models/gemini-custom-image:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-custom-image:generateContent",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ "x-goog-api-key": "google-test" }),
@@ -549,7 +549,7 @@ describe("scheduleSpoonCoverStylization", () => {
       logger: errorSpy,
     });
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-image:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent",
       expect.any(Object),
     );
   });

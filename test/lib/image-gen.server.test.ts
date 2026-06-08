@@ -841,7 +841,7 @@ describe("createGeminiImageRunner", () => {
     const runner = createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl });
     const result = await runner.textToImage("prompt", { model: "gemini-3.1-flash-image" });
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-image:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ "x-goog-api-key": "gemini-key" }),
@@ -850,7 +850,7 @@ describe("createGeminiImageRunner", () => {
     const [, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(JSON.parse(init.body as string)).toEqual({
       contents: [{ parts: [{ text: "prompt" }] }],
-      generationConfig: { responseModalities: ["IMAGE"] },
+      generationConfig: { responseModalities: ["Image"] },
     });
     expect(result).toEqual({ bytes: GENERATED_BYTES, contentType: "image/jpeg" });
   });
@@ -883,7 +883,7 @@ describe("createGeminiImageRunner", () => {
           },
         ],
       }],
-      generationConfig: { responseModalities: ["IMAGE"] },
+      generationConfig: { responseModalities: ["Image"] },
     });
     expect(result).toEqual({ bytes: GENERATED_BYTES, contentType: "image/png" });
   });

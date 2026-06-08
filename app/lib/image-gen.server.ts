@@ -644,7 +644,7 @@ export function createGeminiImageRunner({
   ): Promise<GeneratedImageOutput> {
     const response = await fetchWithTimeout(
       fetchImpl,
-      `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(model)}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
         headers: {
@@ -653,7 +653,7 @@ export function createGeminiImageRunner({
         },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: { responseModalities: ["IMAGE"] },
+          generationConfig: { responseModalities: ["Image"] },
         }),
       },
       timeoutMs,

@@ -9,9 +9,27 @@ export async function fillLoginEmail(page: Page, emailAddress: string) {
 }
 
 export async function submitPasswordLogin(page: Page, emailAddress: string, password: string) {
-  await page.getByLabel('Password').first().fill(password);
-  await fillLoginEmail(page, emailAddress);
-  await page.getByRole('button', { name: /log in/i }).first().click();
+  const emailInput = page.getByLabel('Email').first();
+  const passwordInput = page.getByLabel('Password').first();
+  const loginButton = page.locator('form').getByRole('button', { name: 'Log In', exact: true });
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await expect(async () => {
+      await emailInput.fill(emailAddress);
+      await passwordInput.fill(password);
+      await expect(emailInput).toHaveValue(emailAddress);
+      await expect(passwordInput).toHaveValue(password);
+    }).toPass();
+    await loginButton.click();
+    await page.waitForTimeout(150);
+
+    const emailVisible = await emailInput.isVisible().catch(() => false);
+    if (!emailVisible) return;
+
+    const hasFeedback = await page.getByText(/invalid|error|incorrect|required/i).first().isVisible().catch(() => false);
+    const emailValue = await emailInput.inputValue().catch(() => emailAddress);
+    if (emailValue || hasFeedback) return;
+  }
 }
 
 export async function loginAsSeedUser(page: Page) {
