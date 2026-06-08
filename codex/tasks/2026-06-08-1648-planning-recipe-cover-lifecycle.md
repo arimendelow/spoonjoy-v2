@@ -14,7 +14,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 ### In Scope
 - Replace implicit newest-cover selection with an explicit active recipe cover model used by recipe pages, cards, search, cookbooks, Open Graph metadata, public API formatting, and MCP formatting.
 - Add cover provenance metadata that can distinguish pure AI generated covers from editorialized photos, verbatim uploaded photos, and imported photos.
-- Add a safe schema/data migration that backfills the currently displayed newest non-empty cover as active while preserving existing cover history.
+- Add a safe schema/data migration that backfills the newest ready/non-empty cover as active while preserving existing cover history. This intentionally fixes current behavior where a newer empty cover row can hide an older valid image.
 - Update no-photo recipe placeholders so they read as intentional awaiting-cover states rather than broken/corrupted image states.
 - Make first chef spoon photos optional; when a recipe has no active real cover and the chef includes a spoon photo, auto-create an editorialized cover from that photo.
 - Allow chefs to keep an uploaded image verbatim as the active cover without generating an editorialized variant.
@@ -43,6 +43,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - [ ] Existing APIs and loaders no longer derive current cover from newest row ordering.
 - [ ] Pure AI generated, uploaded verbatim, imported, and editorialized-photo covers are distinguishable in database rows, web UI, public API, and MCP responses.
 - [ ] Placeholder, import, edit, fork, and stylization jobs cannot silently replace a manually selected active cover.
+- [ ] Removing a cover archives the cover record by default; removing the active cover requires an explicit next active cover or an explicit no-cover state.
 - [ ] Search index metadata and Open Graph output use the explicit active cover and remain correct after cover changes.
 - [ ] Image generation failures remain visible via PostHog exception capture and user-facing failure states.
 - [ ] 100% test coverage on all new code
@@ -57,7 +58,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - Edge cases: null, empty, boundary values
 
 ## Open Questions
-- [ ] None. Product decisions for required photo behavior, provenance visibility, manual cover choice, cover retention, and MCP authority were resolved in chat on 2026-06-08.
+- None. Product decisions for required photo behavior, provenance visibility, manual cover choice, cover retention, removal semantics, and MCP authority were resolved in chat on 2026-06-08.
 
 ## Decisions Made
 - First chef spoon photos are optional. A chef may log a text-only first cook; photo upload should be prominent when no real cover exists.
@@ -66,6 +67,9 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - Once a chef explicitly chooses an active cover, automation may create cover candidates but must not silently replace the active cover.
 - Chefs can set a cover to the verbatim uploaded image; editorialized generation is optional except the first-chef-photo/no-real-cover auto-seed path.
 - Old covers should be retained by default, browsable, restorable, and removable/archivable.
+- Default cover removal is a soft archive. It keeps the database row for audit/provenance and hides it from active-picker defaults; destructive R2 object deletion is only allowed for objects that are not referenced by an active/ready cover and are safe to delete.
+- Removing the active cover must not silently fall back to another cover. The caller must either choose a replacement active cover or confirm the recipe should enter an intentional no-cover/awaiting-cover state.
+- Deleting or editing a source spoon should not automatically delete derived recipe covers. Because only the recipe owner can create public recipe covers from spoon photos, derived covers remain recipe assets until the owner archives/removes them; owner UI and MCP should expose source linkage so those covers can be found and archived.
 - MCP can list and generate candidates with write scope, but active-cover changes require an explicit operation such as `set_active_recipe_cover`.
 
 ## Context / References
@@ -80,9 +84,10 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - `app/lib/recipe-fork.server.ts` and `app/lib/recipe-import.server.ts` create or copy cover rows and must preserve provenance and active-cover semantics.
 
 ## Notes
-Implementation should prefer a single `RecipeCover` history model with explicit status/provenance over a separate candidate model unless code inspection shows a separate model is materially simpler. Backfill should choose the currently displayed newest non-empty cover as active while preserving older rows. If adding `Recipe.activeCoverId`, avoid a required cyclic relation between `Recipe` and `RecipeCover`; use nullable active-cover state and explicit write helpers. Background jobs should check active-cover/manual-selection state at completion time before activating any generated cover.
+Implementation should prefer a single `RecipeCover` history model with explicit status/provenance over a separate candidate model unless code inspection shows a separate model is materially simpler. Backfill should choose the newest ready/non-empty cover as active while preserving older rows; this intentionally improves current HEAD behavior because current newest-row selection returns null when the newest row has empty URLs. If adding `Recipe.activeCoverId`, avoid a required cyclic relation between `Recipe` and `RecipeCover`; use nullable active-cover state and explicit write helpers. Background jobs should check active-cover/manual-selection state at completion time before activating any generated cover.
 
 ## Progress Log
 - 2026-06-08 16:48 Created
 - 2026-06-08 16:50 Tightened scope after tinfoil pass
 - 2026-06-08 16:51 Fixed API v1 cover reference after source-fidelity check
+- pending commit Addressed planning reviewer findings on backfill and archive semantics
