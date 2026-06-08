@@ -1,6 +1,6 @@
 # Planning: Recipe Cover Lifecycle
 
-**Status**: drafting
+**Status**: approved
 **Created**: 2026-06-08 16:48
 
 ## Goal
@@ -91,3 +91,4 @@ Implementation should prefer a single `RecipeCover` history model with explicit 
 - 2026-06-08 16:50 Tightened scope after tinfoil pass
 - 2026-06-08 16:51 Fixed API v1 cover reference after source-fidelity check
 - 2026-06-08 16:55 Addressed planning reviewer findings on backfill and archive semantics
+- pending commit Approved after round-two sub-agent review convergence
