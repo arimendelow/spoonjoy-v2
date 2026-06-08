@@ -3,6 +3,8 @@ import { loginAsSeedUser, submitPasswordLogin } from '../support/auth';
 
 // These tests run WITHOUT auth (chromium-no-auth project)
 test.describe('Auth Flow', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('landing page has login and signup buttons', async ({ page }) => {
     await page.goto('/');
     
