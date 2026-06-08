@@ -14,12 +14,14 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 ### In Scope
 - Replace implicit newest-cover selection with an explicit active recipe cover model used by recipe pages, cards, search, cookbooks, Open Graph metadata, public API formatting, and MCP formatting.
 - Add cover provenance metadata that can distinguish pure AI generated covers from editorialized photos, verbatim uploaded photos, and imported photos.
+- Add a safe schema/data migration that backfills the currently displayed newest non-empty cover as active while preserving existing cover history.
 - Update no-photo recipe placeholders so they read as intentional awaiting-cover states rather than broken/corrupted image states.
 - Make first chef spoon photos optional; when a recipe has no active real cover and the chef includes a spoon photo, auto-create an editorialized cover from that photo.
 - Allow chefs to keep an uploaded image verbatim as the active cover without generating an editorialized variant.
 - Add an owner-facing cover history/browser for all covers on a recipe with current/provenance labels and controls to set active, generate/regenerate editorialized variants, and remove/archive covers.
 - Add a recipe spoon image browser or picker that lets the owner review spoon photos available for cover use.
 - Add MCP/API operations to list recipe covers, list recipe spoon images, create cover candidates from uploads/spoons, set the active recipe cover explicitly, regenerate editorialized covers, remove/archive covers, and inspect generation status.
+- Update recipe import, recipe fork, recipe edit/clear-image, AI placeholder generation, search indexing, API v1 recipe output, and cookbook cover aggregation paths so none of them reintroduce newest-row cover selection.
 - Preserve PostHog exception capture for image-generation failures and make new failure paths observable.
 - Update tests for schema, cover selection, UI states, web mutations, MCP tools, error paths, and end-to-end cover flows.
 
@@ -40,6 +42,8 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - [ ] MCP exposes explicit cover and spoon-image browsing/activation operations with provenance, generation status, idempotency, and safe permission checks.
 - [ ] Existing APIs and loaders no longer derive current cover from newest row ordering.
 - [ ] Pure AI generated, uploaded verbatim, imported, and editorialized-photo covers are distinguishable in database rows, web UI, public API, and MCP responses.
+- [ ] Placeholder, import, edit, fork, and stylization jobs cannot silently replace a manually selected active cover.
+- [ ] Search index metadata and Open Graph output use the explicit active cover and remain correct after cover changes.
 - [ ] Image generation failures remain visible via PostHog exception capture and user-facing failure states.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
@@ -72,9 +76,12 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - `app/lib/spoonjoy-api.server.ts` currently supports `upload_recipe_image`, `upload_spoon_photo`, `create_spoon`, `update_spoon`, `list_spoons_for_recipe`, and `list_spoons_by_chef`, but has no explicit cover listing or active-cover mutation tools.
 - `app/components/recipe/RecipeHeader.tsx` currently renders "No image available" when no cover image URL is present.
 - `app/components/recipe/SpoonDialog.tsx` currently communicates "Photo required for your own cook" and has no cover opt-in control.
+- `app/lib/search.server.ts`, `app/routes/api.v1.recipes.$id.ts`, recipe index/profile/cookbook routes, and Open Graph helpers should be checked for direct cover ordering assumptions during implementation.
+- `app/lib/recipe-fork.server.ts` and `app/lib/recipe-import.server.ts` create or copy cover rows and must preserve provenance and active-cover semantics.
 
 ## Notes
-Implementation should prefer a single `RecipeCover` history model with explicit status/provenance over a separate candidate model unless code inspection shows a separate model is materially simpler. Backfill should choose the currently displayed newest non-empty cover as active while preserving older rows.
+Implementation should prefer a single `RecipeCover` history model with explicit status/provenance over a separate candidate model unless code inspection shows a separate model is materially simpler. Backfill should choose the currently displayed newest non-empty cover as active while preserving older rows. If adding `Recipe.activeCoverId`, avoid a required cyclic relation between `Recipe` and `RecipeCover`; use nullable active-cover state and explicit write helpers. Background jobs should check active-cover/manual-selection state at completion time before activating any generated cover.
 
 ## Progress Log
 - 2026-06-08 16:48 Created
+- pending commit Tightened scope after tinfoil pass
