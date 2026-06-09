@@ -47,6 +47,19 @@ async function createCookbookFixture(db: Awaited<ReturnType<typeof getLocalDb>>,
   return { chef, cookbook, recipe };
 }
 
+async function activateRecipeCover(
+  db: Awaited<ReturnType<typeof getLocalDb>>,
+  recipeId: string,
+  coverId: string,
+  variant: "image" | "stylized",
+  coverMode: "auto" | "manual" | "none" = "manual",
+) {
+  await db.recipe.update({
+    where: { id: recipeId },
+    data: { activeCoverId: coverId, activeCoverVariant: variant, coverMode },
+  });
+}
+
 async function addDeletedRecipeToCookbook(
   db: Awaited<ReturnType<typeof getLocalDb>>,
   fixture: Awaited<ReturnType<typeof createCookbookFixture>>
@@ -267,6 +280,9 @@ describe("API v1 public cookbook reads", () => {
             servings: "2",
             chef: { id: fixture.chef.id, username: fixture.chef.username },
             coverImageUrl: null,
+            coverProvenanceLabel: null,
+            coverSourceType: null,
+            coverVariant: null,
             href: `/recipes/${fixture.recipe.id}`,
             canonicalUrl: `https://spoonjoy.app/recipes/${fixture.recipe.id}`,
             attribution: {
@@ -294,6 +310,80 @@ describe("API v1 public cookbook reads", () => {
       ok: false,
       requestId: "req_cookbook_detail_scope",
       error: { code: "insufficient_scope", status: 403 },
+    });
+  });
+
+  it("uses active recipe covers for cookbook art while recipe entries expose provenance", async () => {
+    const fixture = await createCookbookFixture(db, "Api V1 Active Cover Cookbook");
+    const activeCover = await db.recipeCover.create({
+      data: {
+        recipeId: fixture.recipe.id,
+        imageUrl: "/photos/cookbooks/active-cover-raw.jpg",
+        stylizedImageUrl: "/photos/cookbooks/active-cover-editorial.jpg",
+        sourceType: "chef-upload",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+    await db.recipeCover.create({
+      data: {
+        recipeId: fixture.recipe.id,
+        imageUrl: "",
+        sourceType: "ai-placeholder",
+        createdAt: new Date("2026-01-02T00:00:00.000Z"),
+      },
+    });
+    await db.recipeCover.create({
+      data: {
+        recipeId: fixture.recipe.id,
+        imageUrl: "/photos/cookbooks/archived-cover.jpg",
+        sourceType: "import",
+        status: "archived",
+        archivedAt: new Date("2026-01-03T00:00:00.000Z"),
+        createdAt: new Date("2026-01-03T00:00:00.000Z"),
+      },
+    });
+    await activateRecipeCover(db, fixture.recipe.id, activeCover.id, "stylized");
+
+    const noCoverRecipe = await db.recipe.create({
+      data: {
+        ...createTestRecipe(fixture.chef.id),
+        title: `Api V1 Cookbook No Cover ${faker.string.alphanumeric(8)}`,
+        description: "A recipe with historical imagery but no active cover",
+        servings: "6",
+        coverMode: "none",
+      },
+    });
+    await db.recipeCover.create({
+      data: {
+        recipeId: noCoverRecipe.id,
+        imageUrl: "/photos/cookbooks/historical-cover.jpg",
+        sourceType: "spoon",
+      },
+    });
+    await db.recipeInCookbook.create({
+      data: { cookbookId: fixture.cookbook.id, recipeId: noCoverRecipe.id, addedById: fixture.chef.id },
+    });
+
+    const response = await loader(routeArgs(new UndiciRequest(`http://localhost/api/v1/cookbooks/${fixture.cookbook.id}`, {
+      headers: { "X-Request-Id": "req_cookbook_active_cover_detail" },
+    }) as unknown as Request, `cookbooks/${fixture.cookbook.id}`));
+    const payload = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(payload.data.cookbook.coverImageUrls).toEqual([
+      "https://spoonjoy.app/photos/cookbooks/active-cover-editorial.jpg",
+    ]);
+    expect(payload.data.cookbook.recipes.find((recipe: { id: string }) => recipe.id === fixture.recipe.id)).toMatchObject({
+      coverImageUrl: "https://spoonjoy.app/photos/cookbooks/active-cover-editorial.jpg",
+      coverProvenanceLabel: "Editorialized chef photo",
+      coverSourceType: "chef-upload",
+      coverVariant: "stylized",
+    });
+    expect(payload.data.cookbook.recipes.find((recipe: { id: string }) => recipe.id === noCoverRecipe.id)).toMatchObject({
+      coverImageUrl: null,
+      coverProvenanceLabel: null,
+      coverSourceType: null,
+      coverVariant: null,
     });
   });
 

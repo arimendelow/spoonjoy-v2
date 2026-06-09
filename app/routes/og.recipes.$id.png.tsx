@@ -15,6 +15,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       description: true,
       servings: true,
       deletedAt: true,
+      activeCoverId: true,
+      activeCoverVariant: true,
+      coverMode: true,
       chef: { select: { username: true } },
       covers: { orderBy: [{ createdAt: "desc" }, { id: "desc" }] },
     },
@@ -32,7 +35,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       servingsLabel: formatServingsLabel(recipe.servings),
       coverImageUrl: absoluteUrlFromRequest(
         request.url,
-        getRecipeCoverImageUrl({ id: recipe.id, title: recipe.title }, recipe.covers),
+        getRecipeCoverImageUrl(recipe, recipe.covers),
       ),
     },
     context.cloudflare?.ctx,

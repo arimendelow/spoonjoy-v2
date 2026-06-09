@@ -21,6 +21,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
             select: {
               id: true,
               title: true,
+              activeCoverId: true,
+              activeCoverVariant: true,
+              coverMode: true,
               covers: { orderBy: [{ createdAt: "desc" }, { id: "desc" }] },
             },
           },
@@ -37,7 +40,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     absoluteUrlFromRequest(
       request.url,
       getRecipeCoverImageUrl(
-        { id: item.recipe.id, title: item.recipe.title },
+        item.recipe,
         item.recipe.covers,
       ),
     ),

@@ -238,7 +238,22 @@ describe("API v1 OpenAPI document", () => {
     expect(responseExample(document, "/api/v1/recipes", "GET", "200").data).toMatchObject({
       query: "pasta",
       limit: 20,
-      recipes: [expect.objectContaining({ title: "Pasta" })],
+      recipes: [expect.objectContaining({
+        title: "Pasta",
+        coverProvenanceLabel: "Chef photo",
+        coverSourceType: "chef-upload",
+        coverVariant: "image",
+      })],
+    });
+    expect(responseExample(document, "/api/v1/recipes/{id}", "GET", "200").data.recipe).toMatchObject({
+      coverProvenanceLabel: "Chef photo",
+      coverSourceType: "chef-upload",
+      coverVariant: "image",
+    });
+    expect(responseExample(document, "/api/v1/cookbooks/{id}", "GET", "200").data.cookbook.recipes[0]).toMatchObject({
+      coverProvenanceLabel: "Chef photo",
+      coverSourceType: "chef-upload",
+      coverVariant: "image",
     });
     expect(responseExample(document, "/api/v1/tokens", "GET", "200").data.tokens[0].scopes).toEqual(["recipes:read", "shopping_list:read", "shopping_list:write"]);
     expect(responseExample(document, "/api/v1/shopping-list/items", "POST", "201").data).toMatchObject({
@@ -402,6 +417,45 @@ describe("API v1 OpenAPI document", () => {
       required: ["ok", "requestId", "data"],
       properties: { ok: { const: true } },
     });
+    expect(components.schemas.RecipeSummary.required).toEqual([
+      "id",
+      "title",
+      "description",
+      "servings",
+      "chef",
+      "coverImageUrl",
+      "coverProvenanceLabel",
+      "coverSourceType",
+      "coverVariant",
+      "href",
+      "canonicalUrl",
+      "attribution",
+      "createdAt",
+      "updatedAt",
+    ]);
+    expect(components.schemas.RecipeSummary.properties).toMatchObject({
+      coverProvenanceLabel: { type: ["string", "null"] },
+      coverSourceType: { type: ["string", "null"], enum: ["ai-placeholder", "chef-upload", "import", "spoon", null] },
+      coverVariant: { type: ["string", "null"], enum: ["image", "stylized", null] },
+    });
+    expect(components.schemas.RecipeDetail.required).toEqual([
+      "id",
+      "title",
+      "description",
+      "servings",
+      "chef",
+      "coverImageUrl",
+      "coverProvenanceLabel",
+      "coverSourceType",
+      "coverVariant",
+      "href",
+      "canonicalUrl",
+      "attribution",
+      "createdAt",
+      "updatedAt",
+      "steps",
+      "cookbooks",
+    ]);
     expect(components.schemas.ShoppingItem.required).toEqual([
       "id",
       "name",

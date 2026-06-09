@@ -44,6 +44,27 @@ function uniqueEmail(prefix: string) {
   return `${prefix}-${faker.string.alphanumeric(8).toLowerCase()}@example.com`;
 }
 
+function imageSourcesIn(node: unknown): string[] {
+  if (!node || typeof node !== "object") return [];
+  const element = node as {
+    type?: unknown;
+    props?: { src?: unknown; children?: unknown };
+  };
+  const current = element.type === "img" && typeof element.props?.src === "string"
+    ? [element.props.src]
+    : [];
+  const children = element.props?.children;
+  if (Array.isArray(children)) {
+    return [...current, ...children.flatMap(imageSourcesIn)];
+  }
+  return [...current, ...imageSourcesIn(children)];
+}
+
+function latestOgImageSources() {
+  const element = mocks.create.mock.calls.at(-1)?.[0];
+  return imageSourcesIn(element);
+}
+
 describe("dynamic OG image routes", () => {
   let userId: string;
 
@@ -101,12 +122,28 @@ describe("dynamic OG image routes", () => {
         chefId: userId,
       },
     });
-    await db.recipeCover.create({
+    const activeCover = await db.recipeCover.create({
       data: {
         recipeId: recipe.id,
         imageUrl: "/photos/tomato.jpg",
+        stylizedImageUrl: "/photos/tomato-editorial.jpg",
         sourceType: "chef-upload",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
       },
+    });
+    await db.recipeCover.create({
+      data: {
+        recipeId: recipe.id,
+        imageUrl: "/photos/tomato-newer-archived.jpg",
+        sourceType: "import",
+        status: "archived",
+        archivedAt: new Date("2026-01-02T00:00:00.000Z"),
+        createdAt: new Date("2026-01-02T00:00:00.000Z"),
+      },
+    });
+    await db.recipe.update({
+      where: { id: recipe.id },
+      data: { activeCoverId: activeCover.id, activeCoverVariant: "stylized", coverMode: "manual" },
     });
 
     const response = await recipeOgLoader({
@@ -119,6 +156,8 @@ describe("dynamic OG image routes", () => {
     expect(response.headers.get("Content-Type")).toContain("image/png");
     expect(response.headers.get("X-OG-Width")).toBe("1200");
     expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(latestOgImageSources()).toContain("https://spoonjoy.app/photos/tomato-editorial.jpg");
+    expect(latestOgImageSources()).not.toContain("https://spoonjoy.app/photos/tomato-newer-archived.jpg");
   });
 
   it("404s recipe OG cards for missing or deleted recipes", async () => {
@@ -157,12 +196,29 @@ describe("dynamic OG image routes", () => {
     const deletedRecipe = await db.recipe.create({
       data: { title: "Deleted Supper", chefId: userId, deletedAt: new Date() },
     });
+    const activeCover = await db.recipeCover.create({
+      data: {
+        recipeId: activeRecipe.id,
+        imageUrl: "https://cdn.example.com/supper-raw.jpg",
+        stylizedImageUrl: "https://cdn.example.com/supper-editorial.jpg",
+        sourceType: "chef-upload",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
     await db.recipeCover.create({
       data: {
         recipeId: activeRecipe.id,
-        imageUrl: "https://cdn.example.com/supper.jpg",
-        sourceType: "chef-upload",
+        imageUrl: "https://cdn.example.com/supper-newer-empty.jpg",
+        stylizedImageUrl: "",
+        sourceType: "ai-placeholder",
+        status: "archived",
+        archivedAt: new Date("2026-01-02T00:00:00.000Z"),
+        createdAt: new Date("2026-01-02T00:00:00.000Z"),
       },
+    });
+    await db.recipe.update({
+      where: { id: activeRecipe.id },
+      data: { activeCoverId: activeCover.id, activeCoverVariant: "stylized", coverMode: "manual" },
     });
     await db.recipeInCookbook.createMany({
       data: [
@@ -180,6 +236,8 @@ describe("dynamic OG image routes", () => {
     expect(response.headers.get("Content-Type")).toContain("image/png");
     expect(await response.text()).toBe("PNG");
     expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(latestOgImageSources()).toContain("https://cdn.example.com/supper-editorial.jpg");
+    expect(latestOgImageSources()).not.toContain("https://cdn.example.com/supper-newer-empty.jpg");
   });
 
   it("404s cookbook OG cards for missing cookbooks", async () => {

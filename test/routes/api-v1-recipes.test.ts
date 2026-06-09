@@ -66,6 +66,19 @@ async function createRecipeFixture(db: Awaited<ReturnType<typeof getLocalDb>>, t
   return { chef, recipe, step, ingredientRef, cookbook };
 }
 
+async function activateRecipeCover(
+  db: Awaited<ReturnType<typeof getLocalDb>>,
+  recipeId: string,
+  coverId: string,
+  variant: "image" | "stylized",
+  coverMode: "auto" | "manual" | "none" = "manual",
+) {
+  await db.recipe.update({
+    where: { id: recipeId },
+    data: { activeCoverId: coverId, activeCoverVariant: variant, coverMode },
+  });
+}
+
 describe("API v1 public recipe reads", () => {
   let db: Awaited<ReturnType<typeof getLocalDb>>;
 
@@ -174,7 +187,7 @@ describe("API v1 public recipe reads", () => {
 
   it("validates list cursors and normalizes cover/source URLs", async () => {
     const stylized = await createRecipeFixture(db, "Api V1 Stylized Cover");
-    await db.recipeCover.create({
+    const stylizedCover = await db.recipeCover.create({
       data: {
         recipeId: stylized.recipe.id,
         imageUrl: "/photos/covers/original.png",
@@ -182,26 +195,29 @@ describe("API v1 public recipe reads", () => {
         sourceType: "spoon",
       },
     });
+    await activateRecipeCover(db, stylized.recipe.id, stylizedCover.id, "stylized");
     const imageOnly = await createRecipeFixture(db, "Api V1 Image Cover");
     await db.recipe.update({
       where: { id: imageOnly.recipe.id },
       data: { sourceUrl: "mailto:chef@example.com" },
     });
-    await db.recipeCover.create({
+    const imageOnlyCover = await db.recipeCover.create({
       data: {
         recipeId: imageOnly.recipe.id,
         imageUrl: "/photos/covers/original-only.png",
         sourceType: "import",
       },
     });
+    await activateRecipeCover(db, imageOnly.recipe.id, imageOnlyCover.id, "image");
     const dataCover = await createRecipeFixture(db, "Api V1 Data Cover");
-    await db.recipeCover.create({
+    const dataCoverRow = await db.recipeCover.create({
       data: {
         recipeId: dataCover.recipe.id,
         imageUrl: "data:image/png;base64,AAAA",
         sourceType: "ai-placeholder",
       },
     });
+    await activateRecipeCover(db, dataCover.recipe.id, dataCoverRow.id, "image", "auto");
     const invalidUrl = await db.recipe.update({
       where: { id: stylized.recipe.id },
       data: { sourceUrl: "http://%" },
@@ -320,6 +336,95 @@ describe("API v1 public recipe reads", () => {
     }
   });
 
+  it("uses explicit active covers and exposes provenance for recipe list and detail", async () => {
+    const fixture = await createRecipeFixture(db, "Api V1 Explicit Cover");
+    const activeCover = await db.recipeCover.create({
+      data: {
+        recipeId: fixture.recipe.id,
+        imageUrl: "/photos/covers/explicit-raw.jpg",
+        stylizedImageUrl: "/photos/covers/explicit-editorial.jpg",
+        sourceType: "spoon",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+    await db.recipeCover.create({
+      data: {
+        recipeId: fixture.recipe.id,
+        imageUrl: "",
+        sourceType: "ai-placeholder",
+        createdAt: new Date("2026-01-02T00:00:00.000Z"),
+      },
+    });
+    await db.recipeCover.create({
+      data: {
+        recipeId: fixture.recipe.id,
+        imageUrl: "/photos/covers/archived-newer.jpg",
+        stylizedImageUrl: "/photos/covers/archived-newer-editorial.jpg",
+        sourceType: "chef-upload",
+        status: "archived",
+        archivedAt: new Date("2026-01-03T00:00:00.000Z"),
+        createdAt: new Date("2026-01-03T00:00:00.000Z"),
+      },
+    });
+    await activateRecipeCover(db, fixture.recipe.id, activeCover.id, "stylized");
+
+    const list = await loader(routeArgs(new UndiciRequest(
+      `http://localhost/api/v1/recipes?query=${encodeURIComponent(fixture.recipe.title)}&limit=10`,
+      { headers: { "X-Request-Id": "req_recipe_explicit_cover_list" } },
+    ) as unknown as Request, "recipes"));
+    const listPayload = await readJson(list);
+    const listedRecipe = listPayload.data.recipes.find((recipe: { id: string }) => recipe.id === fixture.recipe.id);
+
+    expect(list.status).toBe(200);
+    expect(listedRecipe).toMatchObject({
+      coverImageUrl: "https://spoonjoy.app/photos/covers/explicit-editorial.jpg",
+      coverProvenanceLabel: "Editorialized chef photo",
+      coverSourceType: "spoon",
+      coverVariant: "stylized",
+    });
+
+    const detail = await loader(routeArgs(new UndiciRequest(`http://localhost/api/v1/recipes/${fixture.recipe.id}`, {
+      headers: { "X-Request-Id": "req_recipe_explicit_cover_detail" },
+    }) as unknown as Request, `recipes/${fixture.recipe.id}`));
+    const detailPayload = await readJson(detail);
+
+    expect(detail.status).toBe(200);
+    expect(detailPayload.data.recipe).toMatchObject({
+      coverImageUrl: "https://spoonjoy.app/photos/covers/explicit-editorial.jpg",
+      coverProvenanceLabel: "Editorialized chef photo",
+      coverSourceType: "spoon",
+      coverVariant: "stylized",
+    });
+  });
+
+  it("exposes an intentional no-cover state even when historical cover rows exist", async () => {
+    const fixture = await createRecipeFixture(db, "Api V1 No Cover");
+    await db.recipeCover.create({
+      data: {
+        recipeId: fixture.recipe.id,
+        imageUrl: "/photos/covers/historical.jpg",
+        sourceType: "chef-upload",
+      },
+    });
+    await db.recipe.update({
+      where: { id: fixture.recipe.id },
+      data: { activeCoverId: null, activeCoverVariant: null, coverMode: "none" },
+    });
+
+    const detail = await loader(routeArgs(new UndiciRequest(`http://localhost/api/v1/recipes/${fixture.recipe.id}`, {
+      headers: { "X-Request-Id": "req_recipe_no_cover_detail" },
+    }) as unknown as Request, `recipes/${fixture.recipe.id}`));
+    const payload = await readJson(detail);
+
+    expect(detail.status).toBe(200);
+    expect(payload.data.recipe).toMatchObject({
+      coverImageUrl: null,
+      coverProvenanceLabel: null,
+      coverSourceType: null,
+      coverVariant: null,
+    });
+  });
+
   it("returns recipe detail with steps, ingredients, cookbook links, and scoped bearer success", async () => {
     const fixture = await createRecipeFixture(db, "Api V1 Detail");
     const earlierStep = await db.recipeStep.create({
@@ -363,6 +468,9 @@ describe("API v1 public recipe reads", () => {
           servings: "4",
           chef: { id: fixture.chef.id, username: fixture.chef.username },
           coverImageUrl: null,
+          coverProvenanceLabel: null,
+          coverSourceType: null,
+          coverVariant: null,
           href: `/recipes/${fixture.recipe.id}`,
         canonicalUrl: `https://spoonjoy.app/recipes/${fixture.recipe.id}`,
           attribution: {

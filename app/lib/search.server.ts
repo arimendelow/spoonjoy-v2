@@ -514,6 +514,8 @@ async function recipeDocuments(database: PrismaClient): Promise<SearchDocumentIn
         stepCount: recipeSteps.length,
         cookbookTitles,
         coverProvenanceLabel: coverDisplay?.provenanceLabel ?? null,
+        coverSourceType: coverDisplay?.sourceType ?? null,
+        coverVariant: coverDisplay?.activeVariant ?? null,
       },
     };
   });

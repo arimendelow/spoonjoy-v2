@@ -63,6 +63,16 @@ const dateTimeSchema = { type: "string", format: "date-time" };
 const nullableDateTimeSchema = { type: ["string", "null"], format: "date-time" };
 const nullableStringSchema = { type: ["string", "null"] };
 const nullableNumberSchema = { type: ["number", "null"] };
+const coverSourceTypeSchema = {
+  type: ["string", "null"],
+  enum: ["ai-placeholder", "chef-upload", "import", "spoon", null],
+  description: "Active cover provenance source. Null when the recipe has no active public cover.",
+};
+const coverVariantSchema = {
+  type: ["string", "null"],
+  enum: ["image", "stylized", null],
+  description: "Active cover variant: image is verbatim/pure AI/imported display; stylized is an editorialized chef photo. Null when no active cover is available.",
+};
 const uriSchema = { type: "string", format: "uri" };
 const redirectUriSchema = {
   ...uriSchema,
@@ -346,26 +356,32 @@ const schemas = {
     creditText: { type: "string" },
     canonicalUrl: uriSchema,
   }),
-  RecipeSummary: objectSchema(["id", "title", "description", "servings", "chef", "coverImageUrl", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt"], {
+  RecipeSummary: objectSchema(["id", "title", "description", "servings", "chef", "coverImageUrl", "coverProvenanceLabel", "coverSourceType", "coverVariant", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt"], {
     id: idSchema,
     title: { type: "string" },
     description: nullableStringSchema,
     servings: nullableStringSchema,
     chef: ref("ChefSummary"),
     coverImageUrl: { ...nullableStringSchema, description: "Public cover image URL for transient display. API v1 does not provide image alt text or a license to copy/store photos outside Spoonjoy." },
+    coverProvenanceLabel: { ...nullableStringSchema, description: "Human-readable active cover provenance label such as Chef photo, Editorialized chef photo, Imported photo, or AI generated." },
+    coverSourceType: coverSourceTypeSchema,
+    coverVariant: coverVariantSchema,
     href: { type: "string" },
     canonicalUrl: uriSchema,
     attribution: ref("RecipeAttribution"),
     createdAt: dateTimeSchema,
     updatedAt: dateTimeSchema,
   }),
-  RecipeDetail: objectSchema(["id", "title", "description", "servings", "chef", "coverImageUrl", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt", "steps", "cookbooks"], {
+  RecipeDetail: objectSchema(["id", "title", "description", "servings", "chef", "coverImageUrl", "coverProvenanceLabel", "coverSourceType", "coverVariant", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt", "steps", "cookbooks"], {
     id: idSchema,
     title: { type: "string" },
     description: nullableStringSchema,
     servings: nullableStringSchema,
     chef: ref("ChefSummary"),
     coverImageUrl: { ...nullableStringSchema, description: "Public cover image URL for transient display. API v1 does not provide image alt text or a license to copy/store photos outside Spoonjoy." },
+    coverProvenanceLabel: { ...nullableStringSchema, description: "Human-readable active cover provenance label such as Chef photo, Editorialized chef photo, Imported photo, or AI generated." },
+    coverSourceType: coverSourceTypeSchema,
+    coverVariant: coverVariantSchema,
     href: { type: "string" },
     canonicalUrl: uriSchema,
     attribution: ref("RecipeAttribution"),
@@ -647,6 +663,9 @@ const exampleRecipeSummary = {
   servings: "4",
   chef: exampleChef,
   coverImageUrl: "https://spoonjoy.app/photos/recipes/recipe_1/cover.jpg",
+  coverProvenanceLabel: "Chef photo",
+  coverSourceType: "chef-upload",
+  coverVariant: "image",
   href: "/recipes/recipe_1",
   canonicalUrl: "https://spoonjoy.app/recipes/recipe_1",
   attribution: {
