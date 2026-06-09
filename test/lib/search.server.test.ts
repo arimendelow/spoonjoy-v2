@@ -120,11 +120,29 @@ describe("search.server", () => {
         ingredientRefId: extraIngredientRef.id,
       },
     });
+    const activeCover = await db.recipeCover.create({
+      data: {
+        recipeId: recipe.id,
+        imageUrl: "https://images.example/citrus-robot-pancakes-raw.jpg",
+        stylizedImageUrl: "https://images.example/citrus-robot-pancakes-editorial.jpg",
+        sourceType: "spoon",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
     await db.recipeCover.create({
       data: {
         recipeId: recipe.id,
-        imageUrl: "https://images.example/citrus-robot-pancakes.jpg",
-        sourceType: "chef-upload",
+        imageUrl: "",
+        sourceType: "ai-placeholder",
+        createdAt: new Date("2026-02-01T00:00:00.000Z"),
+      },
+    });
+    await db.recipe.update({
+      where: { id: recipe.id },
+      data: {
+        activeCoverId: activeCover.id,
+        activeCoverVariant: "stylized",
+        coverMode: "manual",
       },
     });
     const cookbook = await db.cookbook.create({ data: { title: "Citrus Brunch", authorId: chef.id } });
@@ -167,7 +185,7 @@ describe("search.server", () => {
       id: recipe.id,
       title: "Citrus Robot Pancakes",
       href: `/recipes/${recipe.id}`,
-      imageUrl: "https://images.example/citrus-robot-pancakes.jpg",
+      imageUrl: "https://images.example/citrus-robot-pancakes-editorial.jpg",
     });
     expect(ingredientResults[0].metadata).toMatchObject({
       servings: "4",
@@ -175,6 +193,7 @@ describe("search.server", () => {
       ingredientNames: ["meyer lemon", "zesty orange"],
       stepCount: 1,
       cookbookTitles: ["Citrus Brunch"],
+      coverProvenanceLabel: "Editorialized chef photo",
     });
 
     const noteOnlyResults = await searchSpoonjoy(db, { query: "sizzle", scope: "recipes" });
@@ -281,7 +300,7 @@ describe("search.server", () => {
         chefId: chef.id,
       },
     });
-    await db.recipeCover.create({
+    const maskedCover = await db.recipeCover.create({
       data: {
         recipeId: maskedRecipe.id,
         imageUrl: "/photos/recipes/chef/older-gratin.jpg",
@@ -295,6 +314,14 @@ describe("search.server", () => {
         imageUrl: "",
         sourceType: "ai-placeholder",
         createdAt: new Date("2026-01-02T00:00:00Z"),
+      },
+    });
+    await db.recipe.update({
+      where: { id: maskedRecipe.id },
+      data: {
+        activeCoverId: maskedCover.id,
+        activeCoverVariant: "image",
+        coverMode: "manual",
       },
     });
     const pendingRecipe = await db.recipe.create({
@@ -311,6 +338,14 @@ describe("search.server", () => {
         sourceType: "ai-placeholder",
       },
     });
+    await db.recipe.update({
+      where: { id: pendingRecipe.id },
+      data: {
+        activeCoverId: pendingCover.id,
+        activeCoverVariant: "image",
+        coverMode: "auto",
+      },
+    });
     const stylizedRecipe = await db.recipe.create({
       data: {
         title: "Stylized Cover Freshness Toast",
@@ -325,17 +360,29 @@ describe("search.server", () => {
         sourceType: "chef-upload",
       },
     });
+    await db.recipe.update({
+      where: { id: stylizedRecipe.id },
+      data: {
+        activeCoverId: stylizedCover.id,
+        activeCoverVariant: "stylized",
+        coverMode: "manual",
+      },
+    });
 
     await expect(rebuildSearchIndex(db)).resolves.toBe(5);
 
     await expect(searchSpoonjoy(db, { query: "bare cover freshness", scope: "recipes" }))
       .resolves.toMatchObject([{ id: noCoverRecipe.id, imageUrl: null }]);
     await expect(searchSpoonjoy(db, { query: "masked cover freshness", scope: "recipes" }))
-      .resolves.toMatchObject([{ id: maskedRecipe.id, imageUrl: null }]);
+      .resolves.toMatchObject([{
+        id: maskedRecipe.id,
+        imageUrl: "/photos/recipes/chef/older-gratin.jpg",
+        metadata: { coverProvenanceLabel: "Chef photo" },
+      }]);
     await expect(searchSpoonjoy(db, { query: "pending cover freshness", scope: "recipes" }))
       .resolves.toMatchObject([{ id: pendingRecipe.id, imageUrl: null }]);
     await expect(searchSpoonjoy(db, { query: "stylized cover freshness", scope: "recipes" }))
-      .resolves.toMatchObject([{ id: stylizedRecipe.id, imageUrl: "/photos/recipes/chef/raw-toast.jpg" }]);
+      .resolves.toMatchObject([{ id: stylizedRecipe.id, imageUrl: null }]);
 
     await db.recipeCover.update({
       where: { id: pendingCover.id },
@@ -347,9 +394,17 @@ describe("search.server", () => {
     });
 
     await expect(searchSpoonjoy(db, { query: "pending cover freshness", scope: "recipes" }))
-      .resolves.toMatchObject([{ id: pendingRecipe.id, imageUrl: "/photos/covers/generated-tart.png" }]);
+      .resolves.toMatchObject([{
+        id: pendingRecipe.id,
+        imageUrl: "/photos/covers/generated-tart.png",
+        metadata: { coverProvenanceLabel: "AI generated" },
+      }]);
     await expect(searchSpoonjoy(db, { query: "stylized cover freshness", scope: "recipes" }))
-      .resolves.toMatchObject([{ id: stylizedRecipe.id, imageUrl: "/photos/covers/stylized-toast.png" }]);
+      .resolves.toMatchObject([{
+        id: stylizedRecipe.id,
+        imageUrl: "/photos/covers/stylized-toast.png",
+        metadata: { coverProvenanceLabel: "Editorialized chef photo" },
+      }]);
 
     const metadataRows = await db.$queryRawUnsafe<Array<{ sourceFingerprint: string }>>(
       `SELECT "sourceFingerprint" FROM "SearchIndexMetadata" WHERE "id" = 'current' LIMIT 1`,

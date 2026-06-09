@@ -297,6 +297,7 @@ export default function CookbookDetail() {
   const recipeImages = cookbook.recipes.map((item) => ({
     coverImageUrl: item.recipe.coverImageUrl,
     title: item.recipe.title,
+    coverProvenanceLabel: item.recipe.coverProvenanceLabel,
   }));
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [showOwnerTools, setShowOwnerTools] = useState(false);

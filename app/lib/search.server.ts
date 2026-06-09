@@ -12,7 +12,7 @@ import type {
 } from "@prisma/client";
 import { resolveChefAvatarUrl } from "~/lib/chef-avatar";
 import { toDate, toNumber } from "~/lib/d1-coerce.server";
-import { getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import { getRecipeCoverDisplay } from "~/lib/recipe-cover.server";
 
 export const SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"] as const;
 export type SearchScope = (typeof SEARCH_SCOPES)[number];
@@ -481,6 +481,8 @@ async function recipeDocuments(database: PrismaClient): Promise<SearchDocumentIn
       )
     );
 
+    const coverDisplay = getRecipeCoverDisplay(recipe, coversByRecipeId.get(recipe.id) ?? []);
+
     return {
       type: "recipe" as const,
       id: recipe.id,
@@ -497,13 +499,14 @@ async function recipeDocuments(database: PrismaClient): Promise<SearchDocumentIn
         ...stepText,
       ]),
       href: `/recipes/${recipe.id}`,
-      imageUrl: getRecipeCoverImageUrl(recipe, coversByRecipeId.get(recipe.id) ?? []),
+      imageUrl: coverDisplay?.displayUrl ?? null,
       metadata: {
         servings: recipe.servings,
         chefUsername: chef.username,
         ingredientNames,
         stepCount: recipeSteps.length,
         cookbookTitles,
+        coverProvenanceLabel: coverDisplay?.provenanceLabel ?? null,
       },
     };
   });

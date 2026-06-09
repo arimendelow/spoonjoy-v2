@@ -1118,9 +1118,10 @@ describe("Cookbooks $id Route", () => {
       render(<Stub initialEntries={["/cookbooks/cookbook-1"]} />);
 
       expect(await screen.findByRole("heading", { name: "Recipe Collection", level: 1 })).toBeInTheDocument();
-      expect(screen.getByText("Editorialized chef photo")).toBeInTheDocument();
       expect(screen.getAllByText("2 recipes").length).toBeGreaterThan(0);
+      expect(within(screen.getByLabelText("Recipe Collection cover photos")).getByText("Editorialized chef photo")).toBeInTheDocument();
       const recipesSection = screen.getByRole("region", { name: "Recipes" });
+      expect(within(recipesSection).getByText("Editorialized chef photo")).toBeInTheDocument();
       expect(within(recipesSection).getByRole("link", { name: "Spaghetti" })).toHaveAttribute(
         "href",
         "/recipes/recipe-1"
