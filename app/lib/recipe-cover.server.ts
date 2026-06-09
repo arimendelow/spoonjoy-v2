@@ -190,6 +190,9 @@ export async function archiveRecipeCover(
   if (isActiveCover && !input.confirmNoCover && !input.replacementCoverId) {
     throw new Error("Archiving the active cover requires a replacement or confirmNoCover");
   }
+  if (isActiveCover && input.replacementCoverId === cover.id) {
+    throw new Error("Replacement cover must be different from the archived cover");
+  }
 
   let nextRecipe = recipe;
   if (isActiveCover && input.confirmNoCover) {

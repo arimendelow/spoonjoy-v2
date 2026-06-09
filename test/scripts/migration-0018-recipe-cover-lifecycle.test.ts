@@ -7,12 +7,21 @@ import type { DatabaseSync as DatabaseSyncType } from "node:sqlite";
 const nodeRequire = createRequire(import.meta.url);
 const { DatabaseSync } = nodeRequire("node:sqlite") as typeof import("node:sqlite");
 
-const MIGRATION_PATH = resolve(
+const ROOT_D1_MIGRATION_PATH = resolve(
   __dirname,
   "..",
   "..",
   "migrations",
   "0018_recipe_cover_lifecycle.sql",
+);
+const PRISMA_MIGRATION_PATH = resolve(
+  __dirname,
+  "..",
+  "..",
+  "prisma",
+  "migrations",
+  "20260609011000_recipe_cover_lifecycle",
+  "migration.sql",
 );
 
 interface TableInfoRow {
@@ -129,12 +138,15 @@ function hasIndex(db: DatabaseSyncType, tableName: string, columns: string[]): b
   return indexes.some((index) => index.unique === 0 && indexColumns(db, index.name).join("|") === columns.join("|"));
 }
 
-describe("migration 0018 — recipe cover lifecycle", () => {
+describe.each([
+  ["root D1 migration", ROOT_D1_MIGRATION_PATH],
+  ["Prisma migration", PRISMA_MIGRATION_PATH],
+] as const)("migration 0018 — recipe cover lifecycle (%s)", (_label, migrationPath) => {
   let db: DatabaseSyncType;
 
   beforeEach(() => {
     db = freshDb();
-    db.exec(readFileSync(MIGRATION_PATH, "utf8"));
+    db.exec(readFileSync(migrationPath, "utf8"));
   });
 
   it("adds active-cover fields to Recipe", () => {

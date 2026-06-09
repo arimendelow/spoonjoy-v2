@@ -333,6 +333,23 @@ describe("recipe-cover.server", () => {
         .rejects.toThrow("Archiving the active cover requires a replacement or confirmNoCover");
     });
 
+    it("rejects replacing the active cover with the same cover being archived", async () => {
+      const cover = await db.recipeCover.create({
+        data: { recipeId, imageUrl: "raw", sourceType: "chef-upload" },
+      });
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: { activeCoverId: cover.id, activeCoverVariant: "image", coverMode: "manual" },
+      });
+
+      await expect(archiveRecipeCover(db, {
+        recipeId,
+        coverId: cover.id,
+        replacementCoverId: cover.id,
+        replacementVariant: "image",
+      })).rejects.toThrow("Replacement cover must be different from the archived cover");
+    });
+
     it("sets coverMode none when archiving the active cover with confirmation", async () => {
       const cover = await db.recipeCover.create({
         data: { recipeId, imageUrl: "raw", sourceType: "chef-upload" },
