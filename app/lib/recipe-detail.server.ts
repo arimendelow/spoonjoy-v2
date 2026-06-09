@@ -1,7 +1,18 @@
 import type { AppLoadContext } from "react-router";
 import { redirect } from "react-router";
+import { deferBackgroundTask } from "~/lib/background-task.server";
 import { getRequestDb } from "~/lib/route-platform.server";
-import { createCover, getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import {
+  archiveRecipeCover,
+  createCover,
+  getRecipeCoverDisplay,
+  getRecipeCoverProvenanceLabel,
+  getScopedActiveCover,
+  RECIPE_COVER_DISPLAY_SELECT,
+  setActiveRecipeCover,
+  type RecipeCoverVariant,
+} from "~/lib/recipe-cover.server";
+import { activateSpoonCoverForDecision } from "~/lib/spoon-cover-activation.server";
 import {
   createSpoon,
   deleteSpoon,
@@ -19,6 +30,13 @@ import { getVapidConfig, type VapidEnv } from "~/lib/env.server";
 import { absoluteUrlFromRequest, recipeOgPath } from "~/lib/og-image.server";
 import type { PostHogServerEnv } from "~/lib/analytics-server";
 import type { ImageGenEnv } from "~/lib/image-gen.server";
+import {
+  decideSpoonCoverCreation,
+  getSpoonCoverPromptMode,
+  hasActiveRealRecipeCover,
+} from "~/lib/spoon-cover-decision.server";
+import type { RecipeCover } from "@prisma/client";
+import type { ScheduleSpoonStylizationInput } from "~/lib/spoon-cover-stylization.server";
 
 interface CloudflareContextLike {
   cloudflare?: {
@@ -75,10 +93,66 @@ function getCloudflareCtx(context: AppLoadContext): {
   };
 }
 
+
 interface RecipeDetailRouteArgs {
   request: Request;
   params: { id: string };
   context: AppLoadContext;
+}
+
+function nonEmpty(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function recipeCoverHistoryFor(recipe: {
+  activeCoverId: string | null;
+  activeCoverVariant: string | null;
+  covers: RecipeCover[];
+}) {
+  return recipe.covers.map((cover) => {
+    const variants = [
+      nonEmpty(cover.imageUrl)
+        ? {
+            variant: "image" as const,
+            imageUrl: cover.imageUrl,
+            provenanceLabel: getRecipeCoverProvenanceLabel(cover.sourceType, "image"),
+            isActive: recipe.activeCoverId === cover.id && recipe.activeCoverVariant === "image",
+          }
+        : null,
+      nonEmpty(cover.stylizedImageUrl)
+        ? {
+            variant: "stylized" as const,
+            imageUrl: cover.stylizedImageUrl,
+            provenanceLabel: getRecipeCoverProvenanceLabel(cover.sourceType, "stylized"),
+            isActive: recipe.activeCoverId === cover.id && recipe.activeCoverVariant === "stylized",
+          }
+        : null,
+    ].filter((item): item is NonNullable<typeof item> => item !== null);
+
+    return {
+      id: cover.id,
+      status: cover.status,
+      generationStatus: cover.generationStatus,
+      sourceType: cover.sourceType,
+      sourceImageUrl: cover.sourceImageUrl,
+      archivedAt: cover.archivedAt?.toISOString() ?? null,
+      createdAt: cover.createdAt.toISOString(),
+      isActive: recipe.activeCoverId === cover.id,
+      activeVariant: recipe.activeCoverId === cover.id ? recipe.activeCoverVariant : null,
+      variants,
+    };
+  });
+}
+
+async function runOrQueueSpoonCoverStylization(
+  input: ScheduleSpoonStylizationInput,
+  waitUntil?: (promise: Promise<unknown>) => void,
+): Promise<void> {
+  if (waitUntil) {
+    waitUntil(deferBackgroundTask(() => scheduleSpoonCoverStylization(input)));
+    return;
+  }
+  await scheduleSpoonCoverStylization(input);
 }
 
 export async function loadRecipeDetail({ request, params, context }: RecipeDetailRouteArgs) {
@@ -105,8 +179,8 @@ export async function loadRecipeDetail({ request, params, context }: RecipeDetai
           chef: { select: { username: true } },
         },
       },
-      covers: {
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      activeCover: {
+        select: RECIPE_COVER_DISPLAY_SELECT,
       },
       steps: {
         orderBy: {
@@ -142,7 +216,11 @@ export async function loadRecipeDetail({ request, params, context }: RecipeDetai
   }
 
   const isOwner = userId !== null && recipe.chefId === userId;
-  const coverImageUrl = getRecipeCoverImageUrl(recipe, recipe.covers);
+  const activeCover = getScopedActiveCover(recipe);
+  const coverDisplay = getRecipeCoverDisplay(recipe, activeCover ? [activeCover] : []);
+  const activeRealCover = hasActiveRealRecipeCover(recipe);
+  const coverImageUrl = coverDisplay?.displayUrl ?? null;
+  const coverProvenanceLabel = coverDisplay?.provenanceLabel ?? null;
   const canonicalUrl = absoluteUrlFromRequest(request.url, `/recipes/${id}`);
   const ogImageUrl = absoluteUrlFromRequest(request.url, recipeOgPath(id));
 
@@ -218,10 +296,34 @@ export async function loadRecipeDetail({ request, params, context }: RecipeDetai
     nextTime: spoon.nextTime,
     chef: spoon.chef,
   }));
+  const coverHistoryCovers = isOwner
+    ? await database.recipeCover.findMany({
+        where: { recipeId: id },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      })
+    : [];
+  const spoonImages = isOwner
+    ? await database.recipeSpoon.findMany({
+        where: {
+          recipeId: id,
+          deletedAt: null,
+          photoUrl: { not: null },
+        },
+        select: {
+          id: true,
+          photoUrl: true,
+          cookedAt: true,
+          chef: { select: { id: true, username: true, photoUrl: true } },
+        },
+        orderBy: [{ cookedAt: "desc" }, { id: "desc" }],
+      })
+    : [];
+  const { activeCover: _activeCover, ...recipeForClient } = recipe;
 
   return {
-    recipe,
+    recipe: recipeForClient,
     coverImageUrl,
+    coverProvenanceLabel,
     canonicalUrl,
     ogImageUrl,
     isOwner,
@@ -229,7 +331,24 @@ export async function loadRecipeDetail({ request, params, context }: RecipeDetai
     savedInCookbookIds,
     hasIngredientsInShoppingList,
     spoons,
+    coverHistory: isOwner
+      ? recipeCoverHistoryFor({ ...recipe, covers: coverHistoryCovers })
+      : [],
+    spoonImages: spoonImages
+      .filter((spoon): spoon is typeof spoon & { photoUrl: string } => nonEmpty(spoon.photoUrl))
+      .map((spoon) => ({
+        id: spoon.id,
+        photoUrl: spoon.photoUrl,
+        cookedAt: spoon.cookedAt.toISOString(),
+        chef: spoon.chef,
+      })),
     isOriginCookCandidate: originCookCandidate,
+    coverPromptMode: getSpoonCoverPromptMode({
+      isOwner,
+      isOriginCookCandidate: originCookCandidate,
+      coverMode: recipe.coverMode,
+      hasActiveRealCover: activeRealCover,
+    }),
     isAuthenticated: Boolean(userId),
   };
 }
@@ -246,6 +365,7 @@ async function handleCreateSpoon(
   const noteRaw = formData.get("note");
   const nextTimeRaw = formData.get("nextTime");
   const cookedAtRaw = formData.get("cookedAt");
+  const useAsRecipeCover = formData.get("useAsRecipeCover") === "true";
   const note = typeof noteRaw === "string" ? noteRaw : undefined;
   const nextTime = typeof nextTimeRaw === "string" ? nextTimeRaw : undefined;
   let cookedAt: Date | undefined;
@@ -282,28 +402,66 @@ async function handleCreateSpoon(
     // VAPID not configured locally — skip silently.
   }
 
-  if (result.isOriginCook && result.spoon.photoUrl) {
+  if (result.spoon.photoUrl) {
     const recipe = await database.recipe.findUniqueOrThrow({
       where: { id: recipeId },
-      select: { id: true, title: true },
+      select: {
+        id: true,
+        title: true,
+        chefId: true,
+        coverMode: true,
+        activeCoverId: true,
+        activeCoverVariant: true,
+        activeCover: {
+          select: {
+            id: true,
+            recipeId: true,
+            imageUrl: true,
+            stylizedImageUrl: true,
+            sourceType: true,
+            status: true,
+            archivedAt: true,
+          },
+        },
+      },
     });
-    const cover = await createCover(database, {
-      recipeId,
-      imageUrl: result.spoon.photoUrl,
-      sourceType: "spoon",
-      sourceSpoonId: result.spoon.id,
-    });
-    const task = scheduleSpoonCoverStylization({
-      db: database,
+    const coverDecision = decideSpoonCoverCreation({
+      recipe,
       userId,
-      recipeId,
-      coverId: cover.id,
-      rawPhotoUrl: result.spoon.photoUrl,
-      recipeTitle: recipe.title,
-      env,
-      bucket,
+      isOriginCook: result.isOriginCook,
+      hasPhoto: true,
+      useAsRecipeCover,
     });
-    await task;
+
+    if (coverDecision.shouldCreateCover) {
+      const cover = await createCover(database, {
+        recipeId,
+        imageUrl: result.spoon.photoUrl,
+        sourceType: "spoon",
+        sourceSpoonId: result.spoon.id,
+        status: "processing",
+        createdById: userId,
+        sourceImageUrl: result.spoon.photoUrl,
+        generationStatus: "processing",
+      });
+      await activateSpoonCoverForDecision(database, {
+        recipeId,
+        coverId: cover.id,
+        decision: coverDecision,
+        previousActiveCoverId: recipe.activeCoverId,
+      });
+      const stylizationInput = {
+        db: database,
+        userId,
+        recipeId,
+        coverId: cover.id,
+        rawPhotoUrl: result.spoon.photoUrl,
+        recipeTitle: recipe.title,
+        env,
+        bucket,
+      };
+      await runOrQueueSpoonCoverStylization(stylizationInput, waitUntil);
+    }
   }
 
   // Fan-out fellow_chef_origin_cook to every chef the spooner has previously
@@ -442,7 +600,14 @@ export async function handleRecipeDetailAction({ request, params, context }: Rec
 
   const recipe = await database.recipe.findUnique({
     where: { id },
-    select: { chefId: true, deletedAt: true },
+    select: {
+      chefId: true,
+      deletedAt: true,
+      title: true,
+      activeCoverId: true,
+      activeCoverVariant: true,
+      coverMode: true,
+    },
   });
 
   if (!recipe || recipe.deletedAt) {
@@ -451,6 +616,178 @@ export async function handleRecipeDetailAction({ request, params, context }: Rec
 
   if (recipe.chefId !== userId) {
     throw new Response("Unauthorized", { status: 403 });
+  }
+
+  if (intent === "setRecipeCover") {
+    const coverId = formData.get("coverId");
+    const variant = formData.get("variant");
+    if (typeof coverId !== "string" || !coverId) {
+      throw new Response("coverId is required", { status: 400 });
+    }
+    if (variant !== "image" && variant !== "stylized") {
+      throw new Response("Invalid cover variant", { status: 400 });
+    }
+    await setActiveRecipeCover(database, {
+      recipeId: id,
+      coverId,
+      variant: variant as RecipeCoverVariant,
+    });
+    return { success: true, intent: "setRecipeCover" };
+  }
+
+  if (intent === "setRecipeNoCover") {
+    if (formData.get("confirmNoCover") !== "true") {
+      throw new Response("confirmNoCover is required", { status: 400 });
+    }
+    await database.recipe.update({
+      where: { id },
+      data: {
+        activeCoverId: null,
+        activeCoverVariant: null,
+        coverMode: "none",
+      },
+    });
+    return { success: true, intent: "setRecipeNoCover" };
+  }
+
+  if (intent === "createCoverFromSpoon") {
+    const spoonId = formData.get("spoonId");
+    const activateWhenReady = formData.get("activateWhenReady") === "true";
+    if (typeof spoonId !== "string" || !spoonId) {
+      throw new Response("spoonId is required", { status: 400 });
+    }
+    const spoon = await database.recipeSpoon.findFirst({
+      where: { id: spoonId, recipeId: id, deletedAt: null, photoUrl: { not: null } },
+      select: { id: true, photoUrl: true },
+    });
+    if (!spoon?.photoUrl) {
+      throw new Response("Spoon photo not found", { status: 404 });
+    }
+    const { bucket, env, waitUntil } = getCloudflareCtx(context);
+    const cover = await createCover(database, {
+      recipeId: id,
+      imageUrl: spoon.photoUrl,
+      sourceType: "spoon",
+      sourceSpoonId: spoon.id,
+      status: "processing",
+      createdById: userId,
+      sourceImageUrl: spoon.photoUrl,
+      generationStatus: "processing",
+    });
+    await runOrQueueSpoonCoverStylization(
+      {
+        db: database,
+        userId,
+        recipeId: id,
+        coverId: cover.id,
+        rawPhotoUrl: spoon.photoUrl,
+        recipeTitle: recipe.title,
+        env,
+        bucket,
+        activateWhenReady,
+        suppressAutoActivation: !activateWhenReady,
+        activationGuard: activateWhenReady
+          ? {
+              activeCoverId: recipe.activeCoverId,
+              activeCoverVariant: recipe.activeCoverVariant,
+              coverMode: recipe.coverMode,
+            }
+          : undefined,
+      },
+      waitUntil,
+    );
+    return { success: true, intent: "createCoverFromSpoon", coverId: cover.id };
+  }
+
+  if (intent === "regenerateRecipeCover") {
+    const coverId = formData.get("coverId");
+    const activateWhenReady = formData.get("activateWhenReady") === "true";
+    if (typeof coverId !== "string" || !coverId) {
+      throw new Response("coverId is required", { status: 400 });
+    }
+    const cover = await database.recipeCover.findFirst({
+      where: { id: coverId, recipeId: id },
+    });
+    if (!cover) {
+      throw new Response("Cover not found", { status: 404 });
+    }
+    if (cover.status === "archived" || cover.archivedAt) {
+      throw new Response("Archived covers cannot be regenerated", { status: 400 });
+    }
+    const rawPhotoUrl = cover.sourceImageUrl || cover.imageUrl;
+    if (!rawPhotoUrl.trim()) {
+      throw new Response("Cover has no source image", { status: 400 });
+    }
+    const { bucket, env, waitUntil } = getCloudflareCtx(context);
+    await database.recipeCover.update({
+      where: { id: cover.id },
+      data: {
+        status: "processing",
+        generationStatus: "processing",
+        failureReason: null,
+        sourceImageUrl: cover.sourceImageUrl ?? rawPhotoUrl,
+      },
+    });
+    await runOrQueueSpoonCoverStylization(
+      {
+        db: database,
+        userId,
+        recipeId: id,
+        coverId: cover.id,
+        rawPhotoUrl,
+        recipeTitle: recipe.title,
+        env,
+        bucket,
+        sourceType: cover.sourceType === "spoon" ? "spoon" : "chef-upload",
+        activateWhenReady,
+        suppressAutoActivation: !activateWhenReady,
+        activationGuard: activateWhenReady
+          ? {
+              activeCoverId: recipe.activeCoverId,
+              activeCoverVariant: recipe.activeCoverVariant,
+              coverMode: recipe.coverMode,
+            }
+          : undefined,
+      },
+      waitUntil,
+    );
+    return { success: true, intent: "regenerateRecipeCover", coverId: cover.id };
+  }
+
+  if (intent === "archiveRecipeCover") {
+    const coverId = formData.get("coverId");
+    if (typeof coverId !== "string" || !coverId) {
+      throw new Response("coverId is required", { status: 400 });
+    }
+    const replacementCoverId = formData.get("replacementCoverId");
+    const replacementVariant = formData.get("replacementVariant");
+    if (
+      typeof replacementCoverId === "string" &&
+      replacementCoverId &&
+      replacementVariant !== "image" &&
+      replacementVariant !== "stylized"
+    ) {
+      throw new Response("replacementVariant is required", { status: 400 });
+    }
+
+    try {
+      await archiveRecipeCover(database, {
+        recipeId: id,
+        coverId,
+        replacementCoverId:
+          typeof replacementCoverId === "string" && replacementCoverId
+            ? replacementCoverId
+            : null,
+        replacementVariant:
+          replacementVariant === "image" || replacementVariant === "stylized"
+            ? replacementVariant
+            : null,
+        confirmNoCover: formData.get("confirmNoCover") === "true",
+      });
+    } catch (error) {
+      throw new Response((error as Error).message, { status: 400 });
+    }
+    return { success: true, intent: "archiveRecipeCover" };
   }
 
   if (intent === "delete") {

@@ -1,22 +1,95 @@
 import type { PrismaClient, RecipeCover } from "@prisma/client";
 
+export type RecipeCoverSourceType = "ai-placeholder" | "import" | "chef-upload" | "spoon";
+export type RecipeCoverVariant = "image" | "stylized";
+export type RecipeCoverMode = "auto" | "manual" | "none";
+export type RecipeCoverStatus = "processing" | "ready" | "failed" | "archived";
+export type RecipeCoverGenerationStatus = "none" | "processing" | "succeeded" | "failed";
+
+const COVER_SOURCE_TYPES = ["ai-placeholder", "import", "chef-upload", "spoon"] as const;
+const COVER_VARIANTS = ["image", "stylized"] as const;
+const COVER_MODES = ["auto", "manual", "none"] as const;
+const COVER_STATUSES = ["processing", "ready", "failed", "archived"] as const;
+const COVER_GENERATION_STATUSES = ["none", "processing", "succeeded", "failed"] as const;
+
+export const RECIPE_COVER_DISPLAY_SELECT = {
+  id: true,
+  recipeId: true,
+  imageUrl: true,
+  stylizedImageUrl: true,
+  sourceType: true,
+  sourceSpoonId: true,
+  status: true,
+  createdById: true,
+  sourceImageUrl: true,
+  generationStatus: true,
+  failureReason: true,
+  promptVersion: true,
+  styleVersion: true,
+  archivedAt: true,
+  createdAt: true,
+} satisfies Record<keyof RecipeCover, true>;
+
 export interface CreateCoverInput {
   recipeId: string;
   imageUrl: string;
   stylizedImageUrl?: string | null;
-  sourceType: "ai-placeholder" | "import" | "chef-upload" | "spoon";
+  sourceType: RecipeCoverSourceType;
   sourceSpoonId?: string | null;
+  status?: RecipeCoverStatus;
+  createdById?: string | null;
+  sourceImageUrl?: string | null;
+  generationStatus?: RecipeCoverGenerationStatus;
+  failureReason?: string | null;
+  promptVersion?: string | null;
+  styleVersion?: string | null;
+  archivedAt?: Date | null;
 }
 
 export interface RecipeIdentity {
   id: string;
   title: string;
+  activeCoverId?: string | null;
+  activeCoverVariant?: RecipeCoverVariant | string | null;
+  coverMode?: RecipeCoverMode | string | null;
+}
+
+export interface ActiveCoverInput {
+  recipeId: string;
+  coverId: string;
+  variant: RecipeCoverVariant;
+}
+
+export interface ArchiveCoverInput {
+  recipeId: string;
+  coverId: string;
+  replacementCoverId?: string | null;
+  replacementVariant?: RecipeCoverVariant | null;
+  confirmNoCover?: boolean;
+}
+
+export interface RecipeCoverDisplay {
+  coverId: string;
+  imageUrl: string;
+  displayUrl: string;
+  activeVariant: RecipeCoverVariant;
+  sourceType: string;
+  provenanceLabel: string;
+  status: string;
+  generationStatus: string;
+  cover: RecipeCover;
 }
 
 export async function createCover(
   db: PrismaClient,
   input: CreateCoverInput,
 ): Promise<RecipeCover> {
+  assertSourceType(input.sourceType);
+  const status = input.status ?? "ready";
+  assertCoverStatus(status);
+  const generationStatus = input.generationStatus ?? "none";
+  assertGenerationStatus(generationStatus);
+
   return db.recipeCover.create({
     data: {
       recipeId: input.recipeId,
@@ -24,6 +97,14 @@ export async function createCover(
       stylizedImageUrl: input.stylizedImageUrl ?? null,
       sourceType: input.sourceType,
       sourceSpoonId: input.sourceSpoonId ?? null,
+      status,
+      createdById: input.createdById ?? null,
+      sourceImageUrl: input.sourceImageUrl ?? null,
+      generationStatus,
+      failureReason: input.failureReason ?? null,
+      promptVersion: input.promptVersion ?? null,
+      styleVersion: input.styleVersion ?? null,
+      archivedAt: input.archivedAt ?? null,
     },
   });
 }
@@ -42,37 +123,301 @@ export async function getCurrentCover(
   db: PrismaClient,
   recipeId: string,
 ): Promise<RecipeCover | null> {
-  return db.recipeCover.findFirst({
-    where: { recipeId },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-  });
+  return getActiveRecipeCover(db, recipeId);
 }
 
-function sortCoversDesc(covers: RecipeCover[]): RecipeCover[] {
-  return [...covers].sort((a, b) => {
-    const aTime = a.createdAt.getTime();
-    const bTime = b.createdAt.getTime();
-    if (aTime !== bTime) return bTime - aTime;
-    if (a.id === b.id) return 0;
-    return a.id < b.id ? 1 : -1;
+export async function getActiveRecipeCover(
+  db: PrismaClient,
+  recipeId: string,
+): Promise<RecipeCover | null> {
+  const recipe = await db.recipe.findUnique({
+    where: { id: recipeId },
+    select: { activeCoverId: true },
+  });
+  if (!recipe?.activeCoverId) return null;
+  return db.recipeCover.findFirst({
+    where: {
+      id: recipe.activeCoverId,
+      recipeId,
+      status: { not: "archived" },
+      archivedAt: null,
+    },
   });
 }
 
 export function getRecipeCoverImageUrl(
-  _recipe: RecipeIdentity,
+  recipe: RecipeIdentity,
   covers: RecipeCover[],
+  overrideVariant?: RecipeCoverVariant,
 ): string | null {
-  const currentCover = sortCoversDesc(covers)[0];
-  if (!currentCover) {
+  return getRecipeCoverDisplay(recipe, covers, overrideVariant)?.displayUrl ?? null;
+}
+
+export function getScopedActiveCover(recipe: { id: string; activeCover?: RecipeCover | null }): RecipeCover | null {
+  return recipe.activeCover?.recipeId === recipe.id ? recipe.activeCover : null;
+}
+
+export function recipeCoverCacheSnapshot(cover: RecipeCover | null) {
+  if (!cover) return null;
+  return {
+    id: cover.id,
+    recipeId: cover.recipeId,
+    imageUrl: cover.imageUrl,
+    stylizedImageUrl: cover.stylizedImageUrl,
+    sourceType: cover.sourceType,
+    sourceSpoonId: cover.sourceSpoonId,
+    status: cover.status,
+    createdById: cover.createdById,
+    sourceImageUrl: cover.sourceImageUrl,
+    generationStatus: cover.generationStatus,
+    failureReason: cover.failureReason,
+    promptVersion: cover.promptVersion,
+    styleVersion: cover.styleVersion,
+    archivedAt: cover.archivedAt?.toISOString() ?? null,
+    createdAt: cover.createdAt.toISOString(),
+  };
+}
+
+export function getRecipeCoverDisplay(
+  recipe: RecipeIdentity,
+  covers: RecipeCover[],
+  overrideVariant?: RecipeCoverVariant,
+): RecipeCoverDisplay | null {
+  const coverMode = normalizeCoverMode(recipe.coverMode);
+  if ((recipe.coverMode != null && !coverMode) || coverMode === "none" || !recipe.activeCoverId) {
     return null;
   }
-  if (currentCover.stylizedImageUrl && currentCover.stylizedImageUrl.length > 0) {
-    return currentCover.stylizedImageUrl;
+  const cover = covers.find((item) => item.id === recipe.activeCoverId);
+  if (!cover || cover.archivedAt) return null;
+  const status = normalizeCoverStatus(cover.status);
+  if (!status || status === "archived" || status === "failed") return null;
+
+  if (overrideVariant != null && !normalizeVariant(overrideVariant)) return null;
+  if (overrideVariant == null && recipe.activeCoverVariant != null && !normalizeVariant(recipe.activeCoverVariant)) {
+    return null;
   }
-  if (currentCover.imageUrl && currentCover.imageUrl.length > 0) {
-    return currentCover.imageUrl;
+
+  const selectedVariant = normalizeVariant(overrideVariant ?? recipe.activeCoverVariant);
+  if (selectedVariant) {
+    return displayForVariant(cover, selectedVariant);
   }
+  if (cover.status === "processing" && hasNonEmptyUrl(cover.imageUrl)) {
+    return buildDisplay(cover, "image", cover.imageUrl);
+  }
+  const fallbackVariant = preferredVariant(cover);
+  return fallbackVariant ? displayForVariant(cover, fallbackVariant) : null;
+}
+
+export async function setActiveRecipeCover(
+  db: PrismaClient,
+  input: ActiveCoverInput,
+) {
+  assertCoverVariant(input.variant);
+  const cover = await db.recipeCover.findFirst({
+    where: { id: input.coverId, recipeId: input.recipeId },
+  });
+  if (!cover) throw new Error("Selected cover was not found");
+  assertActivatableCover(cover);
+  assertVariantAvailable(cover, input.variant);
+
+  return db.recipe.update({
+    where: { id: input.recipeId },
+    data: {
+      activeCoverId: cover.id,
+      activeCoverVariant: input.variant,
+      coverMode: "manual",
+    },
+  });
+}
+
+export async function archiveRecipeCover(
+  db: PrismaClient,
+  input: ArchiveCoverInput,
+) {
+  const [recipe, cover] = await Promise.all([
+    db.recipe.findUniqueOrThrow({ where: { id: input.recipeId } }),
+    db.recipeCover.findFirst({
+      where: { id: input.coverId, recipeId: input.recipeId },
+    }),
+  ]);
+  if (!cover) throw new Error("Cover was not found");
+
+  const isActiveCover = recipe.activeCoverId === cover.id;
+  if (isActiveCover && !input.confirmNoCover && !input.replacementCoverId) {
+    throw new Error("Archiving the active cover requires a replacement or confirmNoCover");
+  }
+  if (isActiveCover && input.replacementCoverId === cover.id) {
+    throw new Error("Replacement cover must be different from the archived cover");
+  }
+
+  let nextRecipe = recipe;
+  if (isActiveCover && input.confirmNoCover) {
+    nextRecipe = await db.recipe.update({
+      where: { id: input.recipeId },
+      data: {
+        activeCoverId: null,
+        activeCoverVariant: null,
+        coverMode: "none",
+      },
+    });
+  } else if (isActiveCover && input.replacementCoverId) {
+    if (!input.replacementVariant) {
+      throw new Error("Replacement variant is required");
+    }
+    nextRecipe = await setActiveRecipeCover(db, {
+      recipeId: input.recipeId,
+      coverId: input.replacementCoverId,
+      variant: input.replacementVariant,
+    });
+  }
+
+  const archivedCover = await db.recipeCover.update({
+    where: { id: cover.id },
+    data: { status: "archived", archivedAt: new Date() },
+  });
+  return { archivedCover, recipe: nextRecipe };
+}
+
+export async function backfillActiveCoverForRecipe(
+  db: PrismaClient,
+  recipeId: string,
+) {
+  const covers = await db.recipeCover.findMany({
+    where: { recipeId, status: "ready", archivedAt: null },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+  const winner = covers.find((cover) => preferredVariant(cover) !== null);
+  if (!winner) {
+    return db.recipe.update({
+      where: { id: recipeId },
+      data: { activeCoverId: null, activeCoverVariant: null, coverMode: "auto" },
+    });
+  }
+  return db.recipe.update({
+    where: { id: recipeId },
+    data: {
+      activeCoverId: winner.id,
+      activeCoverVariant: preferredVariant(winner),
+      coverMode: "auto",
+    },
+  });
+}
+
+function normalizeVariant(value: string | null | undefined): RecipeCoverVariant | null {
+  return isOneOf(value, COVER_VARIANTS) ? value : null;
+}
+
+function normalizeCoverMode(value: string | null | undefined): RecipeCoverMode | null {
+  if (value == null) return "auto";
+  return isOneOf(value, COVER_MODES) ? value : null;
+}
+
+function normalizeCoverStatus(value: string | null | undefined): RecipeCoverStatus | null {
+  return isOneOf(value, COVER_STATUSES) ? value : null;
+}
+
+function isOneOf<T extends string>(
+  value: string | null | undefined,
+  options: readonly T[],
+): value is T {
+  return options.includes(value as T);
+}
+
+function hasNonEmptyUrl(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function preferredVariant(cover: RecipeCover): RecipeCoverVariant | null {
+  if (hasNonEmptyUrl(cover.stylizedImageUrl)) return "stylized";
+  if (hasNonEmptyUrl(cover.imageUrl)) return "image";
   return null;
+}
+
+function displayForVariant(
+  cover: RecipeCover,
+  variant: RecipeCoverVariant,
+): RecipeCoverDisplay | null {
+  const imageUrl = variant === "stylized" ? cover.stylizedImageUrl : cover.imageUrl;
+  if (!hasNonEmptyUrl(imageUrl)) return null;
+  return buildDisplay(cover, variant, imageUrl);
+}
+
+function buildDisplay(
+  cover: RecipeCover,
+  variant: RecipeCoverVariant,
+  imageUrl: string,
+): RecipeCoverDisplay {
+  return {
+    coverId: cover.id,
+    imageUrl,
+    displayUrl: imageUrl,
+    activeVariant: variant,
+    sourceType: cover.sourceType,
+    provenanceLabel: provenanceLabel(cover.sourceType, variant),
+    status: cover.status,
+    generationStatus: cover.generationStatus,
+    cover,
+  };
+}
+
+export function getRecipeCoverProvenanceLabel(
+  sourceType: string,
+  variant: RecipeCoverVariant,
+): string {
+  return provenanceLabel(sourceType, variant);
+}
+
+function provenanceLabel(sourceType: string, variant: RecipeCoverVariant): string {
+  if ((sourceType === "chef-upload" || sourceType === "spoon") && variant === "stylized") {
+    return "Editorialized chef photo";
+  }
+  if (sourceType === "chef-upload" || sourceType === "spoon") return "Chef photo";
+  if (sourceType === "import") return "Imported photo";
+  if (sourceType === "ai-placeholder") return "AI generated";
+  return "Unknown source";
+}
+
+function assertActivatableCover(cover: RecipeCover): void {
+  const status = normalizeCoverStatus(cover.status);
+  if (!status) {
+    throw new Error("Cannot activate a cover with invalid status");
+  }
+  if (cover.status === "archived" || cover.archivedAt) {
+    throw new Error("Cannot activate an archived cover");
+  }
+  if (cover.status === "failed") {
+    throw new Error("Cannot activate a failed cover");
+  }
+}
+
+function assertVariantAvailable(cover: RecipeCover, variant: RecipeCoverVariant): void {
+  if (!displayForVariant(cover, variant)) {
+    throw new Error("Selected cover variant is unavailable");
+  }
+}
+
+function assertSourceType(sourceType: string): asserts sourceType is RecipeCoverSourceType {
+  if (!isOneOf(sourceType, COVER_SOURCE_TYPES)) {
+    throw new Error("Invalid cover source type");
+  }
+}
+
+function assertCoverStatus(status: string): asserts status is RecipeCoverStatus {
+  if (!isOneOf(status, COVER_STATUSES)) {
+    throw new Error("Invalid cover status");
+  }
+}
+
+function assertGenerationStatus(status: string): asserts status is RecipeCoverGenerationStatus {
+  if (!isOneOf(status, COVER_GENERATION_STATUSES)) {
+    throw new Error("Invalid cover generation status");
+  }
+}
+
+function assertCoverVariant(variant: string): asserts variant is RecipeCoverVariant {
+  if (!isOneOf(variant, COVER_VARIANTS)) {
+    throw new Error("Invalid cover variant");
+  }
 }
 
 function xmlEscape(value: string): string {

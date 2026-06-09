@@ -6,6 +6,7 @@ import { Heading, Subheading } from "~/components/ui/heading";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { CookbookPage, RuledEmptyState } from "~/components/cookbook/page";
+import { CoverProvenanceBadge } from "~/components/recipe/CoverProvenanceBadge";
 import { getRequestDb } from "~/lib/route-platform.server";
 import { getUserId } from "~/lib/session.server";
 import {
@@ -91,10 +92,17 @@ function resultCountLabel(count: number) {
 function ResultCard({ result }: { result: SearchResult }) {
   const Icon = RESULT_ICONS[result.type];
   const displayImageUrl = result.imageUrl && result.imageUrl.length > 0 ? result.imageUrl : undefined;
+  const coverProvenanceLabel = typeof result.metadata.coverProvenanceLabel === "string"
+    ? result.metadata.coverProvenanceLabel
+    : null;
+  const accessibleLabel = result.type === "shopping-list-item"
+    ? `${RESULT_LABELS[result.type]} Private ${result.title}`
+    : `${RESULT_LABELS[result.type]} ${result.title}`;
 
   return (
     <Link
       href={result.href}
+      aria-label={accessibleLabel}
       className="group grid gap-4 border-t border-[var(--sj-border)] py-5 no-underline transition hover:border-[var(--sj-border-strong)] sm:grid-cols-[7rem_minmax(0,1fr)]"
     >
       <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[var(--sj-flour)] sm:aspect-square">
@@ -114,6 +122,7 @@ function ResultCard({ result }: { result: SearchResult }) {
               Private
             </span>
           ) : null}
+          <CoverProvenanceBadge label={coverProvenanceLabel} />
         </div>
         <Subheading level={2} className="mt-2 line-clamp-2 text-2xl/8 group-hover:text-[var(--sj-tomato)]">
           {result.title}

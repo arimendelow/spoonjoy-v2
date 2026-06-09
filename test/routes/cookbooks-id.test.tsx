@@ -881,11 +881,28 @@ describe("Cookbooks $id Route", () => {
           chefId: testUserId,
         },
       });
-      await db.recipeCover.create({
+      const activeCover = await db.recipeCover.create({
         data: {
           recipeId: recipe.id,
           imageUrl: "/photos/covered.jpg",
+          stylizedImageUrl: "/photos/covered-editorial.jpg",
           sourceType: "chef-upload",
+        },
+      });
+      await db.recipeCover.create({
+        data: {
+          recipeId: recipe.id,
+          imageUrl: "/photos/newer-covered.jpg",
+          sourceType: "spoon",
+          createdAt: new Date("2026-02-01T00:00:00.000Z"),
+        },
+      });
+      await db.recipe.update({
+        where: { id: recipe.id },
+        data: {
+          activeCoverId: activeCover.id,
+          activeCoverVariant: "stylized",
+          coverMode: "manual",
         },
       });
       await db.recipeInCookbook.create({
@@ -911,8 +928,9 @@ describe("Cookbooks $id Route", () => {
         params: { id: cookbookId },
       } as any);
 
-      expect(result.coverImageUrls).toContain("/photos/covered.jpg");
+      expect(result.coverImageUrls).toContain("/photos/covered-editorial.jpg");
       expect(result.coverImageUrls).toContain(null);
+      expect(result.cookbook.recipes[0].recipe.coverProvenanceLabel).toBe("Editorialized chef photo");
       expect(result.canonicalUrl).toBe(`http://localhost:3000/cookbooks/${cookbookId}`);
       expect(result.ogImageUrl).toBe(`http://localhost:3000/og/cookbooks/${cookbookId}.png`);
     });
@@ -1068,6 +1086,7 @@ describe("Cookbooks $id Route", () => {
                 description: "Classic pasta",
                 servings: "2",
                 coverImageUrl: "https://example.com/spaghetti.jpg",
+                coverProvenanceLabel: "Editorialized chef photo",
                 chef: { username: "testchef" },
               },
             },
@@ -1100,7 +1119,9 @@ describe("Cookbooks $id Route", () => {
 
       expect(await screen.findByRole("heading", { name: "Recipe Collection", level: 1 })).toBeInTheDocument();
       expect(screen.getAllByText("2 recipes").length).toBeGreaterThan(0);
+      expect(within(screen.getByLabelText("Recipe Collection cover photos")).getByText("Editorialized chef photo")).toBeInTheDocument();
       const recipesSection = screen.getByRole("region", { name: "Recipes" });
+      expect(within(recipesSection).getByText("Editorialized chef photo")).toBeInTheDocument();
       expect(within(recipesSection).getByRole("link", { name: "Spaghetti" })).toHaveAttribute(
         "href",
         "/recipes/recipe-1"

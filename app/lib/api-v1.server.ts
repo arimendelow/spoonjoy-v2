@@ -1,4 +1,4 @@
-import type { ApiCredential } from "@prisma/client";
+import type { ApiCredential, RecipeCover } from "@prisma/client";
 import type { AppLoadContext } from "react-router";
 import {
   ApiAuthError,
@@ -37,6 +37,12 @@ import {
   API_V1_SCOPE_REQUIREMENTS,
   type ApiV1ErrorCode,
 } from "~/lib/api-v1-contract.server";
+import {
+  getRecipeCoverDisplay,
+  getScopedActiveCover,
+  RECIPE_COVER_DISPLAY_SELECT,
+  type RecipeCoverVariant,
+} from "~/lib/recipe-cover.server";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 50;
@@ -533,7 +539,6 @@ function parseShoppingSyncLimit(url: URL): number {
 }
 
 type ListCursor = { createdAt: Date; id: string; raw: string };
-type CoverRow = { imageUrl: string; stylizedImageUrl: string | null; createdAt: Date; id: string };
 
 function listCursorFor(row: Pick<RecipeSummaryRow, "createdAt" | "id">): string {
   return `v1.${base64UrlEncodeText(JSON.stringify({ createdAt: row.createdAt.toISOString(), id: row.id }))}`;
@@ -574,13 +579,6 @@ function listCursorWhere(cursor: ListCursor | null) {
       { createdAt: cursor.createdAt, id: { gt: cursor.id } },
     ],
   };
-}
-
-function coverImageUrl(covers: readonly CoverRow[]): string | null {
-  const cover = covers[0];
-  if (cover?.stylizedImageUrl) return cover.stylizedImageUrl;
-  if (cover?.imageUrl) return cover.imageUrl;
-  return null;
 }
 
 function publicOrigin(args: ApiV1RouteArgs): string {
@@ -677,7 +675,45 @@ type RecipeSummaryRow = {
   createdAt: Date;
   updatedAt: Date;
   coverImageUrl: string | null;
+  coverProvenanceLabel: string | null;
+  coverSourceType: string | null;
+  coverVariant: RecipeCoverVariant | null;
 };
+
+type RecipeCoverFieldsInput = {
+  id: string;
+  title: string;
+  activeCoverId: string | null;
+  activeCoverVariant: string | null;
+  coverMode: string | null;
+  activeCover: RecipeCover | null;
+};
+
+function emptyRecipeCoverApiFields() {
+  return {
+    coverImageUrl: null,
+    coverProvenanceLabel: null,
+    coverSourceType: null,
+    coverVariant: null,
+  };
+}
+
+function recipeCoverApiFields(recipe: RecipeCoverFieldsInput, origin: string) {
+  const activeCover = getScopedActiveCover(recipe);
+  const coverDisplay = getRecipeCoverDisplay(recipe, activeCover ? [activeCover] : []);
+  if (!coverDisplay) return emptyRecipeCoverApiFields();
+
+  const coverImageUrl = publicAssetUrl(origin, coverDisplay.displayUrl);
+  if (!coverImageUrl) {
+    return emptyRecipeCoverApiFields();
+  }
+  return {
+    coverImageUrl,
+    coverProvenanceLabel: coverDisplay.provenanceLabel,
+    coverSourceType: coverDisplay.sourceType,
+    coverVariant: coverDisplay.activeVariant,
+  };
+}
 
 function recipeSummary(recipe: RecipeSummaryRow, origin: string) {
   const href = `/recipes/${recipe.id}`;
@@ -687,7 +723,10 @@ function recipeSummary(recipe: RecipeSummaryRow, origin: string) {
     description: recipe.description,
     servings: recipe.servings,
     chef: { id: recipe.chef.id, username: recipe.chef.username },
-    coverImageUrl: publicAssetUrl(origin, recipe.coverImageUrl),
+    coverImageUrl: recipe.coverImageUrl,
+    coverProvenanceLabel: recipe.coverProvenanceLabel,
+    coverSourceType: recipe.coverSourceType,
+    coverVariant: recipe.coverVariant,
     href,
     canonicalUrl: canonicalUrl(origin, href),
     attribution: recipeAttribution({ ...recipe, href }, origin),
@@ -698,7 +737,7 @@ function recipeSummary(recipe: RecipeSummaryRow, origin: string) {
 
 function recipeDetail(recipe: RecipeRow, origin: string) {
   return {
-    ...recipeSummary({ ...recipe, coverImageUrl: coverImageUrl(recipe.covers) }, origin),
+    ...recipeSummary({ ...recipe, ...recipeCoverApiFields(recipe, origin) }, origin),
     steps: [...recipe.steps]
       .sort((a, b) => a.stepNum - b.stepNum)
       .map((step) => ({
@@ -737,6 +776,9 @@ async function loadRecipeById(db: Awaited<ReturnType<typeof getRequestDb>>, id: 
       description: true,
       servings: true,
       sourceUrl: true,
+      activeCoverId: true,
+      activeCoverVariant: true,
+      coverMode: true,
       createdAt: true,
       updatedAt: true,
       chef: { select: { id: true, username: true } },
@@ -748,10 +790,7 @@ async function loadRecipeById(db: Awaited<ReturnType<typeof getRequestDb>>, id: 
           chef: { select: { id: true, username: true } },
         },
       },
-      covers: {
-        select: { id: true, imageUrl: true, stylizedImageUrl: true, createdAt: true },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      },
+      activeCover: { select: RECIPE_COVER_DISPLAY_SELECT },
       steps: {
         select: {
           id: true,
@@ -804,6 +843,9 @@ async function handleRecipeList(args: ApiV1RouteArgs, requestId: string, princip
       description: true,
       servings: true,
       sourceUrl: true,
+      activeCoverId: true,
+      activeCoverVariant: true,
+      coverMode: true,
       createdAt: true,
       updatedAt: true,
       chef: { select: { id: true, username: true } },
@@ -815,10 +857,7 @@ async function handleRecipeList(args: ApiV1RouteArgs, requestId: string, princip
           chef: { select: { id: true, username: true } },
         },
       },
-      covers: {
-        select: { id: true, imageUrl: true, stylizedImageUrl: true, createdAt: true },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      },
+      activeCover: { select: RECIPE_COVER_DISPLAY_SELECT },
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: limit + 1,
@@ -833,7 +872,7 @@ async function handleRecipeList(args: ApiV1RouteArgs, requestId: string, princip
     cursor: cursor?.raw ?? null,
     nextCursor,
     hasMore,
-    recipes: page.map(({ covers, ...recipe }) => recipeSummary({ ...recipe, coverImageUrl: coverImageUrl(covers) }, origin)),
+    recipes: page.map((recipe) => recipeSummary({ ...recipe, ...recipeCoverApiFields(recipe, origin) }, origin)),
   }, 200, principal ? authenticatedPublicCacheHeaders() : publicCacheHeaders());
 }
 
@@ -861,7 +900,7 @@ function cookbookSummary(cookbook: CookbookRow, origin: string) {
     chef: { id: cookbook.author.id, username: cookbook.author.username },
     recipeCount: activeEntries.length,
     coverImageUrls: activeEntries
-      .map((entry) => publicAssetUrl(origin, coverImageUrl(entry.recipe.covers)))
+      .map((entry) => recipeCoverApiFields(entry.recipe, origin).coverImageUrl)
       .filter((url): url is string => Boolean(url))
       .slice(0, 4),
     href,
@@ -878,10 +917,9 @@ function cookbookSummary(cookbook: CookbookRow, origin: string) {
 function cookbookDetail(cookbook: CookbookRow, origin: string) {
   return {
     ...cookbookSummary(cookbook, origin),
-    recipes: activeCookbookRecipeEntries(cookbook).map((entry) => {
-      const { covers, ...recipe } = entry.recipe;
-      return recipeSummary({ ...recipe, coverImageUrl: coverImageUrl(covers) }, origin);
-    }),
+    recipes: activeCookbookRecipeEntries(cookbook).map((entry) =>
+      recipeSummary({ ...entry.recipe, ...recipeCoverApiFields(entry.recipe, origin) }, origin)
+    ),
   };
 }
 
@@ -906,6 +944,9 @@ async function loadCookbookById(db: Awaited<ReturnType<typeof getRequestDb>>, id
               servings: true,
               sourceUrl: true,
               deletedAt: true,
+              activeCoverId: true,
+              activeCoverVariant: true,
+              coverMode: true,
               createdAt: true,
               updatedAt: true,
               sourceRecipe: {
@@ -916,10 +957,7 @@ async function loadCookbookById(db: Awaited<ReturnType<typeof getRequestDb>>, id
                   chef: { select: { id: true, username: true } },
                 },
               },
-              covers: {
-                select: { id: true, imageUrl: true, stylizedImageUrl: true, createdAt: true },
-                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-              },
+              activeCover: { select: RECIPE_COVER_DISPLAY_SELECT },
               chef: { select: { id: true, username: true } },
             },
           },
@@ -966,6 +1004,9 @@ async function handleCookbookList(args: ApiV1RouteArgs, requestId: string, princ
               servings: true,
               sourceUrl: true,
               deletedAt: true,
+              activeCoverId: true,
+              activeCoverVariant: true,
+              coverMode: true,
               createdAt: true,
               updatedAt: true,
               sourceRecipe: {
@@ -976,10 +1017,7 @@ async function handleCookbookList(args: ApiV1RouteArgs, requestId: string, princ
                   chef: { select: { id: true, username: true } },
                 },
               },
-              covers: {
-                select: { id: true, imageUrl: true, stylizedImageUrl: true, createdAt: true },
-                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-              },
+              activeCover: { select: RECIPE_COVER_DISPLAY_SELECT },
               chef: { select: { id: true, username: true } },
             },
           },

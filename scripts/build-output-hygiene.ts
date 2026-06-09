@@ -22,6 +22,7 @@ const SERVER_ONLY_ROUTE_CHUNKS = new Set([
   "health",
   "mcp",
   "oauth.register",
+  "oauth.revoke",
   "oauth.token",
   "og.cookbooks._id.png",
   "og.pages._slug.png",

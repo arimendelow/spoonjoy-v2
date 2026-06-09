@@ -20,6 +20,7 @@ import { RecipeHeader } from "~/components/recipe/RecipeHeader";
 import { ScaleSelector } from "~/components/recipe/ScaleSelector";
 import { RecipeProvenance } from "~/components/recipe/RecipeProvenance";
 import { ForkRecipeButton } from "~/components/recipe/ForkRecipeButton";
+import { RecipeCoverHistory } from "~/components/recipe/RecipeCoverHistory";
 import { SpoonDialog } from "~/components/recipe/SpoonDialog";
 import { SpoonsStrip } from "~/components/recipe/SpoonsStrip";
 import { StepCard } from "~/components/recipe/StepCard";
@@ -256,12 +257,25 @@ export function applyCreatedCookbookState(
 export default function RecipeDetail() {
   const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData() as RecipeDetailActionData | undefined;
-  const { recipe, coverImageUrl, isOwner, hasIngredientsInShoppingList = false } = loaderData;
+  const { recipe, coverImageUrl, coverProvenanceLabel, isOwner, hasIngredientsInShoppingList = false } = loaderData;
+  const recipeCoverFields = recipe as unknown as {
+    coverImageUrl?: unknown;
+    coverProvenanceLabel?: unknown;
+  };
+  const recipeCoverImageUrl = typeof recipeCoverFields.coverImageUrl === "string"
+    ? recipeCoverFields.coverImageUrl
+    : null;
+  const recipeCoverProvenanceLabel = typeof recipeCoverFields.coverProvenanceLabel === "string"
+    ? recipeCoverFields.coverProvenanceLabel
+    : null;
   const isAuthenticated = loaderData.isAuthenticated ?? true;
   const cookbooks = loaderData.cookbooks ?? EMPTY_COOKBOOKS;
   const savedInCookbookIds = loaderData.savedInCookbookIds ?? EMPTY_SAVED_COOKBOOK_IDS;
   const spoons = loaderData.spoons ?? EMPTY_SPOONS;
+  const coverHistory = loaderData.coverHistory ?? [];
+  const spoonImages = loaderData.spoonImages ?? [];
   const isOriginCookCandidate = loaderData.isOriginCookCandidate ?? false;
+  const coverPromptMode = loaderData.coverPromptMode ?? "none";
   const submit = useSubmit();
   const addToListFetcher = useFetcher();
   const createCookbookFetcher = useFetcher<typeof action>();
@@ -860,7 +874,9 @@ export default function RecipeDetail() {
         chefId={recipe.chef.id}
         chefProfileHref={`/users/${recipe.chef.username}`}
         chefPhotoUrl={recipe.chef.photoUrl ?? undefined}
-        coverImageUrl={coverImageUrl}
+        coverImageUrl={coverImageUrl ?? recipeCoverImageUrl}
+        coverProvenanceLabel={coverProvenanceLabel ?? recipeCoverProvenanceLabel}
+        coverPlaceholderLabel={isOwner ? "Awaiting first chef photo" : "Cover coming soon"}
         servings={recipe.servings ?? undefined}
         scaleFactor={scaleFactor}
         onScaleChange={handleScaleChange}
@@ -905,6 +921,9 @@ export default function RecipeDetail() {
                     Delete
                   </Button>
                 </div>
+                <div className="mt-6">
+                  <RecipeCoverHistory covers={coverHistory} spoonImages={spoonImages} />
+                </div>
               </div>
             ) : null}
           </div>
@@ -916,6 +935,7 @@ export default function RecipeDetail() {
         onClose={() => setIsSpoonDialogOpen(false)}
         actionUrl={`/recipes/${recipe.id}`}
         isOriginCookCandidate={isOriginCookCandidate}
+        coverPromptMode={coverPromptMode}
       />
 
       {/* Save to Cookbook Modal (Bottom Sheet) */}

@@ -1,7 +1,7 @@
 import type { Route } from "./+types/cookbooks.$id";
 import { redirect, useLoaderData, Form, data, useSubmit, type AppLoadContext } from "react-router";
 import { getRequestDb } from "~/lib/route-platform.server";
-import { getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import { getRecipeCoverDisplay } from "~/lib/recipe-cover.server";
 import { getUserId, requireUserId } from "~/lib/session.server";
 import { notifyCookbookSaveOfMine } from "~/lib/notification-triggers.server";
 import { getVapidConfig, type VapidEnv } from "~/lib/env.server";
@@ -39,6 +39,7 @@ import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
 import { CookbookPage, CookbookHeader, RuledEmptyState } from "~/components/cookbook/page";
 import { CookbookCoverArt } from "~/components/cookbook/CookbookCoverArt";
+import { CoverProvenanceBadge } from "~/components/recipe/CoverProvenanceBadge";
 import { shareContent } from "~/components/navigation";
 
 export function meta({ data }: Route.MetaArgs) {
@@ -99,6 +100,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
               title: true,
               description: true,
               servings: true,
+              activeCoverId: true,
+              activeCoverVariant: true,
+              coverMode: true,
               covers: {
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               },
@@ -110,9 +114,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
             },
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       },
     },
   });
@@ -150,20 +152,21 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   const cookbookWithCovers = {
     ...cookbook,
-    recipes: cookbook.recipes.map((item) => ({
-      ...item,
-      recipe: {
-        id: item.recipe.id,
-        title: item.recipe.title,
-        description: item.recipe.description,
-        servings: item.recipe.servings,
-        chef: item.recipe.chef,
-        coverImageUrl: getRecipeCoverImageUrl(
-          { id: item.recipe.id, title: item.recipe.title },
-          item.recipe.covers,
-        ),
-      },
-    })),
+    recipes: cookbook.recipes.map((item) => {
+      const coverDisplay = getRecipeCoverDisplay(item.recipe, item.recipe.covers);
+      return {
+        ...item,
+        recipe: {
+          id: item.recipe.id,
+          title: item.recipe.title,
+          description: item.recipe.description,
+          servings: item.recipe.servings,
+          chef: item.recipe.chef,
+          coverImageUrl: coverDisplay?.displayUrl ?? null,
+          coverProvenanceLabel: coverDisplay?.provenanceLabel ?? null,
+        },
+      };
+    }),
   };
 
   return {
@@ -294,6 +297,7 @@ export default function CookbookDetail() {
   const recipeImages = cookbook.recipes.map((item) => ({
     coverImageUrl: item.recipe.coverImageUrl,
     title: item.recipe.title,
+    coverProvenanceLabel: item.recipe.coverProvenanceLabel,
   }));
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [showOwnerTools, setShowOwnerTools] = useState(false);
@@ -401,6 +405,7 @@ export default function CookbookDetail() {
                         <span className="font-sj-display block text-2xl/7 font-semibold text-[var(--sj-ink)] sm:text-3xl/8">
                           {item.recipe.title}
                         </span>
+                        <CoverProvenanceBadge label={item.recipe.coverProvenanceLabel} className="mt-2" />
                         <span className="mt-1 block max-w-2xl text-base/6 text-[var(--sj-ink-soft)]">
                           {item.recipe.description ?? `By ${item.recipe.chef.username}`}
                         </span>

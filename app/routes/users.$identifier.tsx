@@ -10,7 +10,7 @@ import { Text } from "~/components/ui/text";
 import { Link } from "~/components/ui/link";
 import { RecipeGrid } from "~/components/pantry/RecipeGrid";
 import { CookbookCard } from "~/components/pantry/CookbookCard";
-import { getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import { getRecipeCoverDisplay } from "~/lib/recipe-cover.server";
 import { listSpoonsByChef } from "~/lib/recipe-spoon.server";
 import { SpoonsStrip } from "~/components/recipe/SpoonsStrip";
 import {
@@ -29,6 +29,7 @@ type RecentSpoonItem = {
   chef: { id: string; username: string; photoUrl: string | null };
   recipe: { id: string; title: string; chefId: string };
   coverImageUrl: string | null;
+  coverProvenanceLabel: string | null;
 };
 
 const EMPTY_SPOONS: RecentSpoonItem[] = [];
@@ -97,6 +98,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
         title: true,
         description: true,
         servings: true,
+        activeCoverId: true,
+        activeCoverVariant: true,
+        coverMode: true,
         covers: {
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         },
@@ -115,7 +119,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
           include: {
             recipe: {
               select: {
+                id: true,
                 title: true,
+                activeCoverId: true,
+                activeCoverVariant: true,
+                coverMode: true,
                 covers: {
                   orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                 },
@@ -130,10 +138,14 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     countKitchenVisitors(database, profileUser.id),
   ]);
 
-  const recipesWithCover = recipes.map(({ covers, ...rest }) => ({
-    ...rest,
-    coverImageUrl: getRecipeCoverImageUrl(rest, covers),
-  }));
+  const recipesWithCover = recipes.map(({ covers, ...rest }) => {
+    const coverDisplay = getRecipeCoverDisplay(rest, covers);
+    return {
+      ...rest,
+      coverImageUrl: coverDisplay?.displayUrl ?? null,
+      coverProvenanceLabel: coverDisplay?.provenanceLabel ?? null,
+    };
+  });
 
   const cookbooksWithCover = cookbooks.map(({ recipes: cookbookRecipes, ...cookbook }) => ({
     ...cookbook,
@@ -141,35 +153,34 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       ...item,
       recipe: {
         title: item.recipe.title,
-        coverImageUrl: getRecipeCoverImageUrl(
-          { id: item.recipeId, title: item.recipe.title },
-          item.recipe.covers,
-        ),
+        coverImageUrl: getRecipeCoverDisplay(item.recipe, item.recipe.covers)?.displayUrl ?? null,
+        coverProvenanceLabel: getRecipeCoverDisplay(item.recipe, item.recipe.covers)?.provenanceLabel ?? null,
       },
     })),
   }));
 
-  const recentSpoons = recentSpoonsRaw.map((spoon) => ({
-    id: spoon.id,
-    cookedAt: spoon.cookedAt.toISOString(),
-    photoUrl: spoon.photoUrl,
-    note: spoon.note,
-    nextTime: spoon.nextTime,
-    chef: {
-      id: spoon.chef.id,
-      username: spoon.chef.username,
-      photoUrl: spoon.chef.photoUrl,
-    },
-    recipe: {
-      id: spoon.recipe.id,
-      title: spoon.recipe.title,
-      chefId: spoon.recipe.chefId,
-    },
-    coverImageUrl: getRecipeCoverImageUrl(
-      { id: spoon.recipe.id, title: spoon.recipe.title },
-      spoon.recipe.covers,
-    ),
-  }));
+  const recentSpoons = recentSpoonsRaw.map((spoon) => {
+    const coverDisplay = getRecipeCoverDisplay(spoon.recipe, spoon.recipe.covers);
+    return {
+      id: spoon.id,
+      cookedAt: spoon.cookedAt.toISOString(),
+      photoUrl: spoon.photoUrl,
+      note: spoon.note,
+      nextTime: spoon.nextTime,
+      chef: {
+        id: spoon.chef.id,
+        username: spoon.chef.username,
+        photoUrl: spoon.chef.photoUrl,
+      },
+      recipe: {
+        id: spoon.recipe.id,
+        title: spoon.recipe.title,
+        chefId: spoon.recipe.chefId,
+      },
+      coverImageUrl: coverDisplay?.displayUrl ?? null,
+      coverProvenanceLabel: coverDisplay?.provenanceLabel ?? null,
+    };
+  });
 
   return {
     profile: {
@@ -253,6 +264,7 @@ export default function UserProfile() {
                 title: recipe.title,
                 description: recipe.description ?? undefined,
                 coverImageUrl: recipe.coverImageUrl,
+                coverProvenanceLabel: recipe.coverProvenanceLabel,
                 servings: recipe.servings ?? undefined,
                 chefName: profile.username,
               }))}
@@ -285,6 +297,7 @@ export default function UserProfile() {
                     recipeImages={cookbook.recipes.map((item) => ({
                       coverImageUrl: item.recipe.coverImageUrl,
                       title: item.recipe.title,
+                      coverProvenanceLabel: item.recipe.coverProvenanceLabel,
                     }))}
                   />
                 ))}

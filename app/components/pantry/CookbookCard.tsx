@@ -6,6 +6,7 @@ import { CookbookCoverArt } from '../cookbook/CookbookCoverArt'
 export interface CookbookCardRecipeImage {
   coverImageUrl: string | null
   title: string
+  coverProvenanceLabel?: string | null
 }
 
 export interface CookbookCardProps {
