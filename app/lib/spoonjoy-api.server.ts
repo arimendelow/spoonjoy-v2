@@ -598,10 +598,10 @@ async function activeFullCoverPayload(
   recipe: { id: string; activeCoverId: string | null; activeCoverVariant: string | null },
 ): Promise<FullCoverPayload | null> {
   if (!recipe.activeCoverId) return null;
-  const cover = await context.db.recipeCover.findFirst({
+  const cover = await context.db.recipeCover.findFirstOrThrow({
     where: { id: recipe.activeCoverId, recipeId: recipe.id },
   });
-  return cover ? fullCoverPayload(cover, recipe) : null;
+  return fullCoverPayload(cover, recipe);
 }
 
 async function reloadFullCoverPayload(
@@ -621,7 +621,7 @@ function coverMutationResponse(input: {
   createdCover: FullCoverPayload | null;
   generationStatus: string;
   warnings?: string[];
-  nextActions?: string[];
+  nextActions: string[];
   idempotencyKey?: string | null;
   replayed?: boolean;
 }): CoverMutationResult {
@@ -631,7 +631,7 @@ function coverMutationResponse(input: {
     createdCover: input.createdCover,
     generationStatus: input.generationStatus,
     warnings: input.warnings ?? [],
-    nextActions: input.nextActions ?? [],
+    nextActions: input.nextActions,
     mutation: {
       idempotencyKey: input.idempotencyKey ?? null,
       replayed: input.replayed ?? false,
@@ -690,7 +690,7 @@ async function runIdempotentMcpCoverMutation(
   });
 
   if (reservation.status === "replay") {
-    return markMcpReplay(JSON.parse(reservation.record.responseBody ?? "null"), input.idempotencyKey);
+    return markMcpReplay(JSON.parse(reservation.record.responseBody as string), input.idempotencyKey);
   }
   if (reservation.status === "in_flight") {
     throw new ApiAuthError("idempotencyKey is already in progress; retry shortly", 409);
@@ -703,7 +703,7 @@ async function runIdempotentMcpCoverMutation(
   try {
     result = await input.write(input.idempotencyKey);
   } catch (error) {
-    await context.db.apiIdempotencyKey.delete({ where: { id: reservation.record.id } }).catch(() => undefined);
+    await context.db.apiIdempotencyKey.deleteMany({ where: { id: reservation.record.id } });
     throw error;
   }
 
