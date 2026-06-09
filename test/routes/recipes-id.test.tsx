@@ -424,6 +424,55 @@ describe("Recipes $id Route", () => {
       expect(publicResult.recipe.activeCover).toBeUndefined();
     });
 
+    it("returns owner-only spoon image sources for cover creation", async () => {
+      const session = await sessionStorage.getSession();
+      session.set("userId", testUserId);
+      const setCookieHeader = await sessionStorage.commitSession(session);
+      const cookieValue = setCookieHeader.split(";")[0];
+      const headers = new Headers({ Cookie: cookieValue });
+      const photoSpoon = await db.recipeSpoon.create({
+        data: {
+          recipeId,
+          chefId: otherUserId,
+          photoUrl: "/photos/spoons/keeper.jpg",
+          note: "good one",
+          cookedAt: new Date("2026-02-01T00:00:00.000Z"),
+        },
+      });
+      await db.recipeSpoon.create({
+        data: { recipeId, chefId: otherUserId, note: "no photo" },
+      });
+      await db.recipeSpoon.create({
+        data: {
+          recipeId,
+          chefId: otherUserId,
+          photoUrl: "/photos/spoons/deleted.jpg",
+          deletedAt: new Date("2026-02-02T00:00:00.000Z"),
+        },
+      });
+
+      const ownerResult = await loader({
+        request: new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`, { headers }),
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(ownerResult.spoonImages).toEqual([
+        expect.objectContaining({
+          id: photoSpoon.id,
+          photoUrl: "/photos/spoons/keeper.jpg",
+          chef: expect.objectContaining({ id: otherUserId }),
+        }),
+      ]);
+
+      const publicResult = await loader({
+        request: new UndiciRequest(`http://localhost:3000/recipes/${recipeId}`),
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+      expect(publicResult.spoonImages).toEqual([]);
+    });
+
     it("should return recipe data when logged in as owner", async () => {
       const session = await sessionStorage.getSession();
       session.set("userId", testUserId);
@@ -1173,6 +1222,510 @@ describe("Recipes $id Route", () => {
         expect(error.status).toBe(403);
         return true;
       });
+    });
+
+    it("validates owner cover activation and no-cover confirmation fields", async () => {
+      for (const form of [
+        { intent: "setRecipeCover", variant: "image" },
+        { intent: "setRecipeCover", coverId: "cover-1", variant: "poster" },
+        { intent: "setRecipeNoCover" },
+      ]) {
+        const request = await createFormRequest(form, testUserId);
+        await expect(
+          action({
+            request,
+            context: { cloudflare: { env: null } },
+            params: { id: recipeId },
+          } as any),
+        ).rejects.toSatisfy((error: any) => {
+          expect(error).toBeInstanceOf(Response);
+          expect(error.status).toBe(400);
+          return true;
+        });
+      }
+    });
+
+    it("creates a processing cover candidate from a recipe spoon photo", async () => {
+      const activeCover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/active.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+        },
+      });
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: {
+          activeCoverId: activeCover.id,
+          activeCoverVariant: "image",
+          coverMode: "manual",
+        },
+      });
+      const spoon = await db.recipeSpoon.create({
+        data: {
+          recipeId,
+          chefId: otherUserId,
+          photoUrl: "/photos/spoons/source.jpg",
+        },
+      });
+      const waitUntil = vi.fn();
+      const request = await createFormRequest(
+        { intent: "createCoverFromSpoon", spoonId: spoon.id },
+        testUserId,
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null, ctx: { waitUntil } } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual(expect.objectContaining({ success: true, intent: "createCoverFromSpoon" }));
+      const cover = await db.recipeCover.findFirstOrThrow({
+        where: { recipeId, sourceSpoonId: spoon.id },
+      });
+      expect(cover).toMatchObject({
+        imageUrl: "/photos/spoons/source.jpg",
+        sourceImageUrl: "/photos/spoons/source.jpg",
+        sourceType: "spoon",
+        sourceSpoonId: spoon.id,
+        createdById: testUserId,
+        status: "processing",
+        generationStatus: "processing",
+      });
+      await expect(
+        db.recipe.findUniqueOrThrow({
+          where: { id: recipeId },
+          select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+        }),
+      ).resolves.toEqual({
+        activeCoverId: activeCover.id,
+        activeCoverVariant: "image",
+        coverMode: "manual",
+      });
+      expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects deleted spoon photos as cover sources", async () => {
+      const spoon = await db.recipeSpoon.create({
+        data: {
+          recipeId,
+          chefId: otherUserId,
+          photoUrl: "/photos/spoons/deleted-source.jpg",
+          deletedAt: new Date("2026-02-02T00:00:00.000Z"),
+        },
+      });
+      const request = await createFormRequest(
+        { intent: "createCoverFromSpoon", spoonId: spoon.id },
+        testUserId,
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any),
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(404);
+        return true;
+      });
+    });
+
+    it("requires a spoon id before creating a cover from a spoon photo", async () => {
+      const request = await createFormRequest(
+        { intent: "createCoverFromSpoon" },
+        testUserId,
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any),
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(400);
+        return true;
+      });
+    });
+
+    it("queues regeneration for an existing cover without changing the active cover immediately", async () => {
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/raw.jpg",
+          stylizedImageUrl: "/photos/old-editorial.jpg",
+          sourceImageUrl: "/photos/source.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+          generationStatus: "succeeded",
+        },
+      });
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: { activeCoverId: cover.id, activeCoverVariant: "image", coverMode: "manual" },
+      });
+      const waitUntil = vi.fn();
+      const request = await createFormRequest(
+        { intent: "regenerateRecipeCover", coverId: cover.id, activateWhenReady: "true" },
+        testUserId,
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null, ctx: { waitUntil } } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual({ success: true, intent: "regenerateRecipeCover", coverId: cover.id });
+      await expect(db.recipeCover.findUniqueOrThrow({ where: { id: cover.id } }))
+        .resolves.toMatchObject({
+          status: "processing",
+          generationStatus: "processing",
+          failureReason: null,
+        });
+      await expect(
+        db.recipe.findUniqueOrThrow({
+          where: { id: recipeId },
+          select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+        }),
+      ).resolves.toEqual({
+        activeCoverId: cover.id,
+        activeCoverVariant: "image",
+        coverMode: "manual",
+      });
+      expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
+    it("requires a cover id before regenerating a cover", async () => {
+      const request = await createFormRequest(
+        { intent: "regenerateRecipeCover" },
+        testUserId,
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any),
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(400);
+        return true;
+      });
+    });
+
+    it("rejects regeneration for a missing cover", async () => {
+      const request = await createFormRequest(
+        { intent: "regenerateRecipeCover", coverId: "missing-cover" },
+        testUserId,
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any),
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(404);
+        return true;
+      });
+    });
+
+    it("rejects regeneration when a cover has no saved source image", async () => {
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "",
+          sourceType: "spoon",
+          status: "ready",
+          generationStatus: "failed",
+        },
+      });
+      const request = await createFormRequest(
+        { intent: "regenerateRecipeCover", coverId: cover.id },
+        testUserId,
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any),
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(400);
+        return true;
+      });
+    });
+
+    it("allows failed cover generation to be retried from the saved source image", async () => {
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/raw.jpg",
+          sourceImageUrl: "/photos/source.jpg",
+          sourceType: "spoon",
+          status: "ready",
+          generationStatus: "failed",
+          failureReason: "quota_exhausted",
+        },
+      });
+      const waitUntil = vi.fn();
+      const request = await createFormRequest(
+        { intent: "regenerateRecipeCover", coverId: cover.id },
+        testUserId,
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null, ctx: { waitUntil } } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual({ success: true, intent: "regenerateRecipeCover", coverId: cover.id });
+      await expect(db.recipeCover.findUniqueOrThrow({ where: { id: cover.id } }))
+        .resolves.toMatchObject({
+          status: "processing",
+          generationStatus: "processing",
+          failureReason: null,
+          sourceImageUrl: "/photos/source.jpg",
+        });
+      expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects regeneration for archived covers", async () => {
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/raw.jpg",
+          sourceImageUrl: "/photos/source.jpg",
+          sourceType: "spoon",
+          status: "archived",
+          generationStatus: "succeeded",
+          archivedAt: new Date("2026-02-02T00:00:00.000Z"),
+        },
+      });
+      const request = await createFormRequest(
+        { intent: "regenerateRecipeCover", coverId: cover.id },
+        testUserId,
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any),
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(400);
+        return true;
+      });
+      await expect(db.recipeCover.findUniqueOrThrow({ where: { id: cover.id } }))
+        .resolves.toMatchObject({ status: "archived", archivedAt: expect.any(Date) });
+    });
+
+    it("requires an explicit replacement or no-cover confirmation when archiving the active cover", async () => {
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/raw.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+        },
+      });
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: { activeCoverId: cover.id, activeCoverVariant: "image", coverMode: "manual" },
+      });
+      const request = await createFormRequest(
+        { intent: "archiveRecipeCover", coverId: cover.id },
+        testUserId,
+      );
+
+      await expect(
+        action({
+          request,
+          context: { cloudflare: { env: null } },
+          params: { id: recipeId },
+        } as any),
+      ).rejects.toSatisfy((error: any) => {
+        expect(error).toBeInstanceOf(Response);
+        expect(error.status).toBe(400);
+        return true;
+      });
+    });
+
+    it("archives the active cover when no-cover is explicitly confirmed", async () => {
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/raw.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+        },
+      });
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: { activeCoverId: cover.id, activeCoverVariant: "image", coverMode: "manual" },
+      });
+      const request = await createFormRequest(
+        { intent: "archiveRecipeCover", coverId: cover.id, confirmNoCover: "true" },
+        testUserId,
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual({ success: true, intent: "archiveRecipeCover" });
+      await expect(db.recipeCover.findUniqueOrThrow({ where: { id: cover.id } }))
+        .resolves.toMatchObject({ status: "archived", archivedAt: expect.any(Date) });
+      await expect(
+        db.recipe.findUniqueOrThrow({
+          where: { id: recipeId },
+          select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+        }),
+      ).resolves.toEqual({
+        activeCoverId: null,
+        activeCoverVariant: null,
+        coverMode: "none",
+      });
+    });
+
+    it("archives the active cover and activates an explicit replacement", async () => {
+      const active = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/active.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+        },
+      });
+      const replacement = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/replacement.jpg",
+          sourceType: "import",
+          status: "ready",
+        },
+      });
+      await db.recipe.update({
+        where: { id: recipeId },
+        data: { activeCoverId: active.id, activeCoverVariant: "image", coverMode: "manual" },
+      });
+      const request = await createFormRequest(
+        {
+          intent: "archiveRecipeCover",
+          coverId: active.id,
+          replacementCoverId: replacement.id,
+          replacementVariant: "image",
+        },
+        testUserId,
+      );
+
+      const result = await action({
+        request,
+        context: { cloudflare: { env: null } },
+        params: { id: recipeId },
+      } as any);
+
+      expect(result).toEqual({ success: true, intent: "archiveRecipeCover" });
+      await expect(db.recipeCover.findUniqueOrThrow({ where: { id: active.id } }))
+        .resolves.toMatchObject({ status: "archived", archivedAt: expect.any(Date) });
+      await expect(
+        db.recipe.findUniqueOrThrow({
+          where: { id: recipeId },
+          select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+        }),
+      ).resolves.toEqual({
+        activeCoverId: replacement.id,
+        activeCoverVariant: "image",
+        coverMode: "manual",
+      });
+    });
+
+    it("requires an archive cover id and validates replacement variants", async () => {
+      const replacement = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/replacement.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+        },
+      });
+
+      for (const form of [
+        { intent: "archiveRecipeCover" },
+        {
+          intent: "archiveRecipeCover",
+          coverId: replacement.id,
+          replacementCoverId: "other-cover",
+          replacementVariant: "poster",
+        },
+      ]) {
+        const request = await createFormRequest(form, testUserId);
+        await expect(
+          action({
+            request,
+            context: { cloudflare: { env: null } },
+            params: { id: recipeId },
+          } as any),
+        ).rejects.toSatisfy((error: any) => {
+          expect(error).toBeInstanceOf(Response);
+          expect(error.status).toBe(400);
+          return true;
+        });
+      }
+    });
+
+    it("rejects cover source, regeneration, and archive actions from non-owners", async () => {
+      const spoon = await db.recipeSpoon.create({
+        data: {
+          recipeId,
+          chefId: otherUserId,
+          photoUrl: "/photos/spoons/source.jpg",
+        },
+      });
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId,
+          imageUrl: "/photos/raw.jpg",
+          sourceImageUrl: "/photos/source.jpg",
+          sourceType: "spoon",
+          status: "ready",
+        },
+      });
+
+      for (const form of [
+        { intent: "createCoverFromSpoon", spoonId: spoon.id },
+        { intent: "regenerateRecipeCover", coverId: cover.id },
+        { intent: "archiveRecipeCover", coverId: cover.id },
+      ]) {
+        const request = await createFormRequest(form, otherUserId);
+        await expect(
+          action({
+            request,
+            context: { cloudflare: { env: null } },
+            params: { id: recipeId },
+          } as any),
+        ).rejects.toSatisfy((error: any) => {
+          expect(error).toBeInstanceOf(Response);
+          expect(error.status).toBe(403);
+          return true;
+        });
+      }
     });
 
     it("should throw 404 for non-existent recipe", async () => {

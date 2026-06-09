@@ -13,10 +13,18 @@ export type RecipeCoverHistoryItem = {
   status: string;
   generationStatus: string;
   sourceType: string;
+  sourceImageUrl?: string | null;
   createdAt: string;
   isActive: boolean;
   activeVariant: string | null;
   variants: RecipeCoverHistoryVariant[];
+};
+
+export type RecipeCoverSpoonImage = {
+  id: string;
+  photoUrl: string;
+  cookedAt: string;
+  chef: { username: string };
 };
 
 function statusLabel(status: string, generationStatus: string) {
@@ -30,6 +38,14 @@ function variantName(variant: "image" | "stylized") {
   return variant === "stylized" ? "Editorial" : "Original";
 }
 
+function coverCanActivate(cover: RecipeCoverHistoryItem) {
+  return (
+    cover.status !== "failed" &&
+    cover.status !== "archived" &&
+    cover.generationStatus !== "failed"
+  );
+}
+
 function createdDateLabel(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Saved cover";
@@ -38,8 +54,10 @@ function createdDateLabel(value: string) {
 
 export function RecipeCoverHistory({
   covers,
+  spoonImages = [],
 }: {
   covers: RecipeCoverHistoryItem[];
+  spoonImages?: RecipeCoverSpoonImage[];
 }) {
   return (
     <section
@@ -85,10 +103,18 @@ export function RecipeCoverHistory({
         <div className="divide-y divide-[var(--sj-border)] border-y border-[var(--sj-border)]">
           {covers.map((cover) => {
             const thumbnail = cover.variants[0]?.imageUrl;
-            const canActivate =
-              cover.status !== "failed" &&
-              cover.status !== "archived" &&
-              cover.generationStatus !== "failed";
+            const canQueueGeneration = cover.status !== "archived";
+            const canArchive = cover.status !== "archived";
+            const canActivate = coverCanActivate(cover);
+            const replacementOptions = covers
+              .filter((candidate) => candidate.id !== cover.id && coverCanActivate(candidate))
+              .flatMap((candidate) =>
+                candidate.variants.map((variant) => ({
+                  coverId: candidate.id,
+                  variant: variant.variant,
+                  label: variant.provenanceLabel,
+                })),
+              );
             return (
               <article
                 key={cover.id}
@@ -167,12 +193,111 @@ export function RecipeCoverHistory({
                       ))}
                     </div>
                   )}
+                  <div className="flex flex-wrap gap-2">
+                    {canQueueGeneration ? (
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="regenerateRecipeCover" />
+                        <input type="hidden" name="coverId" value={cover.id} />
+                        <Button type="submit" plain>
+                          Regenerate cover
+                        </Button>
+                      </Form>
+                    ) : null}
+                    {canArchive && cover.isActive ? (
+                      <div className="flex flex-wrap gap-2" aria-label="Archive active cover options">
+                        {replacementOptions.map((option) => (
+                          <Form
+                            key={`${cover.id}-${option.coverId}-${option.variant}`}
+                            method="post"
+                          >
+                            <input type="hidden" name="intent" value="archiveRecipeCover" />
+                            <input type="hidden" name="coverId" value={cover.id} />
+                            <input type="hidden" name="replacementCoverId" value={option.coverId} />
+                            <input type="hidden" name="replacementVariant" value={option.variant} />
+                            <Button
+                              type="submit"
+                              plain
+                              aria-label={`Archive and use ${option.label} ${variantName(option.variant)} cover`}
+                            >
+                              Archive + use {variantName(option.variant)}
+                            </Button>
+                          </Form>
+                        ))}
+                        <Form method="post">
+                          <input type="hidden" name="intent" value="archiveRecipeCover" />
+                          <input type="hidden" name="coverId" value={cover.id} />
+                          <input type="hidden" name="confirmNoCover" value="true" />
+                          <Button type="submit" plain>
+                            Archive and set no cover
+                          </Button>
+                        </Form>
+                      </div>
+                    ) : canArchive ? (
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="archiveRecipeCover" />
+                        <input type="hidden" name="coverId" value={cover.id} />
+                        <Button type="submit" plain>
+                          Archive cover
+                        </Button>
+                      </Form>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             );
           })}
         </div>
       )}
+
+      {spoonImages.length > 0 ? (
+        <div className="space-y-3 border-t border-[var(--sj-border)] pt-5">
+          <div>
+            <h4 className="font-sj-display text-lg font-semibold leading-7 text-[var(--sj-ink)]">
+              Spoon photos
+            </h4>
+            <p className="font-sj-ui text-sm leading-6 text-[var(--sj-ink-soft)]">
+              Create a saved cover candidate from a photo already posted to this recipe.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {spoonImages.map((spoon) => (
+              <article
+                key={spoon.id}
+                className="grid min-h-28 grid-cols-[5rem_minmax(0,1fr)] gap-3 border-y border-[var(--sj-border)] py-3 sm:border"
+              >
+                <div className="aspect-square overflow-hidden bg-[var(--sj-photo-charcoal)]">
+                  <img
+                    src={spoon.photoUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-sj-ui text-sm font-semibold text-[var(--sj-ink)]">
+                      {spoon.chef.username}
+                    </p>
+                    <p className="font-sj-ui text-xs text-[var(--sj-ink-soft)]">
+                      {createdDateLabel(spoon.cookedAt)}
+                    </p>
+                  </div>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="createCoverFromSpoon" />
+                    <input type="hidden" name="spoonId" value={spoon.id} />
+                    <Button
+                      type="submit"
+                      plain
+                      aria-label={`Create cover from spoon photo by ${spoon.chef.username}`}
+                    >
+                      Create cover
+                    </Button>
+                  </Form>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

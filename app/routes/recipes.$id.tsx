@@ -269,6 +269,7 @@ export default function RecipeDetail() {
   const savedInCookbookIds = loaderData.savedInCookbookIds ?? EMPTY_SAVED_COOKBOOK_IDS;
   const spoons = loaderData.spoons ?? EMPTY_SPOONS;
   const coverHistory = loaderData.coverHistory ?? [];
+  const spoonImages = loaderData.spoonImages ?? [];
   const isOriginCookCandidate = loaderData.isOriginCookCandidate ?? false;
   const coverPromptMode = loaderData.coverPromptMode ?? "none";
   const submit = useSubmit();
@@ -917,7 +918,7 @@ export default function RecipeDetail() {
                   </Button>
                 </div>
                 <div className="mt-6">
-                  <RecipeCoverHistory covers={coverHistory} />
+                  <RecipeCoverHistory covers={coverHistory} spoonImages={spoonImages} />
                 </div>
               </div>
             ) : null}

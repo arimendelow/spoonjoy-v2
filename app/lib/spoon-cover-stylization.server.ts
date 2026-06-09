@@ -50,6 +50,13 @@ export interface ScheduleSpoonStylizationInput {
   fetchImpl?: typeof fetch;
   allowLocalImageFallback?: boolean;
   sourceType?: Extract<ImageGenerationSourceType, "chef-upload" | "spoon">;
+  activateWhenReady?: boolean;
+  suppressAutoActivation?: boolean;
+  activationGuard?: {
+    activeCoverId: string | null;
+    activeCoverVariant: string | null;
+    coverMode: string | null;
+  };
   postHogConfig?: PostHogServerConfig;
   analyticsFetchImpl?: typeof fetch;
   now?: () => number;
@@ -392,6 +399,23 @@ async function autoActivateStylizedCoverIfSafe(input: ScheduleSpoonStylizationIn
   });
 }
 
+async function activateStylizedCoverIfStillRequested(input: ScheduleSpoonStylizationInput): Promise<void> {
+  if (!input.activateWhenReady || !input.activationGuard) return;
+  await input.db.recipe.updateMany({
+    where: {
+      id: input.recipeId,
+      activeCoverId: input.activationGuard.activeCoverId,
+      activeCoverVariant: input.activationGuard.activeCoverVariant,
+      coverMode: input.activationGuard.coverMode,
+    },
+    data: {
+      activeCoverId: input.coverId,
+      activeCoverVariant: "stylized",
+      coverMode: "manual",
+    },
+  });
+}
+
 async function captureGenerationException(
   input: ScheduleSpoonStylizationInput,
   error: unknown,
@@ -613,7 +637,11 @@ export async function scheduleSpoonCoverStylization(
 
     const coverUpdatedAfterGeneration = await markStylizationSucceeded(input, result.url);
     if (coverUpdatedAfterGeneration) {
-      await autoActivateStylizedCoverIfSafe(input);
+      if (input.activateWhenReady) {
+        await activateStylizedCoverIfStillRequested(input);
+      } else if (!input.suppressAutoActivation) {
+        await autoActivateStylizedCoverIfSafe(input);
+      }
     }
 
     await captureRecoveredProviderFallback(input, result);

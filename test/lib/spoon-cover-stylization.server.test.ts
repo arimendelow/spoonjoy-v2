@@ -146,6 +146,168 @@ describe("scheduleSpoonCoverStylization", () => {
     });
   });
 
+  it("activates an explicitly requested editorial cover when the guarded active state is unchanged", async () => {
+    await db.recipe.update({
+      where: { id: recipeId },
+      data: {
+        activeCoverId: coverId,
+        activeCoverVariant: "image",
+        coverMode: "manual",
+      },
+    });
+    await db.recipeCover.update({
+      where: { id: coverId },
+      data: { status: "processing", generationStatus: "processing" },
+    });
+
+    await scheduleSpoonCoverStylization({
+      db,
+      userId,
+      recipeId,
+      coverId,
+      rawPhotoUrl: dataUrl("image/png", VALID_PNG_BYTES),
+      recipeTitle: "Stylize Me",
+      runner: makeRunner(),
+      bucket: mockR2(),
+      now: () => 1234,
+      activateWhenReady: true,
+      activationGuard: {
+        activeCoverId: coverId,
+        activeCoverVariant: "image",
+        coverMode: "manual",
+      },
+      logger: errorSpy,
+    });
+
+    await expect(
+      db.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+      }),
+    ).resolves.toEqual({
+      activeCoverId: coverId,
+      activeCoverVariant: "stylized",
+      coverMode: "manual",
+    });
+  });
+
+  it("does not activate an explicitly requested editorial cover when the guarded state is stale", async () => {
+    const replacement = await db.recipeCover.create({
+      data: {
+        recipeId,
+        imageUrl: "https://stub.test/replacement.png",
+        sourceType: "chef-upload",
+        status: "ready",
+      },
+    });
+    await db.recipe.update({
+      where: { id: recipeId },
+      data: {
+        activeCoverId: replacement.id,
+        activeCoverVariant: "image",
+        coverMode: "manual",
+      },
+    });
+    await db.recipeCover.update({
+      where: { id: coverId },
+      data: { status: "processing", generationStatus: "processing" },
+    });
+
+    await scheduleSpoonCoverStylization({
+      db,
+      userId,
+      recipeId,
+      coverId,
+      rawPhotoUrl: dataUrl("image/png", VALID_PNG_BYTES),
+      recipeTitle: "Stylize Me",
+      runner: makeRunner(),
+      bucket: mockR2(),
+      now: () => 1234,
+      activateWhenReady: true,
+      activationGuard: {
+        activeCoverId: coverId,
+        activeCoverVariant: "image",
+        coverMode: "manual",
+      },
+      logger: errorSpy,
+    });
+
+    await expect(
+      db.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+      }),
+    ).resolves.toEqual({
+      activeCoverId: replacement.id,
+      activeCoverVariant: "image",
+      coverMode: "manual",
+    });
+  });
+
+  it("does not auto-activate candidate-only editorial jobs", async () => {
+    await db.recipeCover.update({
+      where: { id: coverId },
+      data: { status: "processing", generationStatus: "processing" },
+    });
+
+    await scheduleSpoonCoverStylization({
+      db,
+      userId,
+      recipeId,
+      coverId,
+      rawPhotoUrl: dataUrl("image/png", VALID_PNG_BYTES),
+      recipeTitle: "Stylize Me",
+      runner: makeRunner(),
+      bucket: mockR2(),
+      now: () => 1234,
+      suppressAutoActivation: true,
+      logger: errorSpy,
+    });
+
+    await expect(
+      db.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+      }),
+    ).resolves.toEqual({
+      activeCoverId: null,
+      activeCoverVariant: null,
+      coverMode: "auto",
+    });
+  });
+
+  it("does not activate explicit editorial jobs without an activation guard", async () => {
+    await db.recipeCover.update({
+      where: { id: coverId },
+      data: { status: "processing", generationStatus: "processing" },
+    });
+
+    await scheduleSpoonCoverStylization({
+      db,
+      userId,
+      recipeId,
+      coverId,
+      rawPhotoUrl: dataUrl("image/png", VALID_PNG_BYTES),
+      recipeTitle: "Stylize Me",
+      runner: makeRunner(),
+      bucket: mockR2(),
+      now: () => 1234,
+      activateWhenReady: true,
+      logger: errorSpy,
+    });
+
+    await expect(
+      db.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { activeCoverId: true, activeCoverVariant: true, coverMode: true },
+      }),
+    ).resolves.toEqual({
+      activeCoverId: null,
+      activeCoverVariant: null,
+      coverMode: "auto",
+    });
+  });
+
   it("does not replace a manual raw recipe upload when editorial generation completes", async () => {
     await db.recipe.update({
       where: { id: recipeId },
