@@ -20,6 +20,7 @@ import {
 } from "~/lib/agent-connection.server";
 import { validateActiveRecipeTitleUnique } from "~/lib/recipe-title-uniqueness.server";
 import {
+  archiveRecipeCover,
   createCover,
   getRecipeCoverDisplay,
   getRecipeCoverProvenanceLabel,
@@ -235,6 +236,19 @@ function optionalBooleanArgument(args: Record<string, unknown>, key: string, fal
   const value = args[key];
   if (typeof value !== "boolean") throw new ApiAuthError(`${key} must be a boolean`, 400);
   return value;
+}
+
+function requiredCoverVariant(args: Record<string, unknown>, key: string): RecipeCoverVariant {
+  const value = requiredString(args, key);
+  if (value !== "image" && value !== "stylized") {
+    throw new ApiAuthError(`${key} must be image or stylized`, 400);
+  }
+  return value;
+}
+
+function optionalCoverVariant(args: Record<string, unknown>, key: string): RecipeCoverVariant | null {
+  if (!hasArgument(args, key)) return null;
+  return requiredCoverVariant(args, key);
 }
 
 function optionalPositiveNumber(value: unknown): number | undefined {
@@ -555,6 +569,15 @@ type CoverMutationResult = {
   mutation: { idempotencyKey: string | null; replayed: boolean };
 };
 
+type ActiveCoverMutationResult = {
+  activeCover: FullCoverPayload | null;
+  previousActiveCover: FullCoverPayload | null;
+  archivedCover: FullCoverPayload | null;
+  warnings: string[];
+  nextActions: string[];
+  mutation: { idempotencyKey: string | null; replayed: boolean };
+};
+
 async function findOwnedCoverMutationRecipe(
   context: SpoonjoyApiContext,
   principal: ApiPrincipal,
@@ -639,6 +662,34 @@ function coverMutationResponse(input: {
   };
 }
 
+function activeCoverMutationResponse(input: {
+  activeCover: FullCoverPayload | null;
+  previousActiveCover: FullCoverPayload | null;
+  archivedCover: FullCoverPayload | null;
+  warnings?: string[];
+  nextActions: string[];
+  idempotencyKey?: string | null;
+  replayed?: boolean;
+}): ActiveCoverMutationResult {
+  return {
+    activeCover: input.activeCover,
+    previousActiveCover: input.previousActiveCover,
+    archivedCover: input.archivedCover,
+    warnings: input.warnings ?? [],
+    nextActions: input.nextActions,
+    mutation: {
+      idempotencyKey: input.idempotencyKey ?? null,
+      replayed: input.replayed ?? false,
+    },
+  };
+}
+
+function coverLifecycleApiError(error: unknown): never {
+  if (error instanceof ApiAuthError) throw error;
+  if (error instanceof Error) throw new ApiAuthError(error.message, 400);
+  throw new ApiAuthError("Cover mutation failed", 400);
+}
+
 function normalizedMcpIdempotencyBody(args: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(args).filter(([key]) => key !== "dryRun" && key !== "idempotencyKey"),
@@ -668,7 +719,7 @@ function markMcpReplay(body: unknown, idempotencyKey: string | null): unknown {
   return record;
 }
 
-async function runIdempotentMcpCoverMutation(
+async function runIdempotentMcpCoverMutation<T>(
   context: SpoonjoyApiContext,
   principal: ApiPrincipal,
   input: {
@@ -677,7 +728,7 @@ async function runIdempotentMcpCoverMutation(
     args: Record<string, unknown>;
     idempotencyKey?: string;
     dryRun: boolean;
-    write: (idempotencyKey: string | null) => Promise<CoverMutationResult>;
+    write: (idempotencyKey: string | null) => Promise<T>;
   },
 ): Promise<unknown> {
   if (input.dryRun) {
@@ -706,7 +757,7 @@ async function runIdempotentMcpCoverMutation(
     throw new ApiAuthError("idempotencyKey was already used for a different request", 409);
   }
 
-  let result: CoverMutationResult;
+  let result: T;
   try {
     result = await input.write(publicIdempotencyKey);
   } catch (error) {
@@ -1938,6 +1989,125 @@ const getCoverGenerationStatusTool: SpoonjoyApiOperation = {
     return json({
       cover: fullCoverPayload(cover, recipe),
       activeCover: await activeFullCoverPayload(context, recipe),
+    });
+  },
+};
+
+const setActiveRecipeCoverTool: SpoonjoyApiOperation = {
+  name: "set_active_recipe_cover",
+  description: "Set one existing recipe cover variant as the active recipe cover.",
+  requiredScopes: ["kitchen:write"],
+  inputSchema: {
+    type: "object",
+    properties: {
+      recipeId: { type: "string" },
+      coverId: { type: "string" },
+      variant: { type: "string", enum: ["image", "stylized"] },
+      idempotencyKey: { type: "string" },
+    },
+    required: ["recipeId", "coverId", "variant"],
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    const principal = requireApiPrincipal(context.principal);
+    const recipeId = requiredString(args, "recipeId");
+    const coverId = requiredString(args, "coverId");
+    const variant = requiredCoverVariant(args, "variant");
+    const idempotencyKey = optionalString(args.idempotencyKey);
+
+    const recipe = await findOwnedCoverMutationRecipe(context, principal, recipeId);
+    const previousActiveCover = await activeFullCoverPayload(context, recipe);
+
+    return runIdempotentMcpCoverMutation(context, principal, {
+      operation: "set_active_recipe_cover",
+      recipeId,
+      args,
+      idempotencyKey,
+      dryRun: false,
+      write: async (mutationKey) => {
+        try {
+          await setActiveRecipeCover(context.db, { recipeId, coverId, variant });
+        } catch (error) {
+          coverLifecycleApiError(error);
+        }
+        const nextRecipe = await reloadCoverMutationRecipe(context, recipeId);
+        return activeCoverMutationResponse({
+          activeCover: await activeFullCoverPayload(context, nextRecipe),
+          previousActiveCover,
+          archivedCover: null,
+          nextActions: ["list_recipe_covers", "get_recipe"],
+          idempotencyKey: mutationKey,
+        });
+      },
+    });
+  },
+};
+
+const archiveRecipeCoverTool: SpoonjoyApiOperation = {
+  name: "archive_recipe_cover",
+  description: "Archive a recipe cover. Archiving the active cover requires a replacement or explicit no-cover confirmation.",
+  requiredScopes: ["kitchen:write"],
+  inputSchema: {
+    type: "object",
+    properties: {
+      recipeId: { type: "string" },
+      coverId: { type: "string" },
+      replacementCoverId: { type: "string" },
+      replacementVariant: { type: "string", enum: ["image", "stylized"] },
+      confirmNoCover: { type: "boolean" },
+      deleteSafeObjects: { type: "boolean" },
+      idempotencyKey: { type: "string" },
+    },
+    required: ["recipeId", "coverId"],
+    additionalProperties: false,
+  },
+  async handle(args, context) {
+    const principal = requireApiPrincipal(context.principal);
+    const recipeId = requiredString(args, "recipeId");
+    const coverId = requiredString(args, "coverId");
+    const replacementCoverId = optionalString(args.replacementCoverId) ?? null;
+    const replacementVariant = optionalCoverVariant(args, "replacementVariant");
+    const confirmNoCover = optionalBooleanArgument(args, "confirmNoCover");
+    const deleteSafeObjects = optionalBooleanArgument(args, "deleteSafeObjects");
+    const idempotencyKey = optionalString(args.idempotencyKey);
+
+    const recipe = await findOwnedCoverMutationRecipe(context, principal, recipeId);
+    const previousActiveCover = await activeFullCoverPayload(context, recipe);
+
+    return runIdempotentMcpCoverMutation(context, principal, {
+      operation: "archive_recipe_cover",
+      recipeId,
+      args,
+      idempotencyKey,
+      dryRun: false,
+      write: async (mutationKey) => {
+        let archivedCoverId: string;
+        try {
+          const result = await archiveRecipeCover(context.db, {
+            recipeId,
+            coverId,
+            replacementCoverId,
+            replacementVariant,
+            confirmNoCover,
+          });
+          archivedCoverId = result.archivedCover.id;
+        } catch (error) {
+          coverLifecycleApiError(error);
+        }
+
+        const nextRecipe = await reloadCoverMutationRecipe(context, recipeId);
+        const warnings = deleteSafeObjects
+          ? ["deleteSafeObjects is not implemented; the cover record was archived without deleting image objects."]
+          : [];
+        return activeCoverMutationResponse({
+          activeCover: await activeFullCoverPayload(context, nextRecipe),
+          previousActiveCover,
+          archivedCover: await reloadFullCoverPayload(context, nextRecipe, archivedCoverId),
+          warnings,
+          nextActions: ["list_recipe_covers", "get_recipe"],
+          idempotencyKey: mutationKey,
+        });
+      },
     });
   },
 };
@@ -3307,6 +3477,8 @@ const tools: SpoonjoyApiOperation[] = [
   createRecipeCoverFromSpoonTool,
   regenerateRecipeCoverTool,
   getCoverGenerationStatusTool,
+  setActiveRecipeCoverTool,
+  archiveRecipeCoverTool,
   createRecipeTool,
   updateRecipeTool,
   deleteRecipeTool,
@@ -3355,6 +3527,8 @@ const TOOL_ANNOTATIONS = {
   create_recipe_cover_from_spoon: { title: "Create recipe cover from spoon", readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   regenerate_recipe_cover: { title: "Regenerate recipe cover", readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   get_cover_generation_status: { title: "Get cover generation status", readOnlyHint: true },
+  set_active_recipe_cover: { title: "Set active recipe cover", readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+  archive_recipe_cover: { title: "Archive recipe cover", readOnlyHint: false, destructiveHint: true, idempotentHint: true },
   create_recipe: { title: "Create recipe", readOnlyHint: false, destructiveHint: false },
   update_recipe: { title: "Update recipe", readOnlyHint: false, destructiveHint: true },
   delete_recipe: { title: "Delete recipe", readOnlyHint: false, destructiveHint: true, idempotentHint: true },

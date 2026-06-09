@@ -11,7 +11,7 @@ import {
   hashIdempotencyRequest,
   idempotencyClientKey,
 } from "~/lib/api-idempotency.server";
-import type { ApiPrincipal } from "~/lib/api-auth.server";
+import { ApiAuthError, type ApiPrincipal } from "~/lib/api-auth.server";
 import { cleanupDatabase } from "../helpers/cleanup";
 
 type Database = Awaited<ReturnType<typeof getLocalDb>>;
@@ -1788,6 +1788,74 @@ describe("spoonjoy-api spoon operations", () => {
         where: { id: inactive.id },
         select: { status: true, archivedAt: true },
       })).resolves.toEqual({ status: "ready", archivedAt: null });
+
+      const disposable = await db.recipeCover.create({
+        data: {
+          recipeId: recipe.id,
+          imageUrl: "/photos/disposable.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+        },
+      });
+      const warned = await callSpoonjoyApiOperation(
+        "archive_recipe_cover",
+        {
+          recipeId: recipe.id,
+          coverId: disposable.id,
+          deleteSafeObjects: true,
+          idempotencyKey: "archive-delete-safe-warning",
+        },
+        { db, principal: chef },
+      ) as { warnings: string[] };
+      expect(warned.warnings).toEqual([
+        expect.stringMatching(/not implemented/i),
+      ]);
+
+      const apiErrorDb = {
+        ...db,
+        recipe: {
+          ...db.recipe,
+          update: async () => {
+            throw new ApiAuthError("custom lifecycle failure", 418);
+          },
+        },
+      } as unknown as Database;
+      await expect(callSpoonjoyApiOperation(
+        "set_active_recipe_cover",
+        {
+          recipeId: recipe.id,
+          coverId: active.id,
+          variant: "image",
+          idempotencyKey: "set-cover-api-error",
+        },
+        { db: apiErrorDb, principal: chef },
+      )).rejects.toMatchObject({
+        status: 418,
+        message: "custom lifecycle failure",
+      });
+
+      const rawErrorDb = {
+        ...db,
+        recipe: {
+          ...db.recipe,
+          update: async () => {
+            throw "raw lifecycle failure";
+          },
+        },
+      } as unknown as Database;
+      await expect(callSpoonjoyApiOperation(
+        "set_active_recipe_cover",
+        {
+          recipeId: recipe.id,
+          coverId: active.id,
+          variant: "image",
+          idempotencyKey: "set-cover-raw-error",
+        },
+        { db: rawErrorDb, principal: chef },
+      )).rejects.toMatchObject({
+        status: 400,
+        message: "Cover mutation failed",
+      });
     });
   });
 
