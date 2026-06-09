@@ -95,15 +95,15 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **What**: Consolidate duplicate cover props for web surfaces, keep null/no-cover states intentional, and cover badge rendering branches.
 **Acceptance**: Affected web route/component tests pass with 100% coverage on new branches and no warnings.
 
-### ⬜ Unit 3a: API v1, Search, And Open Graph Read Surfaces — Tests
+### ✅ Unit 3a: API v1, Search, And Open Graph Read Surfaces — Tests
 **What**: Add failing tests proving `app/lib/api-v1.server.ts`, `app/lib/api-v1-openapi.server.ts`, `app/lib/search.server.ts`, `app/routes/og.recipes.$id.png.tsx`, and `app/routes/og.cookbooks.$id.png.tsx` use explicit active covers and include/derive correct provenance metadata. API v1 `RecipeSummary` and `RecipeDetail` must expose `coverProvenanceLabel`, `coverSourceType`, and `coverVariant`; cookbook cover arrays remain URL arrays but recipe entries include those fields. Include active older cover, archived newest row, empty newest row, and intentional no-cover cases.
 **Acceptance**: Tests fail because these server surfaces still derive cover output from ordered cover arrays or lack provenance.
 
-### ⬜ Unit 3b: API v1, Search, And Open Graph Read Surfaces — Implementation
+### ✅ Unit 3b: API v1, Search, And Open Graph Read Surfaces — Implementation
 **What**: Replace newest-row cover selection in API v1, API v1 OpenAPI schemas/examples, search metadata, and Open Graph route output with active-cover helper output. Ensure search metadata updates when active cover or active variant changes. Update `RecipeSummary`, `RecipeDetail`, `CookbookSummary`, and `CookbookDetail` schema/examples in `app/lib/api-v1-openapi.server.ts` for the new provenance fields where recipe objects are returned.
 **Acceptance**: Unit 3a tests pass and server read surfaces agree on active cover URL/provenance.
 
-### ⬜ Unit 3c: API v1, Search, And Open Graph Read Surfaces — Coverage & Refactor
+### ✅ Unit 3c: API v1, Search, And Open Graph Read Surfaces — Coverage & Refactor
 **What**: Refactor shared server cover formatting to avoid drift between API v1, search, and OG paths.
 **Acceptance**: Affected server tests pass with 100% coverage on new branches and no warnings.
 
@@ -259,3 +259,4 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-08 19:03 Fixed Unit 2 review findings: production search documents now store active-cover provenance metadata, and cookbook detail passes provenance into `CookbookCoverArt`; review-fix red/green, expanded Unit 2 targeted tests, and build passed (`unit-2-review-fix-red.log`, `unit-2-review-fix-green.log`, `unit-2-review-fix-targeted.log`, `unit-2-review-fix-build.log`)
 - 2026-06-08 19:10 Fixed Unit 2 Round 2 review finding: search freshness fingerprint now hashes active cover selection plus source/status/archive/display fields, so provenance-only and D1-style active-variant changes refresh indexed `imageUrl` and `coverProvenanceLabel`; red/green, expanded targeted tests, and build passed (`unit-2-round2-fix-red.log`, `unit-2-round2-fix-green.log`, `unit-2-round2-fix-targeted.log`, `unit-2-round2-fix-build.log`)
 - 2026-06-08 19:10 Unit 2 review converged after Round 3
+- 2026-06-08 19:28 Unit 3a/3b/3c complete: added red tests for API v1 recipe/cookbook responses, OpenAPI schemas/examples, search cover metadata, and OG active-cover image selection (`unit-3a-red.log`); implemented active-cover display/provenance fields and regenerated the API playground; targeted tests passed (`unit-3b-green.log`), coverage passed with touched search/OG/OpenAPI files at 100% and changed API lines covered (`unit-3c-coverage.log`), and builds passed (`unit-3b-build.log`, `unit-3c-build.log`).
