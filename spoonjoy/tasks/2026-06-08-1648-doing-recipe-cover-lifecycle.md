@@ -83,7 +83,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **What**: Update recipe/detail/index/home/profile/cookbook/search loaders and components to fetch/use active cover helper output. Add public provenance badge labels: `AI generated` for `sourceType="ai-placeholder"` with variant `image`, `Chef photo` for `chef-upload` or `spoon` with variant `image`, `Editorialized chef photo` for `chef-upload` or `spoon` with variant `stylized`, and `Imported photo` for `import`.
 **Acceptance**: Unit 2a tests pass and no listed web surface displays an archived/empty newest row.
 
-### ⬜ Unit 2c: Recipe Page And Listing Read Surfaces — Coverage & Refactor
+### ✅ Unit 2c: Recipe Page And Listing Read Surfaces — Coverage & Refactor
 **What**: Consolidate duplicate cover props for web surfaces, keep null/no-cover states intentional, and cover badge rendering branches.
 **Acceptance**: Affected web route/component tests pass with 100% coverage on new branches and no warnings.
 
@@ -247,3 +247,4 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-08 18:32 Unit 1c review converged
 - 2026-06-08 18:41 Unit 2a complete: added failing web read-surface tests for active cover provenance, intentional placeholders, and nested cookbook/profile/search cover display (`unit-2a-red.log`)
 - 2026-06-08 18:52 Unit 2b complete: web recipe, profile, kitchen, cookbook, and search surfaces now use explicit active-cover display data and render provenance badges; targeted tests passed (`unit-2b-green.log`) and production build passed (`unit-2b-build.log`)
+- 2026-06-08 18:56 Unit 2c complete: targeted coverage passed for the web read-surface slice with new badge/header/grid/cookbook/search/index/profile branches at 100% (`unit-2c-coverage.log`); production build passed (`unit-2c-build.log`). The first strict coverage attempt (`unit-2c-coverage-attempt-1.log`) hit unrelated repo-wide baseline thresholds, not uncovered Unit 2 code.
