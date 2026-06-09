@@ -1,8 +1,28 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import { openPublicRecipeByChef } from '../support/recipes';
 
 const FIXTURE_PHOTO = path.resolve('e2e/fixtures/spoon-test-photo.png');
+
+async function expectProfileLinkEventually(
+  page: Page,
+  path: string,
+  username: string,
+) {
+  const headingName = path.endsWith('/fellow-chefs') ? /fellow chefs/i : /kitchen visitors/i;
+  await expect.poll(async () => {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { name: headingName })).toBeVisible({ timeout: 10_000 });
+    return page
+      .getByRole('link', { name: new RegExp(username, 'i') })
+      .first()
+      .getAttribute('href')
+      .catch(() => null);
+  }, {
+    message: `expected ${username} to appear on ${path}`,
+    timeout: 20_000,
+  }).toBe(`/users/${username}`);
+}
 
 test.describe('Fellow chefs + Kitchen visitors flow', () => {
   test('demo_chef spoons a chef_julia recipe and both appear on the derived-graph pages', async ({ page }) => {
@@ -42,22 +62,10 @@ test.describe('Fellow chefs + Kitchen visitors flow', () => {
     await expect(page.getByText(note)).toBeVisible({ timeout: 15_000 });
 
     // 2) Visit demo_chef's Fellow chefs page — chef_julia should appear.
-    await page.goto('/users/demo_chef/fellow-chefs');
-    await expect(page.getByRole('heading', { name: /fellow chefs/i })).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(
-      page.getByRole('link', { name: /chef_julia/i }).first(),
-    ).toHaveAttribute('href', '/users/chef_julia');
+    await expectProfileLinkEventually(page, '/users/demo_chef/fellow-chefs', 'chef_julia');
 
     // 3) Visit chef_julia's Kitchen visitors page — demo_chef should appear.
-    await page.goto('/users/chef_julia/kitchen-visitors');
-    await expect(
-      page.getByRole('heading', { name: /kitchen visitors/i }),
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(
-      page.getByRole('link', { name: /demo_chef/i }).first(),
-    ).toHaveAttribute('href', '/users/demo_chef');
+    await expectProfileLinkEventually(page, '/users/chef_julia/kitchen-visitors', 'demo_chef');
   });
 
   test('profile page exposes Fellow chefs and Kitchen visitors entry links', async ({ page }) => {
