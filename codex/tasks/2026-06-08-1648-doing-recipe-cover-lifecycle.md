@@ -68,11 +68,11 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: New and updated tests fail because `Recipe.activeCoverId`, active variant selection, cover status/provenance, archive behavior, and backfill support do not exist yet.
 
 ### ⬜ Unit 1b: Active Cover Schema And Helpers — Implementation
-**What**: Add migrations and Prisma schema fields for explicit active cover selection. Use nullable `Recipe.activeCoverId`, an active variant field for verbatim vs editorialized display, and a recipe cover state/mode that can represent automatic, manual, and intentional no-cover states. Extend `RecipeCover` with status/provenance fields needed for pure AI, uploaded, imported, and editorialized-photo distinctions. Update `app/lib/recipe-cover.server.ts` with create/list/set/archive helpers, provenance formatting, active URL selection, and safe newest ready/non-empty backfill support.
+**What**: Add migrations and Prisma schema fields for explicit active cover selection. Add `Recipe.activeCoverId String?`, `Recipe.activeCoverVariant String?` with values `image | stylized`, and `Recipe.coverMode String @default("auto")` with values `auto | manual | none`. Add an optional `Recipe.activeCover` relation to `RecipeCover` and the inverse relation on `RecipeCover`. Extend `RecipeCover` with `status String @default("ready")` values `processing | ready | failed | archived`, `sourceKind String @default("uploaded_photo")` values `pure_ai | uploaded_photo | imported_photo | spoon_photo`, `createdById String?`, `sourceImageUrl String?`, `generationStatus String @default("none")` values `none | processing | succeeded | failed`, `failureReason String?`, `promptVersion String?`, `styleVersion String?`, and `archivedAt DateTime?`. Keep `imageUrl` as the verbatim or pure-AI display image and `stylizedImageUrl` as the editorialized variant. Update `app/lib/recipe-cover.server.ts` with create/list/set/archive helpers, provenance formatting, active URL selection, and safe newest ready/non-empty backfill support.
 **Acceptance**: Unit 1a tests pass, Prisma validation/generation succeeds, and no helper falls back to newest-row selection except the explicit migration/backfill helper.
 
 ### ⬜ Unit 1c: Active Cover Schema And Helpers — Coverage & Refactor
-**What**: Refactor helper names/types for clarity, add edge-case coverage for empty URLs, archived covers, failed covers, missing active cover rows, inactive editorial variants, and D1-compatible non-interactive write sequences.
+**What**: Refactor helper names/types for clarity, add edge-case coverage for empty URLs, archived covers, failed covers, missing active cover rows, inactive editorial variants, invalid `activeCoverVariant`, invalid `coverMode`, invalid `status`, invalid `sourceKind`, and D1-compatible non-interactive write sequences. Backfill rules: for each recipe, choose newest `ready` non-archived cover with a non-empty `stylizedImageUrl` or `imageUrl`; set `activeCoverVariant` to `stylized` when `stylizedImageUrl` is non-empty, otherwise `image`; if no ready non-empty cover exists, leave `activeCoverId` and `activeCoverVariant` null with `coverMode="auto"`.
 **Acceptance**: Cover helper/model/migration tests pass with 100% coverage on new helper branches and no warnings.
 
 ### ⬜ Unit 2a: Recipe Page And Listing Read Surfaces — Tests
@@ -80,7 +80,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: Tests fail because these surfaces still use ordered covers or lack provenance badges.
 
 ### ⬜ Unit 2b: Recipe Page And Listing Read Surfaces — Implementation
-**What**: Update recipe/detail/index/home/profile/cookbook loaders and components to fetch/use active cover helper output. Add compact public provenance badges for pure AI, uploaded verbatim, imported, and editorialized-photo covers.
+**What**: Update recipe/detail/index/home/profile/cookbook loaders and components to fetch/use active cover helper output. Add public provenance badge labels: `AI generated` for `sourceKind="pure_ai"` with variant `image`, `Chef photo` for `uploaded_photo` or `spoon_photo` with variant `image`, `Editorialized chef photo` for `uploaded_photo` or `spoon_photo` with variant `stylized`, and `Imported photo` for `imported_photo`.
 **Acceptance**: Unit 2a tests pass and no listed web surface displays an archived/empty newest row.
 
 ### ⬜ Unit 2c: Recipe Page And Listing Read Surfaces — Coverage & Refactor
@@ -104,7 +104,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: Tests fail because these mutations/jobs create rows without explicit active state, provenance, or manual replacement checks.
 
 ### ⬜ Unit 4b: Recipe New/Edit And Placeholder Mutations — Implementation
-**What**: Update recipe new/edit/clear-image and placeholder generation flows to create covers with status/provenance, activate them through helpers, support verbatim active uploads, and prevent placeholder jobs from replacing manual covers.
+**What**: Update recipe new/edit/clear-image and placeholder generation flows to create covers with status/provenance, activate them through helpers, support verbatim active uploads, and prevent placeholder jobs from replacing manual covers. New recipe with no upload uses `coverMode="auto"` and no active cover until a placeholder succeeds; clear-image sets `coverMode="none"` with null `activeCoverId`/`activeCoverVariant`; explicit upload sets `coverMode="manual"`, `activeCoverVariant="image"`, and `sourceKind="uploaded_photo"` unless editorial generation is requested.
 **Acceptance**: Unit 4a tests pass and placeholder failures leave visible failure state plus existing PostHog exception capture.
 
 ### ⬜ Unit 4c: Recipe New/Edit And Placeholder Mutations — Coverage & Refactor
@@ -128,7 +128,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: Tests fail because stylization jobs do not re-check active-cover/manual state or persist generation status/failure details.
 
 ### ⬜ Unit 6b: Stylization Jobs, Races, And Telemetry — Implementation
-**What**: Update stylization/generation jobs to record status/provenance, re-check active-cover state before activation, preserve manual selections, and return failure states usable by UI/MCP.
+**What**: Update stylization/generation jobs to record status/provenance, re-check active-cover state before activation, preserve manual selections, and return failure states usable by UI/MCP. A job may auto-activate only when `coverMode="auto"` and there is no active real cover. A real cover means active cover status `ready`, active URL non-empty, and active cover `sourceKind !== "pure_ai"`. A manual cover means `coverMode="manual"` and must never be replaced by job completion.
 **Acceptance**: Unit 6a tests pass and async jobs cannot silently replace a manually selected active cover.
 
 ### ⬜ Unit 6c: Stylization Jobs, Races, And Telemetry — Coverage & Refactor
@@ -136,11 +136,11 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: Generation/job tests pass with 100% coverage on new branches and no warnings.
 
 ### ⬜ Unit 7a: Spoon Backend And Dialog Flow — Tests
-**What**: Add failing tests for optional first chef spoon photo, first chef photo auto-seed only when no active real cover exists, later chef spoon explicit cover opt-in, non-owner spoon photos never auto-update recipe cover, and preservation of upload progress/disabled submit behavior.
+**What**: Add failing tests for optional first chef spoon photo, first chef photo auto-seed only when no active real cover exists, later chef spoon explicit cover opt-in, non-owner spoon photos never auto-update recipe cover, and preservation of upload progress/disabled submit behavior. The form field for later opt-in is `useAsRecipeCover=true`; first-chef/no-real-cover auto-seed does not require the field.
 **Acceptance**: Tests fail because current backend requires first chef photo and current dialog lacks cover opt-in controls.
 
 ### ⬜ Unit 7b: Spoon Backend And Dialog Flow — Implementation
-**What**: Update `app/lib/recipe-spoon.server.ts`, `app/lib/recipe-detail.server.ts`, `app/routes/recipes.$id.tsx`, and `SpoonDialog` so first chef spoon photo is optional, first chef photo auto-seeds through helpers only when allowed, later chef spoon cover creation requires explicit form input, and posting stays disabled while uploading.
+**What**: Update `app/lib/recipe-spoon.server.ts`, `app/lib/recipe-detail.server.ts`, `app/routes/recipes.$id.tsx`, and `SpoonDialog` so first chef spoon photo is optional, first chef photo auto-seeds through helpers only when `coverMode !== "manual"` and no real cover exists, later chef spoon cover creation requires `useAsRecipeCover=true`, and posting stays disabled while uploading. Dialog copy: when owner recipe has no real cover, show `Add a photo to create the recipe cover`; later owner spoon with photo shows checkbox label `Use this photo as recipe cover`; non-owner dialog shows no cover copy/control.
 **Acceptance**: Unit 7a tests pass and non-owner users cannot invoke owner cover behavior through spoon creation.
 
 ### ⬜ Unit 7c: Spoon Backend And Dialog Flow — Coverage & Refactor
@@ -148,11 +148,11 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: Spoon backend/dialog tests pass with 100% coverage on new branches and no warnings.
 
 ### ⬜ Unit 8a: Owner Cover History UI — Tests
-**What**: Add failing route/component tests for owner-only cover history browsing on recipe pages: current badge, provenance labels, source thumbnails, active variant labels, set-active action, no-cover state, and non-owner hidden state.
+**What**: Add failing route/component tests for owner-only cover history browsing on recipe pages: current badge, provenance labels, source thumbnails, active variant labels, set-active action, no-cover state, and non-owner hidden state. Placeholder copy must be `Awaiting first chef photo` for owners and `Cover coming soon` for public/non-owner viewers.
 **Acceptance**: Tests fail because owner cover history UI does not exist.
 
 ### ⬜ Unit 8b: Owner Cover History UI — Implementation
-**What**: Add focused recipe cover history components and route actions for browsing covers and setting the active cover/variant. Keep controls accessible, stable in size, and visually consistent with existing Spoonjoy surfaces.
+**What**: Add focused recipe cover history components and route actions for browsing covers and setting the active cover/variant. Route action intents: `setRecipeCover`, `setRecipeNoCover`. Fields for `setRecipeCover`: `coverId`, `variant`. Field for `setRecipeNoCover`: `confirmNoCover=true`. Set-active action sets `coverMode="manual"`; no-cover action sets `coverMode="none"`. Keep controls accessible, stable in size, and visually consistent with existing Spoonjoy surfaces.
 **Acceptance**: Unit 8a tests pass and owner can swap between retained covers including verbatim and editorialized variants.
 
 ### ⬜ Unit 8c: Owner Cover History UI — Coverage & Refactor
@@ -164,7 +164,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: Tests fail because source picker, regeneration, and archive controls do not exist.
 
 ### ⬜ Unit 9b: Spoon Image Picker, Regeneration, And Archive UI — Implementation
-**What**: Add owner-only source picker, regenerate action, archive action, and active-cover removal confirmation. Use server helpers from earlier units and keep destructive R2 cleanup behind explicit safe paths.
+**What**: Add owner-only source picker, regenerate action, archive action, and active-cover removal confirmation. Route action intents: `createCoverFromSpoon`, `regenerateRecipeCover`, `archiveRecipeCover`. Fields for `createCoverFromSpoon`: `spoonId`, `activateWhenReady` optional boolean. Fields for `regenerateRecipeCover`: `coverId`, `activateWhenReady` optional boolean. Fields for `archiveRecipeCover`: `coverId`, plus either `replacementCoverId` and `replacementVariant`, or `confirmNoCover=true`. Use server helpers from earlier units and keep destructive R2 cleanup behind explicit safe paths.
 **Acceptance**: Unit 9a tests pass and active-cover archive never silently selects a replacement.
 
 ### ⬜ Unit 9c: Spoon Image Picker, Regeneration, And Archive UI — Coverage & Refactor
@@ -172,11 +172,11 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: Picker/regeneration/archive UI tests pass with 100% coverage on new branches and no warnings.
 
 ### ⬜ Unit 10a: MCP Cover And Spoon Image Read Operations — Tests
-**What**: Add failing MCP tests for `list_recipe_covers`, `list_recipe_spoon_images`, and active cover/provenance fields on existing recipe/spoon responses. Cover read scopes, ownership visibility, archived inclusion flags, pagination, and no-cover state.
+**What**: Add failing MCP tests for `list_recipe_covers`, `list_recipe_spoon_images`, and active cover/provenance fields on existing recipe/spoon responses. `list_recipe_covers` input: `{ recipeId: string, includeArchived?: boolean, limit?: number, offset?: number }`; default `includeArchived=false`, default `limit=50`, max limit uses existing MCP limit convention. `list_recipe_spoon_images` input: `{ recipeId: string, limit?: number, offset?: number }`. Cover read scopes require `recipes:read`. Cover payload fields: `id`, `recipeId`, `status`, `sourceKind`, `imageUrl`, `stylizedImageUrl`, `displayUrl`, `activeVariant`, `provenanceLabel`, `sourceSpoonId`, `createdById`, `archivedAt`, `generationStatus`, `failureReason`, `createdAt`.
 **Acceptance**: Tests fail because explicit cover/spoon image browse operations and response metadata do not exist.
 
 ### ⬜ Unit 10b: MCP Cover And Spoon Image Read Operations — Implementation
-**What**: Implement read-only MCP operations and shared payload formatting in `app/lib/spoonjoy-api.server.ts`, register annotations, and expose cover provenance/status/variant metadata in existing recipe/spoon outputs.
+**What**: Implement read-only MCP operations and shared payload formatting in `app/lib/spoonjoy-api.server.ts`, register annotations, and expose cover provenance/status/variant metadata in existing recipe/spoon outputs. Read responses return `{ covers, activeCover, pagination }` for covers and `{ spoonImages, pagination }` for spoon images; archived covers are excluded unless `includeArchived=true`.
 **Acceptance**: Unit 10a tests pass and MCP can browse all covers for a recipe plus all recipe spoon images.
 
 ### ⬜ Unit 10c: MCP Cover And Spoon Image Read Operations — Coverage & Refactor
@@ -184,11 +184,11 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: MCP read tests pass with 100% coverage on new branches and no warnings.
 
 ### ⬜ Unit 11a: MCP Cover Create, Regenerate, And Status Operations — Tests
-**What**: Add failing MCP tests for `create_recipe_cover_from_upload`, `create_recipe_cover_from_spoon`, `regenerate_recipe_cover`, and `get_cover_generation_status`. Cover idempotency keys, dry-run behavior, explicit activation flags, provider failure, invalid source image, and `createdCover`/`generationStatus` payloads.
+**What**: Add failing MCP tests for `create_recipe_cover_from_upload`, `create_recipe_cover_from_spoon`, `regenerate_recipe_cover`, and `get_cover_generation_status`. Inputs: `create_recipe_cover_from_upload { recipeId, imageUrl, activate?: boolean, generateEditorial?: boolean, idempotencyKey?: string, dryRun?: boolean }`; `create_recipe_cover_from_spoon { recipeId, spoonId, activate?: boolean, generateEditorial?: boolean, idempotencyKey?: string, dryRun?: boolean }`; `regenerate_recipe_cover { recipeId, coverId, activateWhenReady?: boolean, idempotencyKey?: string, dryRun?: boolean }`; `get_cover_generation_status { recipeId, coverId }`. Mutating operations require `kitchen:write` and recipe owner permission. Dry run performs validation and returns no writes.
 **Acceptance**: Tests fail because create/regenerate/status operations do not exist.
 
 ### ⬜ Unit 11b: MCP Cover Create, Regenerate, And Status Operations — Implementation
-**What**: Implement MCP create/regenerate/status operations using shared cover helpers and generation jobs. Preserve upload tools and require explicit activation for existing active-cover replacement.
+**What**: Implement MCP create/regenerate/status operations using shared cover helpers and generation jobs. Preserve upload tools and require explicit activation for existing active-cover replacement. Mutation response shape: `{ activeCover, previousActiveCover, createdCover, generationStatus, warnings: string[], nextActions: string[] }`; dry run returns the same shape with `createdCover=null` and explanatory `nextActions`.
 **Acceptance**: Unit 11a tests pass and MCP can generate candidates without hidden active-cover replacement.
 
 ### ⬜ Unit 11c: MCP Cover Create, Regenerate, And Status Operations — Coverage & Refactor
@@ -196,11 +196,11 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: MCP create/regenerate/status tests pass with 100% coverage on new branches and no warnings.
 
 ### ⬜ Unit 12a: MCP Active Cover Set And Archive Operations — Tests
-**What**: Add failing MCP tests for `set_active_recipe_cover` and `archive_recipe_cover`. Cover ownership, explicit previous/next active cover payloads, active variant selection, no-cover confirmation, archived cover rejection, and safe deletion warnings/nextActions.
+**What**: Add failing MCP tests for `set_active_recipe_cover` and `archive_recipe_cover`. Inputs: `set_active_recipe_cover { recipeId, coverId, variant, idempotencyKey?: string }` where `variant` is `image | stylized`; `archive_recipe_cover { recipeId, coverId, replacementCoverId?: string, replacementVariant?: string, confirmNoCover?: boolean, deleteSafeObjects?: boolean, idempotencyKey?: string }`. Both require `kitchen:write` and recipe owner permission. Archiving the active cover requires either replacement cover+variant or `confirmNoCover=true`.
 **Acceptance**: Tests fail because explicit activation/archive MCP operations do not exist.
 
 ### ⬜ Unit 12b: MCP Active Cover Set And Archive Operations — Implementation
-**What**: Implement MCP active-cover mutation and archive operations, update unknown-argument handling and annotations, and return `activeCover`, `previousActiveCover`, `warnings`, and `nextActions`.
+**What**: Implement MCP active-cover mutation and archive operations, update unknown-argument handling and annotations, and return `{ activeCover, previousActiveCover, archivedCover, warnings: string[], nextActions: string[] }`. `set_active_recipe_cover` sets `coverMode="manual"`. `archive_recipe_cover` sets `status="archived"` and `archivedAt`; if `confirmNoCover=true`, set recipe `coverMode="none"` and null active fields.
 **Acceptance**: Unit 12a tests pass and MCP active-cover mutation is explicit and permission checked.
 
 ### ⬜ Unit 12c: MCP Active Cover Set And Archive Operations — Coverage & Refactor
@@ -208,14 +208,14 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Acceptance**: MCP set/archive tests pass with 100% coverage on new branches and no warnings.
 
 ### ⬜ Unit 13: Final Validation And Browser Smoke
-**What**: Run full validation after all feature units are green: `pnpm run test:coverage`, `pnpm run test:e2e`, `pnpm run deploy:preflight`, and targeted browser smoke for no-photo recipe placeholder, provenance badge, cover history, first chef text-only spoon, first chef photo auto-cover, later chef opt-in cover, verbatim cover selection, and MCP cover browsing through available harnesses.
+**What**: Run full validation after all feature units are green: `pnpm run test:coverage`, `pnpm run test:e2e`, `pnpm run deploy:preflight`, targeted MCP suites `pnpm run test -- test/lib/mcp/spoonjoy-tools.server.test.ts test/lib/spoonjoy-api-spoons.test.ts`, and targeted browser smoke for no-photo recipe placeholder, provenance badge, cover history, first chef text-only spoon, first chef photo auto-cover, later chef opt-in cover, and verbatim cover selection. Clean disposable browser/test data in the same run.
 **Output**: Validation logs and screenshots saved under `./2026-06-08-1648-doing-recipe-cover-lifecycle/`.
 **Acceptance**: All validation commands pass with no warnings; browser smoke confirms no broken placeholder, sideways image regression, or overlapping cover controls.
 
 ## Execution
 - **TDD strictly enforced**: tests → red → implement → green → refactor
-- Commit after each phase (1a, 1b, 1c)
-- Push after each unit complete
+- Commit after every phase for every feature unit (`Xa`, `Xb`, `Xc`) with a focused message.
+- Push after each full unit group is complete (`Unit Xc`), and after Unit 13 validation completes.
 - Run full test suite before marking unit done
 - **All artifacts**: Save outputs, logs, data to `./2026-06-08-1648-doing-recipe-cover-lifecycle/` directory
 - **Fixes/blockers**: Spawn sub-agent immediately — don't ask, just do it
