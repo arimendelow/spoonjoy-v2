@@ -63,11 +63,11 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **Output**: Notes saved under `./2026-06-08-1648-doing-recipe-cover-lifecycle/cover-read-write-inventory.md`.
 **Acceptance**: Inventory lists each read/write path, the current behavior, and the unit that will change or intentionally leave it.
 
-### ⬜ Unit 1a: Active Cover Schema And Helpers — Tests
+### ✅ Unit 1a: Active Cover Schema And Helpers — Tests
 **What**: Add failing tests for explicit active-cover state, active variant selection, provenance derivation, archive filtering, newest ready/non-empty backfill semantics, and intentional no-cover state. Target `test/lib/recipe-cover.server.test.ts`, `test/models/recipe-cover.test.ts`, migration tests under `test/scripts/`, and any existing route/API tests that assert newest-row behavior. Migration coverage must include both the Prisma migration and the root D1 SQL migration applied by Wrangler from `migrations/`.
 **Acceptance**: New and updated tests fail because `Recipe.activeCoverId`, active variant selection, cover status/provenance, archive behavior, and backfill support do not exist yet.
 
-### ⬜ Unit 1b: Active Cover Schema And Helpers — Implementation
+### ✅ Unit 1b: Active Cover Schema And Helpers — Implementation
 **What**: Add both a Prisma migration and the next numbered root D1 SQL migration under `migrations/` for explicit active cover selection. Add `Recipe.activeCoverId String?`, `Recipe.activeCoverVariant String?` with values `image | stylized`, and `Recipe.coverMode String @default("auto")` with values `auto | manual | none`. Add an optional active-cover relation named `RecipeActiveCover`: `Recipe.activeCover` uses `@relation("RecipeActiveCover", fields: [activeCoverId], references: [id], onDelete: SetNull)`, and `RecipeCover.activeForRecipes Recipe[] @relation("RecipeActiveCover")`. Keep the existing history relation named separately from active-cover relation, for example `Recipe.covers RecipeCover[] @relation("RecipeCoverHistory")` and `RecipeCover.recipe @relation("RecipeCoverHistory", ...)`. Retain existing `RecipeCover.sourceType` as the canonical source field with values `ai-placeholder | chef-upload | import | spoon`; do not add a separate source-kind field. Extend `RecipeCover` with `status String @default("ready")` values `processing | ready | failed | archived`, `createdById String?`, `sourceImageUrl String?`, `generationStatus String @default("none")` values `none | processing | succeeded | failed`, `failureReason String?`, `promptVersion String?`, `styleVersion String?`, and `archivedAt DateTime?`. Keep `imageUrl` as the verbatim or pure-AI display image and `stylizedImageUrl` as the editorialized variant. Update `app/lib/recipe-cover.server.ts` with create/list/set/archive helpers, provenance formatting, active URL selection, and safe newest ready/non-empty backfill support.
 **Acceptance**: Unit 1a tests pass, Prisma validation/generation succeeds, and no helper falls back to newest-row selection except the explicit migration/backfill helper.
 
@@ -240,3 +240,4 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-08 17:55 Unit 0 complete: inventoried recipe cover read/write paths
 - 2026-06-08 17:59 Fixed Unit 0 placeholder inventory after reviewer finding
 - 2026-06-08 18:03 Unit 0 review converged
+- 2026-06-08 18:17 Unit 1a/1b complete: added red tests for explicit active-cover schema/helper behavior, implemented Prisma and D1 migrations plus active cover helpers, and validated with targeted tests (`unit-1a-red-tests.log`, `unit-1b-green-attempt-1.log`), Prisma validate/generate, and build (`unit-1b-build.log`)
