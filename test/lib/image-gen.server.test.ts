@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   IMAGE_FALLBACK_ERROR_CODES,
   ImageGenError,
+  ImageProviderEmptyOutputError,
   composePlaceholderPrompt,
   composeStylizationFallbackPrompt,
   composeStylizationPrompt,
@@ -544,6 +545,40 @@ describe("stylizeSpoonPhoto", () => {
     expect(geminiRunner.imageToImage).toHaveBeenCalledTimes(1);
   });
 
+  it("falls back when the Gemini runner returns an empty image response", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [] } }],
+    }))) as unknown as typeof fetch;
+    const geminiRunner = createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl });
+    const openaiRunner = mockRunner({
+      imageToImage: vi.fn(async () => ({ bytes: GENERATED_BYTES, contentType: "image/png" })),
+    });
+    const result = await stylizeSpoonPhoto(dataUrl("image/png", VALID_PNG_BYTES), "X", {
+      env: {},
+      imageEditAttempts: [
+        { provider: "gemini", model: "gemini-3.1-flash-image", runner: geminiRunner },
+        { provider: "openai", model: "gpt-image-2", runner: openaiRunner },
+      ],
+      bucket: mockR2(),
+      now: () => 13,
+      randomId: () => "empty-provider-fallback",
+    });
+    expect(result).toMatchObject({
+      url: "/photos/covers/13-empty-provider-fallback.png",
+      usedModel: "gpt-image-2",
+      usedProvider: "openai",
+    });
+    expect(result.attemptFailures).toEqual([
+      expect.objectContaining({
+        provider: "gemini",
+        model: "gemini-3.1-flash-image",
+        retryable: true,
+      }),
+    ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(openaiRunner.imageToImage).toHaveBeenCalledTimes(1);
+  });
+
   it("does not fall back across providers for non-retryable image input failures", async () => {
     const openaiRunner = mockRunner({
       imageToImage: vi.fn(async () => {
@@ -734,7 +769,7 @@ describe("createOpenAIImageRunner", () => {
       },
     });
     await expect(runner.textToImage("p", { model: "dall-e-3" })).rejects.toBeInstanceOf(
-      ImageGenError,
+      ImageProviderEmptyOutputError,
     );
   });
 
@@ -802,7 +837,7 @@ describe("createOpenAIImageRunner", () => {
     });
     await expect(
       runner.imageToImage(new File([VALID_PNG_BYTES], "raw.png", { type: "image/png" }), "p", { model: "gpt-image-1" }),
-    ).rejects.toBeInstanceOf(ImageGenError);
+    ).rejects.toBeInstanceOf(ImageProviderEmptyOutputError);
   });
 });
 
@@ -815,6 +850,7 @@ describe("provider fallback classification", () => {
     Object.assign(new Error("provider"), { status: 503 }),
     Object.assign(new Error("gemini"), { error: { status: "RESOURCE_EXHAUSTED", code: 429 } }),
     Object.assign(new Error("nested status"), { error: { code: 503 } }),
+    new ImageProviderEmptyOutputError("Gemini", "imageToImage"),
   ])("marks retryable provider failures %#", (error) => {
     expect(isImageProviderFallbackError(error)).toBe(true);
   });
@@ -823,6 +859,7 @@ describe("provider fallback classification", () => {
     Object.assign(new Error("invalid"), { code: "invalid_image" }),
     Object.assign(new Error("moderated"), { error: { code: "content_policy_violation" } }),
     Object.assign(new Error("bad request"), { status: 400 }),
+    new ImageGenError("Gemini returned no image data for imageToImage"),
     "plain string",
   ])("does not mark user/input failures retryable %#", (error) => {
     expect(isImageProviderFallbackError(error)).toBe(false);
@@ -959,6 +996,19 @@ describe("createGeminiImageRunner", () => {
       .resolves.toEqual({ bytes: GENERATED_BYTES, contentType: "image/png" });
   });
 
+  it("supports Gemini inlineData with snake-case MIME metadata", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{
+        content: {
+          parts: [{ inlineData: { mime_type: "image/webp", data: b64(GENERATED_BYTES) } }],
+        },
+      }],
+    }))) as unknown as typeof fetch;
+    const runner = createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl });
+    await expect(runner.textToImage("prompt", { model: "gemini-3.1-flash-image" }))
+      .resolves.toEqual({ bytes: GENERATED_BYTES, contentType: "image/webp" });
+  });
+
   it("throws provider-shaped Gemini errors when the error body is not JSON", async () => {
     const fetchImpl = vi.fn(async () => new Response("not json", {
       status: 503,
@@ -972,28 +1022,96 @@ describe("createGeminiImageRunner", () => {
       });
   });
 
-  it("throws when Gemini returns no inline image data", async () => {
+  it("throws a retryable empty-output error when Gemini returns no inline image data", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
-      candidates: [{ content: { parts: [{ text: "no image" }] } }],
+      candidates: [{ content: { parts: [{ text: "the image could not be produced this time" }] } }],
     }))) as unknown as typeof fetch;
     const runner = createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl });
-    await expect(runner.textToImage("prompt", { model: "gemini-3.1-flash-image" }))
-      .rejects.toBeInstanceOf(ImageGenError);
+    try {
+      await runner.textToImage("prompt", { model: "gemini-3.1-flash-image" });
+      throw new Error("expected Gemini to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ImageProviderEmptyOutputError);
+      expect(isImageProviderFallbackError(error)).toBe(true);
+    }
   });
 
-  it("throws when Gemini returns no candidates or content parts", async () => {
+  it.each([
+    {
+      response: { promptFeedback: { blockReason: "SAFETY" } },
+      message: "prompt blocked: safety",
+    },
+    {
+      response: { candidates: [{ finishReason: "PROHIBITED_CONTENT", content: { parts: [] } }] },
+      message: "candidate finished with prohibited_content",
+    },
+    {
+      response: { candidates: [{ finishReason: "IMAGE_SAFETY", content: { parts: [] } }] },
+      message: "candidate finished with image_safety",
+    },
+    {
+      response: { candidates: [{ finishReason: "IMAGE_PROHIBITED_CONTENT", content: { parts: [] } }] },
+      message: "candidate finished with image_prohibited_content",
+    },
+    {
+      response: { candidates: [{ finishReason: "BLOCKLIST", content: { parts: [] } }] },
+      message: "candidate finished with blocklist",
+    },
+    {
+      response: { candidates: [{ content: { parts: [{ text: "I can't help generate that image." }] } }] },
+      message: "text refusal",
+    },
+  ])("throws a non-retryable error when Gemini returns a blocked no-image response %#", async ({ response, message }) => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(response))) as unknown as typeof fetch;
+    const runner = createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl });
+    try {
+      await runner.textToImage("prompt", { model: "gemini-3.1-flash-image" });
+      throw new Error("expected Gemini to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ImageGenError);
+      expect(error).toMatchObject({
+        code: "content_policy_violation",
+        type: "content_policy_violation",
+        message: expect.stringContaining(message),
+      });
+      expect(isImageProviderFallbackError(error)).toBe(false);
+    }
+  });
+
+  it("treats neutral Gemini text-only output as retryable empty output", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: "unable to generate an image right now" }] } }],
+    }))) as unknown as typeof fetch;
+    const runner = createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl });
+    try {
+      await runner.textToImage("prompt", { model: "gemini-3.1-flash-image" });
+      throw new Error("expected Gemini to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ImageProviderEmptyOutputError);
+      expect(isImageProviderFallbackError(error)).toBe(true);
+    }
+  });
+
+  it("throws retryable empty-output errors when Gemini returns no candidates or content parts", async () => {
     const noCandidatesFetch = vi.fn(async () => new Response(JSON.stringify({}))) as unknown as typeof fetch;
     const missingPartsFetch = vi.fn(async () => new Response(JSON.stringify({
       candidates: [{ content: {} }],
     }))) as unknown as typeof fetch;
+    const emptyPartFetch = vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{}] } }],
+    }))) as unknown as typeof fetch;
     await expect(
       createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl: noCandidatesFetch })
         .textToImage("prompt", { model: "gemini-3.1-flash-image" }),
-    ).rejects.toBeInstanceOf(ImageGenError);
+    ).rejects.toBeInstanceOf(ImageProviderEmptyOutputError);
     await expect(
       createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl: missingPartsFetch })
       .textToImage("prompt", { model: "gemini-3.1-flash-image" }),
-    ).rejects.toBeInstanceOf(ImageGenError);
+    ).rejects.toBeInstanceOf(ImageProviderEmptyOutputError);
+    await expect(
+      createGeminiImageRunner({ apiKey: "gemini-key", fetchImpl: emptyPartFetch })
+        .textToImage("prompt", { model: "gemini-3.1-flash-image" }),
+    ).rejects.toBeInstanceOf(ImageProviderEmptyOutputError);
   });
 
   it("times out slow Gemini requests with retryable provider-shaped metadata", async () => {

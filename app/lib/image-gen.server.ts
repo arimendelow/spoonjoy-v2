@@ -98,6 +98,20 @@ export class ImageGenError extends Error {
   }
 }
 
+export class ImageProviderEmptyOutputError extends ImageGenError {
+  provider: string;
+  operation: "textToImage" | "imageToImage";
+  code = "empty_image_data";
+  type = "empty_image_data";
+
+  constructor(provider: string, operation: "textToImage" | "imageToImage") {
+    super(`${provider} returned no image data for ${operation}`);
+    this.name = "ImageProviderEmptyOutputError";
+    this.provider = provider;
+    this.operation = operation;
+  }
+}
+
 export class ImageProviderAttemptError extends Error {
   provider: string;
   model: string;
@@ -176,6 +190,10 @@ function normalizedSignal(value: string | number | null): string | null {
 }
 
 export function isImageProviderFallbackError(cause: unknown): boolean {
+  if (cause instanceof ImageProviderEmptyOutputError) {
+    return true;
+  }
+
   const code = normalizedSignal(errorCode(cause));
   const type = normalizedSignal(errorType(cause));
   if (code !== null && IMAGE_FALLBACK_ERROR_CODES.includes(code as (typeof IMAGE_FALLBACK_ERROR_CODES)[number])) {
@@ -526,7 +544,7 @@ function imageOutputFromOpenAI(
   if (image?.url) {
     return { url: image.url };
   }
-  throw new ImageGenError(`OpenAI returned no image data for ${operation}`);
+  throw new ImageProviderEmptyOutputError("OpenAI", operation);
 }
 
 export function createOpenAIImageRunner(
@@ -574,12 +592,67 @@ type GeminiPart = {
 };
 
 type GeminiGenerateContentResponse = {
+  promptFeedback?: {
+    blockReason?: string;
+  };
   candidates?: Array<{
+    finishReason?: string;
     content?: {
       parts?: GeminiPart[];
     };
   }>;
 };
+
+const GEMINI_NON_RETRYABLE_NO_IMAGE_REASONS = [
+  "blocklist",
+  "image_prohibited_content",
+  "image_safety",
+  "prohibited_content",
+  "safety",
+  "spii",
+] as const;
+
+const IMAGE_TEXT_REFUSAL_PATTERN =
+  /\b(can(?:not|'t)|won't|will not)\b.{0,100}\b(assist|comply|create|edit|generate|help|provide)\b|\b(content policy|safety policy|not allowed|disallowed|unsafe|inappropriate)\b/i;
+
+function imageProviderBlockedOutputError(
+  provider: string,
+  operation: "textToImage" | "imageToImage",
+  reason: string,
+): ImageGenError & { code: string; type: string } {
+  const error = new ImageGenError(`${provider} returned no image data for ${operation}: ${reason}`) as ImageGenError & {
+    code: string;
+    type: string;
+  };
+  error.code = "content_policy_violation";
+  error.type = "content_policy_violation";
+  return error;
+}
+
+function geminiNoImageBlockReason(response: GeminiGenerateContentResponse, textParts: string[]): string | null {
+  const promptBlockReason = normalizedSignal(response.promptFeedback?.blockReason ?? null);
+  if (promptBlockReason !== null) {
+    return `prompt blocked: ${promptBlockReason}`;
+  }
+
+  for (const candidate of response.candidates ?? []) {
+    const finishReason = normalizedSignal(candidate.finishReason ?? null);
+    if (
+      finishReason !== null &&
+      GEMINI_NON_RETRYABLE_NO_IMAGE_REASONS.includes(
+        finishReason as (typeof GEMINI_NON_RETRYABLE_NO_IMAGE_REASONS)[number],
+      )
+    ) {
+      return `candidate finished with ${finishReason}`;
+    }
+  }
+
+  const responseText = textParts.join(" ").trim();
+  if (IMAGE_TEXT_REFUSAL_PATTERN.test(responseText)) {
+    return "text refusal";
+  }
+  return null;
+}
 
 function geminiContentType(value: string | undefined): GeneratedImageOutput["contentType"] {
   const normalized = value?.split(";")[0]?.trim().toLowerCase();
@@ -593,6 +666,7 @@ function imageOutputFromGemini(
   response: GeminiGenerateContentResponse,
   operation: "textToImage" | "imageToImage",
 ): GeneratedImageOutput {
+  const textParts: string[] = [];
   for (const candidate of response.candidates ?? []) {
     for (const part of candidate.content?.parts ?? []) {
       const inlineData = part.inlineData ?? part.inline_data;
@@ -602,9 +676,16 @@ function imageOutputFromGemini(
           contentType: geminiContentType(inlineData.mimeType ?? inlineData.mime_type),
         };
       }
+      if (part.text) {
+        textParts.push(part.text);
+      }
     }
   }
-  throw new ImageGenError(`Gemini returned no image data for ${operation}`);
+  const blockReason = geminiNoImageBlockReason(response, textParts);
+  if (blockReason !== null) {
+    throw imageProviderBlockedOutputError("Gemini", operation, blockReason);
+  }
+  throw new ImageProviderEmptyOutputError("Gemini", operation);
 }
 
 async function geminiApiError(response: Response): Promise<Error> {
