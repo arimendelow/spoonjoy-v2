@@ -428,6 +428,8 @@ function activeCoverDisplayFields(recipe: RecipeIdentityForCoverPayload, covers:
       coverProvenanceLabel: null,
       coverSourceType: null,
       coverVariant: null,
+      coverStatus: null,
+      coverGenerationStatus: null,
       activeCover: null,
     };
   }
@@ -438,6 +440,8 @@ function activeCoverDisplayFields(recipe: RecipeIdentityForCoverPayload, covers:
     coverProvenanceLabel: display.provenanceLabel,
     coverSourceType: display.sourceType,
     coverVariant: display.activeVariant,
+    coverStatus: display.cover.status,
+    coverGenerationStatus: display.cover.generationStatus,
     activeCover: publicCoverPayload(display),
   };
 }
@@ -465,6 +469,8 @@ function publicCoverPayload(display: {
     sourceType: display.sourceType,
     activeVariant: display.activeVariant,
     provenanceLabel: display.provenanceLabel,
+    status: display.cover.status,
+    generationStatus: display.cover.generationStatus,
   };
 }
 
@@ -664,6 +670,8 @@ function formatCookbookSummary(cookbook: CookbookWithRecipes) {
         coverProvenanceLabel: coverFields.coverProvenanceLabel,
         coverSourceType: coverFields.coverSourceType,
         coverVariant: coverFields.coverVariant,
+        coverStatus: coverFields.coverStatus,
+        coverGenerationStatus: coverFields.coverGenerationStatus,
       };
     }),
   };
@@ -686,6 +694,8 @@ function formatLeanCookbookSummary(cookbook: CookbookSummaryBase, recipes: Cookb
         coverProvenanceLabel: coverFields.coverProvenanceLabel,
         coverSourceType: coverFields.coverSourceType,
         coverVariant: coverFields.coverVariant,
+        coverStatus: coverFields.coverStatus,
+        coverGenerationStatus: coverFields.coverGenerationStatus,
       };
     }),
   };
@@ -1288,10 +1298,11 @@ const listRecipeCoversTool: SpoonjoyApiOperation = {
 
     if (!canReadFullHistory) {
       const publicActiveCover = activeCoverDisplayFields(recipe, activeCover ? [activeCover] : []).activeCover;
+      const publicCovers = publicActiveCover && offset === 0 ? [publicActiveCover] : [];
       return json({
-        covers: publicActiveCover ? [publicActiveCover] : [],
+        covers: publicCovers,
         activeCover: publicActiveCover,
-        pagination: paginationFor(publicActiveCover ? 1 : 0, limit, offset, false),
+        pagination: paginationFor(publicCovers.length, limit, offset, false),
       });
     }
 
@@ -2526,6 +2537,8 @@ const listSpoonsForRecipeTool: SpoonjoyApiOperation = {
         coverProvenanceLabel: coverFields?.coverProvenanceLabel ?? null,
         coverSourceType: coverFields?.coverSourceType ?? null,
         coverVariant: coverFields?.coverVariant ?? null,
+        coverStatus: coverFields?.coverStatus ?? null,
+        coverGenerationStatus: coverFields?.coverGenerationStatus ?? null,
       })),
     });
   },
@@ -2569,6 +2582,8 @@ const listSpoonsByChefTool: SpoonjoyApiOperation = {
           coverProvenanceLabel: coverFields.coverProvenanceLabel,
           coverSourceType: coverFields.coverSourceType,
           coverVariant: coverFields.coverVariant,
+          coverStatus: coverFields.coverStatus,
+          coverGenerationStatus: coverFields.coverGenerationStatus,
         };
       }),
     });

@@ -199,24 +199,24 @@ describe("spoonjoy-api spoon operations", () => {
   });
 
   describe("recipe cover read operations", () => {
-    it("exposes active cover provenance on existing get_recipe responses", async () => {
+    it("exposes active cover provenance and status on existing get_recipe responses", async () => {
       const { principal: chef } = await makeUser(db);
       const recipe = await makeRecipe(db, chef.id);
       const cover = await db.recipeCover.create({
         data: {
           recipeId: recipe.id,
           imageUrl: "/photos/raw.jpg",
-          stylizedImageUrl: "/photos/editorial.jpg",
+          stylizedImageUrl: null,
           sourceType: "spoon",
-          status: "ready",
-          generationStatus: "succeeded",
+          status: "processing",
+          generationStatus: "processing",
         },
       });
       await db.recipe.update({
         where: { id: recipe.id },
         data: {
           activeCoverId: cover.id,
-          activeCoverVariant: "stylized",
+          activeCoverVariant: "image",
           coverMode: "manual",
         },
       });
@@ -232,27 +232,76 @@ describe("spoonjoy-api spoon operations", () => {
           coverProvenanceLabel: string | null;
           coverSourceType: string | null;
           coverVariant: string | null;
+          coverStatus: string | null;
+          coverGenerationStatus: string | null;
           activeCover: Record<string, unknown> | null;
         };
       };
 
       expect(result.recipe).toMatchObject({
-        imageUrl: "/photos/editorial.jpg",
-        coverImageUrl: "/photos/editorial.jpg",
-        coverProvenanceLabel: "Editorialized chef photo",
+        imageUrl: "/photos/raw.jpg",
+        coverImageUrl: "/photos/raw.jpg",
+        coverProvenanceLabel: "Chef photo",
         coverSourceType: "spoon",
-        coverVariant: "stylized",
+        coverVariant: "image",
+        coverStatus: "processing",
+        coverGenerationStatus: "processing",
         activeCover: {
           id: cover.id,
           recipeId: recipe.id,
-          displayUrl: "/photos/editorial.jpg",
+          displayUrl: "/photos/raw.jpg",
           sourceType: "spoon",
-          activeVariant: "stylized",
-          provenanceLabel: "Editorialized chef photo",
+          activeVariant: "image",
+          provenanceLabel: "Chef photo",
+          status: "processing",
+          generationStatus: "processing",
         },
       });
       expect(result.recipe.activeCover).not.toHaveProperty("failureReason");
       expect(result.recipe.activeCover).not.toHaveProperty("sourceImageUrl");
+    });
+
+    it("exposes active cover status on recipe summary responses", async () => {
+      const { principal: chef } = await makeUser(db);
+      const recipe = await makeRecipe(db, chef.id);
+      const cover = await db.recipeCover.create({
+        data: {
+          recipeId: recipe.id,
+          imageUrl: "/photos/ready.jpg",
+          sourceType: "chef-upload",
+          status: "ready",
+          generationStatus: "succeeded",
+        },
+      });
+      await db.recipe.update({
+        where: { id: recipe.id },
+        data: { activeCoverId: cover.id, activeCoverVariant: "image", coverMode: "manual" },
+      });
+      const result = (await callSpoonjoyApiOperation(
+        "search_recipes",
+        { query: recipe.title },
+        { db, principal: chef },
+      )) as {
+        recipes: Array<{
+          id: string;
+          coverStatus: string | null;
+          coverGenerationStatus: string | null;
+          activeCover: Record<string, unknown> | null;
+        }>;
+      };
+
+      expect(result.recipes).toEqual([
+        expect.objectContaining({
+          id: recipe.id,
+          coverStatus: "ready",
+          coverGenerationStatus: "succeeded",
+          activeCover: expect.objectContaining({
+            id: cover.id,
+            status: "ready",
+            generationStatus: "succeeded",
+          }),
+        }),
+      ]);
     });
 
     it("returns owner/full cover history with archived and failed metadata", async () => {
@@ -390,10 +439,28 @@ describe("spoonjoy-api spoon operations", () => {
         sourceType: "chef-upload",
         activeVariant: "image",
         provenanceLabel: "Chef photo",
+        status: "ready",
+        generationStatus: "failed",
       });
       expect(page.covers[0]).not.toHaveProperty("failureReason");
       expect(page.covers[0]).not.toHaveProperty("sourceImageUrl");
       expect(page.covers[0]).not.toHaveProperty("createdById");
+
+      const emptyPage = (await callSpoonjoyApiOperation(
+        "list_recipe_covers",
+        { recipeId: recipe.id, offset: 1 },
+        { db, principal: { ...cook, scopes: ["recipes:read"] } },
+      )) as {
+        covers: Array<Record<string, unknown>>;
+        activeCover: Record<string, unknown> | null;
+        pagination: { limit: number; offset: number; count: number; hasMore: boolean };
+      };
+
+      expect(emptyPage).toEqual({
+        covers: [],
+        activeCover: page.activeCover,
+        pagination: { limit: 25, offset: 1, count: 0, hasMore: false },
+      });
     });
 
     it("lists owner-only spoon images for recipe cover source selection", async () => {
@@ -1565,6 +1632,8 @@ describe("spoonjoy-api spoon operations", () => {
           coverProvenanceLabel: string | null;
           coverSourceType: string | null;
           coverVariant: string | null;
+          coverStatus: string | null;
+          coverGenerationStatus: string | null;
         }>;
       };
       expect(result.spoons).toHaveLength(1);
@@ -1574,6 +1643,8 @@ describe("spoonjoy-api spoon operations", () => {
         coverProvenanceLabel: "Editorialized chef photo",
         coverSourceType: "spoon",
         coverVariant: "stylized",
+        coverStatus: "ready",
+        coverGenerationStatus: "succeeded",
       });
     });
 
@@ -1699,6 +1770,8 @@ describe("spoonjoy-api spoon operations", () => {
           coverProvenanceLabel: string | null;
           coverSourceType: string | null;
           coverVariant: string | null;
+          coverStatus: string | null;
+          coverGenerationStatus: string | null;
         }>;
       };
 
@@ -1708,6 +1781,8 @@ describe("spoonjoy-api spoon operations", () => {
           coverProvenanceLabel: null,
           coverSourceType: null,
           coverVariant: null,
+          coverStatus: null,
+          coverGenerationStatus: null,
         }),
       ]);
     });
@@ -1749,6 +1824,8 @@ describe("spoonjoy-api spoon operations", () => {
           coverProvenanceLabel: string | null;
           coverSourceType: string | null;
           coverVariant: string | null;
+          coverStatus: string | null;
+          coverGenerationStatus: string | null;
         }>;
       };
       expect(result.spoons).toHaveLength(1);
@@ -1759,6 +1836,8 @@ describe("spoonjoy-api spoon operations", () => {
         coverProvenanceLabel: "Chef photo",
         coverSourceType: "chef-upload",
         coverVariant: "image",
+        coverStatus: "ready",
+        coverGenerationStatus: "none",
       });
     });
 
