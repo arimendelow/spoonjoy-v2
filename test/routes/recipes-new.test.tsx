@@ -638,7 +638,10 @@ describe("Recipes New Route", () => {
       expect(covers[0]).toMatchObject({
         sourceType: "chef-upload",
         status: "ready",
-        generationStatus: "none",
+        generationStatus: "failed",
+        failureReason: "missing_image_provider_config",
+        promptVersion: "spoon-photo-editorial-v1",
+        styleVersion: "mendelow-phone-to-editorial-v1",
         createdById: testUserId,
       });
       expect(covers[0].imageUrl).toMatch(/^data:image\/jpeg;base64,/);
@@ -677,7 +680,10 @@ describe("Recipes New Route", () => {
       expect(covers[0]).toMatchObject({
         sourceType: "chef-upload",
         status: "ready",
-        generationStatus: "none",
+        generationStatus: "failed",
+        failureReason: "missing_image_provider_config",
+        promptVersion: "spoon-photo-editorial-v1",
+        styleVersion: "mendelow-phone-to-editorial-v1",
         createdById: testUserId,
       });
       expect(covers[0].imageUrl).toMatch(

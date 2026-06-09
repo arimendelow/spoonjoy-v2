@@ -1127,7 +1127,10 @@ describe("Recipes $id Edit Route", () => {
       expect(cover).toMatchObject({
         sourceType: "chef-upload",
         status: "ready",
-        generationStatus: "none",
+        generationStatus: "failed",
+        failureReason: "missing_image_provider_config",
+        promptVersion: "spoon-photo-editorial-v1",
+        styleVersion: "mendelow-phone-to-editorial-v1",
         createdById: testUserId,
       });
       expect(cover?.imageUrl).toMatch(/^data:image\/jpeg;base64,/);
@@ -1214,7 +1217,10 @@ describe("Recipes $id Edit Route", () => {
       expect(latest).toMatchObject({
         sourceType: "chef-upload",
         status: "ready",
-        generationStatus: "none",
+        generationStatus: "failed",
+        failureReason: "missing_image_provider_config",
+        promptVersion: "spoon-photo-editorial-v1",
+        styleVersion: "mendelow-phone-to-editorial-v1",
         createdById: testUserId,
       });
       expect(latest?.sourceImageUrl).toBe(latest?.imageUrl);

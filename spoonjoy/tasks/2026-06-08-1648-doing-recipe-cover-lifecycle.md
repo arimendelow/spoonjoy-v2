@@ -131,15 +131,15 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **What**: Cover import/fork edge cases for missing source cover, empty source cover, archived source cover, pure AI placeholder, and imported image fallback.
 **Acceptance**: Import/fork tests pass with 100% coverage on new branches and no warnings.
 
-### ⬜ Unit 6a: Stylization Jobs, Races, And Telemetry — Tests
+### ✅ Unit 6a: Stylization Jobs, Races, And Telemetry — Tests
 **What**: Add failing tests for spoon cover stylization, recipe upload editorial generation/regeneration, job completion after manual cover selection, job failure status, missing source image, and PostHog exception capture.
 **Acceptance**: Tests fail because stylization jobs do not re-check active-cover/manual state or persist generation status/failure details.
 
-### ⬜ Unit 6b: Stylization Jobs, Races, And Telemetry — Implementation
+### ✅ Unit 6b: Stylization Jobs, Races, And Telemetry — Implementation
 **What**: Update stylization/generation jobs to record status/provenance, re-check active-cover state before activation, preserve manual selections, and return failure states usable by UI/MCP. A job may auto-activate only when `coverMode="auto"` and there is no active real cover. A real cover means active cover status `ready`, active URL non-empty, and active cover `sourceType !== "ai-placeholder"`. A manual cover means `coverMode="manual"` and must never be replaced by job completion.
 **Acceptance**: Unit 6a tests pass and async jobs cannot silently replace a manually selected active cover.
 
-### ⬜ Unit 6c: Stylization Jobs, Races, And Telemetry — Coverage & Refactor
+### ✅ Unit 6c: Stylization Jobs, Races, And Telemetry — Coverage & Refactor
 **What**: Refactor shared generation status and telemetry helpers; cover success, failure, timeout, missing bucket, and stale-job branches.
 **Acceptance**: Generation/job tests pass with 100% coverage on new branches and no warnings.
 
@@ -268,3 +268,6 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-08 20:35 Unit 5a/5b/5c complete: added red tests for import cover provenance/activation and fork active-cover/manual/no-cover semantics (`unit-5a-red.log`); implemented import cover status/provenance plus guarded auto-activation, and fork copying from the explicit active cover rather than newest history; targeted tests/build passed (`unit-5b-green.log`, `unit-5b-build.log`, `unit-5c-green.log`, `unit-5c-build.log`) and changed import/fork files reached 100% statements/branches/functions/lines (`unit-5c-coverage.log`).
 - 2026-06-08 20:40 Fixed Unit 5 review finding: fork now rejects cross-recipe active-cover pointers before copying cover history; regression red/green, coverage, and build passed (`unit-5-review-fix-red.log`, `unit-5-review-fix-green.log`, `unit-5-review-fix-coverage.log`, `unit-5-review-fix-build.log`).
 - 2026-06-08 20:43 Unit 5 review converged after Round 2: fresh reviewer Herschel verified import/fork lifecycle semantics, the cross-recipe guard, targeted coverage, and build evidence.
+- 2026-06-08 20:54 Unit 6a/6b/6c complete: added red tests for stylization success lifecycle, safe auto-activation, manual/stale-cover races, missing source images, failed generation telemetry, archived jobs, and active-real-cover guards (`unit-6a-red.log`); implemented durable processing/succeeded/failed cover generation state, prompt/style versioning, missing-source skip telemetry, and guarded auto-activation; focused and related suites passed (`unit-6b-green-attempt-1.log`, `unit-6b-related-attempt-1.log`, `unit-6c-green-attempt-1.log`, `unit-6c-green-attempt-2.log`, `unit-6c-targeted.log`), changed-file coverage reached 100% statements/branches/functions/lines (`unit-6c-coverage.log`), and builds passed (`unit-6b-build.log`, `unit-6c-build.log`).
+- 2026-06-08 21:03 Fixed Unit 6 review findings: provider-resolution skips now persist failed editorial generation metadata on attempted jobs, and auto-activation uses a relation-aware atomic guard so a real active cover that becomes ready between read/write is not overwritten; regression red/green, coverage, targeted callers, and build passed (`unit-6-review-fix-red-2.log`, `unit-6-review-fix-green.log`, `unit-6-review-fix-coverage.log`, `unit-6-review-fix-targeted-2.log`, `unit-6-review-fix-build.log`).
+- 2026-06-08 21:06 Unit 6 review converged after Round 2: fresh reviewer Curie verified provider-skip durable failure state, raw-cover preservation, atomic real-cover activation guard, changed-file coverage, targeted callers, and build evidence.

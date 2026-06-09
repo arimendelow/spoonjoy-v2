@@ -13,6 +13,7 @@ export type ImageGenerationSkipReason =
   | "missing_openai_key"
   | "missing_image_provider_config"
   | "missing_runner"
+  | "missing_source_image"
   | "quota_exhausted";
 
 export interface ImageGenerationTelemetryBase {

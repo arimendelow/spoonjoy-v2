@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   createGeminiImageRunner,
   createOpenAIImageRunner,
@@ -24,6 +24,8 @@ import { createOpenAIClient } from "~/lib/openai-client.server";
 import type { PostHogServerConfig, PostHogServerEnv } from "~/lib/analytics-server";
 
 const STYLIZATION_MODEL = "configured";
+const STYLIZATION_PROMPT_VERSION = "spoon-photo-editorial-v1";
+const STYLIZATION_STYLE_VERSION = "mendelow-phone-to-editorial-v1";
 
 type ImageGenerationSchedulerEnv = ImageGenEnv & PostHogServerEnv;
 type ImageGenRunnerFactory = (env: ImageGenerationSchedulerEnv) => ImageGenRunner | null;
@@ -56,6 +58,14 @@ export interface ScheduleSpoonStylizationInput {
 
 function sourceTypeFor(input: ScheduleSpoonStylizationInput) {
   return input.sourceType ?? "spoon";
+}
+
+function hasNonEmptyUrl(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function failureStatusFor(cover: { imageUrl: string | null }): "ready" | "failed" {
+  return hasNonEmptyUrl(cover.imageUrl) ? "ready" : "failed";
 }
 
 function serializeError(error: unknown, depth = 0): Record<string, unknown> {
@@ -192,6 +202,193 @@ async function captureSkipped(
     quotaKind: "stylization",
     model: "none",
     reason,
+  });
+}
+
+async function currentCoverForLifecycle(input: ScheduleSpoonStylizationInput) {
+  return input.db.recipeCover.findFirst({
+    where: { id: input.coverId, recipeId: input.recipeId },
+    select: {
+      id: true,
+      imageUrl: true,
+      status: true,
+      generationStatus: true,
+      archivedAt: true,
+    },
+  });
+}
+
+async function markStylizationProcessing(input: ScheduleSpoonStylizationInput): Promise<boolean> {
+  const result = await input.db.recipeCover.updateMany({
+    where: {
+      id: input.coverId,
+      recipeId: input.recipeId,
+      status: { not: "archived" },
+      archivedAt: null,
+    },
+    data: {
+      status: "processing",
+      generationStatus: "processing",
+      failureReason: null,
+      promptVersion: STYLIZATION_PROMPT_VERSION,
+      styleVersion: STYLIZATION_STYLE_VERSION,
+    },
+  });
+  return result.count > 0;
+}
+
+async function markStylizationSucceeded(
+  input: ScheduleSpoonStylizationInput,
+  stylizedImageUrl: string,
+): Promise<boolean> {
+  const result = await input.db.recipeCover.updateMany({
+    where: {
+      id: input.coverId,
+      recipeId: input.recipeId,
+      status: { not: "archived" },
+      archivedAt: null,
+    },
+    data: {
+      stylizedImageUrl,
+      status: "ready",
+      generationStatus: "succeeded",
+      failureReason: null,
+      promptVersion: STYLIZATION_PROMPT_VERSION,
+      styleVersion: STYLIZATION_STYLE_VERSION,
+    },
+  });
+  return result.count > 0;
+}
+
+async function markStylizationFailed(
+  input: ScheduleSpoonStylizationInput,
+  failureReason: string,
+  options: { force?: boolean } = {},
+): Promise<void> {
+  const cover = await currentCoverForLifecycle(input);
+  if (!cover || cover.status === "archived" || cover.archivedAt) return;
+  const wasRequested = cover.status === "processing" || cover.generationStatus === "processing";
+  if (!options.force && !wasRequested) return;
+
+  await input.db.recipeCover.update({
+    where: { id: cover.id },
+    data: {
+      status: failureStatusFor(cover),
+      generationStatus: "failed",
+      failureReason,
+      promptVersion: STYLIZATION_PROMPT_VERSION,
+      styleVersion: STYLIZATION_STYLE_VERSION,
+    },
+  });
+}
+
+function hasActiveVariantUrl(cover: {
+  imageUrl: string | null;
+  stylizedImageUrl: string | null;
+}, variant: string | null): boolean {
+  if (variant === "stylized") return hasNonEmptyUrl(cover.stylizedImageUrl);
+  if (variant === "image") return hasNonEmptyUrl(cover.imageUrl);
+  return hasNonEmptyUrl(cover.stylizedImageUrl) || hasNonEmptyUrl(cover.imageUrl);
+}
+
+function hasRealActiveCover(recipe: {
+  activeCoverId: string | null;
+  activeCoverVariant: string | null;
+  activeCover: {
+    id: string;
+    recipeId: string;
+    imageUrl: string | null;
+    stylizedImageUrl: string | null;
+    sourceType: string;
+    status: string;
+    archivedAt: Date | null;
+  } | null;
+}, candidateCoverId: string, recipeId: string): boolean {
+  const cover = recipe.activeCover;
+  if (!recipe.activeCoverId || recipe.activeCoverId === candidateCoverId) return false;
+  if (!cover || cover.id !== recipe.activeCoverId || cover.recipeId !== recipeId) return false;
+  if (cover.status !== "ready" || cover.archivedAt) return false;
+  if (cover.sourceType === "ai-placeholder") return false;
+  return hasActiveVariantUrl(cover, recipe.activeCoverVariant);
+}
+
+async function autoActivateStylizedCoverIfSafe(input: ScheduleSpoonStylizationInput): Promise<void> {
+  const recipe = await input.db.recipe.findUnique({
+    where: { id: input.recipeId },
+    select: {
+      coverMode: true,
+      activeCoverId: true,
+      activeCoverVariant: true,
+      activeCover: {
+        select: {
+          id: true,
+          recipeId: true,
+          imageUrl: true,
+          stylizedImageUrl: true,
+          sourceType: true,
+          status: true,
+          archivedAt: true,
+        },
+      },
+    },
+  });
+  if (!recipe || recipe.coverMode !== "auto") return;
+  if (hasRealActiveCover(recipe, input.coverId, input.recipeId)) return;
+
+  const noRealActiveCover: Prisma.RecipeWhereInput = {
+    OR: [
+      { activeCoverId: null },
+      { activeCoverId: input.coverId },
+      { activeCover: null },
+      { activeCover: { is: { recipeId: { not: input.recipeId } } } },
+      { activeCover: { is: { status: { not: "ready" } } } },
+      { activeCover: { is: { archivedAt: { not: null } } } },
+      { activeCover: { is: { sourceType: "ai-placeholder" } } },
+      {
+        AND: [
+          { activeCoverVariant: "image" },
+          { activeCover: { is: { imageUrl: "" } } },
+        ],
+      },
+      {
+        AND: [
+          { activeCoverVariant: "stylized" },
+          {
+            activeCover: {
+              is: {
+                OR: [{ stylizedImageUrl: null }, { stylizedImageUrl: "" }],
+              },
+            },
+          },
+        ],
+      },
+      {
+        AND: [
+          { activeCoverVariant: null },
+          { activeCover: { is: { imageUrl: "" } } },
+          {
+            activeCover: {
+              is: {
+                OR: [{ stylizedImageUrl: null }, { stylizedImageUrl: "" }],
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  await input.db.recipe.updateMany({
+    where: {
+      id: input.recipeId,
+      coverMode: "auto",
+      activeCoverId: recipe.activeCoverId,
+      ...noRealActiveCover,
+    },
+    data: {
+      activeCoverId: input.coverId,
+      activeCoverVariant: "stylized",
+    },
   });
 }
 
@@ -366,17 +563,27 @@ function imageGenerationRecoveredDetails(result: StylizationResult): {
 }
 
 /**
- * Background task: consumes one stylization quota unit, runs GPT Image edits against
- * `rawPhotoUrl`, and writes the resulting URL to the cover row's `stylizedImageUrl`.
- * Failures leave `stylizedImageUrl` null and are logged. This function never throws.
+ * Background task: consumes one stylization quota unit, runs image edits against
+ * `rawPhotoUrl`, and records durable generation state on the cover row.
+ * Failures keep a usable raw image ready when one exists. This function never throws.
  */
 export async function scheduleSpoonCoverStylization(
   input: ScheduleSpoonStylizationInput,
 ): Promise<void> {
   const logger = input.logger ?? console;
   try {
+    if (!input.rawPhotoUrl.trim()) {
+      await markStylizationFailed(input, "missing_source_image", { force: true });
+      await captureSkipped(input, "missing_source_image");
+      return;
+    }
+
+    const coverUpdated = await markStylizationProcessing(input);
+    if (!coverUpdated) return;
+
     const providerResolution = resolveProviderAttempts(input);
     if ("reason" in providerResolution) {
+      await markStylizationFailed(input, providerResolution.reason);
       await captureSkipped(input, providerResolution.reason);
       return;
     }
@@ -388,6 +595,7 @@ export async function scheduleSpoonCoverStylization(
       input.now ? { now: () => new Date(input.now!()) } : {},
     );
     if (!consumed) {
+      await markStylizationFailed(input, "quota_exhausted");
       await captureSkipped(input, "quota_exhausted");
       return;
     }
@@ -403,14 +611,15 @@ export async function scheduleSpoonCoverStylization(
       allowLocalImageFallback: input.allowLocalImageFallback,
     });
 
-    await input.db.recipeCover.update({
-      where: { id: input.coverId },
-      data: { stylizedImageUrl: result.url },
-    });
+    const coverUpdatedAfterGeneration = await markStylizationSucceeded(input, result.url);
+    if (coverUpdatedAfterGeneration) {
+      await autoActivateStylizedCoverIfSafe(input);
+    }
 
     await captureRecoveredProviderFallback(input, result);
   } catch (error) {
     const serializedError = serializeError(error);
+    await markStylizationFailed(input, error instanceof Error ? error.message : String(error), { force: true });
     await captureGenerationException(input, error, serializedError);
     logger.error("spoon cover stylization failed", serializedError);
   }
