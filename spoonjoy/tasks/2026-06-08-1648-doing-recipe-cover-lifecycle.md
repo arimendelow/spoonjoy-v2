@@ -1,6 +1,6 @@
 # Doing: Recipe Cover Lifecycle
 
-**Status**: READY_FOR_EXECUTION
+**Status**: COMPLETED
 **Execution Mode**: direct
 **Created**: 2026-06-08 17:00
 **Planning**: ./2026-06-08-1648-planning-recipe-cover-lifecycle.md
@@ -27,21 +27,21 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - None
 
 ## Completion Criteria
-- [ ] New recipes without a real cover show an intentional awaiting-cover state and never show the Chef RJ placeholder as a recipe cover fallback.
-- [ ] Public recipe surfaces show a provenance badge for the active cover.
-- [ ] Owner recipe surfaces provide cover history controls for active cover selection, verbatim uploaded cover use, editorial generation/regeneration, and cover removal/archive.
-- [ ] First chef spoon can be logged without a photo; first chef spoon with a photo auto-seeds an editorialized cover only when the recipe has no active real cover.
-- [ ] Later chef spoons can opt in to cover creation with explicit UI and do not replace a manually chosen active cover unless requested.
-- [ ] MCP exposes explicit cover and spoon-image browsing/activation operations with provenance, generation status, idempotency, and safe permission checks.
-- [ ] Existing APIs and loaders no longer derive current cover from newest row ordering.
-- [ ] Pure AI generated, uploaded verbatim, imported, and editorialized-photo covers are distinguishable in database rows, web UI, public API, and MCP responses.
-- [ ] Placeholder, import, edit, fork, and stylization jobs cannot silently replace a manually selected active cover.
-- [ ] Removing a cover archives the cover record by default; removing the active cover requires an explicit next active cover or an explicit no-cover state.
-- [ ] Search index metadata and Open Graph output use the explicit active cover and remain correct after cover changes.
-- [ ] Image generation failures remain visible via PostHog exception capture and user-facing failure states.
-- [ ] 100% test coverage on all new code
-- [ ] All tests pass
-- [ ] No warnings
+- [x] New recipes without a real cover show an intentional awaiting-cover state and never show the Chef RJ placeholder as a recipe cover fallback.
+- [x] Public recipe surfaces show a provenance badge for the active cover.
+- [x] Owner recipe surfaces provide cover history controls for active cover selection, verbatim uploaded cover use, editorial generation/regeneration, and cover removal/archive.
+- [x] First chef spoon can be logged without a photo; first chef spoon with a photo auto-seeds an editorialized cover only when the recipe has no active real cover.
+- [x] Later chef spoons can opt in to cover creation with explicit UI and do not replace a manually chosen active cover unless requested.
+- [x] MCP exposes explicit cover and spoon-image browsing/activation operations with provenance, generation status, idempotency, and safe permission checks.
+- [x] Existing APIs and loaders no longer derive current cover from newest row ordering.
+- [x] Pure AI generated, uploaded verbatim, imported, and editorialized-photo covers are distinguishable in database rows, web UI, public API, and MCP responses.
+- [x] Placeholder, import, edit, fork, and stylization jobs cannot silently replace a manually selected active cover.
+- [x] Removing a cover archives the cover record by default; removing the active cover requires an explicit next active cover or an explicit no-cover state.
+- [x] Search index metadata and Open Graph output use the explicit active cover and remain correct after cover changes.
+- [x] Image generation failures remain visible via PostHog exception capture and user-facing failure states.
+- [x] 100% test coverage on all new code
+- [x] All tests pass
+- [x] No warnings
 
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
@@ -215,7 +215,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **What**: Cover destructive hints, idempotent archive calls, no-cover confirmation, active variant edge cases, and attempts by non-owners.
 **Acceptance**: MCP set/archive tests pass with 100% coverage on new branches and no warnings.
 
-### ⬜ Unit 13: Final Validation And Browser Smoke
+### ✅ Unit 13: Final Validation And Browser Smoke
 **What**: Run full validation after all feature units are green: `pnpm run test:coverage`, `pnpm run test:e2e`, `pnpm run deploy:preflight`, targeted MCP suites `pnpm run test -- test/lib/mcp/spoonjoy-tools.server.test.ts test/lib/spoonjoy-api-spoons.test.ts`, and targeted browser smoke for no-photo recipe placeholder, provenance badge, cover history, first chef text-only spoon, first chef photo auto-cover, later chef opt-in cover, and verbatim cover selection. Clean disposable browser/test data in the same run.
 **Output**: Validation logs and screenshots saved under `./2026-06-08-1648-doing-recipe-cover-lifecycle/`.
 **Acceptance**: All validation commands pass with no warnings; browser smoke confirms no broken placeholder, sideways image regression, or overlapping cover controls.
@@ -266,6 +266,9 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-09 00:06 Unit 12a/12b/12c complete: added MCP/API active-cover set and archive operations with owner checks, explicit image/stylized variant validation, active-cover archive replacement/no-cover semantics, idempotent replay/conflict handling, and safe-object-delete warnings. Red/green evidence is saved in `unit-12a-red-attempt-1.log`, `unit-12b-green-attempt-1.log`, `unit-12c-green-attempt-1.log`, and `unit-12-resume-green.log`; typecheck/build passed in `unit-12b-typecheck-attempt-1.log`, `unit-12b-build-attempt-1.log`, `unit-12c-typecheck-attempt-1.log`, and `unit-12c-build-attempt-1.log`; `unit-12c-coverage-attempt-2.log` still reports the known repo-wide global baseline failure while Istanbul JSON confirmed no uncovered Unit 12 added statements or branches.
 - 2026-06-09 00:32 Unit 12 review converged: fresh reviewer Noether found no actionable issues in `set_active_recipe_cover`/`archive_recipe_cover`, including schema registration, permissions, explicit variant/no-cover semantics, no-key idempotent replay, destructive/idempotent hints, and validation evidence.
 - 2026-06-09 00:32 Final coverage baseline repaired: added route/API branch tests for guarded cover regeneration, source-image fallback, and verbatim legacy cover activation. Focused suites passed (`final-coverage-fix-focused-attempt-2.log`, `final-coverage-fix-focused-attempt-3.log`), and the strict full coverage command passed with 296 files, 5815 tests, and 100% statements/branches/functions/lines (`final-coverage-attempt-3.log`).
+- 2026-06-09 01:04 Final e2e/deploy/MCP validation initially passed after refreshing Prisma/Vite/local D1 state and applying remote D1 migration 0018: strict coverage (`final-coverage-attempt-3.log`), Playwright e2e (`final-e2e-attempt-2.log`), deploy preflight (`final-deploy-preflight-attempt-2.log`), and targeted MCP/API (`final-targeted-mcp-attempt-1.log`).
+- 2026-06-09 01:10 Browser smoke found a final real bug in local no-provider/editorial-failure behavior: covers with a retained raw chef photo but failed editorial generation were displayed as unavailable. Added regression red evidence (`unit-13-raw-cover-failed-editorial-red.log`), then fixed server/UI activation so the original chef photo remains selectable while the row says `Editorial failed`; focused green evidence is in `unit-13-raw-cover-failed-editorial-green-2.log`.
+- 2026-06-09 01:26 Final post-fix validation passed: strict coverage 296 files / 5815 tests / 100% statements, branches, functions, and lines (`final-coverage-after-raw-cover-fix-2.log`); Playwright e2e 59/59 including EXIF orientation (`final-e2e-after-raw-cover-fix.log`); deploy preflight with remote D1 up to date (`final-deploy-preflight-after-raw-cover-fix.log`); targeted MCP/API 132/132 (`final-targeted-mcp-after-raw-cover-fix-direct.log`); production build (`final-build-after-raw-cover-fix.log`); browser smoke screenshots under `browser-smoke/`; cleanup dry-runs showed 0 active suspicious recipes/users/spoons/OAuth clients.
 - 2026-06-08 20:20 Unit 4a/4b/4c complete: added red tests for new/edit upload activation, explicit no-cover clearing, AI placeholder lifecycle/status/failure behavior, manual-cover race protection, and seed/demo cover activation (`unit-4a-red.log`); implemented raw upload active-cover assignment, no-cover clear semantics, placeholder status transitions plus safe auto-activation, and seed cover upsert activation; targeted tests passed (`unit-4b-green.log`, `unit-4c-green.log`), targeted changed-file coverage reached 100% statements/branches/functions/lines (`unit-4c-targeted-coverage.log`), and production build passed (`unit-4c-build.log`). The broader coverage command (`unit-4c-coverage.log`) still reports the unrelated repo-wide baseline threshold gap while the Unit 4 changed files are fully covered.
 - 2026-06-08 20:25 Unit 4 review converged: fresh sub-agent Hubble reviewed the refreshed diff (`unit-4-review.diff`), targeted test/coverage/build logs, and acceptance criteria with no findings.
 - 2026-06-08 19:10 Unit 2 review converged after Round 3

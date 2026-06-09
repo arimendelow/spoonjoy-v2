@@ -28,9 +28,10 @@ export type RecipeCoverSpoonImage = {
 };
 
 function statusLabel(status: string, generationStatus: string) {
-  if (status === "processing" || generationStatus === "processing") return "Processing";
-  if (status === "failed" || generationStatus === "failed") return "Failed";
   if (status === "archived") return "Archived";
+  if (status === "failed") return "Failed";
+  if (status === "processing" || generationStatus === "processing") return "Processing";
+  if (generationStatus === "failed") return "Editorial failed";
   return "Ready";
 }
 
@@ -41,8 +42,7 @@ function variantName(variant: "image" | "stylized") {
 function coverCanActivate(cover: RecipeCoverHistoryItem) {
   return (
     cover.status !== "failed" &&
-    cover.status !== "archived" &&
-    cover.generationStatus !== "failed"
+    cover.status !== "archived"
   );
 }
 

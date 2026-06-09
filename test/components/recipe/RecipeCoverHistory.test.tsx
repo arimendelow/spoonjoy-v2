@@ -41,7 +41,7 @@ describe("RecipeCoverHistory", () => {
     expect(screen.queryByRole("heading", { name: "Spoon photos" })).toBeNull();
   });
 
-  it("labels processing, failed, archived, invalid-date, and no-variant rows", async () => {
+  it("labels processing, editorial-failed, archived, invalid-date, and no-variant rows", async () => {
     renderHistory([
       {
         id: "processing-cover",
@@ -87,19 +87,37 @@ describe("RecipeCoverHistory", () => {
           },
         ],
       },
+      {
+        id: "failed-cover-row",
+        status: "failed",
+        generationStatus: "failed",
+        sourceType: "spoon",
+        createdAt: "2026-01-04T00:00:00.000Z",
+        isActive: false,
+        activeVariant: null,
+        variants: [
+          {
+            variant: "image",
+            imageUrl: "/photos/failed-cover-row.jpg",
+            provenanceLabel: "Chef photo",
+            isActive: false,
+          },
+        ],
+      },
     ]);
 
     expect(await screen.findByText("Processing")).toBeInTheDocument();
     expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.getByText("Editorial failed")).toBeInTheDocument();
     expect(screen.getByText("Archived")).toBeInTheDocument();
     expect(screen.getByText("Saved cover")).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable")).toHaveLength(2);
     expect(screen.getByText("No usable image variants.")).toBeInTheDocument();
     expect(screen.getByText("No image")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Use Chef photo cover" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Use Chef photo cover" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use Imported photo cover" })).toBeNull();
-    expect(screen.getAllByRole("button", { name: "Regenerate cover" })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "Archive cover" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Regenerate cover" })).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: "Archive cover" })).toHaveLength(3);
   });
 
   it("submits set-cover and no-cover forms", async () => {

@@ -507,7 +507,7 @@ describe("recipe-cover.server", () => {
         .rejects.toThrow("Cannot activate a failed cover");
     });
 
-    it("rejects a cover with failed generation even when the raw image is retained", async () => {
+    it("allows the original image when editorial generation failed but the raw photo remains", async () => {
       const cover = await db.recipeCover.create({
         data: {
           recipeId,
@@ -519,7 +519,13 @@ describe("recipe-cover.server", () => {
       });
 
       await expect(setActiveRecipeCover(db, { recipeId, coverId: cover.id, variant: "image" }))
-        .rejects.toThrow("Cannot activate a cover with failed generation");
+        .resolves.toMatchObject({
+          activeCoverId: cover.id,
+          activeCoverVariant: "image",
+          coverMode: "manual",
+        });
+      await expect(setActiveRecipeCover(db, { recipeId, coverId: cover.id, variant: "stylized" }))
+        .rejects.toThrow("Selected cover variant is unavailable");
     });
 
     it("rejects a cover with an invalid status", async () => {

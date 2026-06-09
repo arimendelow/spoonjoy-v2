@@ -388,9 +388,6 @@ function assertActivatableCover(cover: RecipeCover): void {
   if (cover.status === "failed") {
     throw new Error("Cannot activate a failed cover");
   }
-  if (cover.generationStatus === "failed") {
-    throw new Error("Cannot activate a cover with failed generation");
-  }
 }
 
 function assertVariantAvailable(cover: RecipeCover, variant: RecipeCoverVariant): void {
