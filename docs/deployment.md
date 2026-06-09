@@ -157,6 +157,13 @@ Do not set this in production deploy workflows — the whole point of the check 
 
 ## Production Deploy Flow
 
+`.github/workflows/production-deploy.yml` deploys every push to `main` and also supports manual `workflow_dispatch`. Main should never sit ahead of production; after merging, verify the GitHub Actions run for the exact merge commit and then smoke the production URL. If the workflow is absent, stale, failed, or still pending beyond the normal deploy window, run `pnpm deploy:auto` locally with authenticated Wrangler and record the deployed Worker version.
+
+The GitHub workflow requires repository secrets:
+
+- `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account that owns D1 `spoonjoy`, R2 `spoonjoy-photos`, and Worker `spoonjoy-v2`.
+- `CLOUDFLARE_API_TOKEN`: a Cloudflare dashboard-created API token scoped to that account. Cloudflare's current Workers GitHub Actions docs recommend the **Edit Cloudflare Workers** policy for Wrangler deploys; Spoonjoy's `deploy:auto` also applies D1 migrations, so include D1 edit access for the same account. Do not use a local Wrangler OAuth token as this secret because it is interactive/user-session auth, not a durable CI token.
+
 The shortest path for a production release is `pnpm deploy:auto`, which chains:
 
 ```

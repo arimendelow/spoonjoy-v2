@@ -16,6 +16,7 @@ export interface PreflightCheck {
 export interface DeploymentPreflightInputs {
   wrangler: Record<string, unknown>;
   packageJson: Record<string, unknown>;
+  productionDeployWorkflow: string;
   cloudflareEnvDts: string;
   readme: string;
   deploymentDoc: string;
@@ -102,6 +103,155 @@ function check(name: string, ok: boolean, message: string, severity: PreflightSe
   return { name, ok, severity, message };
 }
 
+interface WorkflowLine {
+  indent: number;
+  text: string;
+}
+
+function stripYamlComment(raw: string): string {
+  const commentIndex = raw.indexOf("#");
+  return (commentIndex === -1 ? raw : raw.slice(0, commentIndex)).trimEnd();
+}
+
+function workflowLines(workflow: string): WorkflowLine[] {
+  return workflow
+    .split(/\r?\n/)
+    .map(stripYamlComment)
+    .filter((line) => line.trim() !== "")
+    .map((line) => ({
+      indent: line.search(/\S/),
+      text: line.trim(),
+    }));
+}
+
+function blockEnd(lines: WorkflowLine[], start: number): number {
+  const parentIndent = lines[start].indent;
+  let index = start + 1;
+  while (index < lines.length && lines[index].indent > parentIndent) {
+    index += 1;
+  }
+  return index;
+}
+
+function childBlock(lines: WorkflowLine[], start: number, end: number, key: string): [number, number] | null {
+  const childIndent = lines[start].indent + 2;
+  for (let index = start + 1; index < end; index += 1) {
+    if (lines[index].indent !== childIndent) continue;
+    const text = lines[index].text;
+    if (text === `${key}:` || text.startsWith(`${key}: `)) {
+      return [index, blockEnd(lines, index)];
+    }
+  }
+  return null;
+}
+
+function blockHasMainBranch(lines: WorkflowLine[], branchesStart: number, branchesEnd: number): boolean {
+  const branchesLine = lines[branchesStart].text;
+  const inlineBranches = branchesLine.match(/^branches:\s*\[([^\]]*)\]\s*$/);
+  if (inlineBranches) {
+    return inlineBranches[1]
+      .split(",")
+      .map((item) => item.trim().replace(/^['"]|['"]$/g, ""))
+      .some((item) => item === "main");
+  }
+  for (let index = branchesStart + 1; index < branchesEnd; index += 1) {
+    if (lines[index].indent <= lines[branchesStart].indent) break;
+    if (lines[index].text === "- main") return true;
+  }
+  return false;
+}
+
+function workflowDeploysPushesToMain(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  const onIndex = lines.findIndex((line) => line.indent === 0 && line.text === "on:");
+  if (onIndex === -1) return false;
+  const onEnd = blockEnd(lines, onIndex);
+  const workflowDispatch = childBlock(lines, onIndex, onEnd, "workflow_dispatch");
+  const push = childBlock(lines, onIndex, onEnd, "push");
+  if (!workflowDispatch || !push) return false;
+  const branches = childBlock(lines, push[0], push[1], "branches");
+  return branches ? blockHasMainBranch(lines, branches[0], branches[1]) : false;
+}
+
+function stepBlocks(lines: WorkflowLine[], stepsStart: number, stepsEnd: number): Array<[number, number]> {
+  const stepIndent = lines[stepsStart].indent + 2;
+  const blocks: Array<[number, number]> = [];
+  for (let index = stepsStart + 1; index < stepsEnd; index += 1) {
+    if (lines[index].indent === stepIndent && lines[index].text.startsWith("- ")) {
+      blocks.push([index, blockEnd(lines, index)]);
+    }
+  }
+  return blocks;
+}
+
+function workflowJobBlocks(lines: WorkflowLine[]): Array<[number, number]> {
+  const jobsIndex = lines.findIndex((line) => line.indent === 0 && line.text === "jobs:");
+  if (jobsIndex === -1) return [];
+  const jobsEnd = blockEnd(lines, jobsIndex);
+  const jobIndent = lines[jobsIndex].indent + 2;
+  const blocks: Array<[number, number]> = [];
+  for (let index = jobsIndex + 1; index < jobsEnd; index += 1) {
+    if (lines[index].indent === jobIndent && /^[A-Za-z0-9_-]+:/.test(lines[index].text)) {
+      blocks.push([index, blockEnd(lines, index)]);
+    }
+  }
+  return blocks;
+}
+
+function stepRunsDeployAuto(lines: WorkflowLine[], stepStart: number, stepEnd: number): boolean {
+  const inlineRun = lines[stepStart].text.match(/^-\s+run:\s*(.+)$/);
+  if (inlineRun && inlineRun[1].trim() === "pnpm run deploy:auto") return true;
+
+  const runIndent = lines[stepStart].indent + 2;
+  for (let index = stepStart + 1; index < stepEnd; index += 1) {
+    if (lines[index].indent !== runIndent) continue;
+    const run = lines[index].text.match(/^run:\s*(.*)$/);
+    if (!run) continue;
+
+    const value = run[1].trim();
+    if (value === "pnpm run deploy:auto") return true;
+    if (value !== "|" && value !== ">") continue;
+
+    for (let commandIndex = index + 1; commandIndex < stepEnd; commandIndex += 1) {
+      if (lines[commandIndex].indent <= lines[index].indent) break;
+      if (lines[commandIndex].text === "pnpm run deploy:auto") return true;
+    }
+  }
+  return false;
+}
+
+function stepHasEnvKeys(lines: WorkflowLine[], stepStart: number, stepEnd: number, keys: string[]): boolean {
+  const env = childBlock(lines, stepStart, stepEnd, "env");
+  if (!env) return false;
+
+  const envIndent = lines[env[0]].indent + 2;
+  const found = new Set<string>();
+  for (let index = env[0] + 1; index < env[1]; index += 1) {
+    if (lines[index].indent !== envIndent) continue;
+    const key = lines[index].text.match(/^([A-Za-z0-9_]+):/);
+    if (key) found.add(key[1]);
+  }
+  return keys.every((key) => found.has(key));
+}
+
+function workflowHasCloudflareDeployAutoStep(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  for (const [jobStart, jobEnd] of workflowJobBlocks(lines)) {
+    const steps = childBlock(lines, jobStart, jobEnd, "steps");
+    if (!steps) continue;
+
+    for (const [stepStart, stepEnd] of stepBlocks(lines, steps[0], steps[1])) {
+      if (
+        stepRunsDeployAuto(lines, stepStart, stepEnd) &&
+        stepHasEnvKeys(lines, stepStart, stepEnd, ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"])
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): DeploymentPreflightResult {
   const scripts = packageScripts(inputs.packageJson);
   const readmeAndDeploymentDoc = `${inputs.readme}\n${inputs.deploymentDoc}`;
@@ -160,6 +310,11 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
       "preflight script",
       typeof scripts["deploy:preflight"] === "string" && scripts["deploy:preflight"].includes("deployment-preflight"),
       "package.json must expose deploy:preflight for local and CI production-readiness checks."
+    ),
+    check(
+      "production deploy workflow",
+      workflowDeploysPushesToMain(inputs.productionDeployWorkflow) && workflowHasCloudflareDeployAutoStep(inputs.productionDeployWorkflow),
+      ".github/workflows/production-deploy.yml must auto-deploy pushes to main with deploy:auto while keeping manual dispatch and Cloudflare credentials wired."
     ),
     check(
       "Cloudflare Env typing",
@@ -382,9 +537,10 @@ export async function runDeploymentPreflight(
   rootDir = process.cwd(),
   deps: RunDeploymentPreflightDeps = {},
 ): Promise<DeploymentPreflightResult> {
-  const [wrangler, packageJson, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
+  const [wrangler, packageJson, productionDeployWorkflow, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
     readJsonFile(path.join(rootDir, "wrangler.json")),
     readJsonFile(path.join(rootDir, "package.json")),
+    readFile(path.join(rootDir, ".github/workflows/production-deploy.yml"), "utf8"),
     readFile(path.join(rootDir, "app/cloudflare-env.d.ts"), "utf8"),
     readFile(path.join(rootDir, "README.md"), "utf8"),
     readFile(path.join(rootDir, "docs/deployment.md"), "utf8"),
@@ -394,6 +550,7 @@ export async function runDeploymentPreflight(
   const baseResult = validateDeploymentConfig({
     wrangler,
     packageJson,
+    productionDeployWorkflow,
     cloudflareEnvDts,
     readme,
     deploymentDoc,

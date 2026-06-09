@@ -36,6 +36,18 @@ describe('Dialog', () => {
       })
     })
 
+    it('keeps the accessible dialog wrapper sized to the viewport', async () => {
+      render(
+        <Dialog open={true} onClose={() => {}}>
+          <DialogTitle>Visible Dialog Wrapper</DialogTitle>
+        </Dialog>
+      )
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toHaveClass('fixed', 'inset-0', 'z-[60]')
+      })
+    })
+
     it('renders with different size variants', async () => {
       const sizes = ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl'] as const
       for (const size of sizes) {
