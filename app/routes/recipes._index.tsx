@@ -9,7 +9,8 @@ import { Text } from "~/components/ui/text";
 import { CookbookPage, RuledEmptyState } from "~/components/cookbook/page";
 import { getRequestDb } from "~/lib/route-platform.server";
 import { getUserId } from "~/lib/session.server";
-import { getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import { CoverProvenanceBadge } from "~/components/recipe/CoverProvenanceBadge";
+import { getRecipeCoverDisplay } from "~/lib/recipe-cover.server";
 import { searchSpoonjoy } from "~/lib/search.server";
 import { formatServingsLabel } from "~/lib/quantity";
 
@@ -20,6 +21,7 @@ type PublicRecipe = {
   servings: string | null;
   chef: { username: string };
   coverImageUrl: string | null;
+  coverProvenanceLabel: string | null;
 };
 
 const PUBLIC_RECIPE_LIMIT = 48;
@@ -66,14 +68,18 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return {
     query,
     isAuthenticated: Boolean(userId),
-    recipes: recipes.map(({ covers, ...recipe }): PublicRecipe => ({
-      id: recipe.id,
-      title: recipe.title,
-      description: recipe.description,
-      servings: recipe.servings,
-      chef: recipe.chef,
-      coverImageUrl: getRecipeCoverImageUrl(recipe, covers),
-    })),
+    recipes: recipes.map(({ covers, ...recipe }): PublicRecipe => {
+      const coverDisplay = getRecipeCoverDisplay(recipe, covers);
+      return {
+        id: recipe.id,
+        title: recipe.title,
+        description: recipe.description,
+        servings: recipe.servings,
+        chef: recipe.chef,
+        coverImageUrl: coverDisplay?.displayUrl ?? null,
+        coverProvenanceLabel: coverDisplay?.provenanceLabel ?? null,
+      };
+    }),
   };
 }
 
@@ -194,6 +200,7 @@ function RecipeRow({ recipe, ordinal }: { recipe: PublicRecipe; ordinal: number 
         <span className="font-sj-display block text-2xl/7 font-semibold text-[var(--sj-ink)] group-hover:text-[var(--sj-tomato)] sm:text-3xl/8">
           {recipe.title}
         </span>
+        <CoverProvenanceBadge label={recipe.coverProvenanceLabel} className="mt-2" />
         <span className="mt-1 block max-w-2xl text-base/6 text-[var(--sj-ink-soft)]">
           {recipe.description ?? `By ${recipe.chef.username}`}
         </span>

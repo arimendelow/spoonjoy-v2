@@ -1,13 +1,15 @@
 import clsx from "clsx";
+import { CoverProvenanceBadge } from "~/components/recipe/CoverProvenanceBadge";
 
 export interface CookbookCoverImage {
   coverImageUrl: string | null;
   title: string;
+  coverProvenanceLabel?: string | null;
 }
 
 export function cookbookCoverImages(images: CookbookCoverImage[]) {
   return images
-    .filter((image): image is { coverImageUrl: string; title: string } =>
+    .filter((image): image is CookbookCoverImage & { coverImageUrl: string } =>
       Boolean(image.coverImageUrl && image.coverImageUrl.length > 0),
     )
     .slice(0, 4);
@@ -59,7 +61,7 @@ function CookbookImageCover({
   images,
   title,
 }: {
-  images: Array<{ coverImageUrl: string; title: string }>;
+  images: Array<CookbookCoverImage & { coverImageUrl: string }>;
   title: string;
 }) {
   const layoutClass = images.length === 1
@@ -71,12 +73,22 @@ function CookbookImageCover({
   return (
     <div className={clsx("sj-photo-tile grid h-full w-full", layoutClass)} aria-label={`${title} cover photos`}>
       {images.map((image) => (
-        <img
+        <span
           key={`${image.coverImageUrl}-${image.title}`}
-          src={image.coverImageUrl}
-          alt={image.title}
-          className="h-full w-full object-cover text-[0px] text-transparent"
-        />
+          className="relative min-h-0 min-w-0 overflow-hidden"
+        >
+          <img
+            src={image.coverImageUrl}
+            alt={image.title}
+            className="h-full w-full object-cover text-[0px] text-transparent"
+          />
+          {images.length === 1 ? (
+            <CoverProvenanceBadge
+              label={image.coverProvenanceLabel}
+              className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] border-[color-mix(in_srgb,var(--sj-paper)_58%,transparent)] bg-[color-mix(in_srgb,var(--sj-charcoal)_76%,transparent)] text-[var(--sj-paper)]"
+            />
+          ) : null}
+        </span>
       ))}
     </div>
   );

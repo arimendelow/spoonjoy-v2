@@ -256,7 +256,13 @@ export function applyCreatedCookbookState(
 export default function RecipeDetail() {
   const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData() as RecipeDetailActionData | undefined;
-  const { recipe, coverImageUrl, isOwner, hasIngredientsInShoppingList = false } = loaderData;
+  const { recipe, coverImageUrl, coverProvenanceLabel, isOwner, hasIngredientsInShoppingList = false } = loaderData;
+  const recipeCoverImageUrl = typeof (recipe as { coverImageUrl?: unknown }).coverImageUrl === "string"
+    ? (recipe as { coverImageUrl: string }).coverImageUrl
+    : null;
+  const recipeCoverProvenanceLabel = typeof (recipe as { coverProvenanceLabel?: unknown }).coverProvenanceLabel === "string"
+    ? (recipe as { coverProvenanceLabel: string }).coverProvenanceLabel
+    : null;
   const isAuthenticated = loaderData.isAuthenticated ?? true;
   const cookbooks = loaderData.cookbooks ?? EMPTY_COOKBOOKS;
   const savedInCookbookIds = loaderData.savedInCookbookIds ?? EMPTY_SAVED_COOKBOOK_IDS;
@@ -860,7 +866,9 @@ export default function RecipeDetail() {
         chefId={recipe.chef.id}
         chefProfileHref={`/users/${recipe.chef.username}`}
         chefPhotoUrl={recipe.chef.photoUrl ?? undefined}
-        coverImageUrl={coverImageUrl}
+        coverImageUrl={coverImageUrl ?? recipeCoverImageUrl}
+        coverProvenanceLabel={coverProvenanceLabel ?? recipeCoverProvenanceLabel}
+        coverPlaceholderLabel={isOwner ? "Awaiting first chef photo" : "Cover coming soon"}
         servings={recipe.servings ?? undefined}
         scaleFactor={scaleFactor}
         onScaleChange={handleScaleChange}

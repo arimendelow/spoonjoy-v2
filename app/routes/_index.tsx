@@ -10,7 +10,8 @@ import { Text } from "~/components/ui/text";
 import { Avatar } from "~/components/ui/avatar";
 import { CookbookPage } from "~/components/cookbook/page";
 import { CookbookCoverArt } from "~/components/cookbook/CookbookCoverArt";
-import { getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import { CoverProvenanceBadge } from "~/components/recipe/CoverProvenanceBadge";
+import { getRecipeCoverDisplay } from "~/lib/recipe-cover.server";
 import { resolveChefAvatarUrl } from "~/lib/chef-avatar";
 import { formatServingsLabel } from "~/lib/quantity";
 import { shareContent } from "~/components/navigation";
@@ -133,6 +134,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         title: true,
         description: true,
         servings: true,
+        activeCoverId: true,
+        activeCoverVariant: true,
+        coverMode: true,
         covers: {
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         },
@@ -155,7 +159,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
           include: {
             recipe: {
               select: {
+                id: true,
                 title: true,
+                activeCoverId: true,
+                activeCoverVariant: true,
+                coverMode: true,
                 covers: {
                   orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                 },
@@ -167,10 +175,14 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     }),
   ]);
 
-  const recipesWithCover = recipes.map(({ covers, ...rest }) => ({
-    ...rest,
-    coverImageUrl: getRecipeCoverImageUrl(rest, covers),
-  }));
+  const recipesWithCover = recipes.map(({ covers, ...rest }) => {
+    const coverDisplay = getRecipeCoverDisplay(rest, covers);
+    return {
+      ...rest,
+      coverImageUrl: coverDisplay?.displayUrl ?? null,
+      coverProvenanceLabel: coverDisplay?.provenanceLabel ?? null,
+    };
+  });
 
   const cookbooksWithCover = cookbooks.map(({ recipes: cookbookRecipes, ...cookbook }) => ({
     ...cookbook,
@@ -178,7 +190,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       ...item,
       recipe: {
         title: item.recipe.title,
-        coverImageUrl: getRecipeCoverImageUrl({ id: item.recipeId, title: item.recipe.title }, item.recipe.covers),
+        coverImageUrl: getRecipeCoverDisplay(item.recipe, item.recipe.covers)?.displayUrl ?? null,
+        coverProvenanceLabel: getRecipeCoverDisplay(item.recipe, item.recipe.covers)?.provenanceLabel ?? null,
       },
     })),
   }));
@@ -322,6 +335,7 @@ type KitchenRecipe = {
   description: string | null;
   servings: string | null;
   coverImageUrl: string | null;
+  coverProvenanceLabel: string | null;
 };
 
 type KitchenCookbook = {
@@ -331,6 +345,7 @@ type KitchenCookbook = {
   recipes: Array<{
     recipe: {
       coverImageUrl: string | null;
+      coverProvenanceLabel: string | null;
       title: string;
     };
   }>;
@@ -402,6 +417,7 @@ function RecipeLead({
             <Heading level={2} className="mt-3 text-4xl/10 hover:text-[var(--sj-tomato)] sm:mt-5 sm:text-6xl/14">{recipe.title}</Heading>
           </Link>
           {recipe.description ? <Text className="mt-4 hidden max-w-md text-base/7 sm:block">{recipe.description}</Text> : null}
+          <CoverProvenanceBadge label={recipe.coverProvenanceLabel} className="mt-4" />
           {servingsLabel ? (
             <p className="font-sj-ui mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--sj-ink-soft)]">
               {servingsLabel}
@@ -492,6 +508,7 @@ function RecipeIndexRow({
           <h3 className="font-sj-display line-clamp-2 text-2xl/7 font-extrabold text-[var(--sj-ink)] group-hover:text-[var(--sj-tomato)]">
             {recipe.title}
           </h3>
+          <CoverProvenanceBadge label={recipe.coverProvenanceLabel} className="mt-2" />
           {recipe.description ? <p className="mt-1 line-clamp-2 text-sm/5 text-[var(--sj-ink-soft)]">{recipe.description}</p> : null}
           {servingsLabel ? (
             <p className="font-sj-ui mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--sj-ink-soft)]">{servingsLabel}</p>
@@ -563,6 +580,7 @@ function CookbookCover({
   const recipeImages = cookbook.recipes.map((item) => ({
     coverImageUrl: item.recipe.coverImageUrl,
     title: item.recipe.title,
+    coverProvenanceLabel: item.recipe.coverProvenanceLabel,
   }));
 
   return (

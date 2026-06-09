@@ -261,6 +261,9 @@ const recipeWithCoversInclude = {
       id: true,
       title: true,
       chefId: true,
+      activeCoverId: true,
+      activeCoverVariant: true,
+      coverMode: true,
       covers: {
         orderBy: [{ createdAt: "desc" as const }, { id: "desc" as const }],
       },

@@ -18,6 +18,7 @@ export interface SpoonsStripItem {
   chef: { id: string; username: string; photoUrl: string | null };
   recipe?: SpoonsStripRecipe | null;
   coverImageUrl?: string | null;
+  coverProvenanceLabel?: string | null;
 }
 
 export interface SpoonsStripProps {

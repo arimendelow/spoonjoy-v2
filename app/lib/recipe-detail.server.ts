@@ -1,7 +1,7 @@
 import type { AppLoadContext } from "react-router";
 import { redirect } from "react-router";
 import { getRequestDb } from "~/lib/route-platform.server";
-import { createCover, getRecipeCoverImageUrl } from "~/lib/recipe-cover.server";
+import { createCover, getRecipeCoverDisplay } from "~/lib/recipe-cover.server";
 import {
   createSpoon,
   deleteSpoon,
@@ -142,7 +142,9 @@ export async function loadRecipeDetail({ request, params, context }: RecipeDetai
   }
 
   const isOwner = userId !== null && recipe.chefId === userId;
-  const coverImageUrl = getRecipeCoverImageUrl(recipe, recipe.covers);
+  const coverDisplay = getRecipeCoverDisplay(recipe, recipe.covers);
+  const coverImageUrl = coverDisplay?.displayUrl ?? null;
+  const coverProvenanceLabel = coverDisplay?.provenanceLabel ?? null;
   const canonicalUrl = absoluteUrlFromRequest(request.url, `/recipes/${id}`);
   const ogImageUrl = absoluteUrlFromRequest(request.url, recipeOgPath(id));
 
@@ -222,6 +224,7 @@ export async function loadRecipeDetail({ request, params, context }: RecipeDetai
   return {
     recipe,
     coverImageUrl,
+    coverProvenanceLabel,
     canonicalUrl,
     ogImageUrl,
     isOwner,

@@ -5,12 +5,14 @@ import { Text } from '../ui/text'
 import { Button } from '../ui/button'
 import { RuledEmptyState } from '~/components/cookbook/page'
 import { formatServingsLabel } from '~/lib/quantity'
+import { CoverProvenanceBadge } from '~/components/recipe/CoverProvenanceBadge'
 
 export interface PantryRecipeCard {
   id: string
   title: string
   description?: string
   coverImageUrl?: string | null
+  coverProvenanceLabel?: string | null
   cookTimeMinutes?: number
   difficulty?: 'Easy' | 'Medium' | 'Hard'
   servings?: string
@@ -84,7 +86,7 @@ export function RecipeGrid({
                   ) : (
                     <span className="sj-on-photo flex h-full w-full flex-col items-center justify-center gap-1 bg-[var(--sj-photo-charcoal)]">
                       <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />
-                      <span className="font-sj-ui text-xs uppercase tracking-[0.16em]">No photo</span>
+                      <span className="font-sj-ui text-xs font-semibold">Cover coming soon</span>
                     </span>
                   )}
                 </span>
@@ -93,6 +95,7 @@ export function RecipeGrid({
                   <span className="font-sj-display block text-2xl/8 font-semibold tracking-normal text-[var(--sj-ink)] transition group-hover:text-[var(--sj-tomato)]">
                     {recipe.title}
                   </span>
+                  <CoverProvenanceBadge label={recipe.coverProvenanceLabel} className="mt-2" />
                   {recipe.description ? (
                     <span className="mt-1 line-clamp-2 block text-base/6 text-[var(--sj-ink-soft)]">{recipe.description}</span>
                   ) : null}

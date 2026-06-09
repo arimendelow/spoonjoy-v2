@@ -5,6 +5,7 @@ import { Avatar } from '../ui/avatar'
 import { ScaleSelector } from './ScaleSelector'
 import { scaleServingsText } from '~/lib/quantity'
 import { resolveChefAvatarUrl } from '~/lib/chef-avatar'
+import { CoverProvenanceBadge } from './CoverProvenanceBadge'
 
 export interface RecipeHeaderProps {
   /** Recipe title */
@@ -21,6 +22,10 @@ export interface RecipeHeaderProps {
   chefPhotoUrl?: string
   /** Cover image URL derived via getRecipeCoverImageUrl. Null means no photo. */
   coverImageUrl?: string | null
+  /** Human-readable provenance for the active cover. */
+  coverProvenanceLabel?: string | null
+  /** Placeholder copy when no cover image is available. */
+  coverPlaceholderLabel?: string
   /** Servings text (e.g., "Serves 4") */
   servings?: string
   /** Current scale factor */
@@ -52,6 +57,8 @@ export function RecipeHeader({
   chefProfileHref,
   chefPhotoUrl,
   coverImageUrl,
+  coverProvenanceLabel,
+  coverPlaceholderLabel = 'Cover coming soon',
   servings,
   scaleFactor,
   onScaleChange,
@@ -104,12 +111,16 @@ export function RecipeHeader({
         {displayImageUrl ? (
           <div
             data-testid="recipe-image"
-            className="h-[36svh] min-h-[16rem] max-h-[20rem] bg-[var(--sj-photo-charcoal)] lg:h-[clamp(34rem,72svh,50rem)] lg:max-h-none lg:min-h-0"
+            className="relative h-[36svh] min-h-[16rem] max-h-[20rem] bg-[var(--sj-photo-charcoal)] lg:h-[clamp(34rem,72svh,50rem)] lg:max-h-none lg:min-h-0"
           >
             <img
               src={displayImageUrl}
               alt={`Photo of ${title}`}
               className="h-full min-h-[16rem] w-full object-cover lg:min-h-0"
+            />
+            <CoverProvenanceBadge
+              label={coverProvenanceLabel}
+              className="absolute bottom-4 left-4 max-w-[calc(100%-2rem)] border-[color-mix(in_srgb,var(--sj-paper)_58%,transparent)] bg-[color-mix(in_srgb,var(--sj-charcoal)_76%,transparent)] text-[var(--sj-paper)]"
             />
           </div>
         ) : (
@@ -121,7 +132,7 @@ export function RecipeHeader({
               <div className="rounded-[var(--sj-radius-control)] border border-[var(--sj-border-strong)] p-5">
                 <ImageOff className="size-12 sm:size-16" aria-hidden="true" />
               </div>
-              <span className="font-sj-ui text-sm font-semibold uppercase tracking-[0.16em]">No image available</span>
+              <span className="font-sj-ui text-sm font-semibold">{coverPlaceholderLabel}</span>
             </div>
           </div>
         )}
