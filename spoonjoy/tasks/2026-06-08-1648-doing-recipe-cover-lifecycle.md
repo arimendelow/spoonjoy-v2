@@ -242,3 +242,4 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-08 18:03 Unit 0 review converged
 - 2026-06-08 18:17 Unit 1a/1b complete: added red tests for explicit active-cover schema/helper behavior, implemented Prisma and D1 migrations plus active cover helpers, and validated with targeted tests (`unit-1a-red-tests.log`, `unit-1b-green-attempt-1.log`), Prisma validate/generate, and build (`unit-1b-build.log`)
 - 2026-06-08 18:24 Fixed Unit 1 review findings: migration tests now apply both root D1 and Prisma migration SQL, active-cover archive rejects self-replacement, and validation passed with `unit-1-review-fix-red.log`, `unit-1-review-fix-green.log`, and `unit-1-review-fix-build.log`
+- 2026-06-08 18:25 Unit 1 review converged after Round 2
