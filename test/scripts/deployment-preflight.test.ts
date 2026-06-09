@@ -38,6 +38,23 @@ function validInputs(): DeploymentPreflightInputs {
         "db:seed": "pnpm exec tsx prisma/seed.ts",
       },
     },
+    productionDeployWorkflow: [
+      "name: Production Deploy",
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - main",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - name: Deploy to Cloudflare Workers",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "        run: pnpm run deploy:auto",
+    ].join("\n"),
     cloudflareEnvDts: "DB?: D1Database; PHOTOS?: R2Bucket; SESSION_SECRET?: string; OPENAI_API_KEY?: string; GOOGLE_API_KEY?: string; GEMINI_API_KEY?: string; GEMINI_IMAGE_MODEL?: string; GEMINI_IMAGE_TIMEOUT_MS?: string; IMAGE_PROVIDER_PRIMARY?: string; IMAGE_PROVIDER_FALLBACKS?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; GITHUB_CLIENT_ID?: string; GITHUB_CLIENT_SECRET?: string; APPLE_CLIENT_ID?: string; APPLE_TEAM_ID?: string; APPLE_KEY_ID?: string; APPLE_PRIVATE_KEY?: string; VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: string; VAPID_SUBJECT?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string; POSTHOG_DISABLED?: string;",
     readme: "pnpm run deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY GOOGLE_API_KEY VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT GEMINI_API_KEY GEMINI_IMAGE_MODEL GEMINI_IMAGE_TIMEOUT_MS gemini-3.1-flash-image IMAGE_PROVIDER_PRIMARY IMAGE_PROVIDER_FALLBACKS VITE_POSTHOG_KEY VITE_POSTHOG_HOST VITE_POSTHOG_DISABLED POSTHOG_KEY POSTHOG_HOST POSTHOG_DISABLED server lifecycle telemetry docs/analytics-privacy.md",
     deploymentDoc: "pnpm run deploy:preflight smoke:api wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY GOOGLE_API_KEY VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT GEMINI_API_KEY GEMINI_IMAGE_MODEL GEMINI_IMAGE_TIMEOUT_MS gemini-3.1-flash-image IMAGE_PROVIDER_PRIMARY IMAGE_PROVIDER_FALLBACKS wrangler secret put POSTHOG_KEY VITE_POSTHOG_KEY VITE_POSTHOG_HOST VITE_POSTHOG_DISABLED POSTHOG_KEY POSTHOG_HOST POSTHOG_DISABLED server lifecycle telemetry",
@@ -132,6 +149,96 @@ describe("deployment preflight", () => {
     const result = validateDeploymentConfig(inputs);
 
     expect(result.errors.map((item) => item.name)).toContain("deploy:auto script");
+  });
+
+  it("requires the production deploy workflow to run on pushes to main", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("does not accept commented or misplaced push-to-main workflow text", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "name: Production Deploy",
+      "on:",
+      "  workflow_dispatch:",
+      "# push:",
+      "#   branches:",
+      "#     - main",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - name: comment mentioning branches main",
+      "        run: echo push branches main && pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("does not accept inline branch names that merely contain main", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "    branches: [not-main, feature/main]",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("requires deploy:auto and Cloudflare credentials on a real deploy step", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "name: Production Deploy",
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - main",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - name: pnpm run deploy:auto CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID",
+      "        run: echo pnpm run deploy:auto",
+      "        env:",
+      "          NOT_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "      - name: mentions the other credential",
+      "        run: echo CLOUDFLARE_ACCOUNT_ID",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
   });
 
   it("reports NODE_ENV as a warning instead of a hard failure", () => {

@@ -25,7 +25,7 @@ export function Dialog({
   'as' | 'className'
 >) {
   return (
-    <Headless.Dialog {...props}>
+    <Headless.Dialog {...props} className="fixed inset-0 z-[60]">
       <Headless.DialogBackdrop
         transition
         data-slot="dialog-backdrop"
