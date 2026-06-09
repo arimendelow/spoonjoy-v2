@@ -13,29 +13,31 @@ Fix:
 
 ## Final Green Evidence
 
+- Canonical tracked evidence: `final-validation-evidence.md`.
+- Raw command logs were saved locally as ignored `.log` artifacts; the tracked evidence file contains the durable command, exit-code, timestamp, and key pass-line record.
+
 - `pnpm run test:coverage`
-  - Log: `final-coverage-after-raw-cover-fix-2.log`
+  - Evidence: `final-validation-evidence.md`
   - Result: 296 files passed, 5815 tests passed, 100% statements/branches/functions/lines.
 - `pnpm run test:e2e`
-  - Log: `final-e2e-after-raw-cover-fix.log`
+  - Evidence: `final-validation-evidence.md`
   - Result: 59/59 Playwright tests passed, including uploaded EXIF-oriented recipe photos remaining upright.
 - Browser smoke
   - Screenshots: `browser-smoke/01-awaiting-first-chef-photo.png` through `browser-smoke/06-verbatim-cover-reselected.png`
   - Result: verified no-photo placeholder, first text-only chef cook leaves placeholder, first chef photo auto-seeds cover with upload progress and disabled submit, later chef photo explicit opt-in, cover history, manual no-cover, and verbatim chef-photo reselect.
 - `pnpm run deploy:preflight`
-  - Log: `final-deploy-preflight-after-raw-cover-fix.log`
+  - Evidence: `final-validation-evidence.md`
   - Result: passed; remote D1 migrations up to date.
 - `pnpm exec vitest --run test/lib/mcp/spoonjoy-tools.server.test.ts test/lib/spoonjoy-api-spoons.test.ts`
-  - Log: `final-targeted-mcp-after-raw-cover-fix-direct.log`
+  - Evidence: `final-validation-evidence.md`
   - Result: 132/132 tests passed.
 - `pnpm run build`
-  - Log: `final-build-after-raw-cover-fix.log`
+  - Evidence: `final-validation-evidence.md`
   - Result: production client and server builds passed.
 
 ## Cleanup Evidence
 
-- `final-cleanup-after-browser-smoke-dryrun.log`: 0 active suspicious recipes, 0 disposable users, 0 disposable spoons, 0 e2e OAuth clients.
-- `final-cleanup-after-e2e-raw-cover-fix-dryrun.log`: 0 active suspicious recipes, 0 disposable users, 0 disposable spoons, 0 e2e OAuth clients.
+- `final-validation-evidence.md`: 0 active suspicious recipes, 0 disposable users, 0 disposable spoons, 0 e2e OAuth clients after the settled final browser smoke cleanup.
 
 ## Provider/Operational Notes
 
