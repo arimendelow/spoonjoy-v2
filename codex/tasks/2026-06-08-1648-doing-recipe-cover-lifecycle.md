@@ -2,7 +2,7 @@
 
 **Status**: drafting
 **Execution Mode**: direct
-**Created**: pending initial commit
+**Created**: 2026-06-08 17:00
 **Planning**: ./2026-06-08-1648-planning-recipe-cover-lifecycle.md
 **Artifacts**: ./2026-06-08-1648-doing-recipe-cover-lifecycle/
 
@@ -145,4 +145,4 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - **Decisions made**: Update docs immediately, commit right away
 
 ## Progress Log
-- pending initial commit Created from planning doc
+- 2026-06-08 17:00 Created from planning doc
