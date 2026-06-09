@@ -79,7 +79,7 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 **What**: Add failing tests proving recipe detail, recipe index, home, profile, cookbook pages, search page, `RecipeHeader`, `RecipeGrid`, and `CookbookCoverArt` use explicit active covers and render provenance badges. Include newest empty row, archived newest row, active older cover, and intentional no-cover cases.
 **Acceptance**: Tests fail because these surfaces still use ordered covers or lack provenance badges.
 
-### ⬜ Unit 2b: Recipe Page And Listing Read Surfaces — Implementation
+### ✅ Unit 2b: Recipe Page And Listing Read Surfaces — Implementation
 **What**: Update recipe/detail/index/home/profile/cookbook/search loaders and components to fetch/use active cover helper output. Add public provenance badge labels: `AI generated` for `sourceType="ai-placeholder"` with variant `image`, `Chef photo` for `chef-upload` or `spoon` with variant `image`, `Editorialized chef photo` for `chef-upload` or `spoon` with variant `stylized`, and `Imported photo` for `import`.
 **Acceptance**: Unit 2a tests pass and no listed web surface displays an archived/empty newest row.
 
@@ -246,3 +246,4 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-08 18:31 Unit 1c complete: added runtime validation and edge coverage for invalid cover lifecycle strings, failed/archived states, replacement archive sequencing, unknown provenance labels, and D1-safe helper writes; targeted tests passed (`unit-1c-green.log`), build passed (`unit-1c-build.log`), and `recipe-cover.server.ts` reached 100% coverage (`unit-1c-coverage.log`)
 - 2026-06-08 18:32 Unit 1c review converged
 - 2026-06-08 18:41 Unit 2a complete: added failing web read-surface tests for active cover provenance, intentional placeholders, and nested cookbook/profile/search cover display (`unit-2a-red.log`)
+- 2026-06-08 18:52 Unit 2b complete: web recipe, profile, kitchen, cookbook, and search surfaces now use explicit active-cover display data and render provenance badges; targeted tests passed (`unit-2b-green.log`) and production build passed (`unit-2b-build.log`)
