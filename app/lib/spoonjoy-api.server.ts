@@ -1357,6 +1357,7 @@ const listRecipeSpoonImagesTool: SpoonjoyApiOperation = {
         recipeId,
         deletedAt: null,
         photoUrl: { not: null },
+        NOT: { photoUrl: "" },
       },
       select: {
         id: true,

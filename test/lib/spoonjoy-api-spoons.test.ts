@@ -684,7 +684,7 @@ describe("spoonjoy-api spoon operations", () => {
 
       const page = (await callSpoonjoyApiOperation(
         "list_recipe_spoon_images",
-        { recipeId: recipe.id },
+        { recipeId: recipe.id, limit: 1 },
         { db, principal: chef },
       )) as {
         spoonImages: Array<{ id: string; photoUrl: string }>;
@@ -698,7 +698,7 @@ describe("spoonjoy-api spoon operations", () => {
             photoUrl: "/photos/spoons/usable.jpg",
           }),
         ],
-        pagination: { limit: 25, offset: 0, count: 1, hasMore: false },
+        pagination: { limit: 1, offset: 0, count: 1, hasMore: false },
       });
     });
   });
