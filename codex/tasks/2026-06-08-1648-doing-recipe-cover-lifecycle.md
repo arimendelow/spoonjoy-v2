@@ -232,3 +232,4 @@ Make Spoonjoy recipe imagery explicit, provenance-aware, and controllable across
 - 2026-06-08 17:25 Resolved no-cover auto-seed and idempotency in-flight ambiguity
 - 2026-06-08 17:27 Ambiguity pass converged
 - 2026-06-08 17:28 Quality pass converged
+- 2026-06-08 17:35 Added missing writer/read paths, legacy MCP write coverage, D1 migration coverage, and API v1 provenance fields after Tinfoil scrutiny
