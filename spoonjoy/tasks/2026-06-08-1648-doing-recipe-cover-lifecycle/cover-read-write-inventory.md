@@ -19,7 +19,7 @@ Created for Unit 0 of `2026-06-08-1648-doing-recipe-cover-lifecycle.md`.
 | Path | Current Behavior | Change Unit |
 | --- | --- | --- |
 | `app/lib/recipe-cover.server.ts` | `createCover` appends a cover row; `listCoversForRecipe` and `getCurrentCover` order by newest; `getRecipeCoverImageUrl` sorts covers and returns the newest row's `stylizedImageUrl`, then `imageUrl`, else `null`. Empty newest rows hide older valid covers. | Unit 1 |
-| `app/lib/ai-placeholder-cover.server.ts` | Creates fallback data via `createFallbackPlaceholderCover`; `scheduleAiPlaceholderCover` updates an existing cover row's `imageUrl` after generation. Failures leave the row as-is and emit telemetry. There is no active-cover race check. | Unit 4 |
+| `app/lib/ai-placeholder-cover.server.ts` | `scheduleAiPlaceholderCover` updates an existing cover row's `imageUrl` after generation succeeds. New/edit/import callers currently create empty `ai-placeholder` rows first; skipped generation or failures leave those rows unchanged, often with `imageUrl: ""`, while emitting skip/exception telemetry. There is no active-cover race check. | Unit 4 |
 | `app/lib/spoon-cover-stylization.server.ts` | `scheduleSpoonCoverStylization` generates an editorial cover and updates `RecipeCover.stylizedImageUrl`. Failures leave `stylizedImageUrl` null and log/capture telemetry. There is no status field and no activation rule. | Unit 6 |
 | `app/lib/image-gen-telemetry.server.ts` | Captures provider/source telemetry for image generation. Source types currently match `chef-upload`, `spoon`, and `ai-placeholder` flows. | Unit 6 |
 
@@ -71,4 +71,3 @@ Created for Unit 0 of `2026-06-08-1648-doing-recipe-cover-lifecycle.md`.
 | `test/scripts/migration-0008-*.test.ts` | Covers existing root D1 migration behavior for spoon/cover ledger and old imageUrl backfill/drop. New migration needs analogous script coverage. | Unit 1 |
 | `test/routes/recipes-id-edit.test.tsx`, `test/routes/recipes-id-spoons.test.tsx`, `test/lib/mcp/spoonjoy-tools.server.test.ts`, `test/lib/spoonjoy-api-spoons.test.ts` | Assert current cover creation/update/stylization behavior and newest-row assumptions across web and MCP. These are primary red/green targets for Units 4, 7, 10, 11, and 12. | Units 4, 7, 10, 11, 12 |
 | `test/routes/api-v1-*.test.ts`, `test/lib/search.server.test.ts`, `test/routes/og-routes.test.ts` | Assert public API, search, and OG cover URL behavior. These need active-cover and provenance coverage. | Unit 3 |
-
