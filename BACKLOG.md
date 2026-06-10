@@ -33,18 +33,26 @@ Status meanings:
 - `superseded`: Replaced by another item.
 - `deferred`: Intentionally parked.
 
-## Recommended Next PR Sequence
+## Current Next Queue
 
-The previous run-through (SJ-001 → SJ-026) is complete. The next wave focuses on cleanup, production hardening, and the long-deferred password-reset/WebAuthn build.
+Updated: 2026-06-10 after the image-provider, cover-lifecycle, deploy-autopilot, branch-cleanup, and stale MCP token resilience work.
 
-1. `SJ-034`: Refresh BACKLOG.md and prune stale docs (this PR + follow-up).
-2. `SJ-032`: Remove v1 → v2 migration plumbing now that cutover is complete.
-3. `SJ-035`: Resolve the lone `fellow-chefs.server.ts:26` performance TODO.
-4. `SJ-036`: Finish PostHog setup and add free-tier server-side error tracking.
-5. `SJ-037`: Rate-limit `/api/*` and the MCP bearer surface.
-6. `SJ-038`: Polish PWA install prompt and offline fallback.
-7. `SJ-016b`: Build WebAuthn enrollment + sign-in — **done** (server registration/sign-in #112, client UX #113, settings management #116, rename #117, passkey-aware auth guards #118).
-8. `SJ-016` / `PR-I`: Password reset — **deferred** (blocked on an email-send provider decision + domain DNS; passkeys + OAuth now cover account recovery, lowering urgency).
+The next wave should make future autonomous verification less delicate first, then deepen image/MCP coverage, then return to production hardening and product polish.
+
+1. `SJ-043`: Build a dedicated QA/test environment with separate Cloudflare state.
+2. `SJ-044`: Make smoke, cleanup, and preflight scripts environment-aware and refusal-safe.
+3. `SJ-045`: Add MCP/API image and cover e2e smokes against the QA environment.
+4. `SJ-046`: Add provider canaries and a visual benchmark workbench for editorial covers.
+5. `SJ-047`: Resolve the local `feat/profile-photo-crop` branch by reviewing, rebasing, merging, deploying, or explicitly deleting it.
+6. `SJ-036`: Finish PostHog server-side error tracking and alert verification. Recent image-generation alerting advanced this, but the broader server error capture item is still open.
+7. `SJ-037`: Rate-limit `/api/*` and the MCP bearer surface, with telemetry from `SJ-036`.
+8. `SJ-048`: Add an autopilot release verifier so merged work cannot sit undeployed or unsmoked.
+9. `SJ-049`: Polish recipe cover provenance, cover-library browsing, and spoon-image browsing for web and MCP/AX.
+10. `SJ-040`: Finish real claude.ai one-click connector verification.
+11. `SJ-038`: Polish PWA install prompt and offline fallback.
+12. `SJ-035`: Resolve the lone `fellow-chefs.server.ts:26` performance TODO.
+
+Older sequence note: the previous run-through (SJ-001 through SJ-026) is complete. `SJ-034`, `SJ-032`, and the WebAuthn portion of `SJ-016` have already moved substantially forward or finished; use the queue above for near-term ordering.
 
 Completed waves (in chronological order of completion):
 
@@ -1072,6 +1080,134 @@ Execution plan (atomic PRs, top-down):
 - **Storybook buildout** (extract `PasskeyList`; primitives) — planned.
 - **Performance** (bundle/code-split, D1 N+1 + indexes) — planned.
 - **Observability/DX** (structured logging, `/health`, fix flaky `fellow-chefs` timeout) — planned.
+
+### SJ-043 - Dedicated QA/Test Environment
+
+Priority: `P0`
+Lane: `qa`, `cloudflare`, `agent-trust`, `deployment`
+Status: `ready`
+
+Problem: Live/manual/e2e verification currently either uses local D1 or production-like remote state. Even with cleanup scripts, agents must be careful about disposable recipes, users, spoons, R2 objects, OAuth clients, and generated covers. That makes thorough verification slower and raises the risk of production data residue.
+
+Acceptance criteria:
+
+- Create genuinely separate Cloudflare state for QA: Worker route/name, D1 database, R2 bucket, rate-limit namespaces, and base URL.
+- Add an explicit Wrangler/environment configuration for QA without changing production bindings.
+- Add QA secrets/vars documentation, including telemetry defaults and image-provider policy.
+- Add a QA preflight that proves migrations are applied to QA D1, QA R2 is writable/readable, QA secrets are present, and the target base URL matches the QA Worker.
+- Seed QA with realistic baseline data and a clear disposable-data namespace.
+- Ensure OAuth/WebAuthn origin-sensitive behavior is documented for QA, including callback URLs and RP origin expectations.
+- Verify `pnpm run smoke:live` or its successor can target QA without touching production.
+
+Non-goals:
+
+- Do not make production cleanup more permissive.
+- Do not use QA as a dumping ground for permanent demo data.
+- Do not run expensive provider benchmarks by default in every QA smoke.
+
+### SJ-044 - Environment-Aware Smoke, Cleanup, And Preflight Harness
+
+Priority: `P0`
+Lane: `qa`, `testing`, `safety`, `agent-trust`
+Status: `ready`
+
+Problem: Current smoke and cleanup commands have useful behavior, but the target environment is implicit in several places. `cleanup:qa` is deliberately local-only; live smoke can target non-local URLs and remote-delete its own smoke user; production residue checks are ad hoc. A dedicated QA environment will only help if the scripts print their target, refuse ambiguous destructive actions, and clean both database rows and stored image objects.
+
+Acceptance criteria:
+
+- Add a shared environment resolver for `local`, `qa`, and `production` smoke/preflight/cleanup commands.
+- Commands print the resolved environment, base URL, D1 target, and destructive-operation scope before doing work.
+- Cleanup refuses to mutate remote state unless the environment is explicitly `qa` or a narrowly scoped production-read-first cleanup command is used.
+- QA cleanup removes disposable users, recipes, spoons, OAuth clients, generated covers, and related R2 objects.
+- Production cleanup remains read-first and narrow; no broad remote destructive cleanup path is added.
+- Smoke artifacts include environment, base URL, branch/commit, created record IDs, cleanup result, and any retained R2 keys.
+- Tests cover refusal behavior, local cleanup, QA cleanup intent, and production read-only defaults.
+
+### SJ-045 - MCP/API Image And Cover E2E Smokes
+
+Priority: `P1`
+Lane: `mcp`, `api`, `images`, `qa`, `agent-trust`
+Status: `ready`
+
+Problem: The MCP tool surface exposes recipe image upload, spoon photo upload, cover creation from upload/spoon, cover regeneration, cover listing, active-cover swapping, archive, and spoon-image browsing. Unit and protocol tests cover tool listing and many server paths, but there is not yet a live QA smoke that proves the whole image/cover flow end to end without risking production clutter.
+
+Acceptance criteria:
+
+- Add a QA-targeted MCP smoke that authenticates safely and calls the real stdio or HTTP MCP bridge.
+- Exercise `upload_recipe_image`, `upload_spoon_photo`, `create_recipe_cover_from_upload`, `create_recipe_cover_from_spoon`, `list_recipe_covers`, `list_recipe_spoon_images`, `set_active_recipe_cover`, and `archive_recipe_cover`.
+- Prove uploaded EXIF-oriented images stay upright through the MCP/API path.
+- Prove GIF/unsupported uploads fail with a user-correctable error and do not enqueue provider work.
+- Prove cover provenance distinguishes verbatim chef upload, editorialized photo, and purely AI generated cover.
+- Record all created IDs and R2 keys in the smoke artifact and remove them in QA cleanup.
+- Run in CI or a scheduled QA workflow only when QA credentials are configured.
+
+### SJ-046 - Image Provider Canary And Visual Benchmark Workbench
+
+Priority: `P1`
+Lane: `images`, `observability`, `quality`, `provider-risk`
+Status: `ready`
+
+Problem: Gemini is the current production primary with OpenAI fallback, and image failures now alert through PostHog. That unblocked production, but provider quality and availability still need an ongoing proof loop. The system should detect provider/account failures before users do, and it should support controlled visual bakeoffs without ad hoc manual flows.
+
+Acceptance criteria:
+
+- Add a low-cost canary that generates or redraws a tiny/disposable QA image and alerts when all configured providers fail.
+- Persist provider, model, request ID, latency, retryability, fallback path, and output status for canaries.
+- Keep canaries out of production user-facing recipe feeds.
+- Add a benchmark fixture set covering portrait phone food, landscape phone food, dim lighting, cluttered background, risotto-like plated dish, no-photo fallback, and unsupported GIF rejection.
+- Produce a scorecard for dish identity preservation, ingredient hallucination, orientation, editorial quality, cost, latency, privacy/terms, and error metadata.
+- Make BFL/fal/Stability evaluation optional provider adapters or scripted benchmarks, not production defaults.
+- Keep the existing Spoonjoy editorial prompt as the baseline prompt unless a future product/taste review changes it.
+
+### SJ-047 - Resolve Profile Photo Crop Branch
+
+Priority: `P1`
+Lane: `repo-hygiene`, `profile`, `ui`, `deployment`
+Status: `ready`
+
+Problem: Local branch `feat/profile-photo-crop` contains a unique unmerged commit (`3400c19a`, "feat: crop profile photos to a square on upload"). It is not stale residue, but leaving it local-only increases drift and future merge risk.
+
+Acceptance criteria:
+
+- Review the branch against current `main`.
+- Rebase or replay it if still valuable; delete it if the product/implementation is obsolete.
+- If kept, verify focused profile-photo crop tests, Storybook story, coverage, e2e-relevant account settings behavior, and production deploy.
+- If deleted, record the reason in this backlog item or a short task note.
+- End with no unreviewed local-only feature branch.
+
+### SJ-048 - Autopilot Release Verifier
+
+Priority: `P1`
+Lane: `deployment`, `agent-trust`, `ops`
+Status: `ready`
+
+Problem: In a fully-agentic repo, work should not sit in open PRs, merged-but-undeployed `main`, or deployed-but-unsmoked production. Recent manual verification proved the right flow, but it is still a sequence an agent must remember.
+
+Acceptance criteria:
+
+- Add a script or documented command that checks: no stale open PRs, current branch merged, `origin/main` contains the intended commit, CI/Production Deploy/Storybook succeeded for that commit, production health is OK, Storybook URL is 200, smoke scripts pass, and QA/prod disposable-data counters are clean.
+- The verifier prints a concise release summary suitable for final agent reports.
+- The verifier exits non-zero if main is ahead of deploy, deploy failed, smokes failed, or disposable production residue exists.
+- The verifier is safe for PR branches and explains which checks are skipped before merge.
+- Deployment docs point agents to this verifier after every merge.
+
+### SJ-049 - Cover Provenance, Cover Library, And Spoon Image Browsing Polish
+
+Priority: `P1`
+Lane: `recipes`, `images`, `ux`, `mcp`, `accessibility`
+Status: `ready`
+
+Problem: Cover provenance is now important product language: chefs and viewers should be able to distinguish verbatim chef uploads, editorialized real photos, and purely AI generated covers. Chefs also need a clean way to browse all covers for a recipe and all images posted on spoons, then switch or regenerate covers without losing older versions. MCP/agent clients need the same model in tool outputs.
+
+Acceptance criteria:
+
+- Main recipe cards and recipe detail surfaces show compact provenance badges with accessible labels.
+- Cover history distinguishes active, archived, verbatim upload, editorialized photo, and purely AI generated states.
+- Chefs can set a cover directly from an uploaded image without generating an editorial variant.
+- Chefs can opt into "update cover" from their own spoon photo, while older covers remain available.
+- Browsing covers and spoon images works in web UI and via MCP/API tools with consistent provenance fields.
+- Empty/no-photo recipes show a clear "awaiting first spoon or upload" placeholder rather than a corrupted or misleading chef image.
+- Tests cover badge text, accessible labels, cover swapping, history retention, and MCP output fields.
 
 ## Parking Lot
 
