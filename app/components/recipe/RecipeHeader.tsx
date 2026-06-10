@@ -120,7 +120,7 @@ export function RecipeHeader({
             />
             <CoverProvenanceBadge
               label={coverProvenanceLabel}
-              className="absolute bottom-4 left-4 max-w-[calc(100%-2rem)] border-[color-mix(in_srgb,var(--sj-paper)_82%,transparent)] bg-[color-mix(in_srgb,var(--sj-charcoal)_94%,transparent)] text-[var(--sj-paper)] shadow-[0_2px_16px_rgba(0,0,0,0.38)] [text-shadow:0_1px_1px_rgba(0,0,0,0.55)]"
+              className="absolute bottom-4 left-4 max-w-[calc(100%-2rem)] !border-[rgba(255,252,246,0.76)] !bg-[rgba(37,34,31,0.96)] !text-[var(--sj-paper)] shadow-[0_3px_18px_rgba(0,0,0,0.45)] [text-shadow:0_1px_1px_rgba(0,0,0,0.62)]"
             />
           </div>
         ) : (
