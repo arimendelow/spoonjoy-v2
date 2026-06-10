@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { authenticateApiToken, principalFromUserEmail, type ApiPrincipal } from "../app/lib/api-auth.server";
+import { ApiAuthError, authenticateApiToken, principalFromUserEmail, type ApiPrincipal } from "../app/lib/api-auth.server";
 import { getLocalDb } from "../app/lib/db.server";
 import { createJsonRpcLineSession } from "../app/lib/mcp/json-rpc-stdio.server";
 import type { JsonRpcToolRouter } from "../app/lib/mcp/json-rpc.server";
@@ -73,7 +73,9 @@ function redactTokenFromPollResult(data: unknown, cached: Awaited<ReturnType<typ
   return safeData;
 }
 
-process.env.SPOONJOY_MCP_API_TOKEN ||= await readSpoonjoyMcpCachedToken() ?? "";
+const explicitApiToken = process.env.SPOONJOY_MCP_API_TOKEN?.trim() ?? "";
+const cachedApiToken = explicitApiToken ? null : await readSpoonjoyMcpCachedToken();
+process.env.SPOONJOY_MCP_API_TOKEN = explicitApiToken || cachedApiToken || "";
 
 const baseUrl = remoteBaseUrl();
 let db: Awaited<ReturnType<typeof getProtocolSafeDb>> | null = null;
@@ -84,11 +86,20 @@ const remoteToolList = baseUrl ? await remoteTools(baseUrl) : null;
 
 if (!baseUrl) {
   db = await getProtocolSafeDb();
-  defaultOwnerEmail = process.env.SPOONJOY_MCP_API_TOKEN ? undefined : process.env.SPOONJOY_MCP_USER_EMAIL;
 
   if (process.env.SPOONJOY_MCP_API_TOKEN) {
-    principal = await authenticateApiToken(db, process.env.SPOONJOY_MCP_API_TOKEN);
-  } else if (defaultOwnerEmail) {
+    try {
+      principal = await authenticateApiToken(db, process.env.SPOONJOY_MCP_API_TOKEN);
+    } catch (error) {
+      if (explicitApiToken || !(error instanceof ApiAuthError)) {
+        throw error;
+      }
+      process.env.SPOONJOY_MCP_API_TOKEN = "";
+    }
+  }
+
+  defaultOwnerEmail = process.env.SPOONJOY_MCP_API_TOKEN ? undefined : process.env.SPOONJOY_MCP_USER_EMAIL;
+  if (!principal && defaultOwnerEmail) {
     principal = await principalFromUserEmail(db, defaultOwnerEmail, "environment");
   }
 }
