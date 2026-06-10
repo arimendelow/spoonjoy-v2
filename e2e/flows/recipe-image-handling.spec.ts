@@ -54,7 +54,9 @@ test.describe('Recipe image handling', () => {
       await page.getByRole('textbox', { name: 'Title' }).first().fill(title);
       await page.getByLabel('Upload recipe image').setInputFiles(ORIENTATION_FIXTURE);
       await expect(page.getByRole('img', { name: /recipe image preview/i })).toBeVisible();
-      await page.getByRole('button', { name: /create recipe/i }).click();
+      const createButton = page.getByRole('button', { name: /create recipe/i });
+      await expect(createButton).not.toHaveAttribute('aria-disabled', 'true', { timeout: 15_000 });
+      await createButton.click();
 
       await expect(page).toHaveURL(/\/recipes\/(?!new$)[A-Za-z0-9_-]+$/, { timeout: 15_000 });
       recipePath = new URL(page.url()).pathname;

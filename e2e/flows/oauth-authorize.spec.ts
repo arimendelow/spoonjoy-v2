@@ -93,8 +93,8 @@ test.describe('OAuth authorize + consent flow', () => {
     // Log in as the seed user; the preserved redirectTo lands us on consent.
     await loginAsSeedUser(page, /\/oauth\/authorize\?/);
 
-    await expect(page).toHaveURL(/\/oauth\/authorize/);
     await expect(page.getByRole('heading', { name: /authorize/i })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/oauth/authorize');
     await expect(page.getByText(/view public recipes, cookbooks, and your shopping list/i)).toBeVisible();
     const allow = page.getByRole('button', { name: /allow access/i });
     await expect(allow).toBeVisible();
@@ -117,10 +117,10 @@ test.describe('OAuth authorize + consent flow', () => {
     await expect(page).toHaveURL(/\/login\?redirectTo=/);
 
     await loginAsSeedUser(page, /\/oauth\/authorize\?/);
-    await expect(page).toHaveURL(/\/oauth\/authorize/);
 
     const deny = page.getByRole('button', { name: /^deny$/i });
     await expect(deny).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/oauth/authorize');
 
     const callback = captureCallback(page);
     await deny.click();
