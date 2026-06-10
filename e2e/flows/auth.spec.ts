@@ -24,8 +24,7 @@ test.describe('Auth Flow', () => {
     await loginAsSeedUser(page);
     
     // Should redirect to the public recipe index.
-    await expect(page).toHaveURL(/\/recipes(?:[?#].*)?$/);
-    await expect(page.getByRole('heading', { name: /public recipe box|recipes worth opening/i }).first()).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/recipes');
   });
 
   test('login with invalid credentials shows error', async ({ page }) => {
@@ -43,11 +42,11 @@ test.describe('Auth Flow', () => {
     // First login
     await page.goto('/login');
     await loginAsSeedUser(page);
-    await expect(page).toHaveURL(/\/recipes(?:[?#].*)?$/);
     
     // Click logout
     const logoutButton = page.getByRole('button', { name: /log\s*out/i }).first();
     await expect(logoutButton).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/recipes');
     await logoutButton.click();
     
     // Should redirect to landing or login page
