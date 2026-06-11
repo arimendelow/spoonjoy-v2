@@ -68,7 +68,7 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 **Output**: `scripts/smoke-live-helpers.mjs` exports the new argument/R2 helpers; new `scripts/smoke-image-cover-live.mjs` exports API/MCP adapters, fixture builders, provider preflight parsing, polling, provenance, credential revocation, and cleanup helpers; `package.json` includes `smoke:qa:image-cover`; `scripts/deployment-preflight.ts` recognizes the command; `vitest.config.ts` includes the new script helper modules in coverage.
 **Acceptance**: Unit 1a tests pass green with no warnings.
 
-### ⬜ Unit 1c: Smoke Helper Coverage And Refactor
+### ✅ Unit 1c: Smoke Helper Coverage And Refactor
 **What**: Run the focused helper/preflight tests, inspect edge cases, and refactor for clarity without changing behavior.
 **Output**: Clean focused test output saved in artifacts.
 **Acceptance**: Focused tests pass; no warnings; helper error paths for unsafe target env, invalid R2 key, missing JSON response, and failed tool response are tested.
@@ -156,3 +156,4 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - 2026-06-11 13:31 Adversarial reviewers found generated `covers/*` cleanup, token scopes/lifecycle, `tools/list`, placeholder polling, and script coverage gaps. Updated units to require generated-cover cleanup validation, explicit `recipes:read kitchen:write` token scopes, credential revocation, separate MCP `tools/list`, placeholder polling before cover mutations, and script coverage inclusion.
 - 2026-06-11 13:34 Unit 1a complete: focused red test run saved to `unit-1a-red.log`; failures are missing helper module/exports, package script/preflight requirement, and coverage instrumentation.
 - 2026-06-11 13:38 Unit 1b complete: helper module, smoke flag/R2 helpers, package script, preflight requirement, and coverage config implemented; focused tests passed in `unit-1b-green.log`.
+- 2026-06-11 13:04 Unit 1c complete: focused helper/preflight coverage saved to `unit-1c-coverage.log` with 100% statements/branches/functions/lines for `scripts/smoke-live-helpers.mjs` and `scripts/smoke-image-cover-live.mjs`; build saved to `unit-1c-build.log` with no warnings.
