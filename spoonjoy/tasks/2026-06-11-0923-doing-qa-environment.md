@@ -71,85 +71,104 @@ Add a real Spoonjoy QA deployment target with separate Cloudflare state so live/
 **Acceptance**: Branch is `spoonjoy/qa-environment`; QA D1/R2 resource existence is known; no unrelated worktree changes are overwritten.
 
 ### ⬜ Unit 1a: Static QA Contract — Tests
-**What**: Add failing tests for static QA configuration: `wrangler.json` `env.qa`, distinct D1/R2/rate-limit namespaces, QA base URL, QA package scripts, and QA docs requirements.
+**What**: Add failing tests for static QA configuration: `wrangler.json` `env.qa`, distinct D1/R2/rate-limit namespaces, QA base URL, and QA package scripts.
+**Output**: Updated preflight/package tests plus red-run output saved under the artifacts directory.
 **Acceptance**: Focused preflight tests fail because the QA environment/scripts/docs do not exist yet.
 
 ### ⬜ Unit 1b: Static QA Contract — Implementation
 **What**: Add the `env.qa` Wrangler config, package scripts, and static deployment-preflight validation needed for the tests.
+**Output**: `wrangler.json`, `package.json`, and static preflight helper changes.
 **Acceptance**: Focused static QA contract tests pass with no warnings.
 
 ### ⬜ Unit 1c: Static QA Contract — Coverage & Refactor
 **What**: Refactor static preflight helpers only where needed and run targeted coverage.
+**Output**: Targeted coverage/test output saved under the artifacts directory and any small helper cleanup needed.
 **Acceptance**: New static validation branches are covered and focused tests remain green.
 
 ### ⬜ Unit 2a: QA Remote Preflight — Tests
 **What**: Add failing tests for `qa:preflight`: `--env qa` migration check, secret-list check, R2 write/read/delete argument construction, auth-warning behavior, and failure behavior for non-QA aliases.
+**Output**: New QA preflight tests plus red-run output saved under the artifacts directory.
 **Acceptance**: Focused QA preflight tests fail before the new script/helpers exist.
 
 ### ⬜ Unit 2b: QA Remote Preflight — Implementation
 **What**: Add a testable `scripts/qa-preflight.ts` that runs static config validation plus QA remote migration, secret, and R2 round-trip checks.
+**Output**: `scripts/qa-preflight.ts`, package script wiring, and any shared preflight exports needed.
 **Acceptance**: Focused QA preflight tests pass; no production `--remote` call is constructed without `--env qa`.
 
 ### ⬜ Unit 2c: QA Remote Preflight — Coverage & Refactor
 **What**: Cover success, auth-warning, parse/failure, and cleanup-after-R2-failure branches.
+**Output**: Targeted coverage/test output saved under the artifacts directory and any helper cleanup needed.
 **Acceptance**: New QA preflight code has 100% coverage and focused tests remain green.
 
 ### ⬜ Unit 3a: QA Seed — Tests
 **What**: Add failing tests for an idempotent QA seed command that builds SQL for disposable/demo data, includes `--env qa`, and refuses production or non-QA targets.
+**Output**: New QA seed tests plus red-run output saved under the artifacts directory.
 **Acceptance**: Focused QA seed tests fail before the seed script exists.
 
 ### ⬜ Unit 3b: QA Seed — Implementation
 **What**: Add `scripts/seed-qa.mjs` with exported testable SQL/argument helpers and a CLI that applies the seed to QA D1.
+**Output**: `scripts/seed-qa.mjs`, package script wiring, and passing focused seed tests.
 **Acceptance**: Focused seed tests pass; the seed helper cannot construct production D1 arguments.
 
 ### ⬜ Unit 3c: QA Seed — Coverage & Refactor
 **What**: Cover idempotency SQL fragments, shell args, dry-run behavior, and refusal branches.
+**Output**: Targeted coverage/test output saved under the artifacts directory and any seed helper cleanup needed.
 **Acceptance**: New seed code has 100% coverage and focused tests remain green.
 
 ### ⬜ Unit 4a: QA-Safe Smoke Cleanup — Tests
 **What**: Add failing tests around `scripts/smoke-live.mjs` helpers so QA cleanup uses `--env qa`, production cleanup is explicit, and Apple OAuth guard runs only for production.
+**Output**: New smoke helper tests plus red-run output saved under the artifacts directory.
 **Acceptance**: Focused smoke tests fail against the current hardcoded behavior.
 
 ### ⬜ Unit 4b: QA-Safe Smoke Cleanup — Implementation
 **What**: Refactor `scripts/smoke-live.mjs` to export testable helpers, support explicit `--target-env local|qa|production`, wire `smoke:qa`, and verify smoke cleanup removed the QA user.
+**Output**: Updated smoke script, package script wiring, and passing focused smoke tests.
 **Acceptance**: Focused smoke tests pass; `smoke:qa` cannot default to production and skips the production-only Apple OAuth check.
 
 ### ⬜ Unit 4c: QA-Safe Smoke Cleanup — Coverage & Refactor
 **What**: Cover local, QA, production, missing target env, cleanup failure, and post-cleanup verification branches.
+**Output**: Targeted coverage/test output saved under the artifacts directory and any smoke helper cleanup needed.
 **Acceptance**: New smoke helper code has 100% coverage and focused tests remain green.
 
 ### ⬜ Unit 5a: Documentation — Tests
 **What**: Add failing tests or extend existing docs tests for QA resource setup, secrets, telemetry/image-provider policy, OAuth/WebAuthn origin expectations, seed data, disposable naming, and verification commands.
+**Output**: Updated docs/preflight tests plus red-run output saved under the artifacts directory.
 **Acceptance**: Docs tests fail before README/DEPLOY/docs updates are made.
 
 ### ⬜ Unit 5b: Documentation — Implementation
 **What**: Update deployment docs, README/DEPLOY where appropriate, backlog/task docs, and autopilot state with the QA environment contract.
+**Output**: Updated documentation and autopilot state.
 **Acceptance**: Docs tests pass and the docs describe exact QA commands without suggesting production cleanup.
 
 ### ⬜ Unit 5c: Documentation — Coverage & Refactor
 **What**: Run focused docs/preflight tests and simplify wording or helper assertions if needed.
+**Output**: Focused docs/preflight test output saved under the artifacts directory and any doc/test cleanup needed.
 **Acceptance**: Docs-related tests remain green with no warnings.
 
 ### ⬜ Unit 6a: Remote QA Verification — Tests/Preflight
-**What**: Run local targeted tests, create or verify QA Cloudflare resources, apply QA migrations, set/verify required QA secrets where possible, run QA seed, and run QA preflight.
+**What**: Run local targeted tests, create or verify QA Cloudflare resources, apply QA migrations, verify QA secrets via `wrangler secret list --env qa` when authenticated, run QA seed, and run QA preflight. If auth or secret values are missing, record the exact blocker, do not touch production, and do not mark QA smoke complete.
+**Output**: QA resource, migration, secret-list, seed, and preflight logs saved under the artifacts directory.
 **Acceptance**: Command outputs are saved in the artifact directory; failures are actionable and do not touch production.
 
 ### ⬜ Unit 6b: Remote QA Verification — Implementation
 **What**: Deploy QA, run QA smoke, verify QA smoke cleanup in QA D1, and run R2 round-trip verification if not already covered by preflight.
+**Output**: QA deploy, health, smoke, cleanup-verification, and R2 round-trip logs saved under the artifacts directory.
 **Acceptance**: QA Worker is reachable, QA smoke passes, QA disposable user is gone after cleanup, and artifacts show the exact URL and environment.
 
 ### ⬜ Unit 6c: Full Verification, Merge, Deploy
-**What**: Run full `deploy:preflight`, `typecheck`, `test:coverage`, create/merge PR, verify main CI and auto-deploy, run production smoke, clean disposable test data, close stale branch state, and notify Slugger.
-**Acceptance**: `main` contains the work, production auto-deploy is verified for the merge commit, production smoke passes, no Codex QA residue remains, and no stale PR/branch remains for this task.
+**What**: Run full `deploy:preflight`, `typecheck`, `test:coverage`, create/merge PR, verify main CI and auto-deploy, run production smoke, verify no disposable QA D1/R2 residue and no production smoke residue remain, close stale branch state, and notify Slugger without adding broader production cleanup powers.
+**Output**: Full verification logs, PR/merge/deploy evidence, production smoke artifacts, QA/prod residue checks, and Slugger notification output saved under the artifacts directory.
+**Acceptance**: `main` contains the work, production auto-deploy is verified for the merge commit, production smoke passes, no Codex QA/prod smoke residue remains, and no stale PR/branch remains for this task.
 
 ## Execution
 - **TDD strictly enforced**: tests → red → implement → green → refactor
-- Commit after each phase (1a, 1b, 1c)
-- Push after each unit complete
-- Run full test suite before marking unit done
+- Red-only test units save failure evidence under `./2026-06-11-0923-doing-qa-environment/`; do not commit or push a deliberately failing suite as complete.
+- Commit and push after the paired green/refactor slice passes.
+- Run the full test suite before marking an implementation/refactor group complete.
 - **All artifacts**: Save outputs, logs, data to `./2026-06-11-0923-doing-qa-environment/` directory
 - **Fixes/blockers**: Spawn sub-agent immediately — don't ask, just do it
 - **Decisions made**: Update docs immediately, commit right away
 
 ## Progress Log
 - 2026-06-11 09:45 America/Los_Angeles Created from approved planning doc.
+- 2026-06-11 09:53 America/Los_Angeles Addressed doing-doc reviewer findings: added missing outputs, moved docs tests out of Unit 1, clarified red-test commit handling, made QA secret blocker handling explicit, and strengthened cleanup verification.
