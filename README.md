@@ -93,6 +93,9 @@ For Ouroboros agent integration, see [`docs/ouroboros-mcp.md`](docs/ouroboros-mc
 | `pnpm build` | Production build |
 | `pnpm typecheck` | TypeScript validation |
 | `pnpm run deploy:preflight` | Verify Cloudflare bindings, secrets docs, scripts, and migrations before production deploy |
+| `pnpm run qa:preflight` | Verify the isolated `spoonjoy-v2-qa` Worker config, QA D1/R2, required QA secrets, and QA R2 round trip |
+| `pnpm run deploy:qa` | Build with `CLOUDFLARE_ENV=qa`, migrate `spoonjoy-qa`, validate generated config with `SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG`, and deploy QA |
+| `pnpm run smoke:qa` | Run the live smoke against `spoonjoy-v2-qa.mendelow-studio.workers.dev` with `--target-env qa` cleanup |
 
 ## Generated Artifacts
 
@@ -211,6 +214,8 @@ pnpm exec prisma migrate diff --from-empty --to-schema-datamodel=./prisma/schema
    Use `pnpm run deploy`; bare `pnpm deploy` is pnpm's workspace deploy command and will not run this package script.
 
 See [docs/deployment.md](./docs/deployment.md) for the full production checklist, local `.dev.vars` guidance, and common failure modes.
+
+The dedicated QA environment uses D1 `spoonjoy-qa`, R2 `spoonjoy-photos-qa`, seed namespace `sj-qa-demo`, and disposable `codex-smoke-` users. Configure QA secrets with commands such as `wrangler secret put SESSION_SECRET --env qa` and verify them with `wrangler secret list --env qa`. QA docs also cover `POSTHOG_DISABLED=true`, `IMAGE_PROVIDER_PRIMARY=gemini`, OAuth callback setup, WebAuthn origins, and the rule: Do not run broad production cleanup.
 
 ## Project Structure
 

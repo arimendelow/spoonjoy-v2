@@ -36,6 +36,36 @@ wrangler d1 create spoonjoy
 
 **Copy the `database_id`** — you'll need it for wrangler.json.
 
+### Dedicated QA Resources
+
+QA is a separate Cloudflare environment, not a seed namespace in production. It deploys to `spoonjoy-v2-qa.mendelow-studio.workers.dev`, uses D1 `spoonjoy-qa`, and stores images in R2 bucket `spoonjoy-photos-qa`.
+
+```bash
+wrangler d1 create spoonjoy-qa
+wrangler r2 bucket create spoonjoy-photos-qa
+wrangler secret list --env qa
+wrangler secret put SESSION_SECRET --env qa
+wrangler secret put VAPID_PUBLIC_KEY --env qa
+wrangler secret put VAPID_PRIVATE_KEY --env qa
+wrangler secret put VAPID_SUBJECT --env qa
+```
+
+Use `POSTHOG_DISABLED=true` for privacy-sensitive QA runs unless the point of the run is telemetry verification. Match image-provider policy with `IMAGE_PROVIDER_PRIMARY=gemini` and the same Gemini/OpenAI fallback variables used by production. QA OAuth callback configuration must include the QA origin for providers you enable there; WebAuthn passkey verification uses the QA request origin.
+
+QA deploy and smoke flow:
+
+```bash
+pnpm run qa:preflight
+pnpm run qa:migrate
+pnpm run qa:seed
+CLOUDFLARE_ENV=qa pnpm run build
+SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG=1 pnpm run qa:preflight
+pnpm run deploy:qa
+pnpm run smoke:qa
+```
+
+`pnpm run qa:seed` writes only `sj-qa-demo` data. `pnpm run smoke:qa` uses `--target-env qa`, creates `codex-smoke-` data, cleans it from QA D1, and verifies the cleanup. Do not run broad production cleanup.
+
 ### R2 Bucket (required for recipe images)
 
 Recipe and profile image uploads are backed by Cloudflare R2 through the `PHOTOS` binding. Before the first bucket can be created, R2 must be enabled for the Cloudflare account in the Dashboard. Wrangler/API calls return `10042: Please enable R2 through the Cloudflare Dashboard` until that account-level R2 step is complete.
