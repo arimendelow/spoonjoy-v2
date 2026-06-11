@@ -43,30 +43,6 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - [ ] All tests pass.
 - [ ] No warnings.
 
-## Endpoint Acceptance Matrix
-- Browser/session: signup and create a no-photo recipe so the same path that users hit can produce the initial AI placeholder cover.
-- `/api/tools/create_api_token`: mint the short-lived bearer from the authenticated browser session.
-- `/api/tools/upload_recipe_image`: upload the oriented JPEG fixture and assert stored-object EXIF normalization.
-- `/api/tools/upload_recipe_image`: reject GIF bytes and assert no R2 key is recorded.
-- `/api/tools/upload_spoon_photo`: upload the spoon photo fixture.
-- `/mcp` `tools/list`: assert the remote MCP connector exposes the expected image/cover tools.
-- `/mcp` `create_spoon`: create the origin spoon with the uploaded spoon photo.
-- `/mcp` `list_recipe_spoon_images`: prove cover-source browsing sees the spoon photo.
-- `/mcp` `create_recipe_cover_from_upload`: create and activate the verbatim chef-upload cover.
-- `/mcp` `create_recipe_cover_from_spoon`: create a spoon-sourced cover.
-- `/mcp` `regenerate_recipe_cover`: trigger editorial regeneration for a cover and poll `/mcp` `get_cover_generation_status` to a bounded terminal state.
-- `/mcp` `set_active_recipe_cover`: swap between cover variants.
-- `/mcp` `archive_recipe_cover`: archive an inactive cover and verify it is only visible when archived covers are requested.
-- `/mcp` `list_recipe_covers`: verify active/inactive/archived state and provenance labels.
-
-## Runtime Safety Gates
-- The image-cover smoke mode refuses any `targetEnv` other than `qa` and any origin other than `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`.
-- Before mutation, the smoke runs or embeds the equivalent QA preflight checks for static `wrangler.json` QA D1/R2 isolation, Cloudflare authentication, remote QA D1 access, and remote QA R2 access.
-- Before mutation, the full package command verifies remote QA has at least one configured image-provider secret accepted by the app's provider stack; if not, it exits before signup/upload instead of partially passing.
-- Provider-backed generation polling is bounded: fixed attempt count, fixed delay, terminal success/failure handling, and cleanup in `finally` on timeout or failure.
-- R2 cleanup only deletes exact keys returned by this run's upload/generation responses and only after key-prefix validation against the smoke user's owner id and allowed namespaces.
-- User cleanup verifies the exact disposable email. A separate residue count may be recorded, but this smoke does not broad-clean unrelated `codex-smoke-%` users.
-
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
 - No `[ExcludeFromCodeCoverage]` or equivalent on new code
@@ -107,7 +83,32 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 ## Notes
 The smoke should write a JSON artifact with created IDs, image URLs, cover IDs, MCP/API check names, cleanup output, and any screenshots only if browser debugging is useful. The script must refuse remote non-QA targets unless explicitly expanded in a later task.
 
+Endpoint acceptance matrix:
+- Browser/session: signup and create a no-photo recipe so the same path that users hit can produce the initial AI placeholder cover.
+- `/api/tools/create_api_token`: mint the short-lived bearer from the authenticated browser session.
+- `/api/tools/upload_recipe_image`: upload the oriented JPEG fixture and assert stored-object EXIF normalization.
+- `/api/tools/upload_recipe_image`: reject GIF bytes and assert no R2 key is recorded.
+- `/api/tools/upload_spoon_photo`: upload the spoon photo fixture.
+- `/mcp` `tools/list`: assert the remote MCP connector exposes the expected image/cover tools.
+- `/mcp` `create_spoon`: create the origin spoon with the uploaded spoon photo.
+- `/mcp` `list_recipe_spoon_images`: prove cover-source browsing sees the spoon photo.
+- `/mcp` `create_recipe_cover_from_upload`: create and activate the verbatim chef-upload cover.
+- `/mcp` `create_recipe_cover_from_spoon`: create a spoon-sourced cover.
+- `/mcp` `regenerate_recipe_cover`: trigger editorial regeneration for a cover and poll `/mcp` `get_cover_generation_status` to a bounded terminal state.
+- `/mcp` `set_active_recipe_cover`: swap between cover variants.
+- `/mcp` `archive_recipe_cover`: archive an inactive cover and verify it is only visible when archived covers are requested.
+- `/mcp` `list_recipe_covers`: verify active/inactive/archived state and provenance labels.
+
+Runtime safety gates:
+- The image-cover smoke mode refuses any `targetEnv` other than `qa` and any origin other than `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`.
+- Before mutation, the smoke runs or embeds the equivalent QA preflight checks for static `wrangler.json` QA D1/R2 isolation, Cloudflare authentication, remote QA D1 access, and remote QA R2 access.
+- Before mutation, the full package command verifies remote QA has at least one configured image-provider secret accepted by the app's provider stack; if not, it exits before signup/upload instead of partially passing.
+- Provider-backed generation polling is bounded: fixed attempt count, fixed delay, terminal success/failure handling, and cleanup in `finally` on timeout or failure.
+- R2 cleanup only deletes exact keys returned by this run's upload/generation responses and only after key-prefix validation against the smoke user's owner id and allowed namespaces.
+- User cleanup verifies the exact disposable email. A separate residue count may be recorded, but this smoke does not broad-clean unrelated `codex-smoke-%` users.
+
 ## Progress Log
 - 2026-06-11 12:21 Created
 - 2026-06-11 12:47 Reviewer found the first plan under-scoped. Added regenerate/status coverage, provenance proof, exact R2 cleanup, EXIF orientation assertions, and CI/scheduled QA gating before implementation.
 - 2026-06-11 12:55 Reviewer found safety/cleanup ambiguity. Added concrete QA preflight gates, endpoint-by-operation matrix, bounded provider polling, run-scoped user cleanup, canonical R2 key validation, and no-human-gate reviewer convergence language.
+- 2026-06-11 13:00 Moved the endpoint matrix and runtime gates into Notes to keep the planning doc compliant with the work-planner template.
