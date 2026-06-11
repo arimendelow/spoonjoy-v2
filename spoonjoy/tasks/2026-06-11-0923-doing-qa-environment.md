@@ -34,11 +34,11 @@ Add a real Spoonjoy QA deployment target with separate Cloudflare state so live/
 - [x] QA smoke creates disposable QA data and verifies that cleanup removed that data from QA D1.
 - [ ] QA docs cover telemetry defaults, image-provider policy, OAuth callback expectations, WebAuthn/RP-origin expectations, QA seed data, and disposable data naming.
 - [ ] Docs make it clear future agents should verify QA before production-risky live flows.
-- [ ] `pnpm run deploy:preflight`, `pnpm test:coverage`, and `pnpm typecheck` pass.
+- [x] `pnpm run deploy:preflight`, `pnpm test:coverage`, and `pnpm typecheck` pass.
 - [ ] Work is merged to `main`, auto-deployment is verified, production smoke passes, and disposable test data is cleaned.
-- [ ] 100% test coverage on all new code
-- [ ] All tests pass
-- [ ] No warnings
+- [x] 100% test coverage on all new code
+- [x] All tests pass
+- [x] No warnings
 
 ## Code Coverage Requirements
 
@@ -184,3 +184,4 @@ Add a real Spoonjoy QA deployment target with separate Cloudflare state so live/
 - 2026-06-11 11:10 America/Los_Angeles Unit 6a complete: targeted tests passed; QA D1 migrations applied; QA Worker bootstrapped; QA runtime secrets set and listed; QA seed ran and reran idempotently; full QA preflight passed with generated build config, D1 migrations, secrets, and R2 round trip.
 - 2026-06-11 10:10 America/Los_Angeles Addressed fresh reviewer findings before QA smoke: smoke target env and base URL now must match, and QA R2 preflight fails if the delete probe cannot be removed. Red/green evidence saved as `unit-review-fixes-red.txt` and `unit-review-fixes-green.txt`.
 - 2026-06-11 10:12 America/Los_Angeles Unit 6b complete: documented QA deploy succeeded, `/health` returned ok, `pnpm run smoke:qa` passed, QA D1 `codex-smoke-%` residue count is 0, and QA R2 write/read/delete preflight passed. Smoke JSON and screenshots are saved under the artifact directory.
+- 2026-06-11 10:21 America/Los_Angeles Fresh Unit 6b reviewer converged. Unit 6c local gates passed: `pnpm run deploy:preflight`, `pnpm typecheck`, `pnpm run test:coverage` (300 files, 5,871 tests, 100% coverage), and `pnpm run build`.
