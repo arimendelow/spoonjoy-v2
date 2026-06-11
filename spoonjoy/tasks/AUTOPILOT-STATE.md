@@ -1,6 +1,6 @@
 # Autopilot State
 
-Updated: 2026-06-11 13:30 America/Los_Angeles
+Updated: 2026-06-11 15:13 America/Los_Angeles
 Branch: `spoonjoy/mcp-image-cover-smokes`
 Objective: Implement `SJ-045` by adding a QA-only MCP/API image and cover live smoke, validating it end to end, merging it to main, verifying deployment, and cleaning all disposable data.
 
@@ -10,16 +10,15 @@ Objective: Implement `SJ-045` by adding a QA-only MCP/API image and cover live s
 - Doing doc: `spoonjoy/tasks/2026-06-11-1221-doing-mcp-image-cover-smokes.md`
 - Artifacts: `spoonjoy/tasks/2026-06-11-1221-doing-mcp-image-cover-smokes/`
 - Planning gate: approved by sub-agent reviewer convergence on 2026-06-11 13:05.
-- Doing gate: in progress; Units 0, 1a, 1b, 1c, 2a, 2b, 2c, 2d, 2e, 3a, 3b, and 3c complete.
+- Doing gate: in progress; Units 0, 1a, 1b, 1c, 2a, 2b, 2c, 2d, 2e, 3a, 3b, 3c, and 4 complete.
 - No human gates remain under the user's explicit no-human-gates mandate unless a true human-only credential/capability blocker or genuinely unrecoverable destructive shared-state action appears.
 
 ## Next Action
 
 Current execution queue:
 
-1. Unit 4: local verification.
-2. Unit 5: remote QA image-cover smoke.
-3. Unit 6: implementation review, PR merge, production deploy verification, cleanup, Slugger notification.
+1. Unit 5: remote QA image-cover smoke.
+2. Unit 6: implementation review, PR merge, production deploy verification, cleanup, Slugger notification.
 
 ## Known External State
 

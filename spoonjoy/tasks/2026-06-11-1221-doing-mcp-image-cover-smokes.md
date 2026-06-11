@@ -113,7 +113,7 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 **Output**: Focused test output saved in artifacts.
 **Acceptance**: Focused tests pass with no warnings.
 
-### ⬜ Unit 4: Local Verification
+### ✅ Unit 4: Local Verification
 **What**: Run focused tests, full coverage, typecheck, build, and local cleanup inspection.
 **Output**: Save logs to `2026-06-11-1221-doing-mcp-image-cover-smokes/focused-tests.log`, `coverage.log`, `typecheck.log`, `build.log`, and `cleanup-local.log`.
 **Acceptance**: These commands pass with no warnings: `pnpm exec vitest run test/scripts/smoke-live-helpers.test.ts test/scripts/smoke-image-cover-live.test.ts test/scripts/deployment-preflight.test.ts`, `pnpm run test:coverage`, `pnpm run typecheck`, `pnpm run build`, and `pnpm cleanup:qa`; local disposable residue remains zero.
@@ -162,3 +162,4 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - 2026-06-11 13:21 Unit 2e complete: focused coverage saved to `unit-2e-coverage.log` with 100% statements/branches/functions/lines for `scripts/smoke-live-helpers.mjs` and `scripts/smoke-image-cover-live.mjs`; build saved to `unit-2e-build.log`; no warnings. Addressed implementation-review findings by failing the smoke if token revocation does not revoke and by recording operation names, cover IDs, image URLs, and generation polling history in `imageCoverSmoke`.
 - 2026-06-11 13:25 Unit 3a complete: red workflow tests saved to `unit-3a-red.log`; failures are missing `QA image-cover smoke workflow` preflight check and missing `.github/workflows/qa-image-cover-smoke.yml`. Unit review skipped because this is a tests-only red unit with intentional missing-workflow failures.
 - 2026-06-11 13:30 Units 3b and 3c complete: added `.github/workflows/qa-image-cover-smoke.yml` with manual/scheduled triggers, Cloudflare credential skip gate, QA provider-secret skip gate, QA-only smoke command, and artifact upload; deployment preflight now checks the workflow. Focused tests saved to `unit-3bc-green.log`; build saved to `unit-3bc-build.log`; no warnings.
+- 2026-06-11 15:13 Unit 4 complete: hardened QA workflow preflight so `qa:preflight` reads `.github/workflows/qa-image-cover-smoke.yml` and structural checks prove trigger, credential, provider-secret, smoke, and artifact gates. Focused tests saved to `focused-tests.log`; full coverage saved to `coverage.log` with 100% tracked coverage; typecheck saved to `typecheck.log`; build saved to `build.log`; local QA cleanup dry run saved to `cleanup-local.log` with zero active disposable residue.
