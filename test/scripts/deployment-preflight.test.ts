@@ -100,16 +100,47 @@ function validInputs(): DeploymentPreflightInputs {
       "  smoke:",
       "    steps:",
       "      - name: Check GitHub Cloudflare credentials",
+      "        id: cloudflare",
       "        env:",
       "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
       "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
-      "        run: echo ready",
+      "        run: |",
+      "          echo ready=false",
+      "          echo ready=true",
       "      - uses: actions/checkout@v6",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
       "      - run: pnpm install --frozen-lockfile",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
       "      - run: pnpm prisma:generate",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
       "      - name: Check QA image-provider secrets",
-      "        run: wrangler secret list --env qa && echo OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY",
-      "      - run: pnpm run smoke:qa:image-cover # spoonjoy-v2-qa.mendelow-studio.workers.dev --target-env qa",
+      "        id: qa-secrets",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "        run: |",
+      "          secrets_json=\"$(pnpm exec wrangler secret list --env qa)\"",
+      "          if ! printf '%s' \"$secrets_json\" | grep -q '\"OPENAI_API_KEY\"'; then",
+      "            echo ready=false",
+      "          fi",
+      "          if ! printf '%s' \"$secrets_json\" | grep -Eq '\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\"'; then",
+      "            echo ready=false",
+      "          fi",
+      "          echo ready=true",
+      "      - name: Run QA image-cover smoke",
+      "        if: steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "          SPOONJOY_QA_SMOKE_BASE_URL: https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+      "          SPOONJOY_QA_SMOKE_TARGET: --target-env qa",
+      "        run: pnpm run smoke:qa:image-cover",
+      "      - name: Upload QA image-cover smoke artifacts",
+      "        if: always() && steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'",
+      "        uses: actions/upload-artifact@v7",
+      "        with:",
+      "          path: qa-image-cover-smoke-artifacts/",
     ].join("\n"),
     cloudflareEnvDts: "DB?: D1Database; PHOTOS?: R2Bucket; SESSION_SECRET?: string; OPENAI_API_KEY?: string; GOOGLE_API_KEY?: string; GEMINI_API_KEY?: string; GEMINI_IMAGE_MODEL?: string; GEMINI_IMAGE_TIMEOUT_MS?: string; IMAGE_PROVIDER_PRIMARY?: string; IMAGE_PROVIDER_FALLBACKS?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; GITHUB_CLIENT_ID?: string; GITHUB_CLIENT_SECRET?: string; APPLE_CLIENT_ID?: string; APPLE_TEAM_ID?: string; APPLE_KEY_ID?: string; APPLE_PRIVATE_KEY?: string; VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: string; VAPID_SUBJECT?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string; POSTHOG_DISABLED?: string;",
     readme: "pnpm run deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY GOOGLE_API_KEY VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT GEMINI_API_KEY GEMINI_IMAGE_MODEL GEMINI_IMAGE_TIMEOUT_MS gemini-3.1-flash-image IMAGE_PROVIDER_PRIMARY IMAGE_PROVIDER_FALLBACKS VITE_POSTHOG_KEY VITE_POSTHOG_HOST VITE_POSTHOG_DISABLED POSTHOG_KEY POSTHOG_HOST POSTHOG_DISABLED server lifecycle telemetry docs/analytics-privacy.md",
@@ -421,6 +452,56 @@ describe("deployment preflight", () => {
       "      - run: pnpm install --frozen-lockfile",
       "      - run: pnpm prisma:generate",
       "      - run: pnpm run smoke:qa:image-cover",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover workflows that only echo required provider words", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = [
+      "name: QA Image Cover Smoke",
+      "on:",
+      "  workflow_dispatch:",
+      "  schedule:",
+      "    - cron: \"17 10 * * *\"",
+      "jobs:",
+      "  smoke:",
+      "    steps:",
+      "      - name: Check GitHub Cloudflare credentials",
+      "        id: cloudflare",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "        run: echo ready=false ready=true",
+      "      - uses: actions/checkout@v6",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
+      "      - run: pnpm install --frozen-lockfile",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
+      "      - run: pnpm prisma:generate",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
+      "      - name: Check QA image-provider secrets",
+      "        id: qa-secrets",
+      "        if: steps.cloudflare.outputs.ready == 'true'",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "        run: echo wrangler secret list --env qa OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY ready=false ready=true",
+      "      - name: Run QA image-cover smoke",
+      "        if: steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "          SPOONJOY_QA_SMOKE_BASE_URL: https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+      "          SPOONJOY_QA_SMOKE_TARGET: --target-env qa",
+      "        run: pnpm run smoke:qa:image-cover",
+      "      - name: Upload QA image-cover smoke artifacts",
+      "        if: always() && steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'",
+      "        uses: actions/upload-artifact@v7",
+      "        with:",
+      "          path: qa-image-cover-smoke-artifacts/",
     ].join("\n");
 
     const result = validateDeploymentConfig(inputs);
@@ -928,25 +1009,13 @@ describe("package.json deploy scripts", () => {
 describe("QA image-cover smoke workflow", () => {
   it("runs only on manual dispatch and schedule with credential and QA secret gates", async () => {
     const workflow = await readFile(`${process.cwd()}/.github/workflows/qa-image-cover-smoke.yml`, "utf8");
+    const result = validateDeploymentConfig({
+      ...validInputs(),
+      qaImageCoverSmokeWorkflow: workflow,
+    });
 
-    expect(workflow).toContain("workflow_dispatch:");
-    expect(workflow).toContain("schedule:");
-    expect(workflow).not.toContain("push:");
-    expect(workflow).not.toContain("pull_request:");
-    expect(workflow).toContain("CLOUDFLARE_API_TOKEN");
-    expect(workflow).toContain("CLOUDFLARE_ACCOUNT_ID");
-    expect(workflow).toContain("wrangler secret list --env qa");
-    expect(workflow).toContain("OPENAI_API_KEY");
-    expect(workflow).toContain("GEMINI_API_KEY");
-    expect(workflow).toContain("GOOGLE_API_KEY");
-    expect(workflow).toContain("pnpm install --frozen-lockfile");
-    expect(workflow).toContain("pnpm prisma:generate");
-    expect(workflow).toContain("pnpm run smoke:qa:image-cover");
-    expect(workflow).toContain("spoonjoy-v2-qa.mendelow-studio.workers.dev");
-    expect(workflow).toContain("--target-env qa");
-    expect(workflow).not.toContain("deploy:auto");
-    expect(workflow).not.toContain("wrangler deploy");
-    expect(workflow).not.toContain("--target-env production");
+    expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
+    expect(result.checks.find((item) => item.name === "QA image-cover smoke workflow")?.ok).toBe(true);
   });
 });
 

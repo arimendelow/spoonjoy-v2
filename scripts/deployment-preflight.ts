@@ -273,6 +273,42 @@ function stepRunsDeployAuto(lines: WorkflowLine[], stepStart: number, stepEnd: n
   return false;
 }
 
+function stepPropertyValue(lines: WorkflowLine[], stepStart: number, stepEnd: number, key: string): string | null {
+  const inline = lines[stepStart].text.match(new RegExp(`^-\\s+${key}:\\s*(.*)$`));
+  if (inline) return inline[1].trim();
+
+  const propertyIndent = lines[stepStart].indent + 2;
+  for (let index = stepStart + 1; index < stepEnd; index += 1) {
+    if (lines[index].indent !== propertyIndent) continue;
+    const value = lines[index].text.match(new RegExp(`^${key}:\\s*(.*)$`));
+    if (value) return value[1].trim();
+  }
+  return null;
+}
+
+function stepRunText(lines: WorkflowLine[], stepStart: number, stepEnd: number): string {
+  const inlineRun = lines[stepStart].text.match(/^-\s+run:\s*(.+)$/);
+  if (inlineRun) return inlineRun[1].trim();
+
+  const runIndent = lines[stepStart].indent + 2;
+  for (let index = stepStart + 1; index < stepEnd; index += 1) {
+    if (lines[index].indent !== runIndent) continue;
+    const run = lines[index].text.match(/^run:\s*(.*)$/);
+    if (!run) continue;
+
+    const value = run[1].trim();
+    if (value !== "|" && value !== ">") return value;
+
+    const commands: string[] = [];
+    for (let commandIndex = index + 1; commandIndex < stepEnd; commandIndex += 1) {
+      if (lines[commandIndex].indent <= lines[index].indent) break;
+      commands.push(lines[commandIndex].text);
+    }
+    return commands.join("\n");
+  }
+  return "";
+}
+
 function stepHasEnvKeys(lines: WorkflowLine[], stepStart: number, stepEnd: number, keys: string[]): boolean {
   const env = childBlock(lines, stepStart, stepEnd, "env");
   if (!env) return false;
@@ -317,23 +353,145 @@ function workflowTriggersOnlyDispatchAndSchedule(workflow: string): boolean {
   return Boolean(workflowDispatch && schedule && !push && !pullRequest);
 }
 
+function stepIfIncludesAll(lines: WorkflowLine[], stepStart: number, stepEnd: number, terms: string[]): boolean {
+  const value = stepPropertyValue(lines, stepStart, stepEnd, "if");
+  return typeof value === "string" && terms.every((term) => value.includes(term));
+}
+
+function stepUses(lines: WorkflowLine[], stepStart: number, stepEnd: number, action: string): boolean {
+  const value = stepPropertyValue(lines, stepStart, stepEnd, "uses");
+  return typeof value === "string" && value.startsWith(action);
+}
+
+function stepHasId(lines: WorkflowLine[], stepStart: number, stepEnd: number, id: string): boolean {
+  return stepPropertyValue(lines, stepStart, stepEnd, "id") === id;
+}
+
+function workflowHasForbiddenQaSmokeTerms(lines: WorkflowLine[]): boolean {
+  const activeText = lines.map((line) => line.text).join("\n");
+  return ["deploy:auto", "wrangler deploy", "--target-env production"].some((term) => activeText.includes(term));
+}
+
+function qaSmokeStepOrderIsValid(order: Record<string, number>): boolean {
+  return (
+    order.cloudflare >= 0 &&
+    order.checkout > order.cloudflare &&
+    order.install > order.checkout &&
+    order.prisma > order.install &&
+    order.providerSecrets > order.prisma &&
+    order.smoke > order.providerSecrets &&
+    order.artifact > order.smoke
+  );
+}
+
 function workflowHasQaImageCoverSmokeGuards(workflow: string): boolean {
-  const requiredTerms = [
-    "CLOUDFLARE_API_TOKEN",
-    "CLOUDFLARE_ACCOUNT_ID",
-    "wrangler secret list --env qa",
-    "OPENAI_API_KEY",
-    "GEMINI_API_KEY",
-    "GOOGLE_API_KEY",
-    "pnpm install --frozen-lockfile",
-    "pnpm prisma:generate",
-    "pnpm run smoke:qa:image-cover",
-    "spoonjoy-v2-qa.mendelow-studio.workers.dev",
-    "--target-env qa",
-  ];
-  const forbiddenTerms = ["deploy:auto", "wrangler deploy", "--target-env production"];
-  return requiredTerms.every((term) => workflow.includes(term)) &&
-    forbiddenTerms.every((term) => !workflow.includes(term));
+  const lines = workflowLines(workflow);
+  if (workflowHasForbiddenQaSmokeTerms(lines)) return false;
+
+  for (const [jobStart, jobEnd] of workflowJobBlocks(lines)) {
+    const steps = childBlock(lines, jobStart, jobEnd, "steps");
+    if (!steps) continue;
+
+    const order = {
+      cloudflare: -1,
+      checkout: -1,
+      install: -1,
+      prisma: -1,
+      providerSecrets: -1,
+      smoke: -1,
+      artifact: -1,
+    };
+
+    for (const [stepStart, stepEnd] of stepBlocks(lines, steps[0], steps[1])) {
+      const run = stepRunText(lines, stepStart, stepEnd);
+
+      if (
+        stepHasId(lines, stepStart, stepEnd, "cloudflare") &&
+        stepHasEnvKeys(lines, stepStart, stepEnd, ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) &&
+        run.includes("ready=false") &&
+        run.includes("ready=true")
+      ) {
+        order.cloudflare = stepStart;
+      }
+
+      if (
+        stepUses(lines, stepStart, stepEnd, "actions/checkout@") &&
+        stepIfIncludesAll(lines, stepStart, stepEnd, ["steps.cloudflare.outputs.ready == 'true'"])
+      ) {
+        order.checkout = stepStart;
+      }
+
+      if (
+        run === "pnpm install --frozen-lockfile" &&
+        stepIfIncludesAll(lines, stepStart, stepEnd, ["steps.cloudflare.outputs.ready == 'true'"])
+      ) {
+        order.install = stepStart;
+      }
+
+      if (
+        run === "pnpm prisma:generate" &&
+        stepIfIncludesAll(lines, stepStart, stepEnd, ["steps.cloudflare.outputs.ready == 'true'"])
+      ) {
+        order.prisma = stepStart;
+      }
+
+      if (
+        stepHasId(lines, stepStart, stepEnd, "qa-secrets") &&
+        stepHasEnvKeys(lines, stepStart, stepEnd, ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) &&
+        stepIfIncludesAll(lines, stepStart, stepEnd, ["steps.cloudflare.outputs.ready == 'true'"]) &&
+        run.includes("wrangler secret list --env qa") &&
+        run.includes("grep -q") &&
+        run.includes('"OPENAI_API_KEY"') &&
+        run.includes("grep -Eq") &&
+        run.includes("GEMINI_API_KEY") &&
+        run.includes("GOOGLE_API_KEY") &&
+        run.includes("ready=false") &&
+        run.includes("ready=true")
+      ) {
+        order.providerSecrets = stepStart;
+      }
+
+      if (
+        run === "pnpm run smoke:qa:image-cover" &&
+        stepHasEnvKeys(lines, stepStart, stepEnd, [
+          "CLOUDFLARE_API_TOKEN",
+          "CLOUDFLARE_ACCOUNT_ID",
+          "SPOONJOY_QA_SMOKE_BASE_URL",
+          "SPOONJOY_QA_SMOKE_TARGET",
+        ]) &&
+        stepIfIncludesAll(lines, stepStart, stepEnd, [
+          "steps.cloudflare.outputs.ready == 'true'",
+          "steps.qa-secrets.outputs.ready == 'true'",
+        ])
+      ) {
+        order.smoke = stepStart;
+      }
+
+      if (
+        stepUses(lines, stepStart, stepEnd, "actions/upload-artifact@") &&
+        stepIfIncludesAll(lines, stepStart, stepEnd, [
+          "always()",
+          "steps.cloudflare.outputs.ready == 'true'",
+          "steps.qa-secrets.outputs.ready == 'true'",
+        ])
+      ) {
+        const withBlock = childBlock(lines, stepStart, stepEnd, "with");
+        if (withBlock) {
+          const withText = lines
+            .slice(withBlock[0], withBlock[1])
+            .map((line) => line.text)
+            .join("\n");
+          if (withText.includes("qa-image-cover-smoke-artifacts/")) {
+            order.artifact = stepStart;
+          }
+        }
+      }
+    }
+
+    if (qaSmokeStepOrderIsValid(order)) return true;
+  }
+
+  return false;
 }
 
 export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): DeploymentPreflightResult {
