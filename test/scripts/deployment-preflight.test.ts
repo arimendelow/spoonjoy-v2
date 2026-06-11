@@ -90,6 +90,27 @@ function validInputs(): DeploymentPreflightInputs {
       "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
       "        run: pnpm run deploy:auto",
     ].join("\n"),
+    qaImageCoverSmokeWorkflow: [
+      "name: QA Image Cover Smoke",
+      "on:",
+      "  workflow_dispatch:",
+      "  schedule:",
+      "    - cron: \"17 10 * * *\"",
+      "jobs:",
+      "  smoke:",
+      "    steps:",
+      "      - name: Check GitHub Cloudflare credentials",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "        run: echo ready",
+      "      - uses: actions/checkout@v6",
+      "      - run: pnpm install --frozen-lockfile",
+      "      - run: pnpm prisma:generate",
+      "      - name: Check QA image-provider secrets",
+      "        run: wrangler secret list --env qa && echo OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY",
+      "      - run: pnpm run smoke:qa:image-cover # spoonjoy-v2-qa.mendelow-studio.workers.dev --target-env qa",
+    ].join("\n"),
     cloudflareEnvDts: "DB?: D1Database; PHOTOS?: R2Bucket; SESSION_SECRET?: string; OPENAI_API_KEY?: string; GOOGLE_API_KEY?: string; GEMINI_API_KEY?: string; GEMINI_IMAGE_MODEL?: string; GEMINI_IMAGE_TIMEOUT_MS?: string; IMAGE_PROVIDER_PRIMARY?: string; IMAGE_PROVIDER_FALLBACKS?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; GITHUB_CLIENT_ID?: string; GITHUB_CLIENT_SECRET?: string; APPLE_CLIENT_ID?: string; APPLE_TEAM_ID?: string; APPLE_KEY_ID?: string; APPLE_PRIVATE_KEY?: string; VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: string; VAPID_SUBJECT?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string; POSTHOG_DISABLED?: string;",
     readme: "pnpm run deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY GOOGLE_API_KEY VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT GEMINI_API_KEY GEMINI_IMAGE_MODEL GEMINI_IMAGE_TIMEOUT_MS gemini-3.1-flash-image IMAGE_PROVIDER_PRIMARY IMAGE_PROVIDER_FALLBACKS VITE_POSTHOG_KEY VITE_POSTHOG_HOST VITE_POSTHOG_DISABLED POSTHOG_KEY POSTHOG_HOST POSTHOG_DISABLED server lifecycle telemetry docs/analytics-privacy.md",
     deploymentDoc: "pnpm run deploy:preflight smoke:api wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY GOOGLE_API_KEY VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT GEMINI_API_KEY GEMINI_IMAGE_MODEL GEMINI_IMAGE_TIMEOUT_MS gemini-3.1-flash-image IMAGE_PROVIDER_PRIMARY IMAGE_PROVIDER_FALLBACKS wrangler secret put POSTHOG_KEY VITE_POSTHOG_KEY VITE_POSTHOG_HOST VITE_POSTHOG_DISABLED POSTHOG_KEY POSTHOG_HOST POSTHOG_DISABLED server lifecycle telemetry",
@@ -360,6 +381,66 @@ describe("deployment preflight", () => {
 
     expect(result.checks.map((item) => item.name)).toContain("QA image-cover smoke workflow");
     expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover workflows with mutation triggers or deploy commands", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = [
+      "on:",
+      "  workflow_dispatch:",
+      "  schedule:",
+      "    - cron: \"17 10 * * *\"",
+      "  push:",
+      "    branches: [main]",
+      "jobs:",
+      "  smoke:",
+      "    steps:",
+      "      - run: pnpm run smoke:qa:image-cover && pnpm exec wrangler deploy",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "      - run: wrangler secret list --env qa && echo OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY",
+      "      - run: echo spoonjoy-v2-qa.mendelow-studio.workers.dev --target-env qa pnpm install --frozen-lockfile pnpm prisma:generate",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover workflows missing credential and provider secret gates", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = [
+      "on:",
+      "  workflow_dispatch:",
+      "  schedule:",
+      "    - cron: \"17 10 * * *\"",
+      "jobs:",
+      "  smoke:",
+      "    steps:",
+      "      - run: pnpm install --frozen-lockfile",
+      "      - run: pnpm prisma:generate",
+      "      - run: pnpm run smoke:qa:image-cover",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover workflows without an on block", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = [
+      "name: QA Image Cover Smoke",
+      "jobs:",
+      "  smoke:",
+      "    steps:",
+      "      - run: pnpm run smoke:qa:image-cover",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
   });
 
   it("flags QA resources that alias production resources", () => {

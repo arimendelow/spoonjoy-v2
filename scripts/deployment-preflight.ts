@@ -17,6 +17,7 @@ export interface DeploymentPreflightInputs {
   wrangler: Record<string, unknown>;
   packageJson: Record<string, unknown>;
   productionDeployWorkflow: string;
+  qaImageCoverSmokeWorkflow: string;
   cloudflareEnvDts: string;
   readme: string;
   deploymentDoc: string;
@@ -304,6 +305,37 @@ function workflowHasCloudflareDeployAutoStep(workflow: string): boolean {
   return false;
 }
 
+function workflowTriggersOnlyDispatchAndSchedule(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  const onIndex = lines.findIndex((line) => line.indent === 0 && line.text === "on:");
+  if (onIndex === -1) return false;
+  const onEnd = blockEnd(lines, onIndex);
+  const workflowDispatch = childBlock(lines, onIndex, onEnd, "workflow_dispatch");
+  const schedule = childBlock(lines, onIndex, onEnd, "schedule");
+  const push = childBlock(lines, onIndex, onEnd, "push");
+  const pullRequest = childBlock(lines, onIndex, onEnd, "pull_request");
+  return Boolean(workflowDispatch && schedule && !push && !pullRequest);
+}
+
+function workflowHasQaImageCoverSmokeGuards(workflow: string): boolean {
+  const requiredTerms = [
+    "CLOUDFLARE_API_TOKEN",
+    "CLOUDFLARE_ACCOUNT_ID",
+    "wrangler secret list --env qa",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "pnpm install --frozen-lockfile",
+    "pnpm prisma:generate",
+    "pnpm run smoke:qa:image-cover",
+    "spoonjoy-v2-qa.mendelow-studio.workers.dev",
+    "--target-env qa",
+  ];
+  const forbiddenTerms = ["deploy:auto", "wrangler deploy", "--target-env production"];
+  return requiredTerms.every((term) => workflow.includes(term)) &&
+    forbiddenTerms.every((term) => !workflow.includes(term));
+}
+
 export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): DeploymentPreflightResult {
   const scripts = packageScripts(inputs.packageJson);
   const readmeAndDeploymentDoc = `${inputs.readme}\n${inputs.deploymentDoc}`;
@@ -417,6 +449,12 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
       "production deploy workflow",
       workflowDeploysPushesToMain(inputs.productionDeployWorkflow) && workflowHasCloudflareDeployAutoStep(inputs.productionDeployWorkflow),
       ".github/workflows/production-deploy.yml must auto-deploy pushes to main with deploy:auto while keeping manual dispatch and Cloudflare credentials wired."
+    ),
+    check(
+      "QA image-cover smoke workflow",
+      workflowTriggersOnlyDispatchAndSchedule(inputs.qaImageCoverSmokeWorkflow) &&
+        workflowHasQaImageCoverSmokeGuards(inputs.qaImageCoverSmokeWorkflow),
+      ".github/workflows/qa-image-cover-smoke.yml must run only on schedule/manual dispatch, guard Cloudflare and QA image-provider credentials, and run the QA-only image-cover smoke without deploy commands."
     ),
     check(
       "Cloudflare Env typing",
@@ -639,10 +677,11 @@ export async function runDeploymentPreflight(
   rootDir = process.cwd(),
   deps: RunDeploymentPreflightDeps = {},
 ): Promise<DeploymentPreflightResult> {
-  const [wrangler, packageJson, productionDeployWorkflow, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
+  const [wrangler, packageJson, productionDeployWorkflow, qaImageCoverSmokeWorkflow, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
     readJsonFile(path.join(rootDir, "wrangler.json")),
     readJsonFile(path.join(rootDir, "package.json")),
     readFile(path.join(rootDir, ".github/workflows/production-deploy.yml"), "utf8"),
+    readFile(path.join(rootDir, ".github/workflows/qa-image-cover-smoke.yml"), "utf8"),
     readFile(path.join(rootDir, "app/cloudflare-env.d.ts"), "utf8"),
     readFile(path.join(rootDir, "README.md"), "utf8"),
     readFile(path.join(rootDir, "docs/deployment.md"), "utf8"),
@@ -653,6 +692,7 @@ export async function runDeploymentPreflight(
     wrangler,
     packageJson,
     productionDeployWorkflow,
+    qaImageCoverSmokeWorkflow,
     cloudflareEnvDts,
     readme,
     deploymentDoc,
