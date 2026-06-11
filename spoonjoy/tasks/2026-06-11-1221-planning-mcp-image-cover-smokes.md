@@ -18,7 +18,9 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - Exercise `/api/tools/*` and `/mcp` for recipe-image upload, spoon-photo upload, recipe creation, spoon creation, cover listing, spoon-image browsing, cover creation from upload, cover creation from spoon, cover regeneration/status, active-cover swap, cover archive, and GIF rejection.
 - Include a JPEG-with-EXIF upload and verify the downloaded stored object preserves the intended orientation tag while stripping the original dirty/private APP1 payload.
 - Prove cover provenance labels for the three user-facing cases: verbatim chef upload (`Chef photo`), editorialized chef photo (`Editorialized chef photo`), and no-photo AI placeholder (`AI generated`).
-- Record every created QA id and every `/photos/*` R2 key, delete those R2 objects explicitly, clean the disposable QA user in the same run, and verify no `codex-smoke-%` user remains.
+- Add a pre-mutation QA safety gate that proves the target is exactly the QA Worker URL, the static config points at the QA D1/R2 resources, Cloudflare credentials can reach QA, and image-provider secrets needed for the editorial path exist before any smoke data is created.
+- Record every created QA id and every canonical `/photos/{namespace}/{ownerId}/uploads/*` R2 key returned during the run, validate the key prefix before delete, delete those exact R2 objects explicitly, verify they are gone, clean the disposable QA user in the same run, and verify the exact run-scoped user email is gone.
+- Report unrelated `codex-smoke-%` residue in the smoke artifact without broad-delete behavior or making this run race concurrent smoke users.
 - Add focused automated tests for the new script helpers and package command.
 - Update durable docs/backlog state so future agents know `SJ-045` status.
 
@@ -34,12 +36,36 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - [ ] Smoke uploads a recipe image and spoon photo, rejects GIF uploads, creates a recipe, creates a spoon, lists/switches/archives covers, regenerates a cover, reads generation status, and browses spoon images.
 - [ ] Smoke verifies EXIF metadata normalization with a downloaded stored object from `/photos/*`: dirty APP1 marker removed and sanitized Orientation equals the source fixture's intended orientation.
 - [ ] Smoke proves `Chef photo`, `Editorialized chef photo`, and `AI generated` provenance labels through QA API/MCP-visible recipe-cover state.
-- [ ] Smoke records and deletes every created QA R2 object key, cleans its disposable QA chef, and verifies no matching user remains.
-- [ ] MCP `/mcp` JSON-RPC is exercised with the minted bearer token, not only legacy `/api/tools/*`.
+- [ ] Smoke records and deletes every created QA R2 object key, refuses to delete keys outside `recipes/{ownerId}/uploads/` or `spoons/{ownerId}/uploads/`, verifies those exact objects are gone, cleans its disposable QA chef, and verifies the exact run-scoped email remains at count zero.
+- [ ] MCP `/mcp` JSON-RPC is exercised with the minted bearer token for the critical cover/spoon operations, not just for token/list/ping checks.
 - [ ] CI/scheduled QA smoke exists and is credential-gated so it never mutates production and never fails forks or unconfigured environments just because QA secrets are absent.
 - [ ] 100% test coverage on all new code.
 - [ ] All tests pass.
 - [ ] No warnings.
+
+## Endpoint Acceptance Matrix
+- Browser/session: signup and create a no-photo recipe so the same path that users hit can produce the initial AI placeholder cover.
+- `/api/tools/create_api_token`: mint the short-lived bearer from the authenticated browser session.
+- `/api/tools/upload_recipe_image`: upload the oriented JPEG fixture and assert stored-object EXIF normalization.
+- `/api/tools/upload_recipe_image`: reject GIF bytes and assert no R2 key is recorded.
+- `/api/tools/upload_spoon_photo`: upload the spoon photo fixture.
+- `/mcp` `tools/list`: assert the remote MCP connector exposes the expected image/cover tools.
+- `/mcp` `create_spoon`: create the origin spoon with the uploaded spoon photo.
+- `/mcp` `list_recipe_spoon_images`: prove cover-source browsing sees the spoon photo.
+- `/mcp` `create_recipe_cover_from_upload`: create and activate the verbatim chef-upload cover.
+- `/mcp` `create_recipe_cover_from_spoon`: create a spoon-sourced cover.
+- `/mcp` `regenerate_recipe_cover`: trigger editorial regeneration for a cover and poll `/mcp` `get_cover_generation_status` to a bounded terminal state.
+- `/mcp` `set_active_recipe_cover`: swap between cover variants.
+- `/mcp` `archive_recipe_cover`: archive an inactive cover and verify it is only visible when archived covers are requested.
+- `/mcp` `list_recipe_covers`: verify active/inactive/archived state and provenance labels.
+
+## Runtime Safety Gates
+- The image-cover smoke mode refuses any `targetEnv` other than `qa` and any origin other than `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`.
+- Before mutation, the smoke runs or embeds the equivalent QA preflight checks for static `wrangler.json` QA D1/R2 isolation, Cloudflare authentication, remote QA D1 access, and remote QA R2 access.
+- Before mutation, the full package command verifies remote QA has at least one configured image-provider secret accepted by the app's provider stack; if not, it exits before signup/upload instead of partially passing.
+- Provider-backed generation polling is bounded: fixed attempt count, fixed delay, terminal success/failure handling, and cleanup in `finally` on timeout or failure.
+- R2 cleanup only deletes exact keys returned by this run's upload/generation responses and only after key-prefix validation against the smoke user's owner id and allowed namespaces.
+- User cleanup verifies the exact disposable email. A separate residue count may be recorded, but this smoke does not broad-clean unrelated `codex-smoke-%` users.
 
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
@@ -49,7 +75,7 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - Edge cases: null, empty, boundary values
 
 ## Open Questions
-- None. Autopilot decision: use QA only for live mutation coverage; production verification remains health/deploy-only unless a future task explicitly asks for production mutation smokes.
+- None under the current user mandate. The user explicitly authorized no human gates for these obvious verification and cleanup decisions; this task uses sub-agent reviewer convergence instead of a human approval stop.
 
 ## Decisions Made
 - Extend `scripts/smoke-live.mjs` instead of `scripts/smoke-api-live.mjs`; the API smoke is public/read-only and should not grow mutating QA checks.
@@ -59,7 +85,7 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - Use a small valid JPEG with a unique dirty APP1 marker and a real Orientation tag as the EXIF fixture; the live smoke proves storage normalization and retrieval by parsing the downloaded object.
 - Use `generateEditorial: false` for the deterministic verbatim-cover path, then explicitly run the provider-backed editorial path through cover regeneration/status so provenance is not inferred from unit tests alone.
 - Prove the no-photo `AI generated` provenance by observing the placeholder cover created for the smoke recipe before any uploaded/spoon photo becomes active. If the QA image-provider credentials are absent, the scheduled workflow skips the job before mutation rather than passing a partial provenance smoke.
-- Derive R2 cleanup keys from returned `/photos/*` URLs only, keep them in the smoke artifact, and delete those exact keys from the QA bucket in `finally` before/alongside D1 cleanup.
+- Derive R2 cleanup keys from returned `/photos/*` URLs only after canonical-prefix validation against the smoke owner's id, keep them in the smoke artifact, and delete/verify those exact keys from the QA bucket in `finally` before/alongside D1 cleanup.
 
 ## Context / References
 - `BACKLOG.md`
@@ -84,3 +110,4 @@ The smoke should write a JSON artifact with created IDs, image URLs, cover IDs, 
 ## Progress Log
 - 2026-06-11 12:21 Created
 - 2026-06-11 12:47 Reviewer found the first plan under-scoped. Added regenerate/status coverage, provenance proof, exact R2 cleanup, EXIF orientation assertions, and CI/scheduled QA gating before implementation.
+- 2026-06-11 12:55 Reviewer found safety/cleanup ambiguity. Added concrete QA preflight gates, endpoint-by-operation matrix, bounded provider polling, run-scoped user cleanup, canonical R2 key validation, and no-human-gate reviewer convergence language.
