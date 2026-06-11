@@ -355,6 +355,13 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).toContain("QA package scripts");
   });
 
+  it("requires a credential-gated scheduled QA image-cover smoke workflow in preflight", () => {
+    const result = validateDeploymentConfig(validInputs());
+
+    expect(result.checks.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+    expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
+  });
+
   it("flags QA resources that alias production resources", () => {
     const inputs = validInputs();
     inputs.wrangler.env = {
@@ -834,6 +841,31 @@ describe("package.json deploy scripts", () => {
 
     expect(configRaw).toContain("scripts/smoke-live-helpers.mjs");
     expect(configRaw).toContain("scripts/smoke-image-cover-live.mjs");
+  });
+});
+
+describe("QA image-cover smoke workflow", () => {
+  it("runs only on manual dispatch and schedule with credential and QA secret gates", async () => {
+    const workflow = await readFile(`${process.cwd()}/.github/workflows/qa-image-cover-smoke.yml`, "utf8");
+
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("schedule:");
+    expect(workflow).not.toContain("push:");
+    expect(workflow).not.toContain("pull_request:");
+    expect(workflow).toContain("CLOUDFLARE_API_TOKEN");
+    expect(workflow).toContain("CLOUDFLARE_ACCOUNT_ID");
+    expect(workflow).toContain("wrangler secret list --env qa");
+    expect(workflow).toContain("OPENAI_API_KEY");
+    expect(workflow).toContain("GEMINI_API_KEY");
+    expect(workflow).toContain("GOOGLE_API_KEY");
+    expect(workflow).toContain("pnpm install --frozen-lockfile");
+    expect(workflow).toContain("pnpm prisma:generate");
+    expect(workflow).toContain("pnpm run smoke:qa:image-cover");
+    expect(workflow).toContain("spoonjoy-v2-qa.mendelow-studio.workers.dev");
+    expect(workflow).toContain("--target-env qa");
+    expect(workflow).not.toContain("deploy:auto");
+    expect(workflow).not.toContain("wrangler deploy");
+    expect(workflow).not.toContain("--target-env production");
   });
 });
 
