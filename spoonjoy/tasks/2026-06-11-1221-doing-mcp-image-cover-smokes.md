@@ -19,16 +19,16 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - `SJ-045`
 
 ## Completion Criteria
-- [ ] `pnpm smoke:qa:image-cover` targets only the QA base URL and remote QA D1/R2 state.
-- [ ] Smoke uploads a recipe image and spoon photo, rejects GIF uploads, creates a recipe, creates a spoon, lists/switches/archives covers, regenerates a cover, reads generation status, and browses spoon images.
-- [ ] Smoke verifies EXIF metadata normalization with a downloaded stored object from `/photos/*`: dirty APP1 marker removed and sanitized Orientation equals the source fixture's intended orientation.
-- [ ] Smoke proves `Chef photo`, `Editorialized chef photo`, and `AI generated` provenance labels through QA API/MCP-visible recipe-cover state.
-- [ ] Smoke records and deletes every created QA R2 object key, refuses to delete upload keys outside `recipes/{ownerId}/uploads/` or `spoons/{ownerId}/uploads/`, refuses to delete `covers/*` keys unless observed on this run's cover records, verifies those exact objects are gone, revokes its smoke credential, cleans its disposable QA chef, and verifies the exact run-scoped email remains at count zero.
-- [ ] MCP `/mcp` JSON-RPC is exercised with the minted bearer token for the critical cover/spoon operations, not just for token/list/ping checks.
-- [ ] CI/scheduled QA smoke exists and is credential-gated so it never mutates production and never fails forks or unconfigured environments just because QA secrets are absent.
-- [ ] 100% test coverage on all new code
-- [ ] All tests pass
-- [ ] No warnings
+- [x] `pnpm smoke:qa:image-cover` targets only the QA base URL and remote QA D1/R2 state.
+- [x] Smoke uploads a recipe image and spoon photo, rejects GIF uploads, creates a recipe, creates a spoon, lists/switches/archives covers, regenerates a cover, reads generation status, and browses spoon images.
+- [x] Smoke verifies EXIF metadata normalization with a downloaded stored object from `/photos/*`: dirty APP1 marker removed and sanitized Orientation equals the source fixture's intended orientation.
+- [x] Smoke proves `Chef photo`, `Editorialized chef photo`, and `AI generated` provenance labels through QA API/MCP-visible recipe-cover state.
+- [x] Smoke records and deletes every created QA R2 object key, refuses to delete upload keys outside `recipes/{ownerId}/uploads/` or `spoons/{ownerId}/uploads/`, refuses to delete `covers/*` keys unless observed on this run's cover records, verifies those exact objects are gone, revokes its smoke credential, cleans its disposable QA chef, and verifies the exact run-scoped email remains at count zero.
+- [x] MCP `/mcp` JSON-RPC is exercised with the minted bearer token for the critical cover/spoon operations, not just for token/list/ping checks.
+- [x] CI/scheduled QA smoke exists and is credential-gated so it never mutates production and never fails forks or unconfigured environments just because QA secrets are absent.
+- [x] 100% test coverage on all new code
+- [x] All tests pass
+- [x] No warnings
 
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
@@ -100,13 +100,13 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 
 ### ✅ Unit 3a: Scheduled QA Workflow Tests
 **What**: Add failing tests/preflight assertions for the credential-gated GitHub Actions workflow.
-**Output**: Tests assert `.github/workflows/qa-image-cover-smoke.yml` exists, runs only on `workflow_dispatch` and `schedule`, guards `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, checks QA Cloudflare secrets before mutation with `wrangler secret list --env qa`, requires `OPENAI_API_KEY` for no-photo placeholders and at least one image-edit provider key among `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`, installs dependencies, and runs `pnpm run smoke:qa:image-cover`.
+**Output**: Tests assert `.github/workflows/qa-image-cover-smoke.yml` exists, runs only on `workflow_dispatch` and `schedule`, guards `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, checks QA Cloudflare secrets before mutation with `wrangler secret list --env qa`, requires at least one configured image provider key among `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`, installs dependencies, and runs `pnpm run smoke:qa:image-cover`.
 **Acceptance**: Tests fail red until the workflow exists and matches the expected guarded command shape.
 
 ### ✅ Unit 3b: Scheduled QA Workflow Implementation
 **What**: Add the credential-gated scheduled/manual QA image-cover smoke workflow and update `docs/deployment.md` if the smoke command or required QA secrets need documenting.
 **Output**: `.github/workflows/qa-image-cover-smoke.yml` exists and skips cleanly when GitHub or QA Cloudflare credentials are not configured.
-**Acceptance**: Unit 3a tests pass; workflow command includes `--target-env qa` and `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`; workflow contains no production smoke/deploy command; workflow cannot run mutation steps without `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `OPENAI_API_KEY` in QA secrets, and one configured edit-provider key.
+**Acceptance**: Unit 3a tests pass; workflow command includes `--target-env qa` and `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`; workflow contains no production smoke/deploy command; workflow cannot run mutation steps without `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and one configured image-provider key.
 
 ### ✅ Unit 3c: Scheduled QA Workflow Coverage And Refactor
 **What**: Run workflow/preflight tests and refactor the assertions if they are brittle.
@@ -118,8 +118,8 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 **Output**: Save logs to `2026-06-11-1221-doing-mcp-image-cover-smokes/focused-tests.log`, `coverage.log`, `typecheck.log`, `build.log`, and `cleanup-local.log`.
 **Acceptance**: These commands pass with no warnings: `pnpm exec vitest run test/scripts/smoke-live-helpers.test.ts test/scripts/smoke-image-cover-live.test.ts test/scripts/deployment-preflight.test.ts`, `pnpm run test:coverage`, `pnpm run typecheck`, `pnpm run build`, and `pnpm cleanup:qa`; local disposable residue remains zero.
 
-### ⬜ Unit 5: Remote QA E2E Verification
-**What**: Run `pnpm run qa:preflight`, confirm `wrangler secret list --env qa` contains `OPENAI_API_KEY` and at least one of `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`, then run `pnpm run smoke:qa:image-cover` against `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`.
+### ✅ Unit 5: Remote QA E2E Verification
+**What**: Run `pnpm run qa:preflight`, confirm `wrangler secret list --env qa` contains at least one of `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`, then run `pnpm run smoke:qa:image-cover` against `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`.
 **Output**: Save command logs to `qa-preflight.log`, `qa-secrets.log`, and `qa-image-cover-smoke.log`; copy `qa-image-cover-smoke-artifacts/smoke-results.json` to `2026-06-11-1221-doing-mcp-image-cover-smokes/qa-image-cover-smoke-results.json`.
 **Acceptance**: Smoke passes end to end; artifact proves API/MCP operation coverage, EXIF normalization, three provenance labels, exact R2 cleanup verification, exact user cleanup, and no production mutation.
 
@@ -163,3 +163,4 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - 2026-06-11 13:25 Unit 3a complete: red workflow tests saved to `unit-3a-red.log`; failures are missing `QA image-cover smoke workflow` preflight check and missing `.github/workflows/qa-image-cover-smoke.yml`. Unit review skipped because this is a tests-only red unit with intentional missing-workflow failures.
 - 2026-06-11 13:30 Units 3b and 3c complete: added `.github/workflows/qa-image-cover-smoke.yml` with manual/scheduled triggers, Cloudflare credential skip gate, QA provider-secret skip gate, QA-only smoke command, and artifact upload; deployment preflight now checks the workflow. Focused tests saved to `unit-3bc-green.log`; build saved to `unit-3bc-build.log`; no warnings.
 - 2026-06-11 15:13 Unit 4 complete: hardened QA workflow preflight so `qa:preflight` reads `.github/workflows/qa-image-cover-smoke.yml` and structural checks prove trigger, credential, provider-secret, smoke, and artifact gates. Focused tests saved to `focused-tests.log`; full coverage saved to `coverage.log` with 100% tracked coverage; typecheck saved to `typecheck.log`; build saved to `build.log`; local QA cleanup dry run saved to `cleanup-local.log` with zero active disposable residue.
+- 2026-06-11 16:47 Unit 5 complete: deployed QA version `11bb68e0-494e-4fd7-be4b-b780a0782edb`, passed `pnpm run qa:preflight`, confirmed QA has `GOOGLE_API_KEY` image-provider coverage, and passed `pnpm run smoke:qa:image-cover`. Evidence saved to `qa-preflight.log`, `qa-secrets.log`, `qa-image-cover-smoke.log`, and `qa-image-cover-smoke-results.json`; the smoke artifact has zero console/page errors, all required API/MCP operations, EXIF Orientation `6`, all three provenance labels, verified R2 deletes, revoked credential, and exact QA user cleanup count zero.

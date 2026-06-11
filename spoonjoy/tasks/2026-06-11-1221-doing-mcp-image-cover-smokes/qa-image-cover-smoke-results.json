@@ -1,0 +1,154 @@
+{
+  "baseUrl": "https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+  "generatedAt": "2026-06-11T23:45:44.967Z",
+  "email": "codex-smoke-mqa5bg93@example.com",
+  "username": "codex_smoke_mqa5bg93",
+  "recipeTitle": "Codex smoke skillet mqa5bg93",
+  "screenshots": [
+    "qa-image-cover-smoke-artifacts/01-recipes-after-signup.png",
+    "qa-image-cover-smoke-artifacts/02-recipe-detail.png",
+    "qa-image-cover-smoke-artifacts/03-cook-mode.png",
+    "qa-image-cover-smoke-artifacts/04-shopping-list.png",
+    "qa-image-cover-smoke-artifacts/05-account-settings.png"
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "cleanup": {
+    "target": "qa D1",
+    "stdout": "\n ⛅️ wrangler 4.90.0 (update available 4.100.0)\n──────────────────────────────────────────────\nResource location: remote \n\n🌀 Executing on remote database DB (c6c99e80-bd51-4cf2-b7c7-b7a6e27d3f34):\n🌀 To execute on your local development database, remove the --remote flag from your wrangler command.\n🚣 Executed 1 command in 3.74ms\n[\n  {\n    \"results\": [],\n    \"success\": true,\n    \"meta\": {\n      \"served_by\": \"v3-prod\",\n      \"served_by_region\": \"WNAM\",\n      \"served_by_colo\": \"SEA\",\n      \"served_by_primary\": true,\n      \"timings\": {\n        \"sql_duration_ms\": 3.7392\n      },\n      \"duration\": 3.7392,\n      \"changes\": 23,\n      \"last_row_id\": 0,\n      \"changed_db\": true,\n      \"size_after\": 577536,\n      \"rows_read\": 86,\n      \"rows_written\": 25,\n      \"total_attempts\": 1\n    }\n  }\n]\n",
+    "stderr": ""
+  },
+  "cleanupVerification": {
+    "target": "qa D1",
+    "remaining": 0,
+    "stdout": "\n ⛅️ wrangler 4.90.0 (update available 4.100.0)\n──────────────────────────────────────────────\nResource location: remote \n\n🌀 Executing on remote database DB (c6c99e80-bd51-4cf2-b7c7-b7a6e27d3f34):\n🌀 To execute on your local development database, remove the --remote flag from your wrangler command.\n🚣 Executed 1 command in 0.24ms\n[\n  {\n    \"results\": [\n      {\n        \"count\": 0\n      }\n    ],\n    \"success\": true,\n    \"meta\": {\n      \"served_by\": \"v3-prod\",\n      \"served_by_region\": \"WNAM\",\n      \"served_by_colo\": \"SEA\",\n      \"served_by_primary\": true,\n      \"timings\": {\n        \"sql_duration_ms\": 0.2414\n      },\n      \"duration\": 0.2414,\n      \"changes\": 0,\n      \"last_row_id\": 0,\n      \"changed_db\": false,\n      \"size_after\": 577536,\n      \"rows_read\": 0,\n      \"rows_written\": 0,\n      \"total_attempts\": 1\n    }\n  }\n]\n",
+    "stderr": ""
+  },
+  "imageCoverSmoke": {
+    "baseUrl": "https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+    "recipeId": "963c4cba-3e70-4499-b8f1-9b93d2d13708",
+    "recipeTitle": "Codex smoke skillet mqa5bg93",
+    "providerPreflight": {
+      "placeholderProvider": "gemini",
+      "editProviders": [
+        "gemini"
+      ]
+    },
+    "tokenScopes": [
+      "recipes:read",
+      "kitchen:write"
+    ],
+    "operations": [
+      "tools/list",
+      "upload_recipe_image",
+      "upload_recipe_image:gif_rejected",
+      "upload_spoon_photo",
+      "create_spoon",
+      "list_recipe_spoon_images",
+      "create_recipe_cover_from_upload",
+      "create_recipe_cover_from_upload",
+      "get_cover_generation_status",
+      "create_recipe_cover_from_spoon",
+      "get_cover_generation_status",
+      "regenerate_recipe_cover",
+      "get_cover_generation_status",
+      "set_active_recipe_cover",
+      "archive_recipe_cover",
+      "list_recipe_covers"
+    ],
+    "coverIds": [
+      "cmqa5bkqh0008v20nnutmlw77",
+      "cmqa5bvm10005si0nexw82c6o",
+      "cmqa5c29h000bsi0ne8nhce4f",
+      "cmqa5c3q2000fsi0nxrp6k0hc",
+      "cmqa5cbsw000jsi0n1xt8hrio"
+    ],
+    "imageUrls": [
+      "/photos/covers/1781221560749-d3b9b1cd-ee6e-4e52-9712-28216b23bc41.jpg",
+      "/photos/spoons/cmqa5bi160000v20n0tzvoko2/uploads/1781221563941-79041d4e-708b-49eb-9a61-da08dc28e4aa.png",
+      "/photos/covers/1781221572160-42249b34-5729-4d8f-8410-b3189f802176.jpg",
+      "/photos/recipes/cmqa5bi160000v20n0tzvoko2/uploads/1781221562975-136d9f1b-923f-4d75-a294-d9660389457d.jpg",
+      "/photos/covers/1781221584604-de4f59a2-7160-43f6-92f2-e24b95531b79.jpg",
+      "/photos/covers/1781221595536-91dfa0c2-2bcc-4638-a976-4fbdbd9471c0.jpg",
+      "/photos/covers/1781221604313-a20d0a09-1f66-4c80-892e-41aa1446a3d8.jpg"
+    ],
+    "generationPolling": [
+      {
+        "coverId": "cmqa5c3q2000fsi0nxrp6k0hc",
+        "status": "ready",
+        "generationStatus": "succeeded"
+      },
+      {
+        "coverId": "cmqa5cbsw000jsi0n1xt8hrio",
+        "status": "ready",
+        "generationStatus": "succeeded"
+      },
+      {
+        "coverId": "cmqa5c3q2000fsi0nxrp6k0hc",
+        "status": "ready",
+        "generationStatus": "succeeded"
+      }
+    ],
+    "exif": {
+      "sourceOrientation": 6,
+      "storedOrientation": 6,
+      "dirtyMarkerRemoved": true
+    },
+    "provenanceLabels": [
+      "AI generated",
+      "Chef photo",
+      "Editorialized chef photo"
+    ],
+    "r2": {
+      "deletedKeys": [
+        "covers/1781221560749-d3b9b1cd-ee6e-4e52-9712-28216b23bc41.jpg",
+        "recipes/cmqa5bi160000v20n0tzvoko2/uploads/1781221562975-136d9f1b-923f-4d75-a294-d9660389457d.jpg",
+        "spoons/cmqa5bi160000v20n0tzvoko2/uploads/1781221563941-79041d4e-708b-49eb-9a61-da08dc28e4aa.png",
+        "covers/1781221572160-42249b34-5729-4d8f-8410-b3189f802176.jpg",
+        "covers/1781221584604-de4f59a2-7160-43f6-92f2-e24b95531b79.jpg",
+        "covers/1781221595536-91dfa0c2-2bcc-4638-a976-4fbdbd9471c0.jpg",
+        "covers/1781221604313-a20d0a09-1f66-4c80-892e-41aa1446a3d8.jpg"
+      ],
+      "verifiedDeletedKeys": [
+        "covers/1781221560749-d3b9b1cd-ee6e-4e52-9712-28216b23bc41.jpg",
+        "recipes/cmqa5bi160000v20n0tzvoko2/uploads/1781221562975-136d9f1b-923f-4d75-a294-d9660389457d.jpg",
+        "spoons/cmqa5bi160000v20n0tzvoko2/uploads/1781221563941-79041d4e-708b-49eb-9a61-da08dc28e4aa.png",
+        "covers/1781221572160-42249b34-5729-4d8f-8410-b3189f802176.jpg",
+        "covers/1781221584604-de4f59a2-7160-43f6-92f2-e24b95531b79.jpg",
+        "covers/1781221595536-91dfa0c2-2bcc-4638-a976-4fbdbd9471c0.jpg",
+        "covers/1781221604313-a20d0a09-1f66-4c80-892e-41aa1446a3d8.jpg"
+      ],
+      "generatedCoverKeys": [
+        "covers/1781221560749-d3b9b1cd-ee6e-4e52-9712-28216b23bc41.jpg",
+        "covers/1781221572160-42249b34-5729-4d8f-8410-b3189f802176.jpg",
+        "covers/1781221584604-de4f59a2-7160-43f6-92f2-e24b95531b79.jpg",
+        "covers/1781221595536-91dfa0c2-2bcc-4638-a976-4fbdbd9471c0.jpg",
+        "covers/1781221604313-a20d0a09-1f66-4c80-892e-41aa1446a3d8.jpg"
+      ]
+    },
+    "credentialRevocation": {
+      "credentialId": "cmqa5bt880001si0ny7lnueax",
+      "revoked": true,
+      "payload": {
+        "revoked": true,
+        "credential": {
+          "id": "cmqa5bt880001si0ny7lnueax",
+          "userId": "cmqa5bi160000v20n0tzvoko2",
+          "name": "Codex image-cover smoke mqa5bg93",
+          "tokenPrefix": "sj_RVbkvmKdJ",
+          "lastUsedAt": "2026-06-11T23:46:46.282Z",
+          "revokedAt": "2026-06-11T23:46:46.509Z",
+          "createdAt": "2026-06-11T23:46:01.784Z",
+          "updatedAt": "2026-06-11T23:46:46.509Z"
+        }
+      }
+    }
+  },
+  "targetEnv": "qa",
+  "recipeId": "963c4cba-3e70-4499-b8f1-9b93d2d13708",
+  "pushPublicKeyStatus": 200,
+  "apple": {
+    "skipped": true,
+    "reason": "qa smoke does not run production Apple OAuth guard"
+  }
+}
