@@ -16,7 +16,7 @@
     "preview": "wrangler pages dev",
     "deploy": "pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler deploy",
     "deploy:auto": "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm run deploy:preflight && pnpm exec wrangler deploy",
-    "deploy:qa": "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run qa:preflight && pnpm run build && pnpm run qa:migrate && pnpm run qa:preflight && pnpm exec wrangler deploy --env qa",
+    "deploy:qa": "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run qa:preflight && CLOUDFLARE_ENV=qa pnpm run build && pnpm run qa:migrate && SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG=1 pnpm run qa:preflight && pnpm exec wrangler deploy --env qa",
     "deploy:preflight": "tsx scripts/deployment-preflight.ts",
     "qa:preflight": "tsx scripts/qa-preflight.ts",
     "qa:migrate": "pnpm exec wrangler d1 migrations apply DB --remote --env qa",

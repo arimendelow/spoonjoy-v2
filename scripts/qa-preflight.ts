@@ -14,12 +14,18 @@ import {
 export const QA_ENV_NAME = "qa";
 export const QA_BASE_URL = "https://spoonjoy-v2-qa.mendelow-studio.workers.dev";
 export const QA_R2_BUCKET = "spoonjoy-photos-qa";
+export const QA_D1_DATABASE_ID = "c6c99e80-bd51-4cf2-b7c7-b7a6e27d3f34";
 export const QA_R2_PROBE_BODY = "spoonjoy qa preflight";
 export const REQUIRED_QA_SECRETS = [
   "SESSION_SECRET",
   "VAPID_PUBLIC_KEY",
   "VAPID_PRIVATE_KEY",
   "VAPID_SUBJECT",
+] as const;
+export const REQUIRED_QA_RATE_LIMIT_BINDINGS = [
+  "API_TOKEN_RATE_LIMITER",
+  "API_IP_RATE_LIMITER",
+  "AUTH_IP_RATE_LIMITER",
 ] as const;
 
 const AUTH_ERROR_PATTERN = /auth|oauth|login|unauthenticated|api token|10000/i;
@@ -35,11 +41,39 @@ export interface ProbeFile {
 export interface QaPreflightDeps {
   runWrangler?: RunWrangler;
   createProbeFile?: () => Promise<ProbeFile>;
+  readGeneratedBuildConfig?: () => Promise<Record<string, unknown>>;
   env?: NodeJS.ProcessEnv;
 }
 
 function check(name: string, ok: boolean, message: string, severity: "error" | "warning" = "error"): PreflightCheck {
   return { name, ok, message, severity };
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function bindingRecord(bindings: unknown, bindingName: string): Record<string, unknown> | null {
+  if (!Array.isArray(bindings)) return null;
+  for (const entry of bindings) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    if (record.binding === bindingName) return record;
+  }
+  return null;
+}
+
+function rateLimitNamesAndIds(ratelimits: unknown): { names: string[]; namespaceIds: string[] } {
+  if (!Array.isArray(ratelimits)) return { names: [], namespaceIds: [] };
+  const names: string[] = [];
+  const namespaceIds: string[] = [];
+  for (const entry of ratelimits) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.name === "string" && record.name !== "") names.push(record.name);
+    if (typeof record.namespace_id === "string" && record.namespace_id !== "") namespaceIds.push(record.namespace_id);
+  }
+  return { names, namespaceIds };
 }
 
 async function readJsonFile(filePath: string): Promise<Record<string, unknown>> {
@@ -164,6 +198,40 @@ async function checkStaticConfig(rootDir: string): Promise<PreflightCheck> {
   return check("QA static config", true, `QA static config targets ${QA_BASE_URL}.`);
 }
 
+export function validateQaGeneratedBuildConfig(config: Record<string, unknown>): PreflightCheck {
+  const vars = objectRecord(config.vars);
+  const db = bindingRecord(config.d1_databases, "DB");
+  const photos = bindingRecord(config.r2_buckets, "PHOTOS");
+  const rateLimits = rateLimitNamesAndIds(config.ratelimits);
+  const hasExpectedRateLimitBindings =
+    rateLimits.names.length === REQUIRED_QA_RATE_LIMIT_BINDINGS.length &&
+    rateLimits.namespaceIds.length === REQUIRED_QA_RATE_LIMIT_BINDINGS.length &&
+    new Set(rateLimits.names).size === REQUIRED_QA_RATE_LIMIT_BINDINGS.length &&
+    new Set(rateLimits.namespaceIds).size === REQUIRED_QA_RATE_LIMIT_BINDINGS.length &&
+    REQUIRED_QA_RATE_LIMIT_BINDINGS.every((name) => rateLimits.names.includes(name));
+
+  const ok =
+    config.name === "spoonjoy-v2-qa" &&
+    vars.SPOONJOY_BASE_URL === QA_BASE_URL &&
+    db?.database_name === "spoonjoy-qa" &&
+    db.database_id === QA_D1_DATABASE_ID &&
+    photos?.bucket_name === QA_R2_BUCKET &&
+    hasExpectedRateLimitBindings &&
+    rateLimits.namespaceIds.every((id) => ["2001", "2002", "2003"].includes(id));
+
+  return check(
+    "QA generated build config",
+    ok,
+    ok
+      ? "Generated Worker config uses QA Worker name, base URL, D1, R2, and rate-limit bindings."
+      : "Generated Worker config is not isolated to QA. Rebuild with `CLOUDFLARE_ENV=qa pnpm run build` before `wrangler deploy --env qa`.",
+  );
+}
+
+async function readDefaultGeneratedBuildConfig(rootDir: string): Promise<Record<string, unknown>> {
+  return readJsonFile(path.join(rootDir, "build/server/wrangler.json"));
+}
+
 async function checkQaMigrations(runWrangler: RunWrangler, env: NodeJS.ProcessEnv): Promise<PreflightCheck> {
   if (env.SPOONJOY_PREFLIGHT_SKIP_REMOTE === "1") {
     return check("QA D1 migrations", true, "Skipped QA D1 migration check (SPOONJOY_PREFLIGHT_SKIP_REMOTE=1).", "warning");
@@ -270,9 +338,13 @@ export async function runQaPreflight(rootDir = process.cwd(), deps: QaPreflightD
   const runWrangler = deps.runWrangler ?? createWranglerRunner();
   const env = deps.env ?? process.env;
   const createProbeFile = deps.createProbeFile ?? createDefaultProbeFile;
+  const readGeneratedBuildConfig = deps.readGeneratedBuildConfig ?? (() => readDefaultGeneratedBuildConfig(rootDir));
 
   const checks = [
     await checkStaticConfig(rootDir),
+    ...(env.SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG === "1"
+      ? [validateQaGeneratedBuildConfig(await readGeneratedBuildConfig())]
+      : []),
     await checkQaMigrations(runWrangler, env),
     await checkQaSecrets(runWrangler, env),
     await checkQaR2RoundTrip(runWrangler, createProbeFile, env),

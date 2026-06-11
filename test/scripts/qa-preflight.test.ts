@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   QA_BASE_URL,
+  QA_D1_DATABASE_ID,
   QA_ENV_NAME,
   QA_R2_BUCKET,
   REQUIRED_QA_SECRETS,
@@ -11,6 +12,7 @@ import {
   buildQaSecretListArgs,
   parseWranglerSecretNames,
   runQaPreflight,
+  validateQaGeneratedBuildConfig,
 } from "../../scripts/qa-preflight";
 
 function secretListStdout(names = REQUIRED_QA_SECRETS): string {
@@ -77,6 +79,45 @@ describe("parseWranglerSecretNames", () => {
   });
 });
 
+function qaGeneratedBuildConfig() {
+  return {
+    name: "spoonjoy-v2-qa",
+    vars: { NODE_ENV: "production", SPOONJOY_BASE_URL: QA_BASE_URL },
+    d1_databases: [{ binding: "DB", database_name: "spoonjoy-qa", database_id: QA_D1_DATABASE_ID }],
+    r2_buckets: [{ binding: "PHOTOS", bucket_name: QA_R2_BUCKET }],
+    ratelimits: [
+      { name: "API_TOKEN_RATE_LIMITER", namespace_id: "2001" },
+      { name: "API_IP_RATE_LIMITER", namespace_id: "2002" },
+      { name: "AUTH_IP_RATE_LIMITER", namespace_id: "2003" },
+    ],
+  };
+}
+
+describe("validateQaGeneratedBuildConfig", () => {
+  it("passes for a generated QA Worker config", () => {
+    const check = validateQaGeneratedBuildConfig(qaGeneratedBuildConfig());
+
+    expect(check.ok).toBe(true);
+  });
+
+  it("fails for a generated production Worker config", () => {
+    const check = validateQaGeneratedBuildConfig({
+      name: "spoonjoy-v2",
+      vars: { NODE_ENV: "production", SPOONJOY_BASE_URL: "https://spoonjoy.app" },
+      d1_databases: [{ binding: "DB", database_name: "spoonjoy", database_id: "32cb0e04-c45b-4cd2-a798-556556ae288d" }],
+      r2_buckets: [{ binding: "PHOTOS", bucket_name: "spoonjoy-photos" }],
+      ratelimits: [
+        { name: "API_TOKEN_RATE_LIMITER", namespace_id: "1001" },
+        { name: "API_IP_RATE_LIMITER", namespace_id: "1002" },
+        { name: "AUTH_IP_RATE_LIMITER", namespace_id: "1003" },
+      ],
+    });
+
+    expect(check.ok).toBe(false);
+    expect(check.message).toContain("CLOUDFLARE_ENV=qa");
+  });
+});
+
 describe("runQaPreflight", () => {
   it("passes static, migration, secret, and R2 checks against QA", async () => {
     const cleanup = vi.fn(async () => undefined);
@@ -116,6 +157,31 @@ describe("runQaPreflight", () => {
     expect(runWrangler).toHaveBeenCalledWith(buildQaMigrationListArgs());
     expect(runWrangler).toHaveBeenCalledWith(buildQaSecretListArgs());
     expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates generated QA build config when requested", async () => {
+    const runWrangler = vi.fn(async () => ({
+      stdout: "",
+      stderr: "Authentication error [code: 10000]",
+      exitCode: 1,
+    }));
+
+    const result = await runQaPreflight(process.cwd(), {
+      env: {
+        SPOONJOY_PREFLIGHT_SKIP_REMOTE: "1",
+        SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG: "1",
+      },
+      runWrangler,
+      readGeneratedBuildConfig: async () => qaGeneratedBuildConfig(),
+      createProbeFile: async () => ({
+        path: "/tmp/spoonjoy-qa-preflight.txt",
+        body: "spoonjoy qa preflight",
+        cleanup: async () => undefined,
+      }),
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.checks.find((check) => check.name === "QA generated build config")?.ok).toBe(true);
   });
 
   it("fails closed when QA secrets are missing", async () => {

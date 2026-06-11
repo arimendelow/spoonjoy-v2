@@ -86,6 +86,12 @@ const REQUIRED_QA_PACKAGE_SCRIPTS = [
   "smoke:qa",
 ] as const;
 
+const REQUIRED_RATE_LIMIT_BINDINGS = [
+  "API_TOKEN_RATE_LIMITER",
+  "API_IP_RATE_LIMITER",
+  "AUTH_IP_RATE_LIMITER",
+] as const;
+
 function hasBinding(
   bindings: unknown,
   bindingName: string,
@@ -118,6 +124,22 @@ function namespaceIds(ratelimits: unknown): string[] {
   return ratelimits
     .map((entry) => (entry && typeof entry === "object" ? (entry as Record<string, unknown>).namespace_id : null))
     .filter((namespaceId): namespaceId is string => typeof namespaceId === "string" && namespaceId !== "");
+}
+
+function hasExpectedRateLimitBindings(ratelimits: unknown): boolean {
+  if (!Array.isArray(ratelimits)) return false;
+  const names = ratelimits
+    .map((entry) => (entry && typeof entry === "object" ? (entry as Record<string, unknown>).name : null))
+    .filter((name): name is string => typeof name === "string" && name !== "");
+  const namespaceIdList = namespaceIds(ratelimits);
+
+  return (
+    names.length === REQUIRED_RATE_LIMIT_BINDINGS.length &&
+    namespaceIdList.length === REQUIRED_RATE_LIMIT_BINDINGS.length &&
+    new Set(names).size === REQUIRED_RATE_LIMIT_BINDINGS.length &&
+    new Set(namespaceIdList).size === REQUIRED_RATE_LIMIT_BINDINGS.length &&
+    REQUIRED_RATE_LIMIT_BINDINGS.every((name) => names.includes(name))
+  );
 }
 
 function packageScripts(packageJson: Record<string, unknown>): Record<string, string> {
@@ -321,7 +343,7 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
       "QA environment",
       hasBinding(qaConfig.d1_databases, "DB", ["database_name", "database_id"]) &&
         hasBinding(qaConfig.r2_buckets, "PHOTOS", ["bucket_name"]) &&
-        qaNamespaceIds.length === 3 &&
+        hasExpectedRateLimitBindings(qaConfig.ratelimits) &&
         qaVars.NODE_ENV === "production" &&
         qaVars.SPOONJOY_BASE_URL === "https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
       "wrangler.json must define env.qa with DB, PHOTOS, rate limits, NODE_ENV=production, and the QA Worker base URL."
@@ -333,7 +355,7 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
         qaDb.database_id !== productionDb?.database_id &&
         qaPhotos?.bucket_name === "spoonjoy-photos-qa" &&
         qaPhotos.bucket_name !== productionPhotos?.bucket_name &&
-        qaNamespaceIds.length === 3 &&
+        hasExpectedRateLimitBindings(qaConfig.ratelimits) &&
         qaNamespaceIds.every((namespaceId) => !productionNamespaceIds.has(namespaceId)),
       "wrangler.json env.qa must use separate D1, R2, and rate-limit namespaces from production."
     ),
@@ -356,7 +378,9 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
         scripts["qa:seed"] === "node scripts/seed-qa.mjs --target-env qa" &&
         typeof scripts["deploy:qa"] === "string" &&
         scripts["deploy:qa"].includes("pnpm run qa:preflight") &&
+        scripts["deploy:qa"].includes("CLOUDFLARE_ENV=qa pnpm run build") &&
         scripts["deploy:qa"].includes("pnpm run qa:migrate") &&
+        scripts["deploy:qa"].includes("SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG=1 pnpm run qa:preflight") &&
         scripts["deploy:qa"].includes("wrangler deploy --env qa") &&
         typeof scripts["smoke:qa"] === "string" &&
         scripts["smoke:qa"].includes("--target-env qa") &&

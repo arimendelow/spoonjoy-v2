@@ -55,7 +55,7 @@ function validInputs(): DeploymentPreflightInputs {
         build: "react-router build",
         deploy: "pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler deploy",
         "deploy:qa":
-          "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run qa:preflight && pnpm run build && pnpm run qa:migrate && pnpm run qa:preflight && pnpm exec wrangler deploy --env qa",
+          "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run qa:preflight && CLOUDFLARE_ENV=qa pnpm run build && pnpm run qa:migrate && SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG=1 pnpm run qa:preflight && pnpm exec wrangler deploy --env qa",
         "deploy:auto":
           "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight && pnpm run build && pnpm exec wrangler d1 migrations apply DB --remote && pnpm run deploy:preflight && pnpm exec wrangler deploy",
         "deploy:preflight": "tsx scripts/deployment-preflight.ts",
@@ -360,6 +360,22 @@ describe("deployment preflight", () => {
         vars: { NODE_ENV: "production", SPOONJOY_BASE_URL: "https://spoonjoy.app" },
       },
     };
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toEqual(
+      expect.arrayContaining(["QA environment", "QA resource isolation"]),
+    );
+  });
+
+  it("flags misnamed or duplicated QA rate-limit bindings", () => {
+    const inputs = validInputs();
+    const env = inputs.wrangler.env as Record<string, { ratelimits?: Array<Record<string, string>> }>;
+    env.qa.ratelimits = [
+      { name: "API_TOKEN_RATE_LIMITER", namespace_id: "2001" },
+      { name: "API_TOKEN_RATE_LIMITER", namespace_id: "2001" },
+      { name: "TYPO_AUTH_LIMITER", namespace_id: "2003" },
+    ];
 
     const result = validateDeploymentConfig(inputs);
 
@@ -756,7 +772,7 @@ describe("package.json deploy scripts", () => {
     expect(pkg.scripts["qa:migrate"]).toBe("pnpm exec wrangler d1 migrations apply DB --remote --env qa");
     expect(pkg.scripts["qa:seed"]).toBe("node scripts/seed-qa.mjs --target-env qa");
     expect(pkg.scripts["deploy:qa"]).toBe(
-      "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run qa:preflight && pnpm run build && pnpm run qa:migrate && pnpm run qa:preflight && pnpm exec wrangler deploy --env qa",
+      "SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run qa:preflight && CLOUDFLARE_ENV=qa pnpm run build && pnpm run qa:migrate && SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG=1 pnpm run qa:preflight && pnpm exec wrangler deploy --env qa",
     );
     expect(pkg.scripts["smoke:qa"]).toBe(
       "node scripts/smoke-live.mjs --target-env qa --base-url https://spoonjoy-v2-qa.mendelow-studio.workers.dev --out qa-live-smoke-artifacts",
