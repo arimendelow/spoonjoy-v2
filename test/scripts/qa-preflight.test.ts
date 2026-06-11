@@ -275,6 +275,41 @@ describe("runQaPreflight", () => {
     ).toBe(true);
   });
 
+  it("fails when the R2 probe delete fails after a successful readback", async () => {
+    const runWrangler = vi.fn(async (args: string[]) => {
+      const command = args.join(" ");
+      if (command === buildQaMigrationListArgs().join(" ")) {
+        return { stdout: "[]", stderr: "", exitCode: 0 };
+      }
+      if (command === buildQaSecretListArgs().join(" ")) {
+        return { stdout: secretListStdout(), stderr: "", exitCode: 0 };
+      }
+      if (command.startsWith("r2 object put")) {
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }
+      if (command.startsWith("r2 object get")) {
+        return { stdout: "spoonjoy qa preflight", stderr: "", exitCode: 0 };
+      }
+      if (command.startsWith("r2 object delete")) {
+        return { stdout: "", stderr: "delete denied", exitCode: 1 };
+      }
+      throw new Error(`unexpected wrangler args: ${command}`);
+    });
+
+    const result = await runQaPreflight(process.cwd(), {
+      runWrangler,
+      createProbeFile: async () => ({
+        path: "/tmp/spoonjoy-qa-preflight.txt",
+        body: "spoonjoy qa preflight",
+        cleanup: async () => undefined,
+      }),
+    });
+
+    const r2Check = result.errors.find((check) => check.name === "QA R2 round trip");
+    expect(r2Check?.message).toContain("Could not delete QA R2 probe");
+    expect(r2Check?.message).toContain("delete denied");
+  });
+
   it("reports the QA base URL in the static check message", async () => {
     const result = await runQaPreflight(process.cwd(), {
       runWrangler: async () => ({ stdout: "", stderr: "Authentication error [code: 10000]", exitCode: 1 }),

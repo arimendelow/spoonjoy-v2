@@ -109,9 +109,47 @@ describe("smoke-live helpers", () => {
     });
   });
 
+  it("allows explicit production smoke args for the production Worker URL", () => {
+    expect(
+      parseSmokeArgs([
+        "--target-env",
+        "production",
+        "--base-url",
+        "https://spoonjoy-v2.mendelow-studio.workers.dev",
+      ]),
+    ).toMatchObject({
+      targetEnv: "production",
+      baseUrl: "https://spoonjoy-v2.mendelow-studio.workers.dev",
+    });
+  });
+
+  it("allows explicit production smoke args for the production custom domain", () => {
+    expect(parseSmokeArgs(["--target-env", "production", "--base-url", "https://spoonjoy.app"])).toMatchObject({
+      targetEnv: "production",
+      baseUrl: "https://spoonjoy.app",
+    });
+  });
+
   it("refuses mismatched QA target env and production URL", () => {
     expect(() =>
       parseSmokeArgs(["--target-env", "qa", "--base-url", "https://spoonjoy-v2.mendelow-studio.workers.dev"]),
     ).toThrow(/QA smoke/);
+  });
+
+  it("refuses mismatched production target env and QA URL", () => {
+    expect(() =>
+      parseSmokeArgs([
+        "--target-env",
+        "production",
+        "--base-url",
+        "https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+      ]),
+    ).toThrow(/Production smoke/);
+  });
+
+  it("refuses mismatched local target env and remote URL", () => {
+    expect(() =>
+      parseSmokeArgs(["--target-env", "local", "--base-url", "https://spoonjoy-v2.mendelow-studio.workers.dev"]),
+    ).toThrow(/Local smoke/);
   });
 });

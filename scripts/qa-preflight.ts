@@ -314,6 +314,17 @@ async function checkQaR2RoundTrip(runWrangler: RunWrangler, createProbeFile: () 
     const get = await runWrangler(buildQaR2GetArgs(key));
     if (get.exitCode !== 0) {
       const message = get.stderr.trim() || get.stdout.trim();
+      const deleteResult = await runWrangler(buildQaR2DeleteArgs(key));
+      uploaded = false;
+      if (deleteResult.exitCode !== 0) {
+        const deleteMessage = deleteResult.stderr.trim() || deleteResult.stdout.trim();
+        return check(
+          "QA R2 round trip",
+          false,
+          `Could not delete QA R2 probe after read failure: ${deleteMessage}`,
+          AUTH_ERROR_PATTERN.test(deleteMessage) ? "warning" : "error",
+        );
+      }
       return check(
         "QA R2 round trip",
         false,
@@ -322,9 +333,31 @@ async function checkQaR2RoundTrip(runWrangler: RunWrangler, createProbeFile: () 
       );
     }
     if (get.stdout !== probe.body) {
+      const deleteResult = await runWrangler(buildQaR2DeleteArgs(key));
+      uploaded = false;
+      if (deleteResult.exitCode !== 0) {
+        const deleteMessage = deleteResult.stderr.trim() || deleteResult.stdout.trim();
+        return check(
+          "QA R2 round trip",
+          false,
+          `Could not delete QA R2 probe after readback mismatch: ${deleteMessage}`,
+          AUTH_ERROR_PATTERN.test(deleteMessage) ? "warning" : "error",
+        );
+      }
       return check("QA R2 round trip", false, "QA R2 readback did not match the uploaded probe body.");
     }
 
+    const deleteResult = await runWrangler(buildQaR2DeleteArgs(key));
+    uploaded = false;
+    if (deleteResult.exitCode !== 0) {
+      const message = deleteResult.stderr.trim() || deleteResult.stdout.trim();
+      return check(
+        "QA R2 round trip",
+        false,
+        `Could not delete QA R2 probe: ${message}`,
+        AUTH_ERROR_PATTERN.test(message) ? "warning" : "error",
+      );
+    }
     return check("QA R2 round trip", true, "QA R2 write/read/delete probe passed.");
   } finally {
     if (uploaded) {

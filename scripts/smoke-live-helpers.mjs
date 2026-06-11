@@ -1,4 +1,5 @@
 export const DEFAULT_PRODUCTION_BASE_URL = "https://spoonjoy-v2.mendelow-studio.workers.dev";
+export const PRODUCTION_BASE_URLS = [DEFAULT_PRODUCTION_BASE_URL, "https://spoonjoy.app"];
 export const QA_BASE_URL = "https://spoonjoy-v2-qa.mendelow-studio.workers.dev";
 
 export function arg(argv, name, fallback) {
@@ -31,11 +32,14 @@ export function parseSmokeArgs(argv = process.argv.slice(2), env = process.env) 
   if (!["local", "qa", "production"].includes(targetEnv)) {
     throw new Error("Smoke target env must be one of local, qa, or production.");
   }
+  if (targetEnv === "local" && !usesLocalD1(baseUrl)) {
+    throw new Error("Local smoke must target a localhost or loopback URL.");
+  }
   if (targetEnv === "qa" && new URL(baseUrl).origin !== QA_BASE_URL) {
     throw new Error(`QA smoke must target ${QA_BASE_URL}.`);
   }
-  if (targetEnv === "production" && usesLocalD1(baseUrl)) {
-    throw new Error("Production smoke cannot target a local URL.");
+  if (targetEnv === "production" && !PRODUCTION_BASE_URLS.includes(new URL(baseUrl).origin)) {
+    throw new Error(`Production smoke must target one of: ${PRODUCTION_BASE_URLS.join(", ")}.`);
   }
 
   return {
