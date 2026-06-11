@@ -130,17 +130,17 @@ Add a real Spoonjoy QA deployment target with separate Cloudflare state so live/
 **Output**: Targeted coverage/test output saved under the artifacts directory and any smoke helper cleanup needed.
 **Acceptance**: New smoke helper code has 100% coverage and focused tests remain green.
 
-### ⬜ Unit 5a: Documentation — Tests
+### ✅ Unit 5a: Documentation — Tests
 **What**: Add failing tests or extend existing docs tests for QA resource setup, secrets, telemetry/image-provider policy, OAuth/WebAuthn origin expectations, seed data, disposable naming, and verification commands.
 **Output**: Updated docs/preflight tests plus red-run output saved under the artifacts directory.
 **Acceptance**: Docs tests fail before README/DEPLOY/docs updates are made.
 
-### ⬜ Unit 5b: Documentation — Implementation
+### ✅ Unit 5b: Documentation — Implementation
 **What**: Update deployment docs, README/DEPLOY where appropriate, backlog/task docs, and autopilot state with the QA environment contract.
 **Output**: Updated documentation and autopilot state.
 **Acceptance**: Docs tests pass and the docs describe exact QA commands without suggesting production cleanup.
 
-### ⬜ Unit 5c: Documentation — Coverage & Refactor
+### ✅ Unit 5c: Documentation — Coverage & Refactor
 **What**: Run focused docs/preflight tests and simplify wording or helper assertions if needed.
 **Output**: Focused docs/preflight test output saved under the artifacts directory and any doc/test cleanup needed.
 **Acceptance**: Docs-related tests remain green with no warnings.
@@ -180,3 +180,4 @@ Add a real Spoonjoy QA deployment target with separate Cloudflare state so live/
 - 2026-06-11 10:55 America/Los_Angeles Addressed Unit 1 reviewer findings: `deploy:qa` now builds with `CLOUDFLARE_ENV=qa`, QA preflight can validate generated `build/server/wrangler.json`, and static validation requires expected unique QA rate-limit bindings.
 - 2026-06-11 10:57 America/Los_Angeles Units 3a-3c complete: added failing seed tests, then implemented `scripts/seed-qa.mjs` with idempotent disposable QA SQL and hard `--target-env qa` refusal. Focused scripts suite passes.
 - 2026-06-11 11:00 America/Los_Angeles Units 4a-4c complete: added failing smoke-helper tests, then made live smoke cleanup target-explicit, QA cleanup use `--env qa`, production smoke explicit, Apple OAuth guard production-only, and cleanup verification query the same target environment. Focused scripts suite passes.
+- 2026-06-11 11:02 America/Los_Angeles Units 5a-5c complete: added failing QA docs test, then documented QA resources, secret commands, telemetry/image-provider policy, OAuth callback and WebAuthn origin expectations, seed namespace, disposable smoke naming, and safe verification commands. Focused scripts suite passes.

@@ -21,6 +21,57 @@ wrangler r2 bucket list
 
 After creating D1, copy the returned `database_id` into `wrangler.json` under the `DB` binding. Verify both D1 and R2 resources live in the same Cloudflare account used by `CLOUDFLARE_ACCOUNT_ID`/Wrangler deploy credentials.
 
+## Dedicated QA Environment
+
+Spoonjoy has a separate QA Worker and separate Cloudflare state for live/manual/e2e verification. Use QA for disposable smoke data, image upload checks, and agent-driven flows before trying anything risky in production.
+
+QA resources:
+
+- Worker URL: `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`
+- D1 database: `spoonjoy-qa`
+- R2 bucket: `spoonjoy-photos-qa`
+- Rate-limit namespaces: `2001`, `2002`, `2003`
+- Disposable seed namespace: `sj-qa-demo`
+- Disposable smoke users: `codex-smoke-...@example.com`
+
+First-time QA resource creation:
+
+```bash
+wrangler d1 create spoonjoy-qa
+wrangler r2 bucket create spoonjoy-photos-qa
+```
+
+Set or verify QA runtime secrets separately from production:
+
+```bash
+wrangler secret list --env qa
+wrangler secret put SESSION_SECRET --env qa
+wrangler secret put VAPID_PUBLIC_KEY --env qa
+wrangler secret put VAPID_PRIVATE_KEY --env qa
+wrangler secret put VAPID_SUBJECT --env qa
+```
+
+Optional QA secrets and vars:
+
+- Set `POSTHOG_DISABLED=true` in QA unless you are intentionally testing server telemetry and PostHog alerts.
+- Use `IMAGE_PROVIDER_PRIMARY=gemini`, `IMAGE_PROVIDER_FALLBACKS=openai`, and `GEMINI_IMAGE_MODEL=gemini-3.1-flash-image` when QA should exercise the same image-provider policy as production.
+- OAuth callback URLs must include the QA origin for Google/GitHub providers when those providers are enabled in QA. Apple OAuth callback verification remains production-only because the Apple Service ID is registered to the production return URL.
+- WebAuthn uses the request origin as RP origin, so QA passkey testing must happen on `https://spoonjoy-v2-qa.mendelow-studio.workers.dev`.
+
+QA verification flow:
+
+```bash
+pnpm run qa:preflight
+pnpm run qa:migrate
+pnpm run qa:seed
+CLOUDFLARE_ENV=qa pnpm run build
+SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG=1 pnpm run qa:preflight
+pnpm run deploy:qa
+pnpm run smoke:qa
+```
+
+`pnpm run smoke:qa` passes `--target-env qa`, creates a `codex-smoke-` user, cleans it from QA D1 with `--env qa`, and verifies the user count returns to zero. Do not run broad production cleanup. Production smoke cleanup must stay narrow to the one disposable `codex-smoke-` account created by that smoke run.
+
 ## Required Secrets
 
 Set production secrets with `wrangler secret put`:

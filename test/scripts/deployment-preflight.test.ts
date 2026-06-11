@@ -737,6 +737,40 @@ describe("deployment docs", () => {
     expect(cloudflareEnvDts).toContain("POSTHOG_HOST?: string;");
     expect(cloudflareEnvDts).toContain("POSTHOG_DISABLED?: string;");
   });
+
+  it("documents the QA environment setup and safe verification flow", async () => {
+    const [readme, deployDoc, deploymentDoc] = await Promise.all([
+      readFile(`${process.cwd()}/README.md`, "utf8"),
+      readFile(`${process.cwd()}/DEPLOY.md`, "utf8"),
+      readFile(`${process.cwd()}/docs/deployment.md`, "utf8"),
+    ]);
+    const docs = `${readme}\n${deployDoc}\n${deploymentDoc}`;
+
+    for (const term of [
+      "spoonjoy-qa",
+      "spoonjoy-photos-qa",
+      "spoonjoy-v2-qa.mendelow-studio.workers.dev",
+      "pnpm run qa:preflight",
+      "pnpm run qa:migrate",
+      "pnpm run qa:seed",
+      "pnpm run deploy:qa",
+      "pnpm run smoke:qa",
+      "CLOUDFLARE_ENV=qa",
+      "SPOONJOY_QA_PREFLIGHT_EXPECT_BUILD_CONFIG",
+      "wrangler secret list --env qa",
+      "wrangler secret put SESSION_SECRET --env qa",
+      "POSTHOG_DISABLED=true",
+      "IMAGE_PROVIDER_PRIMARY=gemini",
+      "OAuth callback",
+      "WebAuthn",
+      "sj-qa-demo",
+      "codex-smoke-",
+      "--target-env qa",
+      "Do not run broad production cleanup",
+    ]) {
+      expect(docs).toContain(term);
+    }
+  });
 });
 
 describe("package.json deploy scripts", () => {
