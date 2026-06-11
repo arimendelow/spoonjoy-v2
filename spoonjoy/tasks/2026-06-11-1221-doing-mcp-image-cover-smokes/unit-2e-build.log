@@ -12,8 +12,6 @@ vite v7.3.1 building client environment for production...
 transforming...
 ✓ 2561 modules transformed.
 rendering chunks...
-✘ [ERROR] The build was canceled
-
 computing gzip size...
 build/client/.vite/manifest.json                                        45.68 kB │ gzip:  4.40 kB
 build/client/assets/root-kVS1s3sZ.css                                  148.49 kB │ gzip: 21.94 kB
@@ -144,7 +142,7 @@ build/client/assets/proxy-Bm38A43m.js                                  115.78 kB
 build/client/assets/chunk-JZWAC4HX-BWgHnysW.js                         125.17 kB │ gzip: 42.32 kB
 build/client/assets/index-wnAe5EVe.js                                  175.88 kB │ gzip: 57.86 kB
 build/client/assets/entry.client-Du0c-emh.js                           187.26 kB │ gzip: 59.28 kB
-✓ built in 4.15s
+✓ built in 3.93s
 vite v7.3.1 building ssr environment for production...
 transforming...
 ✓ 3191 modules transformed.
@@ -169,4 +167,4 @@ build/server/assets/server-build-CYrESE5P.js        3,966.63 kB
 ✓ 1 asset copied from React Router server build to client assets.
 build/client/assets/server-build-kVS1s3sZ.css
 
-✓ built in 4.82s
+✓ built in 4.75s
