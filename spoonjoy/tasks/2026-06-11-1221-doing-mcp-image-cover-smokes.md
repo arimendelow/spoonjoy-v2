@@ -53,7 +53,7 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0: Setup And Current-State Capture
+### ✅ Unit 0: Setup And Current-State Capture
 **What**: Confirm the approved planning doc, current branch, artifact directory, and these contract files: `scripts/smoke-live.mjs`, `scripts/smoke-live-helpers.mjs`, `app/lib/spoonjoy-api.server.ts`, `app/routes/api.$.ts`, `app/routes/mcp.ts`, `app/lib/mcp/http-mcp.server.ts`, `app/lib/image-storage.server.ts`, `app/lib/spoon-cover-stylization.server.ts`, `app/lib/ai-placeholder-cover.server.ts`, `package.json`, `scripts/deployment-preflight.ts`, and `test/scripts/deployment-preflight.test.ts`; update `AUTOPILOT-STATE.md`.
 **Output**: Durable state points at this doing doc, branch, gate state, and next unit.
 **Acceptance**: Planning status is `approved`; artifacts directory exists; current branch is `spoonjoy/mcp-image-cover-smokes`; state doc records the active objective and next action.
@@ -151,3 +151,4 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - 2026-06-11 13:08 Created from approved planning doc.
 - 2026-06-11 13:17 Addressed ambiguity-review findings: exact contract files, test files, helper module, MCP tool matrix, fixture constants, provider secret names, verification commands, artifact filenames, split final merge/deploy/cleanup units, and commit/push cadence.
 - 2026-06-11 13:20 Addressed granularity-review findings by splitting live smoke implementation into auth/API upload, MCP cover/spoon, and cleanup/artifact units.
+- 2026-06-11 13:24 Unit 0 complete: planning approved, branch/artifacts confirmed, contract files inspected, and autopilot state updated.
