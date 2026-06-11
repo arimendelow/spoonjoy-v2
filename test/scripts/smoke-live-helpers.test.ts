@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildQaR2DeleteArgs,
+  buildQaR2GetArgs,
   buildCleanupD1Args,
   buildUserCountD1Args,
   parseSmokeArgs,
@@ -107,6 +109,63 @@ describe("smoke-live helpers", () => {
       outDir: "qa-live-smoke-artifacts",
       shouldCleanup: false,
     });
+  });
+
+  it("parses the QA-only image-cover smoke flag", () => {
+    expect(
+      parseSmokeArgs([
+        "--target-env",
+        "qa",
+        "--base-url",
+        "https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+        "--include-image-cover-smoke",
+      ]),
+    ).toMatchObject({
+      targetEnv: "qa",
+      includeImageCoverSmoke: true,
+    });
+  });
+
+  it("refuses image-cover smoke outside QA", () => {
+    expect(() =>
+      parseSmokeArgs([
+        "--target-env",
+        "production",
+        "--base-url",
+        "https://spoonjoy-v2.mendelow-studio.workers.dev",
+        "--include-image-cover-smoke",
+      ]),
+    ).toThrow(/image-cover smoke.*QA/i);
+    expect(() =>
+      parseSmokeArgs([
+        "--base-url",
+        "http://localhost:5173",
+        "--include-image-cover-smoke",
+      ]),
+    ).toThrow(/image-cover smoke.*QA/i);
+  });
+
+  it("builds QA R2 object get and delete args", () => {
+    expect(buildQaR2GetArgs("recipes/user-1/uploads/photo.jpg")).toEqual([
+      "exec",
+      "wrangler",
+      "r2",
+      "object",
+      "get",
+      "spoonjoy-photos-qa/recipes/user-1/uploads/photo.jpg",
+      "--remote",
+      "--pipe",
+    ]);
+    expect(buildQaR2DeleteArgs("spoons/user-1/uploads/photo.png")).toEqual([
+      "exec",
+      "wrangler",
+      "r2",
+      "object",
+      "delete",
+      "spoonjoy-photos-qa/spoons/user-1/uploads/photo.png",
+      "--remote",
+      "--force",
+    ]);
   });
 
   it("allows explicit production smoke args for the production Worker URL", () => {

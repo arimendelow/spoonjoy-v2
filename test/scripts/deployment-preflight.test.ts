@@ -68,6 +68,8 @@ function validInputs(): DeploymentPreflightInputs {
         "smoke:api": "node scripts/smoke-api-live.mjs",
         "smoke:qa":
           "node scripts/smoke-live.mjs --target-env qa --base-url https://spoonjoy-v2-qa.mendelow-studio.workers.dev --out qa-live-smoke-artifacts",
+        "smoke:qa:image-cover":
+          "node scripts/smoke-live.mjs --target-env qa --base-url https://spoonjoy-v2-qa.mendelow-studio.workers.dev --out qa-image-cover-smoke-artifacts --include-image-cover-smoke",
         "db:seed": "pnpm exec tsx prisma/seed.ts",
       },
     },
@@ -333,7 +335,7 @@ describe("deployment preflight", () => {
   it("flags a missing isolated QA Wrangler environment and QA scripts", () => {
     const inputs = validInputs();
     delete inputs.wrangler.env;
-    for (const script of ["qa:preflight", "qa:migrate", "qa:seed", "deploy:qa", "smoke:qa"]) {
+    for (const script of ["qa:preflight", "qa:migrate", "qa:seed", "deploy:qa", "smoke:qa", "smoke:qa:image-cover"]) {
       delete (inputs.packageJson.scripts as Record<string, string>)[script];
     }
 
@@ -342,6 +344,15 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).toEqual(
       expect.arrayContaining(["QA environment", "QA resource isolation", "QA package scripts"]),
     );
+  });
+
+  it("requires the QA image-cover smoke package script", () => {
+    const inputs = validInputs();
+    delete (inputs.packageJson.scripts as Record<string, string>)["smoke:qa:image-cover"];
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA package scripts");
   });
 
   it("flags QA resources that alias production resources", () => {
@@ -811,6 +822,18 @@ describe("package.json deploy scripts", () => {
     expect(pkg.scripts["smoke:qa"]).toBe(
       "node scripts/smoke-live.mjs --target-env qa --base-url https://spoonjoy-v2-qa.mendelow-studio.workers.dev --out qa-live-smoke-artifacts",
     );
+    expect(pkg.scripts["smoke:qa:image-cover"]).toBe(
+      "node scripts/smoke-live.mjs --target-env qa --base-url https://spoonjoy-v2-qa.mendelow-studio.workers.dev --out qa-image-cover-smoke-artifacts --include-image-cover-smoke",
+    );
+  });
+
+  it("includes live-smoke script helpers in coverage instrumentation", async () => {
+    const configRaw = await import("node:fs/promises").then((mod) =>
+      mod.readFile(`${process.cwd()}/vitest.config.ts`, "utf8"),
+    );
+
+    expect(configRaw).toContain("scripts/smoke-live-helpers.mjs");
+    expect(configRaw).toContain("scripts/smoke-image-cover-live.mjs");
   });
 });
 
