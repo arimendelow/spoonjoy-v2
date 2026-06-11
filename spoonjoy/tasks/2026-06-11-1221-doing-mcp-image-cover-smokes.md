@@ -63,7 +63,7 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 **Output**: Tests cover `--include-image-cover-smoke` QA-only parsing, canonical upload and generated `covers/*` R2 key extraction/validation, R2 delete/get args, generated JPEG fixture Orientation `6`, dirty APP1 marker detection, API adapter request URL/body/headers, MCP `tools/list` and `tools/call` JSON-RPC request body/headers, explicit `recipes:read kitchen:write` token scopes, credential revocation request shape, `wrangler secret list --env qa` provider-secret parsing, and exact package script expectations.
 **Acceptance**: `pnpm exec vitest run test/scripts/smoke-live-helpers.test.ts test/scripts/smoke-image-cover-live.test.ts test/scripts/deployment-preflight.test.ts` fails red because `scripts/smoke-image-cover-live.mjs`, helper exports, workflow assertions, or `smoke:qa:image-cover` do not exist yet; failures are meaningful outbound-shape/helper assertions.
 
-### ⬜ Unit 1b: Smoke Helper And Adapter Implementation
+### ✅ Unit 1b: Smoke Helper And Adapter Implementation
 **What**: Implement the helper and adapter code needed by the live smoke plus the `smoke:qa:image-cover` package command.
 **Output**: `scripts/smoke-live-helpers.mjs` exports the new argument/R2 helpers; new `scripts/smoke-image-cover-live.mjs` exports API/MCP adapters, fixture builders, provider preflight parsing, polling, provenance, credential revocation, and cleanup helpers; `package.json` includes `smoke:qa:image-cover`; `scripts/deployment-preflight.ts` recognizes the command; `vitest.config.ts` includes the new script helper modules in coverage.
 **Acceptance**: Unit 1a tests pass green with no warnings.
@@ -155,3 +155,4 @@ Add a QA-targeted live smoke mode that proves Spoonjoy's remote API/MCP image an
 - 2026-06-11 13:27 Quality review converged with one minor lifecycle fix; marked doing status `in-progress`.
 - 2026-06-11 13:31 Adversarial reviewers found generated `covers/*` cleanup, token scopes/lifecycle, `tools/list`, placeholder polling, and script coverage gaps. Updated units to require generated-cover cleanup validation, explicit `recipes:read kitchen:write` token scopes, credential revocation, separate MCP `tools/list`, placeholder polling before cover mutations, and script coverage inclusion.
 - 2026-06-11 13:34 Unit 1a complete: focused red test run saved to `unit-1a-red.log`; failures are missing helper module/exports, package script/preflight requirement, and coverage instrumentation.
+- 2026-06-11 13:38 Unit 1b complete: helper module, smoke flag/R2 helpers, package script, preflight requirement, and coverage config implemented; focused tests passed in `unit-1b-green.log`.

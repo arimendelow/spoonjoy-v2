@@ -84,6 +84,7 @@ const REQUIRED_QA_PACKAGE_SCRIPTS = [
   "qa:seed",
   "deploy:qa",
   "smoke:qa",
+  "smoke:qa:image-cover",
 ] as const;
 
 const REQUIRED_RATE_LIMIT_BINDINGS = [
@@ -384,7 +385,11 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
         scripts["deploy:qa"].includes("wrangler deploy --env qa") &&
         typeof scripts["smoke:qa"] === "string" &&
         scripts["smoke:qa"].includes("--target-env qa") &&
-        scripts["smoke:qa"].includes("spoonjoy-v2-qa.mendelow-studio.workers.dev"),
+        scripts["smoke:qa"].includes("spoonjoy-v2-qa.mendelow-studio.workers.dev") &&
+        typeof scripts["smoke:qa:image-cover"] === "string" &&
+        scripts["smoke:qa:image-cover"].includes("--target-env qa") &&
+        scripts["smoke:qa:image-cover"].includes("spoonjoy-v2-qa.mendelow-studio.workers.dev") &&
+        scripts["smoke:qa:image-cover"].includes("--include-image-cover-smoke"),
       `package.json must include QA scripts: ${REQUIRED_QA_PACKAGE_SCRIPTS.join(", ")}.`
     ),
     check(
