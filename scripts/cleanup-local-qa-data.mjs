@@ -307,11 +307,19 @@ WHERE key IS NOT NULL AND key != '';
 }
 
 export function buildQaR2SearchTableExistsSql() {
+  return buildSearchTablesExistSql(["SearchDocument"]);
+}
+
+export function buildSearchTablesExistSql(names = ["SearchDocument", "SearchIndexMetadata"]) {
+  const searchTableNames = unique(names);
+  const namePredicate = searchTableNames.length === 0
+    ? "0"
+    : `name IN (${searchTableNames.map(sqlString).join(", ")})`;
   return `
 SELECT name
 FROM sqlite_master
 WHERE type IN ('table', 'virtual table')
-  AND name = 'SearchDocument';
+  AND ${namePredicate};
 `.trim();
 }
 
@@ -543,15 +551,15 @@ function assertNoR2Blockers(rows) {
   if (blockers.length > 0) throw r2BlockerError(blockers);
 }
 
-async function qaSearchDocumentExists({ dbName, target, runCommand }) {
-  const result = await runCommand("pnpm", wranglerD1Args(dbName, buildQaR2SearchTableExistsSql(), target), {
+async function collectExistingSearchTables({ dbName, target, runCommand }) {
+  const result = await runCommand("pnpm", wranglerD1Args(dbName, buildSearchTablesExistSql(), target), {
     encoding: "utf8",
     maxBuffer: MAX_WRANGLER_BUFFER,
   });
-  return parseWranglerRows(result.stdout ?? "").some((row) => row.name === "SearchDocument");
+  return normalizeExistingSearchTables(parseWranglerRows(result.stdout ?? "").map((row) => row.name));
 }
 
-async function collectQaR2Candidates({ dbName, target, runCommand }) {
+async function collectQaR2Candidates({ dbName, target, runCommand, existingSearchTables }) {
   const result = await runCommand("pnpm", wranglerD1Args(dbName, buildQaR2CandidateSql(), target), {
     encoding: "utf8",
     maxBuffer: MAX_WRANGLER_BUFFER,
@@ -560,7 +568,7 @@ async function collectQaR2Candidates({ dbName, target, runCommand }) {
   assertNoR2Blockers(rows);
   const deleteKeys = unique(rows.filter((row) => row.action === "delete").map((row) => row.key));
   const retainedKeys = unique(rows.filter((row) => row.action === "retain").map((row) => row.key));
-  if (deleteKeys.length > 0 && await qaSearchDocumentExists({ dbName, target, runCommand })) {
+  if (deleteKeys.length > 0 && existingSearchTables.has("SearchDocument")) {
     const searchResult = await runCommand("pnpm", wranglerD1Args(dbName, buildQaR2SearchReferenceSql(deleteKeys), target), {
       encoding: "utf8",
       maxBuffer: MAX_WRANGLER_BUFFER,
@@ -648,7 +656,41 @@ SELECT 'cross-boundary cleanup blockers' AS item,
 `.trim();
 }
 
-export function buildApplySql() {
+function normalizeExistingSearchTables(existingSearchTables) {
+  return new Set(Array.from(existingSearchTables).filter(
+    (name) => name === "SearchDocument" || name === "SearchIndexMetadata",
+  ));
+}
+
+function buildSearchCleanupSql(existingSearchTables) {
+  const searchTables = normalizeExistingSearchTables(existingSearchTables);
+  const statements = [];
+
+  if (searchTables.has("SearchDocument")) {
+    statements.push(`
+DELETE FROM SearchDocument
+WHERE ownerId IN (SELECT id FROM disposable_users)
+   OR entityId IN (SELECT id FROM hard_delete_recipes)
+   OR entityId IN (SELECT id FROM soft_delete_recipes)
+   OR entityId IN (SELECT id FROM disposable_spoons)
+   OR entityId IN (SELECT id FROM disposable_covers)
+   OR imageUrl IN (SELECT imageUrl FROM disposable_cover_image_urls)
+   OR EXISTS (SELECT 1 FROM disposable_users WHERE SearchDocument.href LIKE '%' || disposable_users.id || '%')
+   OR EXISTS (SELECT 1 FROM hard_delete_recipes WHERE SearchDocument.href LIKE '%' || hard_delete_recipes.id || '%')
+   OR EXISTS (SELECT 1 FROM disposable_spoons WHERE SearchDocument.href LIKE '%' || disposable_spoons.id || '%')
+   OR EXISTS (SELECT 1 FROM disposable_covers WHERE SearchDocument.href LIKE '%' || disposable_covers.id || '%');
+`.trim());
+  }
+
+  if (searchTables.has("SearchIndexMetadata")) {
+    statements.push("DELETE FROM SearchIndexMetadata;");
+  }
+
+  return statements.join("\n\n");
+}
+
+export function buildApplySql({ existingSearchTables = [] } = {}) {
+  const searchCleanupSql = buildSearchCleanupSql(existingSearchTables);
   return `
 PRAGMA foreign_keys=ON;
 
@@ -717,37 +759,6 @@ INSERT INTO disposable_credentials
 SELECT id FROM ApiCredential
 WHERE userId IN (SELECT id FROM disposable_users)
    OR oauthClientId IN (SELECT id FROM e2e_oauth_clients);
-
--- CREATE TEMP TABLE existing_search_tables
-CREATE TABLE IF NOT EXISTS existing_search_tables (name TEXT PRIMARY KEY);
-DELETE FROM existing_search_tables;
-INSERT INTO existing_search_tables
-SELECT name FROM sqlite_master
-WHERE type IN ('table', 'virtual table')
-  AND name IN ('SearchDocument', 'SearchIndexMetadata');
-
-CREATE VIRTUAL TABLE IF NOT EXISTS SearchDocument USING fts5(
-  entityType UNINDEXED,
-  entityId UNINDEXED,
-  ownerId UNINDEXED,
-  ownerUsername UNINDEXED,
-  sortAt UNINDEXED,
-  title,
-  subtitle,
-  body,
-  href UNINDEXED,
-  imageUrl UNINDEXED,
-  metadata UNINDEXED,
-  tokenize = 'unicode61 remove_diacritics 2',
-  prefix = '2 3 4'
-);
-
-CREATE TABLE IF NOT EXISTS SearchIndexMetadata (
-  id TEXT NOT NULL PRIMARY KEY,
-  sourceFingerprint TEXT NOT NULL,
-  documentCount INTEGER NOT NULL DEFAULT 0,
-  rebuiltAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 
 -- CREATE TEMP TABLE cleanup_blockers
 CREATE TABLE IF NOT EXISTS cleanup_blockers (
@@ -913,26 +924,12 @@ SET deletedAt = COALESCE(deletedAt, CURRENT_TIMESTAMP)
 WHERE id IN (SELECT id FROM soft_delete_recipes);
 -- Legacy smoke-test marker: SET deletedAt = CURRENT_TIMESTAMP
 
-DELETE FROM SearchDocument
-WHERE ownerId IN (SELECT id FROM disposable_users)
-   OR entityId IN (SELECT id FROM hard_delete_recipes)
-   OR entityId IN (SELECT id FROM soft_delete_recipes)
-   OR entityId IN (SELECT id FROM disposable_spoons)
-   OR entityId IN (SELECT id FROM disposable_covers)
-   OR imageUrl IN (SELECT imageUrl FROM disposable_cover_image_urls)
-   OR EXISTS (SELECT 1 FROM disposable_users WHERE SearchDocument.href LIKE '%' || disposable_users.id || '%')
-   OR EXISTS (SELECT 1 FROM hard_delete_recipes WHERE SearchDocument.href LIKE '%' || hard_delete_recipes.id || '%')
-   OR EXISTS (SELECT 1 FROM disposable_spoons WHERE SearchDocument.href LIKE '%' || disposable_spoons.id || '%')
-   OR EXISTS (SELECT 1 FROM disposable_covers WHERE SearchDocument.href LIKE '%' || disposable_covers.id || '%');
-
-DELETE FROM SearchIndexMetadata
-WHERE EXISTS (SELECT 1 FROM existing_search_tables WHERE name = 'SearchIndexMetadata');
+${searchCleanupSql ? `${searchCleanupSql}\n` : ""}
 
 DELETE FROM User
 WHERE id IN (SELECT id FROM disposable_users);
 
 DELETE FROM cleanup_blockers;
-DELETE FROM existing_search_tables;
 DELETE FROM disposable_credentials;
 DELETE FROM disposable_cover_image_urls;
 DELETE FROM disposable_covers;
@@ -1060,8 +1057,19 @@ export async function runCleanupCli({
     stdout.write("Production cleanup is read-only for broad disposable sweeps.\n");
   }
 
-  const sql = options.apply ? buildApplySql() : buildDryRunSql();
-  const args = wranglerD1Args(options.dbName, sql, options.target);
+  const existingSearchTables = options.apply
+    ? await collectExistingSearchTables({
+      dbName: options.dbName,
+      target: options.target,
+      runCommand,
+    })
+    : new Set();
+  if (options.apply && !existingSearchTables.has("SearchDocument")) {
+    stdout.write("Skipped SearchDocument cleanup: table absent.\n");
+  }
+  if (options.apply && !existingSearchTables.has("SearchIndexMetadata")) {
+    stdout.write("Skipped SearchIndexMetadata cleanup: table absent.\n");
+  }
 
   let qaR2Candidates = { deleteKeys: [], retainedKeys: [] };
   if (options.apply && options.target.targetEnv === "qa") {
@@ -1069,6 +1077,7 @@ export async function runCleanupCli({
       dbName: options.dbName,
       target: options.target,
       runCommand,
+      existingSearchTables,
     });
     if (qaR2Candidates.retainedKeys.length > 0) {
       stdout.write(`Retained QA R2 keys: ${qaR2Candidates.retainedKeys.join(", ")}\n`);
@@ -1082,6 +1091,9 @@ export async function runCleanupCli({
       runCommand,
     });
   }
+
+  const sql = options.apply ? buildApplySql({ existingSearchTables }) : buildDryRunSql();
+  const args = wranglerD1Args(options.dbName, sql, options.target);
 
   const result = await runCommand("pnpm", args, {
     encoding: "utf8",

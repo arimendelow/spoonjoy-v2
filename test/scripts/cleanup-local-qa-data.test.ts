@@ -320,9 +320,10 @@ describe("cleanup-local-qa-data", () => {
 
     const calls = runCommand.mock.calls.map((call) => call[1] as string[]);
     const joinedCalls = calls.map((args) => args.join(" "));
-    expect(joinedCalls[1]).toContain("candidate_r2_keys");
-    expect(joinedCalls[2]).toContain("sqlite_master");
-    expect(joinedCalls[2]).toContain("SearchDocument");
+    expect(joinedCalls[1]).toContain("sqlite_master");
+    expect(joinedCalls[1]).toContain("SearchDocument");
+    expect(joinedCalls[1]).toContain("SearchIndexMetadata");
+    expect(joinedCalls[2]).toContain("candidate_r2_keys");
     expect(joinedCalls[3]).toContain(cleanup.buildBlockerReportSql());
     expect(joinedCalls[4]).toContain(buildApplySql());
     expect(joinedCalls.slice(1, 4)).not.toEqual(expect.arrayContaining([expect.stringContaining("FROM SearchDocument")]));
@@ -335,6 +336,7 @@ describe("cleanup-local-qa-data", () => {
       cleanup.buildQaR2GetArgs("spoons/codex-user/recipe-1/spoon.jpg"),
     ]);
     expect(stdout.text()).toContain("Retained QA R2 keys: recipes/not-disposable/recipe-1/source.jpg");
+    expect(stdout.text()).toContain("Skipped SearchDocument cleanup: table absent.");
     expect(stdout.text()).toContain("Applied QA D1 cleanup.");
     expect(stdout.text()).toContain("Verified deleted QA R2 keys: profiles/codex-user/avatar.jpg");
   });
@@ -521,14 +523,21 @@ describe("cleanup-local-qa-data", () => {
     expect(sql).not.toContain("SET sourceRecipeId = NULL\nWHERE sourceRecipeId IS NOT NULL;");
   });
 
-  it("handles absent or present search tables without failing cleanup", () => {
+  it("does not touch absent search tables in default apply SQL", () => {
     const sql = buildApplySql();
 
+    expect(sql).toContain("DELETE FROM User");
+    expect(sql).not.toContain("SearchDocument");
+    expect(sql).not.toContain("SearchIndexMetadata");
+    expect(sql).not.toContain("CREATE VIRTUAL TABLE");
+  });
+
+  it("cleans existing search tables without creating them", () => {
+    const sql = buildApplySql({ existingSearchTables: ["SearchDocument", "SearchIndexMetadata"] });
+
     expectAll(sql, [
-      "sqlite_master",
       "SearchDocument",
       "SearchIndexMetadata",
-      "CREATE TEMP TABLE existing_search_tables",
       "DELETE FROM SearchDocument",
       "ownerId IN (SELECT id FROM disposable_users)",
       "entityId IN (SELECT id FROM hard_delete_recipes)",
@@ -536,6 +545,24 @@ describe("cleanup-local-qa-data", () => {
       "imageUrl",
       "DELETE FROM SearchIndexMetadata",
     ]);
+    expect(sql).not.toContain("CREATE VIRTUAL TABLE");
+    expect(sql).not.toContain("CREATE TABLE IF NOT EXISTS SearchIndexMetadata");
+  });
+
+  it("builds read-only search table existence SQL outside apply SQL", () => {
+    const sql = cleanup.buildSearchTablesExistSql();
+
+    expectAll(sql, [
+      "sqlite_master",
+      "SearchDocument",
+      "SearchIndexMetadata",
+    ]);
+    expect(sql).not.toContain("CREATE");
+    expect(sql).not.toContain("DELETE");
+
+    expect(cleanup.buildQaR2SearchTableExistsSql()).toContain("name IN ('SearchDocument')");
+    expect(cleanup.buildQaR2SearchTableExistsSql()).not.toContain("SearchIndexMetadata");
+    expect(cleanup.buildSearchTablesExistSql([])).toContain("AND 0;");
   });
 
   it("distinguishes direct disposable NotificationEvent cleanup from non-disposable payload blockers", () => {
@@ -928,6 +955,11 @@ describe("cleanup-local-qa-data", () => {
     expect(runCommand.mock.calls.map((call) => (call[1] as string[]).join(" "))).not.toEqual(
       expect.arrayContaining([expect.stringContaining("blocker_search_imageUrl")]),
     );
+    const applyCall = runCommand.mock.calls.map((call) => (call[1] as string[]).join(" ")).find(
+      (command) => command.includes("DELETE FROM User"),
+    );
+    expect(applyCall).not.toContain("SearchDocument");
+    expect(stdout.text()).toContain("Skipped SearchDocument cleanup: table absent.");
   });
 
   it("treats missing stdout from search blocker and D1 blocker preflights as empty", async () => {
@@ -963,7 +995,7 @@ describe("cleanup-local-qa-data", () => {
     const joinedCalls = runCommand.mock.calls.map((call) => (call[1] as string[]).join(" "));
     expect(joinedCalls).toEqual(expect.arrayContaining([
       expect.stringContaining("FROM SearchDocument"),
-      expect.stringContaining(buildApplySql()),
+      expect.stringContaining(buildApplySql({ existingSearchTables: ["SearchDocument"] })),
     ]));
   });
 
