@@ -18,6 +18,7 @@ export interface DeploymentPreflightInputs {
   packageJson: Record<string, unknown>;
   productionDeployWorkflow: string;
   qaImageCoverSmokeWorkflow: string;
+  storybookWorkflow: string;
   cloudflareEnvDts: string;
   readme: string;
   deploymentDoc: string;
@@ -297,6 +298,43 @@ function stepPropertyValue(lines: WorkflowLine[], stepStart: number, stepEnd: nu
   return null;
 }
 
+function blockPropertyValue(lines: WorkflowLine[], blockStart: number, blockEnd: number, key: string): string | null {
+  const propertyIndent = lines[blockStart].indent + 2;
+  for (let index = blockStart + 1; index < blockEnd; index += 1) {
+    if (lines[index].indent !== propertyIndent) continue;
+    const value = lines[index].text.match(new RegExp(`^${key}:\\s*(.*)$`));
+    if (value) return value[1].trim();
+  }
+  return null;
+}
+
+function unquoteYamlScalar(value: string): string {
+  const trimmed = value.trim();
+  if (
+    trimmed.length >= 2 &&
+    ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'")))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function blockScalarChildValue(lines: WorkflowLine[], blockStart: number, blockEnd: number, key: string): string | null {
+  const childIndent = lines[blockStart].indent + 2;
+  for (let index = blockStart + 1; index < blockEnd; index += 1) {
+    if (lines[index].indent !== childIndent) continue;
+    const value = lines[index].text.match(new RegExp(`^${key}:\\s*(.*)$`));
+    if (value) return unquoteYamlScalar(value[1]);
+  }
+  return null;
+}
+
+function stepWithValue(lines: WorkflowLine[], stepStart: number, stepEnd: number, key: string): string | null {
+  const withBlock = childBlock(lines, stepStart, stepEnd, "with");
+  if (!withBlock) return null;
+  return blockScalarChildValue(lines, withBlock[0], withBlock[1], key);
+}
+
 function stepRunText(lines: WorkflowLine[], stepStart: number, stepEnd: number): string {
   const inlineRun = lines[stepStart].text.match(/^-\s+run:\s*(.+)$/);
   if (inlineRun) return inlineRun[1].trim();
@@ -538,6 +576,60 @@ function workflowHasQaImageCoverSmokeGuards(workflow: string): boolean {
   return false;
 }
 
+function workflowHasStorybookDeployContract(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  const activeText = lines.map((line) => line.text).join("\n");
+  if (activeText.includes("cloudflare/pages-action@")) return false;
+  if (!workflowDeploysPushesToMain(workflow)) return false;
+
+  for (const [jobStart, jobEnd] of workflowJobBlocks(lines)) {
+    if (lines[jobStart].text !== "deploy-storybook:") continue;
+    if (blockPropertyValue(lines, jobStart, jobEnd, "needs") !== "build-storybook") return false;
+    if (
+      normalizedWorkflowCondition(blockPropertyValue(lines, jobStart, jobEnd, "if") ?? "") !==
+      "github.ref == 'refs/heads/main'"
+    ) {
+      return false;
+    }
+
+    const permissions = childBlock(lines, jobStart, jobEnd, "permissions");
+    if (!permissions || blockScalarChildValue(lines, permissions[0], permissions[1], "deployments") !== "write") {
+      return false;
+    }
+
+    const steps = childBlock(lines, jobStart, jobEnd, "steps");
+    if (!steps) return false;
+
+    let downloadsStorybookArtifact = false;
+    let deploysWithWranglerV4 = false;
+
+    for (const [stepStart, stepEnd] of stepBlocks(lines, steps[0], steps[1])) {
+      if (
+        stepUses(lines, stepStart, stepEnd, "actions/download-artifact@") &&
+        stepWithValue(lines, stepStart, stepEnd, "name") === "storybook-static" &&
+        stepWithValue(lines, stepStart, stepEnd, "path") === "storybook-static"
+      ) {
+        downloadsStorybookArtifact = true;
+      }
+
+      if (
+        stepUses(lines, stepStart, stepEnd, "cloudflare/wrangler-action@v4") &&
+        stepWithValue(lines, stepStart, stepEnd, "apiToken") === "${{ secrets.CLOUDFLARE_API_TOKEN }}" &&
+        stepWithValue(lines, stepStart, stepEnd, "accountId") === "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" &&
+        stepWithValue(lines, stepStart, stepEnd, "command") ===
+          "pages deploy storybook-static --project-name=spoonjoy-storybook" &&
+        stepWithValue(lines, stepStart, stepEnd, "gitHubToken") === "${{ secrets.GITHUB_TOKEN }}"
+      ) {
+        deploysWithWranglerV4 = true;
+      }
+    }
+
+    return downloadsStorybookArtifact && deploysWithWranglerV4;
+  }
+
+  return false;
+}
+
 export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): DeploymentPreflightResult {
   const scripts = packageScripts(inputs.packageJson);
   const readmeAndDeploymentDoc = `${inputs.readme}\n${inputs.deploymentDoc}`;
@@ -657,6 +749,11 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
       workflowTriggersOnlyDispatchAndSchedule(inputs.qaImageCoverSmokeWorkflow) &&
         workflowHasQaImageCoverSmokeGuards(inputs.qaImageCoverSmokeWorkflow),
       ".github/workflows/qa-image-cover-smoke.yml must run only on schedule/manual dispatch, guard Cloudflare and QA image-provider credentials, and run the QA-only image-cover smoke without deploy commands."
+    ),
+    check(
+      "Storybook deploy workflow",
+      workflowHasStorybookDeployContract(inputs.storybookWorkflow),
+      ".github/workflows/storybook.yml must deploy main-branch Storybook artifacts through cloudflare/wrangler-action@v4 with Cloudflare credentials, deployments: write, and GITHUB_TOKEN wiring."
     ),
     check(
       "Cloudflare Env typing",
@@ -879,11 +976,22 @@ export async function runDeploymentPreflight(
   rootDir = process.cwd(),
   deps: RunDeploymentPreflightDeps = {},
 ): Promise<DeploymentPreflightResult> {
-  const [wrangler, packageJson, productionDeployWorkflow, qaImageCoverSmokeWorkflow, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
+  const [
+    wrangler,
+    packageJson,
+    productionDeployWorkflow,
+    qaImageCoverSmokeWorkflow,
+    storybookWorkflow,
+    cloudflareEnvDts,
+    readme,
+    deploymentDoc,
+    migrationFiles,
+  ] = await Promise.all([
     readJsonFile(path.join(rootDir, "wrangler.json")),
     readJsonFile(path.join(rootDir, "package.json")),
     readFile(path.join(rootDir, ".github/workflows/production-deploy.yml"), "utf8"),
     readFile(path.join(rootDir, ".github/workflows/qa-image-cover-smoke.yml"), "utf8"),
+    readFile(path.join(rootDir, ".github/workflows/storybook.yml"), "utf8"),
     readFile(path.join(rootDir, "app/cloudflare-env.d.ts"), "utf8"),
     readFile(path.join(rootDir, "README.md"), "utf8"),
     readFile(path.join(rootDir, "docs/deployment.md"), "utf8"),
@@ -895,6 +1003,7 @@ export async function runDeploymentPreflight(
     packageJson,
     productionDeployWorkflow,
     qaImageCoverSmokeWorkflow,
+    storybookWorkflow,
     cloudflareEnvDts,
     readme,
     deploymentDoc,
