@@ -316,16 +316,6 @@ function stepPropertyValue(lines: WorkflowLine[], stepStart: number, stepEnd: nu
   return null;
 }
 
-function blockPropertyValue(lines: WorkflowLine[], blockStart: number, blockEnd: number, key: string): string | null {
-  const propertyIndent = lines[blockStart].indent + 2;
-  for (let index = blockStart + 1; index < blockEnd; index += 1) {
-    if (lines[index].indent !== propertyIndent) continue;
-    const value = lines[index].text.match(new RegExp(`^${key}:\\s*(.*)$`));
-    if (value) return value[1].trim();
-  }
-  return null;
-}
-
 function unquoteYamlScalar(value: string): string {
   const trimmed = value.trim();
   if (

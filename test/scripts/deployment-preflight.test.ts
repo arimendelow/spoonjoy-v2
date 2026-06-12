@@ -1786,6 +1786,27 @@ describe("Storybook deploy warning cleanup", () => {
     }
   });
 
+  it("rejects a Storybook Wrangler deploy action without a with block", () => {
+    const missingWith = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          [
+            "        with:",
+            "          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+            "          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+            "          workingDirectory: storybook-pages-deploy",
+            "          packageManager: npm",
+            "          command: pages deploy --project-name=spoonjoy-storybook --branch=${{ github.ref_name }} --commit-hash=${{ github.sha }} --commit-dirty=true",
+            "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+          ].join("\n"),
+          "",
+        ),
+      ),
+    );
+
+    expect(missingWith.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
   it("requires explicit Pages commit metadata and dirty-state intent", () => {
     const missingBranch = validateDeploymentConfig(
       inputsWithStorybookWorkflow(validStorybookWorkflow().replace(" --branch=${{ github.ref_name }}", "")),
@@ -1831,6 +1852,19 @@ describe("Storybook deploy warning cleanup", () => {
     for (const result of [missingWorkspace, missingPackage, truePackage]) {
       expect(result.errors.map((item) => item.name)).toContain("pnpm build script policy");
     }
+  });
+
+  it("ignores malformed and nested pnpm-workspace allowBuilds noise around required package entries", () => {
+    const noisyWorkspace = validPnpmWorkspace().replace(
+      "  core-js: false",
+      "  malformed-entry\n  core-js: false\n    nested: false",
+    );
+
+    const result = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(validStorybookWorkflow(), { pnpmWorkspace: noisyWorkspace }),
+    );
+
+    expect(result.errors.map((item) => item.name)).not.toContain("pnpm build script policy");
   });
 
   it("accepts quoted Storybook workflow scalar values and nested with-block entries", () => {
