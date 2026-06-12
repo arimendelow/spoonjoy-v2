@@ -64,7 +64,7 @@ Remove the deprecated Cloudflare Pages GitHub Action from the Storybook deployme
 **Output**: Failing test coverage for the Storybook deploy workflow contract in `test/scripts/deployment-preflight.test.ts`.
 **Acceptance**: `pnpm exec vitest run test/scripts/deployment-preflight.test.ts -t "Storybook deploy workflow"` fails before the workflow migration.
 
-### ⬜ Unit 1b: Workflow Migration — Implementation
+### ✅ Unit 1b: Workflow Migration — Implementation
 **What**: Extend `scripts/deployment-preflight.ts` to read `.github/workflows/storybook.yml` and validate the Storybook deploy contract, then replace the deploy step in `.github/workflows/storybook.yml` with `cloudflare/wrangler-action@v4` and command `pages deploy storybook-static --project-name=spoonjoy-storybook`, while preserving `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `deployments: write`, `gitHubToken: ${{ secrets.GITHUB_TOKEN }}`, and main-branch-only deploy behavior.
 **Output**: Updated deployment preflight and Storybook workflow.
 **Acceptance**: `pnpm exec vitest run test/scripts/deployment-preflight.test.ts -t "Storybook deploy workflow"` passes, `pnpm build-storybook` passes, and `ruby -e 'require "psych"; Psych.parse_file(".github/workflows/storybook.yml")'` parses the workflow.
@@ -94,3 +94,4 @@ Remove the deprecated Cloudflare Pages GitHub Action from the Storybook deployme
 - 2026-06-11 20:51 Doing review Round 2 converged; status set to READY_FOR_EXECUTION.
 - 2026-06-11 20:53 Unit 0 complete: verified `cloudflare/wrangler-action@v4.0.0` uses Node 24, `v3` uses Node 20, baseline `pnpm build-storybook` passed, `.github/workflows/storybook.yml` parses with Ruby Psych, and the worktree stayed clean.
 - 2026-06-11 20:55 Unit 1a red confirmed: `pnpm exec vitest run test/scripts/deployment-preflight.test.ts -t "Storybook deploy workflow"` failed because the Storybook deploy preflight check did not exist.
+- 2026-06-11 20:58 Unit 1b green: Storybook deploy preflight check implemented, `.github/workflows/storybook.yml` migrated to `cloudflare/wrangler-action@v4`, focused Storybook deploy workflow tests passed, Ruby Psych parsed the workflow, `pnpm build-storybook` passed, and `git diff --check` passed.
