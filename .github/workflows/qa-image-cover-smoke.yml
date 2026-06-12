@@ -9,6 +9,11 @@ concurrency:
   group: qa-image-cover-smoke
   cancel-in-progress: false
 
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   smoke:
     name: smoke
@@ -35,8 +40,6 @@ jobs:
       - name: Setup pnpm
         if: steps.cloudflare.outputs.ready == 'true'
         uses: pnpm/action-setup@v6
-        with:
-          version: "10.28.1"
 
       - name: Setup Node.js
         if: steps.cloudflare.outputs.ready == 'true'

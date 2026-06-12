@@ -20,6 +20,10 @@ function validQaImageCoverSmokeWorkflow(): string {
     "  workflow_dispatch:",
     "  schedule:",
     "    - cron: \"17 10 * * *\"",
+    "env:",
+    "  GIT_CONFIG_COUNT: '1'",
+    "  GIT_CONFIG_KEY_0: init.defaultBranch",
+    "  GIT_CONFIG_VALUE_0: main",
     "jobs:",
     "  smoke:",
     "    steps:",
@@ -34,8 +38,10 @@ function validQaImageCoverSmokeWorkflow(): string {
     "            echo \"Skipping QA image-cover smoke because Cloudflare GitHub secrets are not configured.\"",
     "            exit 0",
     "          fi",
-    "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"",
+          "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"",
     "      - uses: actions/checkout@v6",
+    "        if: steps.cloudflare.outputs.ready == 'true'",
+    "      - uses: pnpm/action-setup@v6",
     "        if: steps.cloudflare.outputs.ready == 'true'",
     "      - run: pnpm install --frozen-lockfile",
     "        if: steps.cloudflare.outputs.ready == 'true'",
@@ -95,8 +101,6 @@ function validStorybookWorkflow(): string {
     "    steps:",
     "      - uses: actions/checkout@v6",
     "      - uses: pnpm/action-setup@v6",
-    "        with:",
-    "          version: '10.28.1'",
     "      - uses: actions/setup-node@v6",
     "        with:",
     "          node-version: '22'",
@@ -121,6 +125,44 @@ function validStorybookWorkflow(): string {
     "          packageManager: npm",
     "          command: pages deploy --project-name=spoonjoy-storybook --branch=${{ github.ref_name }} --commit-hash=${{ github.sha }} --commit-dirty=true",
     "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+  ].join("\n");
+}
+
+function validCiWorkflow(): string {
+  return [
+    "name: CI",
+    "on:",
+    "  push:",
+    "    branches: [main]",
+    "  pull_request:",
+    "    branches: [main]",
+    "env:",
+    "  GIT_CONFIG_COUNT: '1'",
+    "  GIT_CONFIG_KEY_0: init.defaultBranch",
+    "  GIT_CONFIG_VALUE_0: main",
+    "jobs:",
+    "  coverage:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - uses: actions/checkout@v6",
+    "      - uses: pnpm/action-setup@v6",
+    "      - uses: actions/setup-node@v6",
+    "        with:",
+    "          node-version: '22'",
+    "          cache: 'pnpm'",
+    "      - run: pnpm install --frozen-lockfile",
+    "      - run: pnpm test:coverage",
+    "  e2e:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - uses: actions/checkout@v6",
+    "      - uses: pnpm/action-setup@v6",
+    "      - uses: actions/setup-node@v6",
+    "        with:",
+    "          node-version: '22'",
+    "          cache: 'pnpm'",
+    "      - run: pnpm install --frozen-lockfile",
+    "      - run: pnpm test:e2e",
   ].join("\n");
 }
 
@@ -222,16 +264,23 @@ function validInputs(): DeploymentPreflightInputs {
       "    branches:",
       "      - main",
       "  workflow_dispatch:",
+      "env:",
+      "  GIT_CONFIG_COUNT: '1'",
+      "  GIT_CONFIG_KEY_0: init.defaultBranch",
+      "  GIT_CONFIG_VALUE_0: main",
       "jobs:",
       "  deploy:",
       "    runs-on: ubuntu-latest",
       "    steps:",
+      "      - uses: actions/checkout@v6",
+      "      - uses: pnpm/action-setup@v6",
       "      - name: Deploy to Cloudflare Workers",
       "        env:",
       "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
       "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
       "        run: pnpm run deploy:auto",
     ].join("\n"),
+    ciWorkflow: validCiWorkflow(),
     qaImageCoverSmokeWorkflow: validQaImageCoverSmokeWorkflow(),
     storybookWorkflow: validStorybookWorkflow(),
     gitignore: validGitignore(),
@@ -525,9 +574,14 @@ describe("deployment preflight", () => {
       "    branches:",
       "      - main",
       "  workflow_dispatch:",
+      "env:",
+      "  GIT_CONFIG_COUNT: '1'",
+      "  GIT_CONFIG_KEY_0: init.defaultBranch",
+      "  GIT_CONFIG_VALUE_0: main",
       "jobs:",
       "  deploy:",
       "    steps:",
+      "      - uses: pnpm/action-setup@v6",
       "      - name: Deploy",
       "        run: |",
       "          pnpm run deploy:auto",
@@ -539,6 +593,49 @@ describe("deployment preflight", () => {
     const result = validateDeploymentConfig(inputs);
 
     expect(result.errors.map((item) => item.name)).not.toContain("production deploy workflow");
+  });
+
+  it("requires warning-clean CI workflow setup", () => {
+    const valid = validateDeploymentConfig(validInputs());
+    const missingGitConfig = validateDeploymentConfig({
+      ...validInputs(),
+      ciWorkflow: validCiWorkflow().replace(
+        "env:\n  GIT_CONFIG_COUNT: '1'\n  GIT_CONFIG_KEY_0: init.defaultBranch\n  GIT_CONFIG_VALUE_0: main\n",
+        "",
+      ),
+    });
+    const pinnedPnpmVersion = validateDeploymentConfig({
+      ...validInputs(),
+      ciWorkflow: validCiWorkflow().replace(
+        "      - uses: pnpm/action-setup@v6",
+        "      - uses: pnpm/action-setup@v6\n        with:\n          version: '10.28.1'",
+      ),
+    });
+    const missingPullRequestMain = validateDeploymentConfig({
+      ...validInputs(),
+      ciWorkflow: validCiWorkflow().replace("  pull_request:\n    branches: [main]\n", ""),
+    });
+    const missingOnBlock = validateDeploymentConfig({
+      ...validInputs(),
+      ciWorkflow: validCiWorkflow().replace(
+        "on:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n",
+        "",
+      ),
+    });
+    const missingSteps = validateDeploymentConfig({
+      ...validInputs(),
+      ciWorkflow: validCiWorkflow().replace(
+        "    steps:\n      - uses: actions/checkout@v6",
+        "    no_steps:\n      - uses: actions/checkout@v6",
+      ),
+    });
+
+    expect(valid.errors.map((item) => item.name)).not.toContain("CI workflow");
+    expect(missingGitConfig.errors.map((item) => item.name)).toContain("CI workflow");
+    expect(pinnedPnpmVersion.errors.map((item) => item.name)).toContain("CI workflow");
+    expect(missingPullRequestMain.errors.map((item) => item.name)).toContain("CI workflow");
+    expect(missingOnBlock.errors.map((item) => item.name)).toContain("CI workflow");
+    expect(missingSteps.errors.map((item) => item.name)).toContain("CI workflow");
   });
 
   it("rejects a block-style production workflow run step that does not deploy", () => {
@@ -607,6 +704,26 @@ describe("deployment preflight", () => {
     const result = validateDeploymentConfig(inputs);
 
     expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("rejects production deploy workflow setup that can emit checkout or pnpm setup warnings", () => {
+    const missingGitConfig = validateDeploymentConfig({
+      ...validInputs(),
+      productionDeployWorkflow: validInputs().productionDeployWorkflow.replace(
+        "env:\n  GIT_CONFIG_COUNT: '1'\n  GIT_CONFIG_KEY_0: init.defaultBranch\n  GIT_CONFIG_VALUE_0: main\n",
+        "",
+      ),
+    });
+    const pinnedPnpmVersion = validateDeploymentConfig({
+      ...validInputs(),
+      productionDeployWorkflow: validInputs().productionDeployWorkflow.replace(
+        "      - uses: pnpm/action-setup@v6",
+        "      - uses: pnpm/action-setup@v6\n        with:\n          version: '10.28.1'",
+      ),
+    });
+
+    expect(missingGitConfig.errors.map((item) => item.name)).toContain("production deploy workflow");
+    expect(pinnedPnpmVersion.errors.map((item) => item.name)).toContain("production deploy workflow");
   });
 
   it("ignores nested or malformed env lines when checking production deploy credentials", () => {
@@ -717,6 +834,26 @@ describe("deployment preflight", () => {
 
     expect(result.checks.map((item) => item.name)).toContain("QA image-cover smoke workflow");
     expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover smoke workflow setup that can emit checkout or pnpm setup warnings", () => {
+    const missingGitConfig = validateDeploymentConfig({
+      ...validInputs(),
+      qaImageCoverSmokeWorkflow: validQaImageCoverSmokeWorkflow().replace(
+        "env:\n  GIT_CONFIG_COUNT: '1'\n  GIT_CONFIG_KEY_0: init.defaultBranch\n  GIT_CONFIG_VALUE_0: main\n",
+        "",
+      ),
+    });
+    const pinnedPnpmVersion = validateDeploymentConfig({
+      ...validInputs(),
+      qaImageCoverSmokeWorkflow: validQaImageCoverSmokeWorkflow().replace(
+        "      - uses: pnpm/action-setup@v6\n        if: steps.cloudflare.outputs.ready == 'true'",
+        "      - uses: pnpm/action-setup@v6\n        if: steps.cloudflare.outputs.ready == 'true'\n        with:\n          version: '10.28.1'",
+      ),
+    });
+
+    expect(missingGitConfig.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+    expect(pinnedPnpmVersion.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
   });
 
   it("accepts QA image-cover block run steps followed by additional step properties", () => {
@@ -1833,6 +1970,19 @@ describe("Storybook deploy warning cleanup", () => {
     expect(quotedExtraPullRequestTarget.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     expect(singleQuotedExtraPullRequestTarget.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     expect(missingGitConfig.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook pnpm setup that pins an explicit version instead of using packageManager", () => {
+    const pinnedPnpmVersion = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "      - uses: pnpm/action-setup@v6",
+          "      - uses: pnpm/action-setup@v6\n        with:\n          version: '10.28.1'",
+        ),
+      ),
+    );
+
+    expect(pinnedPnpmVersion.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
   });
 
   it("rejects missing Storybook build job, steps, or build command", () => {

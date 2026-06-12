@@ -16,6 +16,7 @@ export interface PreflightCheck {
 export interface DeploymentPreflightInputs {
   wrangler: Record<string, unknown>;
   packageJson: Record<string, unknown>;
+  ciWorkflow: string;
   productionDeployWorkflow: string;
   qaImageCoverSmokeWorkflow: string;
   storybookWorkflow: string;
@@ -265,6 +266,18 @@ function workflowDeploysPushesToMain(workflow: string): boolean {
   return Boolean(workflowDispatch) && workflowTriggerTargetsMain(lines, onIndex, onEnd, "push");
 }
 
+function workflowBuildsPushesAndPullRequestsToMain(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  const onIndex = lines.findIndex((line) => line.indent === 0 && line.text === "on:");
+  if (onIndex === -1) return false;
+  const onEnd = blockEnd(lines, onIndex);
+  return (
+    workflowHasOnlyTriggers(lines, onIndex, onEnd, ["push", "pull_request"]) &&
+    workflowTriggerTargetsMain(lines, onIndex, onEnd, "push") &&
+    workflowTriggerTargetsMain(lines, onIndex, onEnd, "pull_request")
+  );
+}
+
 function workflowHasOnlyTriggers(lines: WorkflowLine[], onIndex: number, onEnd: number, allowed: string[]): boolean {
   const triggers = immediateChildKeys(lines, onIndex, onEnd);
   const uniqueTriggers = new Set(triggers);
@@ -444,6 +457,34 @@ function workflowHasCloudflareDeployAutoStep(workflow: string): boolean {
     }
   }
   return false;
+}
+
+function workflowHasGitDefaultBranchConfig(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  const envIndex = lines.findIndex((line) => line.indent === 0 && line.text === "env:");
+  if (envIndex === -1) return false;
+  const envEnd = blockEnd(lines, envIndex);
+  return (
+    blockScalarChildValue(lines, envIndex, envEnd, "GIT_CONFIG_COUNT") === "1" &&
+    blockScalarChildValue(lines, envIndex, envEnd, "GIT_CONFIG_KEY_0") === "init.defaultBranch" &&
+    blockScalarChildValue(lines, envIndex, envEnd, "GIT_CONFIG_VALUE_0") === "main"
+  );
+}
+
+function workflowPnpmSetupUsesPackageManagerVersion(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  let pnpmSetupCount = 0;
+  for (const [jobStart, jobEnd] of workflowJobBlocks(lines)) {
+    const steps = childBlock(lines, jobStart, jobEnd, "steps");
+    if (!steps) return false;
+
+    for (const [stepStart, stepEnd] of stepBlocks(lines, steps[0], steps[1])) {
+      if (!stepUsesExactly(lines, stepStart, stepEnd, "pnpm/action-setup@v6")) continue;
+      pnpmSetupCount += 1;
+      if (stepWithValue(lines, stepStart, stepEnd, "version") !== null) return false;
+    }
+  }
+  return pnpmSetupCount > 0;
 }
 
 function workflowTriggersOnlyDispatchAndSchedule(workflow: string): boolean {
@@ -630,17 +671,6 @@ function workflowHasQaImageCoverSmokeGuards(workflow: string): boolean {
   return false;
 }
 
-function workflowHasStorybookGitDefaultBranchConfig(lines: WorkflowLine[]): boolean {
-  const envIndex = lines.findIndex((line) => line.indent === 0 && line.text === "env:");
-  if (envIndex === -1) return false;
-  const envEnd = blockEnd(lines, envIndex);
-  return (
-    blockScalarChildValue(lines, envIndex, envEnd, "GIT_CONFIG_COUNT") === "1" &&
-    blockScalarChildValue(lines, envIndex, envEnd, "GIT_CONFIG_KEY_0") === "init.defaultBranch" &&
-    blockScalarChildValue(lines, envIndex, envEnd, "GIT_CONFIG_VALUE_0") === "main"
-  );
-}
-
 function storybookDeployPrepRunIsClean(run: string): boolean {
   return commandLinesEqual(run, [
     `rm -rf ${STORYBOOK_PAGES_DEPLOY_DIR}`,
@@ -695,7 +725,7 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
     return false;
   }
   if (!workflowBuildsPullRequestsAndDeploysPushesToMain(workflow)) return false;
-  if (!workflowHasStorybookGitDefaultBranchConfig(lines)) return false;
+  if (!workflowHasGitDefaultBranchConfig(workflow)) return false;
 
   const jobs = workflowJobBlocks(lines);
   if (jobs.length !== 1) return false;
@@ -744,7 +774,8 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
       prepareDeployDirStepCount === 1 &&
       wranglerDeployStepCount === 1 &&
       prepareDeployDirStep > storybookBuildStep &&
-      wranglerDeployStep > prepareDeployDirStep
+      wranglerDeployStep > prepareDeployDirStep &&
+      workflowPnpmSetupUsesPackageManagerVersion(workflow)
     );
   }
 
@@ -861,15 +892,27 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
       "package.json must expose deploy:preflight for local and CI production-readiness checks."
     ),
     check(
+      "CI workflow",
+      workflowBuildsPushesAndPullRequestsToMain(inputs.ciWorkflow) &&
+        workflowHasGitDefaultBranchConfig(inputs.ciWorkflow) &&
+        workflowPnpmSetupUsesPackageManagerVersion(inputs.ciWorkflow),
+      ".github/workflows/ci.yml must validate pushes and pull requests to main with checkout warning suppression and pnpm/action-setup@v6 reading the packageManager version."
+    ),
+    check(
       "production deploy workflow",
-      workflowDeploysPushesToMain(inputs.productionDeployWorkflow) && workflowHasCloudflareDeployAutoStep(inputs.productionDeployWorkflow),
-      ".github/workflows/production-deploy.yml must auto-deploy pushes to main with deploy:auto while keeping manual dispatch and Cloudflare credentials wired."
+      workflowDeploysPushesToMain(inputs.productionDeployWorkflow) &&
+        workflowHasCloudflareDeployAutoStep(inputs.productionDeployWorkflow) &&
+        workflowHasGitDefaultBranchConfig(inputs.productionDeployWorkflow) &&
+        workflowPnpmSetupUsesPackageManagerVersion(inputs.productionDeployWorkflow),
+      ".github/workflows/production-deploy.yml must auto-deploy pushes to main with deploy:auto while keeping manual dispatch, Cloudflare credentials, checkout warning suppression, and packageManager-driven pnpm setup wired."
     ),
     check(
       "QA image-cover smoke workflow",
       workflowTriggersOnlyDispatchAndSchedule(inputs.qaImageCoverSmokeWorkflow) &&
-        workflowHasQaImageCoverSmokeGuards(inputs.qaImageCoverSmokeWorkflow),
-      ".github/workflows/qa-image-cover-smoke.yml must run only on schedule/manual dispatch, guard Cloudflare and QA image-provider credentials, and run the QA-only image-cover smoke without deploy commands."
+        workflowHasQaImageCoverSmokeGuards(inputs.qaImageCoverSmokeWorkflow) &&
+        workflowHasGitDefaultBranchConfig(inputs.qaImageCoverSmokeWorkflow) &&
+        workflowPnpmSetupUsesPackageManagerVersion(inputs.qaImageCoverSmokeWorkflow),
+      ".github/workflows/qa-image-cover-smoke.yml must run only on schedule/manual dispatch, guard Cloudflare and QA image-provider credentials, suppress checkout warnings, use packageManager-driven pnpm setup, and run the QA-only image-cover smoke without deploy commands."
     ),
     check(
       "Storybook deploy workflow",
@@ -1110,6 +1153,7 @@ export async function runDeploymentPreflight(
   const [
     wrangler,
     packageJson,
+    ciWorkflow,
     productionDeployWorkflow,
     qaImageCoverSmokeWorkflow,
     storybookWorkflow,
@@ -1122,6 +1166,7 @@ export async function runDeploymentPreflight(
   ] = await Promise.all([
     readJsonFile(path.join(rootDir, "wrangler.json")),
     readJsonFile(path.join(rootDir, "package.json")),
+    readFile(path.join(rootDir, ".github/workflows/ci.yml"), "utf8"),
     readFile(path.join(rootDir, ".github/workflows/production-deploy.yml"), "utf8"),
     readFile(path.join(rootDir, ".github/workflows/qa-image-cover-smoke.yml"), "utf8"),
     readFile(path.join(rootDir, ".github/workflows/storybook.yml"), "utf8"),
@@ -1136,6 +1181,7 @@ export async function runDeploymentPreflight(
   const baseResult = validateDeploymentConfig({
     wrangler,
     packageJson,
+    ciWorkflow,
     productionDeployWorkflow,
     qaImageCoverSmokeWorkflow,
     storybookWorkflow,
