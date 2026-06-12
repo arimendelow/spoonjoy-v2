@@ -32,7 +32,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - [x] 100% test coverage on all new code
 - [x] All tests pass
 - [x] No warnings
-- [ ] Work is merged to `main`, auto-deployment is verified, production smoke passes, and disposable local/QA/prod test data is clean.
+- [x] Work is merged to `main`, auto-deployment is verified, production smoke passes, and disposable local/QA/prod test data is clean.
 
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
@@ -237,3 +237,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 09:19 Unit 12 complete: PR #194 merged as `bf6ea6b13d16666d575d4483599a59619308acc2`; main CI, Storybook, and Production Deploy passed for that exact merge commit. Production Deploy run `27427777080` published Worker version `a7c13623-f833-43ec-ae4d-a5e76f819b58`. Evidence in `unit-12-main-checks.log` and `unit-13-production-health.log`.
 - 2026-06-12 09:21 Unit 13 complete: production workers.dev and custom-domain health returned ok; `pnpm run smoke:live` and `pnpm run smoke:api` passed; smoke artifacts copied to `unit-13-production-smoke-results.json` and `unit-13-api-smoke-results.json`; final local, QA, and production cleanup checks passed with zero blockers. Evidence in `unit-13-*.log` and copied smoke JSON artifacts.
 - 2026-06-12 09:22 Unit 14 partial: stale original branch `spoonjoy/sj-044-cleanup-harness` removed locally and remotely after PR #194 squash merge. Active terminal-verification branch remains only long enough to land this durable evidence and will be cleaned after its PR merges. Evidence in `unit-14-branch-cleanup.log`.
+- 2026-06-12 09:36 Unit 14 review fix: Averroes found the top-level terminal completion criterion was still unchecked despite merge/deploy/smoke/cleanup evidence; marked it complete before merging terminal evidence PR #195.
