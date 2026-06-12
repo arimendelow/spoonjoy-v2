@@ -9,6 +9,7 @@ import {
   isQaR2ObjectMissingError,
   parseD1CountOutput,
   parseSmokeArgs,
+  readGitMetadata,
   shouldRunAppleOAuthCheck,
   usesLocalD1,
 } from "../../scripts/smoke-live-helpers.mjs";
@@ -267,6 +268,17 @@ describe("smoke-live helpers", () => {
     expect(() => buildUserCountD1Args("codex@example.com", { targetEnv: "staging" })).toThrow(/targetEnv/);
   });
 
+  it("reads git metadata with unknown fallbacks", () => {
+    expect(readGitMetadata(() => "")).toEqual({ branch: "unknown", commit: "unknown" });
+
+    let calls = 0;
+    expect(readGitMetadata(() => {
+      calls += 1;
+      if (calls === 1) throw new Error("git unavailable");
+      return "abc123def456\n";
+    })).toEqual({ branch: "unknown", commit: "abc123def456" });
+  });
+
   it("builds live smoke artifact metadata with empty R2 arrays for normal smoke", () => {
     expect(typeof smokeHelpers.buildSmokeReport).toBe("function");
 
@@ -292,7 +304,6 @@ describe("smoke-live helpers", () => {
       cleanup: { target: "production D1" },
       cleanupVerification: { remaining: 0 },
       apple: { skipped: false },
-      imageCoverSmoke: null,
       pushPublicKeyStatus: 200,
     });
 

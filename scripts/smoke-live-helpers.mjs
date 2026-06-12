@@ -160,7 +160,7 @@ export function buildSmokeReport({
   imageCoverSmoke = null,
   apple = null,
   pushPublicKeyStatus,
-} = {}) {
+}) {
   return {
     baseUrl: target.baseUrl,
     generatedAt,
