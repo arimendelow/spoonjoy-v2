@@ -3,6 +3,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import assert from "node:assert/strict";
 import { arg, resolveScriptTarget } from "./script-environment.mjs";
+import { readGitMetadata } from "./smoke-live-helpers.mjs";
 
 const DEFAULT_API_SMOKE_BASE_URL = "https://spoonjoy.app";
 
@@ -53,6 +54,7 @@ async function main() {
       r2Target: target.r2Target,
       destructiveScope: target.destructiveScope,
     },
+    git: readGitMetadata(),
     checks: [],
   };
   const check = async (name, fn) => {

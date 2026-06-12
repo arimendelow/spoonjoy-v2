@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 import {
   DEFAULT_PRODUCTION_BASE_URL,
   PRODUCTION_BASE_URLS,
@@ -45,6 +47,7 @@ export function parseSmokeArgs(argv = process.argv.slice(2), env = process.env) 
     includeImageCoverSmoke,
     outDir,
     targetEnv,
+    target,
     shouldCleanup: !argv.includes("--keep-smoke-data"),
   };
 }
@@ -105,4 +108,78 @@ export function parseD1CountOutput(output) {
   if (typeof count === "number") return count;
   if (typeof count === "string" && /^\d+$/.test(count)) return Number(count);
   throw new Error("Wrangler D1 count output did not include a numeric count.");
+}
+
+export function readGitMetadata(runCommand = execFileSync) {
+  const read = (args) => {
+    try {
+      return String(runCommand("git", args, { encoding: "utf8" })).trim() || "unknown";
+    } catch {
+      return "unknown";
+    }
+  };
+  return {
+    branch: read(["rev-parse", "--abbrev-ref", "HEAD"]),
+    commit: read(["rev-parse", "--short=12", "HEAD"]),
+  };
+}
+
+function environmentReport(target) {
+  return {
+    targetEnv: target.targetEnv,
+    baseUrl: target.baseUrl,
+    d1Target: target.d1Target,
+    r2Target: target.r2Target,
+    destructiveScope: target.destructiveScope,
+  };
+}
+
+function r2ReportFrom(imageCoverSmoke) {
+  const r2 = imageCoverSmoke?.r2 ?? {};
+  const report = {
+    retainedKeys: Array.isArray(r2.retainedKeys) ? r2.retainedKeys : [],
+    deletedKeys: Array.isArray(r2.deletedKeys) ? r2.deletedKeys : [],
+    verifiedDeletedKeys: Array.isArray(r2.verifiedDeletedKeys) ? r2.verifiedDeletedKeys : [],
+  };
+  if (Array.isArray(r2.generatedCoverKeys)) {
+    report.generatedCoverKeys = r2.generatedCoverKeys;
+  }
+  return report;
+}
+
+export function buildSmokeReport({
+  generatedAt,
+  target,
+  git,
+  created,
+  screenshots = [],
+  consoleErrors = [],
+  pageErrors = [],
+  cleanup = null,
+  cleanupVerification = null,
+  imageCoverSmoke = null,
+  apple = null,
+  pushPublicKeyStatus,
+} = {}) {
+  return {
+    baseUrl: target.baseUrl,
+    generatedAt,
+    email: created.email,
+    username: created.username,
+    recipeTitle: created.recipeTitle,
+    recipeId: created.recipeId,
+    screenshots,
+    consoleErrors,
+    pageErrors,
+    cleanup,
+    cleanupVerification,
+    imageCoverSmoke,
+    targetEnv: target.targetEnv,
+    apple,
+    pushPublicKeyStatus,
+    environment: environmentReport(target),
+    git,
+    created,
+    r2: r2ReportFrom(imageCoverSmoke),
+  };
 }
