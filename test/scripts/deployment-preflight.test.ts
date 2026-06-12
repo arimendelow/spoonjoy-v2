@@ -31,6 +31,7 @@ function validQaImageCoverSmokeWorkflow(): string {
     "        run: |",
     "          if [ -z \"${CLOUDFLARE_API_TOKEN:-}\" ] || [ -z \"${CLOUDFLARE_ACCOUNT_ID:-}\" ]; then",
     "            echo \"ready=false\" >> \"$GITHUB_OUTPUT\"",
+    "            echo \"Skipping QA image-cover smoke because Cloudflare GitHub secrets are not configured.\"",
     "            exit 0",
     "          fi",
     "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"",
@@ -48,8 +49,10 @@ function validQaImageCoverSmokeWorkflow(): string {
     "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
     "        run: |",
     "          secrets_json=\"$(pnpm exec wrangler secret list --env qa)\"",
+    "          echo \"$secrets_json\"",
     "          if ! printf '%s' \"$secrets_json\" | grep -Eq '\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\"'; then",
     "            echo \"ready=false\" >> \"$GITHUB_OUTPUT\"",
+    "            echo \"Skipping QA image-cover smoke because no QA image-provider secret is configured.\"",
     "            exit 0",
     "          fi",
     "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"",
@@ -568,6 +571,7 @@ describe("deployment preflight", () => {
         "        run: |",
         "          if [ -z \"${CLOUDFLARE_API_TOKEN:-}\" ] || [ -z \"${CLOUDFLARE_ACCOUNT_ID:-}\" ]; then",
         "            echo \"ready=false\" >> \"$GITHUB_OUTPUT\"",
+        "            echo \"Skipping QA image-cover smoke because Cloudflare GitHub secrets are not configured.\"",
         "            exit 0",
         "          fi",
         "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"",
@@ -607,6 +611,40 @@ describe("deployment preflight", () => {
         "          if ! printf '%s' \"$secrets_json\" | grep -Eq '\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\"'; then",
         "          echo \"if ! printf '%s' \\\"$secrets_json\\\" | grep -Eq '\\\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\\\"'; then\"",
       );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover workflows that hide provider gate commands in a heredoc", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow().replace(
+      [
+        "        run: |",
+        '          secrets_json="$(pnpm exec wrangler secret list --env qa)"',
+        '          echo "$secrets_json"',
+        "          if ! printf '%s' \"$secrets_json\" | grep -Eq '\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\"'; then",
+        "            echo \"ready=false\" >> \"$GITHUB_OUTPUT\"",
+        "            echo \"Skipping QA image-cover smoke because no QA image-provider secret is configured.\"",
+        "            exit 0",
+        "          fi",
+        "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"",
+      ].join("\n"),
+      [
+        "        run: |",
+        "          cat <<'EOF'",
+        '          secrets_json="$(pnpm exec wrangler secret list --env qa)"',
+        '          echo "$secrets_json"',
+        "          if ! printf '%s' \"$secrets_json\" | grep -Eq '\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\"'; then",
+        "          echo \"ready=false\" >> \"$GITHUB_OUTPUT\"",
+        "          echo \"Skipping QA image-cover smoke because no QA image-provider secret is configured.\"",
+        "          exit 0",
+        "          fi",
+        "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"",
+        "          EOF",
+      ].join("\n"),
+    );
 
     const result = validateDeploymentConfig(inputs);
 

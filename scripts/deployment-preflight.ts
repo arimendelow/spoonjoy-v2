@@ -402,16 +402,6 @@ function qaSmokeStepOrderIsValid(order: Record<string, number>): boolean {
   );
 }
 
-function includesOrdered(values: string[], parts: string[]): boolean {
-  let offset = 0;
-  for (const part of parts) {
-    const index = values.findIndex((value, valueIndex) => valueIndex >= offset && value === part);
-    if (index === -1) return false;
-    offset = index + 1;
-  }
-  return true;
-}
-
 function runCommandLines(run: string): string[] {
   return run
     .split("\n")
@@ -419,10 +409,16 @@ function runCommandLines(run: string): string[] {
     .filter((line) => line.length > 0 && !line.startsWith("#"));
 }
 
+function commandLinesEqual(run: string, expected: string[]): boolean {
+  const commands = runCommandLines(run);
+  return commands.length === expected.length && commands.every((command, index) => command === expected[index]);
+}
+
 function cloudflareGateRunIsSafe(run: string): boolean {
-  return includesOrdered(runCommandLines(run), [
+  return commandLinesEqual(run, [
     'if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then',
     'echo "ready=false" >> "$GITHUB_OUTPUT"',
+    'echo "Skipping QA image-cover smoke because Cloudflare GitHub secrets are not configured."',
     "exit 0",
     "fi",
     'echo "ready=true" >> "$GITHUB_OUTPUT"',
@@ -430,11 +426,12 @@ function cloudflareGateRunIsSafe(run: string): boolean {
 }
 
 function qaProviderGateRunIsSafe(run: string): boolean {
-  const commands = runCommandLines(run);
-  return includesOrdered(commands, [
+  return commandLinesEqual(run, [
     'secrets_json="$(pnpm exec wrangler secret list --env qa)"',
+    'echo "$secrets_json"',
     `if ! printf '%s' "$secrets_json" | grep -Eq '"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)"'; then`,
     'echo "ready=false" >> "$GITHUB_OUTPUT"',
+    'echo "Skipping QA image-cover smoke because no QA image-provider secret is configured."',
     "exit 0",
     "fi",
     'echo "ready=true" >> "$GITHUB_OUTPUT"',
