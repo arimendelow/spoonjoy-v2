@@ -62,7 +62,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Output**: `unit-0-setup.log` with branch, status, current cleanup dry-run, and confirmation that these files were inspected: `scripts/smoke-live-helpers.mjs`, `scripts/smoke-live.mjs`, `scripts/smoke-api-live.mjs`, `scripts/smoke-image-cover-live.mjs`, `scripts/cleanup-local-qa-data.mjs`, `scripts/qa-preflight.ts`, `scripts/deployment-preflight.ts`, `test/helpers/cleanup.ts`, `test/scripts/cleanup-local-qa-data.test.ts`, `test/scripts/smoke-live-helpers.test.ts`, `test/scripts/deployment-preflight.test.ts`, `prisma/schema.prisma`, `package.json`, `README.md`, and `docs/deployment.md`.
 **Acceptance**: Branch is `spoonjoy/sj-044-cleanup-harness`; no unrelated dirty work is overwritten; cleanup starting state is recorded.
 
-### ⬜ Unit 1a: Shared Environment Resolver — Tests
+### ✅ Unit 1a: Shared Environment Resolver — Tests
 **What**: Add failing tests for a shared script target resolver covering `local`, `qa`, `production`, missing/invalid env, URL/env mismatch, D1/R2 target metadata, and destructive-operation scope text. Add failing tests for `scripts/smoke-api-live.mjs` target parsing so it requires `--target-env qa|production` for remote URLs, validates URL/env pairs through the shared resolver, and records environment metadata. Add failing package-script tests requiring `smoke:api` to pass `--target-env production`.
 **Output**: Tests in `test/scripts/script-environment.test.ts`, `test/scripts/smoke-api-live.test.ts`, and `test/scripts/deployment-preflight.test.ts` plus red output in `unit-1a-red.log`.
 **Acceptance**: Tests fail for missing resolver behavior, not for test syntax/import errors.
@@ -205,3 +205,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 04:58 Created from planning doc after reviewer convergence.
 - 2026-06-12 05:16 Doing-doc reviewer chain converged across granularity, validation, ambiguity, quality, Tinfoil Hat, and Stranger With Candy passes; status set to READY_FOR_EXECUTION.
 - 2026-06-12 05:23 Unit 0 complete: branch/status, cleanup dry-run counts, inspected files, and cleanup-sensitive schema relationships recorded in `unit-0-setup.log`. Unit review skipped (reason: setup/research evidence only; no code behavior changed).
+- 2026-06-12 06:13 Unit 1a complete: added resolver/API-smoke/package-script red tests and captured `unit-1a-red.log`; failures are missing resolver behavior, API target validation/metadata, and `smoke:api` package target contract. Unit review skipped (reason: red-test unit; implementation review follows green unit).
