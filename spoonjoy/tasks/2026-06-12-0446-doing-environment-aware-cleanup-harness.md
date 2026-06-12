@@ -68,7 +68,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Acceptance**: Tests fail for missing resolver behavior, not for test syntax/import errors.
 
 ### ⬜ Unit 1b: Shared Environment Resolver — Implementation
-**What**: Add `scripts/script-environment.ts` or equivalent and refactor `scripts/smoke-live-helpers.mjs` and `scripts/qa-preflight.ts` to consume it without changing their current accepted smoke/preflight behavior.
+**What**: Add runtime-compatible `scripts/script-environment.mjs` and refactor `scripts/smoke-live-helpers.mjs` and `scripts/qa-preflight.ts` to consume it without changing their current accepted smoke/preflight behavior. Keep smoke scripts runnable with plain `node` package scripts; do not make `.mjs` scripts import a `.ts` module.
 **Output**: Resolver module, updated imports/constants, and green focused resolver/smoke/preflight test output in `unit-1b-green.log`.
 **Acceptance**: Unit 1a tests plus existing smoke/preflight helper tests pass with no warnings.
 

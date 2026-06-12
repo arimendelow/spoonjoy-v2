@@ -72,7 +72,8 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 
 ## Context / References
 - `BACKLOG.md` `SJ-044` names the remaining gap after `SJ-043`: broader environment-aware QA cleanup for disposable image objects and OAuth/API residue.
-- `scripts/smoke-live-helpers.mjs` already validates smoke `--target-env`, QA/production base URLs, D1 cleanup args, and QA R2 get/delete args.
+- `scripts/smoke-live-helpers.mjs` already validates smoke `--target-env`, QA/production base URLs, D1 cleanup args, and QA R2 get/delete arg builders.
+- `scripts/smoke-image-cover-live.mjs` contains the current `/photos/` key validation before one-run QA R2 deletion.
 - `scripts/smoke-live.mjs` writes `smoke-results.json`, cleans the exact smoke user, and delegates flagged image-cover R2 cleanup to `scripts/smoke-image-cover-live.mjs`.
 - `scripts/smoke-image-cover-live.mjs` validates `/photos/` keys, deletes exact QA upload/generated-cover keys, and records deleted/verified keys for one smoke run.
 - `scripts/cleanup-local-qa-data.mjs` is local-only today, dry-runs by default, and already has SQL predicates for suspicious recipes, disposable users, disposable spoons, and E2E OAuth clients.
