@@ -82,7 +82,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Output**: Updated tests in `test/scripts/cleanup-local-qa-data.test.ts` plus red output in `unit-2a-red.log`.
 **Acceptance**: Tests fail because current `scripts/cleanup-local-qa-data.mjs` is local-only and does not expose the explicit environment-aware CLI contract.
 
-### ⬜ Unit 2b: Cleanup Target/CLI Safety — Implementation
+### ✅ Unit 2b: Cleanup Target/CLI Safety — Implementation
 **What**: Refactor `scripts/cleanup-local-qa-data.mjs` argument parsing and target summary behavior while preserving backwards-compatible local dry-run behavior for `pnpm cleanup:qa`. At this stage, `--target-env qa` dry-run may inspect remote QA, but `--target-env qa --apply` must still refuse with a clear "remote QA apply not enabled until D1/R2 safety checks are installed" message.
 **Output**: Cleanup CLI implementation and green focused cleanup CLI tests in `unit-2b-green.log`.
 **Acceptance**: Unit 2a tests pass with no warnings; no D1 SQL semantics or R2 deletion behavior beyond target selection is changed in this unit; remote QA apply remains refused.
@@ -210,3 +210,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 06:19 Unit 1c complete: added default-call resolver coverage, verified 100% coverage for `script-environment.mjs`, `smoke-api-live.mjs`, and `smoke-live-helpers.mjs`, and captured build output in `unit-1c-build.log`.
 - 2026-06-12 06:20 Unit 1b cold review complete: Peirce returned CONVERGED with no findings; verdict recorded in `unit-1b-review.md`.
 - 2026-06-12 06:22 Unit 2a complete: added cleanup target parser/summary/run-command red tests for local, QA, and production safety behavior; captured expected failures in `unit-2a-red.log`. Unit review skipped (reason: red-test unit; implementation review follows green unit).
+- 2026-06-12 06:24 Unit 2b complete: implemented target-aware cleanup parser, target summary output, local apply, QA remote dry-run, QA apply refusal, production read-only dry-run, and production broad-apply refusal; focused tests and build captured in `unit-2b-green.log` and `unit-2b-build.log`.
