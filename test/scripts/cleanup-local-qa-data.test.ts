@@ -267,10 +267,28 @@ describe("cleanup-local-qa-data", () => {
     expect(stderr.text()).toBe("");
   });
 
-  it("runs QA remote dry-run but refuses QA apply until D1/R2 safety is installed", async () => {
+  it("runs QA remote dry-run and, on apply, cleans exact validated R2 keys after D1 succeeds", async () => {
     const stdout = writableBuffer();
     const stderr = writableBuffer();
-    const runCommand = vi.fn(async () => ({ stdout: "[]", stderr: "" }));
+    const runCommand = vi.fn(async (_cmd: string, args: string[]) => {
+      const command = args.join(" ");
+      if (command.includes("candidate_r2_keys")) {
+        return {
+          stdout: JSON.stringify([
+            {
+              results: [
+                { action: "delete", key: "profiles/codex-user/avatar.jpg" },
+                { action: "delete", key: "recipes/codex-user/recipe-1/source.jpg" },
+                { action: "delete", key: "spoons/codex-user/recipe-1/spoon.jpg" },
+                { action: "retain", key: "recipes/not-disposable/recipe-1/source.jpg", reason: "unsafe namespace" },
+              ],
+            },
+          ]),
+          stderr: "",
+        };
+      }
+      return { stdout: "[]", stderr: "" };
+    });
 
     await cleanup.runCleanupCli({
       argv: ["--target-env", "qa"],
@@ -288,15 +306,26 @@ describe("cleanup-local-qa-data", () => {
       expect.objectContaining({ encoding: "utf8" }),
     );
 
-    await expect(
-      cleanup.runCleanupCli({
-        argv: ["--target-env", "qa", "--apply"],
-        runCommand,
-        stdout: stdout.stream,
-        stderr: stderr.stream,
-      }),
-    ).rejects.toThrow(/remote QA apply not enabled until D1\/R2 safety checks are installed/);
-    expect(runCommand).toHaveBeenCalledTimes(1);
+    await cleanup.runCleanupCli({
+      argv: ["--target-env", "qa", "--apply"],
+      runCommand,
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    });
+
+    const calls = runCommand.mock.calls.map((call) => call[1] as string[]);
+    const joinedCalls = calls.map((args) => args.join(" "));
+    expect(joinedCalls[1]).toContain("candidate_r2_keys");
+    expect(joinedCalls[2]).toContain(buildApplySql());
+    expect(calls.slice(3)).toEqual([
+      cleanup.buildQaR2DeleteArgs("profiles/codex-user/avatar.jpg"),
+      cleanup.buildQaR2GetArgs("profiles/codex-user/avatar.jpg"),
+      cleanup.buildQaR2DeleteArgs("recipes/codex-user/recipe-1/source.jpg"),
+      cleanup.buildQaR2GetArgs("recipes/codex-user/recipe-1/source.jpg"),
+      cleanup.buildQaR2DeleteArgs("spoons/codex-user/recipe-1/spoon.jpg"),
+      cleanup.buildQaR2GetArgs("spoons/codex-user/recipe-1/spoon.jpg"),
+    ]);
+    expect(stdout.text()).toContain("Retained QA R2 keys: recipes/not-disposable/recipe-1/source.jpg");
   });
 
   it("runs production read-only dry-run and refuses broad production apply", async () => {
@@ -498,5 +527,126 @@ describe("cleanup-local-qa-data", () => {
       "payload LIKE '%' || (SELECT id FROM disposable_covers",
       "blocker_notification_payload",
     ]);
+  });
+
+  it("extracts only Spoonjoy photo keys from /photos/ URLs", () => {
+    expect(cleanup.photoKeyFromImageUrl("/photos/profiles/codex-user/avatar.jpg")).toBe(
+      "profiles/codex-user/avatar.jpg",
+    );
+    expect(cleanup.photoKeyFromImageUrl("https://example.com/photo.jpg")).toBeNull();
+    expect(cleanup.photoKeyFromImageUrl("/images/chef-rj.png")).toBeNull();
+    expect(cleanup.photoKeyFromImageUrl(null)).toBeNull();
+  });
+
+  it("plans QA R2 cleanup keys, retained keys, and non-disposable surviving-reference blockers", () => {
+    const plan = cleanup.planQaR2Cleanup({
+      disposableUserIds: ["codex-user"],
+      hardDeleteRecipeIds: ["recipe-1"],
+      disposableSpoonIds: ["spoon-1"],
+      generatedCoverKeys: ["recipes/codex-user/recipe-1/generated-cover.jpg"],
+      references: {
+        users: [
+          { id: "codex-user", photoUrl: "/photos/profiles/codex-user/avatar.jpg" },
+          { id: "real-user", photoUrl: "/photos/profiles/codex-user/avatar.jpg" },
+        ],
+        spoons: [
+          {
+            id: "spoon-1",
+            chefId: "codex-user",
+            recipeId: "recipe-1",
+            photoUrl: "/photos/spoons/codex-user/recipe-1/spoon.jpg",
+          },
+          {
+            id: "spoon-2",
+            chefId: "real-user",
+            recipeId: "recipe-2",
+            photoUrl: "/photos/spoons/codex-user/recipe-1/spoon.jpg",
+          },
+        ],
+        covers: [
+          {
+            id: "cover-1",
+            recipeId: "recipe-1",
+            imageUrl: "/photos/recipes/codex-user/recipe-1/raw.jpg",
+            stylizedImageUrl: "/photos/recipes/codex-user/uploads/stylized.jpg",
+            sourceImageUrl: "/photos/recipes/codex-user/uploads/source.jpg",
+          },
+          {
+            id: "cover-2",
+            recipeId: "recipe-2",
+            imageUrl: "/photos/recipes/codex-user/recipe-1/raw.jpg",
+            stylizedImageUrl: null,
+            sourceImageUrl: null,
+          },
+        ],
+        searchDocuments: [
+          {
+            id: "search-1",
+            ownerId: "real-user",
+            imageUrl: "/photos/recipes/codex-user/uploads/source.jpg",
+          },
+        ],
+      },
+    });
+
+    expect(plan.deleteKeys).toEqual([
+      "profiles/codex-user/avatar.jpg",
+      "spoons/codex-user/recipe-1/spoon.jpg",
+      "recipes/codex-user/recipe-1/raw.jpg",
+      "recipes/codex-user/uploads/stylized.jpg",
+      "recipes/codex-user/uploads/source.jpg",
+      "recipes/codex-user/recipe-1/generated-cover.jpg",
+    ]);
+    expect(plan.retainedKeys).toEqual([]);
+    expect(plan.blockers).toEqual([
+      {
+        key: "profiles/codex-user/avatar.jpg",
+        reason: "non-disposable User.photoUrl still references candidate key",
+        rowId: "real-user",
+      },
+      {
+        key: "spoons/codex-user/recipe-1/spoon.jpg",
+        reason: "non-disposable RecipeSpoon.photoUrl still references candidate key",
+        rowId: "spoon-2",
+      },
+      {
+        key: "recipes/codex-user/recipe-1/raw.jpg",
+        reason: "non-disposable RecipeCover image field still references candidate key",
+        rowId: "cover-2",
+      },
+      {
+        key: "recipes/codex-user/uploads/source.jpg",
+        reason: "non-disposable SearchDocument.imageUrl still references candidate key",
+        rowId: "search-1",
+      },
+    ]);
+  });
+
+  it("skips every R2 delete/get command when QA D1 apply fails", async () => {
+    const stdout = writableBuffer();
+    const stderr = writableBuffer();
+    const runCommand = vi.fn(async (_cmd: string, args: string[]) => {
+      const command = args.join(" ");
+      if (command.includes("candidate_r2_keys")) {
+        return { stdout: JSON.stringify([{ results: [{ action: "delete", key: "profiles/codex-user/avatar.jpg" }] }]), stderr: "" };
+      }
+      if (command.includes(buildApplySql())) {
+        throw new Error("D1 apply failed");
+      }
+      return { stdout: "", stderr: "" };
+    });
+
+    await expect(
+      cleanup.runCleanupCli({
+        argv: ["--target-env", "qa", "--apply"],
+        runCommand,
+        stdout: stdout.stream,
+        stderr: stderr.stream,
+      }),
+    ).rejects.toThrow(/D1 apply failed/);
+
+    expect(runCommand.mock.calls.map((call) => (call[1] as string[]).join(" "))).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("r2 object delete")]),
+    );
   });
 });
