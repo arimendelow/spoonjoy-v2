@@ -1863,6 +1863,23 @@ describe("Storybook deploy warning cleanup", () => {
         ),
       ),
     );
+    const extraQuotedLegacyWranglerActionVersion = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+          [
+            "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+            "      - name: Legacy repo-root deploy",
+            "        if: github.ref == 'refs/heads/main'",
+            "        uses: \"cloudflare/wrangler-action@v3\"",
+            "        with:",
+            "          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+            "          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+            "          command: pages deploy storybook-static --project-name=spoonjoy-storybook",
+          ].join("\n"),
+        ),
+      ),
+    );
     const duplicateCleanDeployStep = validateDeploymentConfig(
       inputsWithStorybookWorkflow(
         validStorybookWorkflow().replace(
@@ -1895,6 +1912,14 @@ describe("Storybook deploy warning cleanup", () => {
         ),
       ),
     );
+    const extraRunDeployStepWithFoldedScalar = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "      - name: Deploy to Cloudflare Pages",
+          "      - name: Legacy shell deploy\n        if: github.ref == 'refs/heads/main'\n        run: >\n          pnpm exec wrangler pages\n          deploy storybook-static --project-name=spoonjoy-storybook\n      - name: Deploy to Cloudflare Pages",
+        ),
+      ),
+    );
 
     for (const result of [
       missingWorkingDirectory,
@@ -1902,10 +1927,12 @@ describe("Storybook deploy warning cleanup", () => {
       wrongPackageManager,
       extraRepoRootDeployStep,
       extraLegacyWranglerActionVersion,
+      extraQuotedLegacyWranglerActionVersion,
       duplicateCleanDeployStep,
       extraRunDeployStep,
       extraRunDeployStepWithShellWhitespace,
       extraRunDeployStepWithLineContinuation,
+      extraRunDeployStepWithFoldedScalar,
     ]) {
       expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     }

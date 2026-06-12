@@ -306,13 +306,13 @@ function stepRunsDeployAuto(lines: WorkflowLine[], stepStart: number, stepEnd: n
 
 function stepPropertyValue(lines: WorkflowLine[], stepStart: number, stepEnd: number, key: string): string | null {
   const inline = lines[stepStart].text.match(new RegExp(`^-\\s+${key}:\\s*(.*)$`));
-  if (inline) return inline[1].trim();
+  if (inline) return unquoteYamlScalar(inline[1]);
 
   const propertyIndent = lines[stepStart].indent + 2;
   for (let index = stepStart + 1; index < stepEnd; index += 1) {
     if (lines[index].indent !== propertyIndent) continue;
     const value = lines[index].text.match(new RegExp(`^${key}:\\s*(.*)$`));
-    if (value) return value[1].trim();
+    if (value) return unquoteYamlScalar(value[1]);
   }
   return null;
 }
@@ -633,7 +633,7 @@ function storybookWranglerDeployStepIsClean(lines: WorkflowLine[], stepStart: nu
 
 function runTextIncludesPagesDeploy(runText: string): boolean {
   const joinedContinuations = runText.replace(/\\\s*\r?\n\s*/g, " ");
-  return joinedContinuations.split(/\r?\n/).some((line) => /\bpages\s+deploy\b/.test(line));
+  return /\bpages\s+deploy\b/.test(joinedContinuations);
 }
 
 function gitignoreIgnoresStorybookPagesDeployDir(gitignore: string): boolean {
