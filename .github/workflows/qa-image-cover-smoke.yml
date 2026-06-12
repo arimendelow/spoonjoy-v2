@@ -1,0 +1,89 @@
+name: QA Image Cover Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 10 * * *"
+
+concurrency:
+  group: qa-image-cover-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check GitHub Cloudflare credentials
+        id: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping QA image-cover smoke because Cloudflare GitHub secrets are not configured."
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+        if: steps.cloudflare.outputs.ready == 'true'
+
+      - name: Setup pnpm
+        if: steps.cloudflare.outputs.ready == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: "10.28.1"
+
+      - name: Setup Node.js
+        if: steps.cloudflare.outputs.ready == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        if: steps.cloudflare.outputs.ready == 'true'
+        run: pnpm prisma:generate
+
+      - name: Check QA image-provider secrets
+        id: qa-secrets
+        if: steps.cloudflare.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          secrets_json="$(pnpm exec wrangler secret list --env qa)"
+          echo "$secrets_json"
+
+          if ! printf '%s' "$secrets_json" | grep -Eq '"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)"'; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping QA image-cover smoke because no QA image-provider secret is configured."
+            exit 0
+          fi
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run QA image-cover smoke
+        if: steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SPOONJOY_QA_SMOKE_BASE_URL: https://spoonjoy-v2-qa.mendelow-studio.workers.dev
+          SPOONJOY_QA_SMOKE_TARGET: --target-env qa
+        run: pnpm run smoke:qa:image-cover
+
+      - name: Upload QA image-cover smoke artifacts
+        if: always() && steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: qa-image-cover-smoke-artifacts
+          path: qa-image-cover-smoke-artifacts/
+          retention-days: 14

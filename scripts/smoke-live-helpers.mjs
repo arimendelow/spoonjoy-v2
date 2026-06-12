@@ -1,6 +1,8 @@
 export const DEFAULT_PRODUCTION_BASE_URL = "https://spoonjoy-v2.mendelow-studio.workers.dev";
 export const PRODUCTION_BASE_URLS = [DEFAULT_PRODUCTION_BASE_URL, "https://spoonjoy.app"];
 export const QA_BASE_URL = "https://spoonjoy-v2-qa.mendelow-studio.workers.dev";
+export const QA_R2_BUCKET = "spoonjoy-photos-qa";
+export const IMAGE_COVER_SMOKE_FLAG = "--include-image-cover-smoke";
 
 export function arg(argv, name, fallback) {
   const index = argv.indexOf(name);
@@ -41,9 +43,14 @@ export function parseSmokeArgs(argv = process.argv.slice(2), env = process.env) 
   if (targetEnv === "production" && !PRODUCTION_BASE_URLS.includes(new URL(baseUrl).origin)) {
     throw new Error(`Production smoke must target one of: ${PRODUCTION_BASE_URLS.join(", ")}.`);
   }
+  const includeImageCoverSmoke = argv.includes(IMAGE_COVER_SMOKE_FLAG);
+  if (includeImageCoverSmoke && targetEnv !== "qa") {
+    throw new Error("The image-cover smoke is QA-only and must use `--target-env qa`.");
+  }
 
   return {
     baseUrl,
+    includeImageCoverSmoke,
     outDir,
     targetEnv,
     shouldCleanup: !argv.includes("--keep-smoke-data"),
@@ -65,6 +72,32 @@ export function buildCleanupD1Args(email, { targetEnv }) {
 export function buildUserCountD1Args(email, { targetEnv }) {
   const command = `SELECT COUNT(*) AS count FROM "User" WHERE email = ${sqlString(email)};`;
   return ["exec", "wrangler", "d1", "execute", "DB", ...d1TargetArgs(targetEnv), "--command", command];
+}
+
+export function buildQaR2GetArgs(key) {
+  return ["exec", "wrangler", "r2", "object", "get", `${QA_R2_BUCKET}/${key}`, "--remote", "--pipe"];
+}
+
+export function buildQaR2DeleteArgs(key) {
+  return ["exec", "wrangler", "r2", "object", "delete", `${QA_R2_BUCKET}/${key}`, "--remote", "--force"];
+}
+
+function errorText(value) {
+  if (typeof value === "string") return value;
+  if (value instanceof Uint8Array) return new TextDecoder().decode(value);
+  return "";
+}
+
+export function isQaR2ObjectMissingError(error) {
+  const parts = [];
+  if (typeof error === "string") parts.push(error);
+  if (error instanceof Error) parts.push(error.message);
+  if (typeof error === "object" && error !== null) {
+    for (const key of ["stdout", "stderr", "output"]) {
+      if (key in error) parts.push(errorText(error[key]));
+    }
+  }
+  return /(?:the specified key does not exist|nosuchkey|not found)/i.test(parts.join("\n"));
 }
 
 export function parseD1CountOutput(output) {

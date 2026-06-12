@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildQaR2DeleteArgs,
+  buildQaR2GetArgs,
   buildCleanupD1Args,
   buildUserCountD1Args,
+  isQaR2ObjectMissingError,
+  parseD1CountOutput,
   parseSmokeArgs,
   shouldRunAppleOAuthCheck,
   usesLocalD1,
@@ -82,6 +86,23 @@ describe("smoke-live helpers", () => {
     ).toThrow(/--target-env/);
   });
 
+  it("uses process argv defaults when no args are provided", () => {
+    const originalArgv = process.argv;
+    const originalBaseUrl = process.env.SPOONJOY_SMOKE_BASE_URL;
+    try {
+      process.argv = ["node", "scripts/smoke-live.mjs"];
+      delete process.env.SPOONJOY_SMOKE_BASE_URL;
+      expect(() => parseSmokeArgs()).toThrow(/--target-env/);
+    } finally {
+      process.argv = originalArgv;
+      if (originalBaseUrl === undefined) {
+        delete process.env.SPOONJOY_SMOKE_BASE_URL;
+      } else {
+        process.env.SPOONJOY_SMOKE_BASE_URL = originalBaseUrl;
+      }
+    }
+  });
+
   it("allows local smoke URLs to infer local target env", () => {
     expect(parseSmokeArgs(["--base-url", "http://localhost:5173"])).toMatchObject({
       baseUrl: "http://localhost:5173",
@@ -107,6 +128,80 @@ describe("smoke-live helpers", () => {
       outDir: "qa-live-smoke-artifacts",
       shouldCleanup: false,
     });
+  });
+
+  it("parses the QA-only image-cover smoke flag", () => {
+    expect(
+      parseSmokeArgs([
+        "--target-env",
+        "qa",
+        "--base-url",
+        "https://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+        "--include-image-cover-smoke",
+      ]),
+    ).toMatchObject({
+      targetEnv: "qa",
+      includeImageCoverSmoke: true,
+    });
+  });
+
+  it("refuses image-cover smoke outside QA", () => {
+    expect(() =>
+      parseSmokeArgs([
+        "--target-env",
+        "production",
+        "--base-url",
+        "https://spoonjoy-v2.mendelow-studio.workers.dev",
+        "--include-image-cover-smoke",
+      ]),
+    ).toThrow(/image-cover smoke.*QA/i);
+    expect(() =>
+      parseSmokeArgs([
+        "--base-url",
+        "http://localhost:5173",
+        "--include-image-cover-smoke",
+      ]),
+    ).toThrow(/image-cover smoke.*QA/i);
+  });
+
+  it("builds QA R2 object get and delete args", () => {
+    expect(buildQaR2GetArgs("recipes/user-1/uploads/photo.jpg")).toEqual([
+      "exec",
+      "wrangler",
+      "r2",
+      "object",
+      "get",
+      "spoonjoy-photos-qa/recipes/user-1/uploads/photo.jpg",
+      "--remote",
+      "--pipe",
+    ]);
+    expect(buildQaR2DeleteArgs("spoons/user-1/uploads/photo.png")).toEqual([
+      "exec",
+      "wrangler",
+      "r2",
+      "object",
+      "delete",
+      "spoonjoy-photos-qa/spoons/user-1/uploads/photo.png",
+      "--remote",
+      "--force",
+    ]);
+  });
+
+  it("only treats known Wrangler R2 missing-key errors as deleted-object proof", () => {
+    expect(isQaR2ObjectMissingError(Object.assign(new Error("wrangler failed"), {
+      stderr: "\u001b[31mERROR\u001b[0m The specified key does not exist.",
+    }))).toBe(true);
+    expect(isQaR2ObjectMissingError({
+      stdout: new TextEncoder().encode("NoSuchKey: missing object"),
+    })).toBe(true);
+    expect(isQaR2ObjectMissingError(Object.assign(new Error("wrangler failed"), {
+      stderr: "Authentication failed: invalid API token",
+    }))).toBe(false);
+    expect(isQaR2ObjectMissingError({ stderr: 403 })).toBe(false);
+    expect(isQaR2ObjectMissingError(Object.assign(new Error("network failed"), {
+      code: "ENOTFOUND",
+    }))).toBe(false);
+    expect(isQaR2ObjectMissingError("The specified key does not exist.")).toBe(true);
   });
 
   it("allows explicit production smoke args for the production Worker URL", () => {
@@ -151,5 +246,23 @@ describe("smoke-live helpers", () => {
     expect(() =>
       parseSmokeArgs(["--target-env", "local", "--base-url", "https://spoonjoy-v2.mendelow-studio.workers.dev"]),
     ).toThrow(/Local smoke/);
+  });
+
+  it("refuses unknown target envs", () => {
+    expect(() =>
+      parseSmokeArgs(["--target-env", "staging", "--base-url", "http://localhost:5173"]),
+    ).toThrow(/must be one of local, qa, or production/);
+  });
+
+  it("parses D1 count output variants and rejects malformed output", () => {
+    expect(parseD1CountOutput(JSON.stringify([{ results: [{ count: 2 }] }]))).toBe(2);
+    expect(parseD1CountOutput(JSON.stringify([{ results: [{ "COUNT(*)": "3" }] }]))).toBe(3);
+    expect(parseD1CountOutput(JSON.stringify([{ results: [{ "count(*)": 4 }] }]))).toBe(4);
+    expect(() => parseD1CountOutput("no json here")).toThrow(/JSON array/);
+    expect(() => parseD1CountOutput(JSON.stringify([{ results: [{}] }]))).toThrow(/numeric count/);
+  });
+
+  it("rejects unsupported target envs for D1 arg builders", () => {
+    expect(() => buildUserCountD1Args("codex@example.com", { targetEnv: "staging" })).toThrow(/targetEnv/);
   });
 });

@@ -17,6 +17,7 @@ export interface DeploymentPreflightInputs {
   wrangler: Record<string, unknown>;
   packageJson: Record<string, unknown>;
   productionDeployWorkflow: string;
+  qaImageCoverSmokeWorkflow: string;
   cloudflareEnvDts: string;
   readme: string;
   deploymentDoc: string;
@@ -84,6 +85,7 @@ const REQUIRED_QA_PACKAGE_SCRIPTS = [
   "qa:seed",
   "deploy:qa",
   "smoke:qa",
+  "smoke:qa:image-cover",
 ] as const;
 
 const REQUIRED_RATE_LIMIT_BINDINGS = [
@@ -196,6 +198,17 @@ function childBlock(lines: WorkflowLine[], start: number, end: number, key: stri
   return null;
 }
 
+function immediateChildKeys(lines: WorkflowLine[], start: number, end: number): string[] {
+  const childIndent = lines[start].indent + 2;
+  const keys: string[] = [];
+  for (let index = start + 1; index < end; index += 1) {
+    if (lines[index].indent !== childIndent) continue;
+    const key = lines[index].text.match(/^([A-Za-z0-9_-]+):/);
+    if (key) keys.push(key[1]);
+  }
+  return keys;
+}
+
 function blockHasMainBranch(lines: WorkflowLine[], branchesStart: number, branchesEnd: number): boolean {
   const branchesLine = lines[branchesStart].text;
   const inlineBranches = branchesLine.match(/^branches:\s*\[([^\]]*)\]\s*$/);
@@ -271,6 +284,42 @@ function stepRunsDeployAuto(lines: WorkflowLine[], stepStart: number, stepEnd: n
   return false;
 }
 
+function stepPropertyValue(lines: WorkflowLine[], stepStart: number, stepEnd: number, key: string): string | null {
+  const inline = lines[stepStart].text.match(new RegExp(`^-\\s+${key}:\\s*(.*)$`));
+  if (inline) return inline[1].trim();
+
+  const propertyIndent = lines[stepStart].indent + 2;
+  for (let index = stepStart + 1; index < stepEnd; index += 1) {
+    if (lines[index].indent !== propertyIndent) continue;
+    const value = lines[index].text.match(new RegExp(`^${key}:\\s*(.*)$`));
+    if (value) return value[1].trim();
+  }
+  return null;
+}
+
+function stepRunText(lines: WorkflowLine[], stepStart: number, stepEnd: number): string {
+  const inlineRun = lines[stepStart].text.match(/^-\s+run:\s*(.+)$/);
+  if (inlineRun) return inlineRun[1].trim();
+
+  const runIndent = lines[stepStart].indent + 2;
+  for (let index = stepStart + 1; index < stepEnd; index += 1) {
+    if (lines[index].indent !== runIndent) continue;
+    const run = lines[index].text.match(/^run:\s*(.*)$/);
+    if (!run) continue;
+
+    const value = run[1].trim();
+    if (value !== "|" && value !== ">") return value;
+
+    const commands: string[] = [];
+    for (let commandIndex = index + 1; commandIndex < stepEnd; commandIndex += 1) {
+      if (lines[commandIndex].indent <= lines[index].indent) break;
+      commands.push(lines[commandIndex].text);
+    }
+    return commands.join("\n");
+  }
+  return "";
+}
+
 function stepHasEnvKeys(lines: WorkflowLine[], stepStart: number, stepEnd: number, keys: string[]): boolean {
   const env = childBlock(lines, stepStart, stepEnd, "env");
   if (!env) return false;
@@ -300,6 +349,192 @@ function workflowHasCloudflareDeployAutoStep(workflow: string): boolean {
       }
     }
   }
+  return false;
+}
+
+function workflowTriggersOnlyDispatchAndSchedule(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  const onIndex = lines.findIndex((line) => line.indent === 0 && line.text === "on:");
+  if (onIndex === -1) return false;
+  const onEnd = blockEnd(lines, onIndex);
+  const triggers = immediateChildKeys(lines, onIndex, onEnd);
+  const allowed = new Set(["workflow_dispatch", "schedule"]);
+  const uniqueTriggers = new Set(triggers);
+  return (
+    triggers.length === allowed.size &&
+    uniqueTriggers.size === allowed.size &&
+    [...allowed].every((trigger) => uniqueTriggers.has(trigger))
+  );
+}
+
+function normalizedWorkflowCondition(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function stepIfEquals(lines: WorkflowLine[], stepStart: number, stepEnd: number, expected: string): boolean {
+  const value = stepPropertyValue(lines, stepStart, stepEnd, "if");
+  return typeof value === "string" && normalizedWorkflowCondition(value) === expected;
+}
+
+function stepUses(lines: WorkflowLine[], stepStart: number, stepEnd: number, action: string): boolean {
+  const value = stepPropertyValue(lines, stepStart, stepEnd, "uses");
+  return typeof value === "string" && value.startsWith(action);
+}
+
+function stepHasId(lines: WorkflowLine[], stepStart: number, stepEnd: number, id: string): boolean {
+  return stepPropertyValue(lines, stepStart, stepEnd, "id") === id;
+}
+
+function workflowHasForbiddenQaSmokeTerms(lines: WorkflowLine[]): boolean {
+  const activeText = lines.map((line) => line.text).join("\n");
+  return ["deploy:auto", "wrangler deploy", "--target-env production"].some((term) => activeText.includes(term));
+}
+
+function qaSmokeStepOrderIsValid(order: Record<string, number>): boolean {
+  return (
+    order.cloudflare >= 0 &&
+    order.checkout > order.cloudflare &&
+    order.install > order.checkout &&
+    order.prisma > order.install &&
+    order.providerSecrets > order.prisma &&
+    order.smoke > order.providerSecrets &&
+    order.artifact > order.smoke
+  );
+}
+
+function runCommandLines(run: string): string[] {
+  return run
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+}
+
+function commandLinesEqual(run: string, expected: string[]): boolean {
+  const commands = runCommandLines(run);
+  return commands.length === expected.length && commands.every((command, index) => command === expected[index]);
+}
+
+function cloudflareGateRunIsSafe(run: string): boolean {
+  return commandLinesEqual(run, [
+    'if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then',
+    'echo "ready=false" >> "$GITHUB_OUTPUT"',
+    'echo "Skipping QA image-cover smoke because Cloudflare GitHub secrets are not configured."',
+    "exit 0",
+    "fi",
+    'echo "ready=true" >> "$GITHUB_OUTPUT"',
+  ]);
+}
+
+function qaProviderGateRunIsSafe(run: string): boolean {
+  return commandLinesEqual(run, [
+    'secrets_json="$(pnpm exec wrangler secret list --env qa)"',
+    'echo "$secrets_json"',
+    `if ! printf '%s' "$secrets_json" | grep -Eq '"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)"'; then`,
+    'echo "ready=false" >> "$GITHUB_OUTPUT"',
+    'echo "Skipping QA image-cover smoke because no QA image-provider secret is configured."',
+    "exit 0",
+    "fi",
+    'echo "ready=true" >> "$GITHUB_OUTPUT"',
+  ]);
+}
+
+function workflowHasQaImageCoverSmokeGuards(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  if (workflowHasForbiddenQaSmokeTerms(lines)) return false;
+  const cloudflareReady = "steps.cloudflare.outputs.ready == 'true'";
+  const cloudflareAndProviderReady =
+    "steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'";
+  const artifactReady =
+    "always() && steps.cloudflare.outputs.ready == 'true' && steps.qa-secrets.outputs.ready == 'true'";
+
+  for (const [jobStart, jobEnd] of workflowJobBlocks(lines)) {
+    const steps = childBlock(lines, jobStart, jobEnd, "steps");
+    if (!steps) continue;
+
+    const order = {
+      cloudflare: -1,
+      checkout: -1,
+      install: -1,
+      prisma: -1,
+      providerSecrets: -1,
+      smoke: -1,
+      artifact: -1,
+    };
+
+    for (const [stepStart, stepEnd] of stepBlocks(lines, steps[0], steps[1])) {
+      const run = stepRunText(lines, stepStart, stepEnd);
+
+      if (
+        stepHasId(lines, stepStart, stepEnd, "cloudflare") &&
+        stepHasEnvKeys(lines, stepStart, stepEnd, ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) &&
+        cloudflareGateRunIsSafe(run)
+      ) {
+        order.cloudflare = stepStart;
+      }
+
+      if (
+        stepUses(lines, stepStart, stepEnd, "actions/checkout@") &&
+        stepIfEquals(lines, stepStart, stepEnd, cloudflareReady)
+      ) {
+        order.checkout = stepStart;
+      }
+
+      if (
+        run === "pnpm install --frozen-lockfile" &&
+        stepIfEquals(lines, stepStart, stepEnd, cloudflareReady)
+      ) {
+        order.install = stepStart;
+      }
+
+      if (
+        run === "pnpm prisma:generate" &&
+        stepIfEquals(lines, stepStart, stepEnd, cloudflareReady)
+      ) {
+        order.prisma = stepStart;
+      }
+
+      if (
+        stepHasId(lines, stepStart, stepEnd, "qa-secrets") &&
+        stepHasEnvKeys(lines, stepStart, stepEnd, ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]) &&
+        stepIfEquals(lines, stepStart, stepEnd, cloudflareReady) &&
+        qaProviderGateRunIsSafe(run)
+      ) {
+        order.providerSecrets = stepStart;
+      }
+
+      if (
+        run === "pnpm run smoke:qa:image-cover" &&
+        stepHasEnvKeys(lines, stepStart, stepEnd, [
+          "CLOUDFLARE_API_TOKEN",
+          "CLOUDFLARE_ACCOUNT_ID",
+          "SPOONJOY_QA_SMOKE_BASE_URL",
+          "SPOONJOY_QA_SMOKE_TARGET",
+        ]) &&
+        stepIfEquals(lines, stepStart, stepEnd, cloudflareAndProviderReady)
+      ) {
+        order.smoke = stepStart;
+      }
+
+      if (
+        stepUses(lines, stepStart, stepEnd, "actions/upload-artifact@") &&
+        stepIfEquals(lines, stepStart, stepEnd, artifactReady)
+      ) {
+        const withBlock = childBlock(lines, stepStart, stepEnd, "with");
+        if (withBlock) {
+          const withText = lines
+            .slice(withBlock[0], withBlock[1])
+            .map((line) => line.text)
+            .join("\n");
+          if (withText.includes("qa-image-cover-smoke-artifacts/")) {
+            order.artifact = stepStart;
+          }
+        }
+      }
+    }
+
+    if (qaSmokeStepOrderIsValid(order)) return true;
+  }
+
   return false;
 }
 
@@ -384,7 +619,11 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
         scripts["deploy:qa"].includes("wrangler deploy --env qa") &&
         typeof scripts["smoke:qa"] === "string" &&
         scripts["smoke:qa"].includes("--target-env qa") &&
-        scripts["smoke:qa"].includes("spoonjoy-v2-qa.mendelow-studio.workers.dev"),
+        scripts["smoke:qa"].includes("spoonjoy-v2-qa.mendelow-studio.workers.dev") &&
+        typeof scripts["smoke:qa:image-cover"] === "string" &&
+        scripts["smoke:qa:image-cover"].includes("--target-env qa") &&
+        scripts["smoke:qa:image-cover"].includes("spoonjoy-v2-qa.mendelow-studio.workers.dev") &&
+        scripts["smoke:qa:image-cover"].includes("--include-image-cover-smoke"),
       `package.json must include QA scripts: ${REQUIRED_QA_PACKAGE_SCRIPTS.join(", ")}.`
     ),
     check(
@@ -412,6 +651,12 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
       "production deploy workflow",
       workflowDeploysPushesToMain(inputs.productionDeployWorkflow) && workflowHasCloudflareDeployAutoStep(inputs.productionDeployWorkflow),
       ".github/workflows/production-deploy.yml must auto-deploy pushes to main with deploy:auto while keeping manual dispatch and Cloudflare credentials wired."
+    ),
+    check(
+      "QA image-cover smoke workflow",
+      workflowTriggersOnlyDispatchAndSchedule(inputs.qaImageCoverSmokeWorkflow) &&
+        workflowHasQaImageCoverSmokeGuards(inputs.qaImageCoverSmokeWorkflow),
+      ".github/workflows/qa-image-cover-smoke.yml must run only on schedule/manual dispatch, guard Cloudflare and QA image-provider credentials, and run the QA-only image-cover smoke without deploy commands."
     ),
     check(
       "Cloudflare Env typing",
@@ -634,10 +879,11 @@ export async function runDeploymentPreflight(
   rootDir = process.cwd(),
   deps: RunDeploymentPreflightDeps = {},
 ): Promise<DeploymentPreflightResult> {
-  const [wrangler, packageJson, productionDeployWorkflow, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
+  const [wrangler, packageJson, productionDeployWorkflow, qaImageCoverSmokeWorkflow, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] = await Promise.all([
     readJsonFile(path.join(rootDir, "wrangler.json")),
     readJsonFile(path.join(rootDir, "package.json")),
     readFile(path.join(rootDir, ".github/workflows/production-deploy.yml"), "utf8"),
+    readFile(path.join(rootDir, ".github/workflows/qa-image-cover-smoke.yml"), "utf8"),
     readFile(path.join(rootDir, "app/cloudflare-env.d.ts"), "utf8"),
     readFile(path.join(rootDir, "README.md"), "utf8"),
     readFile(path.join(rootDir, "docs/deployment.md"), "utf8"),
@@ -648,6 +894,7 @@ export async function runDeploymentPreflight(
     wrangler,
     packageJson,
     productionDeployWorkflow,
+    qaImageCoverSmokeWorkflow,
     cloudflareEnvDts,
     readme,
     deploymentDoc,

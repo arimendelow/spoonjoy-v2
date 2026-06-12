@@ -166,11 +166,20 @@ async function createDefaultProbeFile(): Promise<ProbeFile> {
 }
 
 async function checkStaticConfig(rootDir: string): Promise<PreflightCheck> {
-  const [wrangler, packageJson, productionDeployWorkflow, cloudflareEnvDts, readme, deploymentDoc, migrationFiles] =
-    await Promise.all([
+  const [
+    wrangler,
+    packageJson,
+    productionDeployWorkflow,
+    qaImageCoverSmokeWorkflow,
+    cloudflareEnvDts,
+    readme,
+    deploymentDoc,
+    migrationFiles,
+  ] = await Promise.all([
       readJsonFile(path.join(rootDir, "wrangler.json")),
       readJsonFile(path.join(rootDir, "package.json")),
       readFile(path.join(rootDir, ".github/workflows/production-deploy.yml"), "utf8"),
+      readFile(path.join(rootDir, ".github/workflows/qa-image-cover-smoke.yml"), "utf8"),
       readFile(path.join(rootDir, "app/cloudflare-env.d.ts"), "utf8"),
       readFile(path.join(rootDir, "README.md"), "utf8"),
       readFile(path.join(rootDir, "docs/deployment.md"), "utf8"),
@@ -181,6 +190,7 @@ async function checkStaticConfig(rootDir: string): Promise<PreflightCheck> {
     wrangler,
     packageJson,
     productionDeployWorkflow,
+    qaImageCoverSmokeWorkflow,
     cloudflareEnvDts,
     readme,
     deploymentDoc,

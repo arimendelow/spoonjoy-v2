@@ -20,7 +20,15 @@ export default defineConfig({
     coverage: {
       provider: "istanbul",
       reporter: ["text", "json", "html"],
-      include: ["app/lib/**/*.ts", "app/routes/**/*.ts", "app/routes/**/*.tsx", "app/components/**/*.tsx", "app/hooks/**/*.ts"],
+      include: [
+        "app/lib/**/*.ts",
+        "app/routes/**/*.ts",
+        "app/routes/**/*.tsx",
+        "app/components/**/*.tsx",
+        "app/hooks/**/*.ts",
+        "scripts/smoke-live-helpers.mjs",
+        "scripts/smoke-image-cover-live.mjs",
+      ],
       exclude: ["node_modules/**", "test/**", "**/*.config.ts", "**/*.d.ts", "**/types/**"],
       thresholds: {
         statements: 100,
