@@ -132,7 +132,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Output**: Updated smoke artifact code and green focused smoke tests in `unit-5b-green.log`.
 **Acceptance**: Focused smoke helper/image-cover tests pass; report JSON keeps existing fields and adds the new metadata.
 
-### ⬜ Unit 5c: Smoke Artifact Metadata — Coverage & Refactor
+### ✅ Unit 5c: Smoke Artifact Metadata — Coverage & Refactor
 **What**: Verify metadata helper coverage and add edge tests for missing git info fallback if needed.
 **Output**: Targeted coverage output in `unit-5c-coverage.log`.
 **Acceptance**: New metadata code has 100% coverage and no warnings.
@@ -224,3 +224,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 07:12 Unit 5a complete: added red tests for live smoke report environment/git/created/R2 metadata, image-cover retained R2 keys, and API smoke git metadata; expected failures captured in `unit-5a-red.log`. Unit review skipped (reason: red-test unit; implementation review follows green unit).
 - 2026-06-12 07:15 Unit 4b narrow re-review complete: Aquinas returned CONVERGED; verdict recorded in `unit-4b-review-round2.md`.
 - 2026-06-12 07:15 Unit 5b complete: added shared smoke report metadata builder, git metadata capture, live smoke environment/created/R2 artifact shape, API smoke git metadata, and image-cover retained R2 arrays. Focused tests/build passed with evidence in `unit-5b-green.log` and `unit-5b-build.log`.
+- 2026-06-12 07:17 Unit 5c complete: added git fallback/default report coverage and verified 100% coverage for `smoke-live-helpers.mjs`, `smoke-image-cover-live.mjs`, and `smoke-api-live.mjs`; build passed with evidence in `unit-5c-coverage.log` and `unit-5c-build.log`.
