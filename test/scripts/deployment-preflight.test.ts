@@ -1846,6 +1846,23 @@ describe("Storybook deploy warning cleanup", () => {
         ),
       ),
     );
+    const extraLegacyWranglerActionVersion = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+          [
+            "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+            "      - name: Legacy repo-root deploy",
+            "        if: github.ref == 'refs/heads/main'",
+            "        uses: cloudflare/wrangler-action@v3",
+            "        with:",
+            "          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+            "          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+            "          command: pages deploy storybook-static --project-name=spoonjoy-storybook",
+          ].join("\n"),
+        ),
+      ),
+    );
     const duplicateCleanDeployStep = validateDeploymentConfig(
       inputsWithStorybookWorkflow(
         validStorybookWorkflow().replace(
@@ -1884,6 +1901,7 @@ describe("Storybook deploy warning cleanup", () => {
       wrongWorkingDirectory,
       wrongPackageManager,
       extraRepoRootDeployStep,
+      extraLegacyWranglerActionVersion,
       duplicateCleanDeployStep,
       extraRunDeployStep,
       extraRunDeployStepWithShellWhitespace,

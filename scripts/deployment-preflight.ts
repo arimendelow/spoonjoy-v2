@@ -701,7 +701,7 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
         prepareDeployDirStep = stepStart;
       }
 
-      if (!stepUses(lines, stepStart, stepEnd, "cloudflare/wrangler-action@v4")) continue;
+      if (!stepUses(lines, stepStart, stepEnd, "cloudflare/wrangler-action@")) continue;
       if (!stepIfEquals(lines, stepStart, stepEnd, "github.ref == 'refs/heads/main'")) return false;
       if (!storybookWranglerDeployStepIsClean(lines, stepStart, stepEnd)) return false;
       wranglerDeployStepCount += 1;
