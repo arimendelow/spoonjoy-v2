@@ -631,6 +631,10 @@ function storybookWranglerDeployStepIsClean(lines: WorkflowLine[], stepStart: nu
   );
 }
 
+function runTextIncludesPagesDeploy(runText: string): boolean {
+  return runText.split(/\r?\n/).some((line) => line.trim().split(/\s+/).join(" ").includes("pages deploy"));
+}
+
 function gitignoreIgnoresStorybookPagesDeployDir(gitignore: string): boolean {
   return gitignore
     .split(/\r?\n/)
@@ -682,7 +686,7 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
 
     for (const [stepStart, stepEnd] of stepBlocks(lines, steps[0], steps[1])) {
       const runText = stepRunText(lines, stepStart, stepEnd);
-      if (runText.includes("pages deploy")) return false;
+      if (runTextIncludesPagesDeploy(runText)) return false;
 
       if (runText === "pnpm build-storybook") {
         storybookBuildStep = stepStart;
