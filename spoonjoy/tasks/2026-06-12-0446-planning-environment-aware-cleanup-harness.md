@@ -59,6 +59,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - Treat `qa` as the only broad remote cleanup environment, and require both explicit `--target-env qa` and `--apply` before deleting remote QA D1/R2 state.
 - Treat production cleanup as read-first: it may report disposable residue and exact smoke-created users, but this task will not add a broad production delete path.
 - Discover R2 cleanup keys from persisted `/photos/` URLs in `User.photoUrl`, `RecipeSpoon.photoUrl`, and `RecipeCover.imageUrl` / `stylizedImageUrl` / `sourceImageUrl`; delete only keys that pass a disposable-owner or generated-cover safety check.
+- Collect and persist the candidate R2 key list before deleting D1 rows so QA cleanup cannot erase the database evidence it needs to clean stored objects.
 - Preserve the existing exact-run image-cover smoke cleanup; the broader harness complements it for leftover QA residue.
 - Use sub-agent reviewer convergence for planning, doing, implementation, and merge readiness under the active no-human-gates mandate.
 
@@ -76,8 +77,10 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 ## Notes
 - The cleanup script should print target summaries in both dry-run and apply modes so CI logs/artifacts are self-describing.
 - R2 deletes should be exact key deletes via Wrangler, never prefix-wide deletes.
+- QA cleanup should report retained keys when a row matched disposable DB cleanup but an image URL failed key validation; those retained keys become evidence, not silently ignored state.
 - Production broad cleanup refusal is a feature, not a blocker.
 - Keep implementation slices small enough to preserve the work-suite dogfood cadence and commit/push after each logical unit.
 
 ## Progress Log
 - 2026-06-12 04:46 Created planning doc from `SJ-044`, prior QA/image-cover smoke docs, schema inspection, and current script behavior.
+- 2026-06-12 04:46 Tinfoil pass tightened R2 cleanup ordering and retained-key reporting.
