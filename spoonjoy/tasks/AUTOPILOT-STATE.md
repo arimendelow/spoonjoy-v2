@@ -1,6 +1,6 @@
 # Autopilot State
 
-Updated: 2026-06-12 03:19 America/Los_Angeles
+Updated: 2026-06-12 03:54 America/Los_Angeles
 Branch: `spoonjoy/workflow-warning-cleanup`
 Objective: Keep the Spoonjoy autonomous queue durable and continue with the next ready work after the completed QA/image-cover smoke run.
 
@@ -14,6 +14,7 @@ Objective: Keep the Spoonjoy autonomous queue durable and continue with the next
 - Last completed side-slice PR: #188 (`spoonjoy/storybook-wrangler-action`) merged as `03f1a854`.
 - Current side-slice goal: finish warning-clean workflow setup verification after the Storybook Pages wrapper hotfix merged successfully but terminal workflow logs exposed remaining checkout and PNPM_HOME warnings.
 - No human gates remain under the user's explicit no-human-gates mandate unless a true human-only credential/capability blocker or genuinely unrecoverable destructive shared-state action appears.
+- Work-suite continuation contract was hardened in `ouroboros-skills` PR #105, merged as `80496563`, then refreshed into local `.agents` / `.codex` installed skill roots. The active dogfood run is this Spoonjoy PR #191: no final/status response until PR merge, main deploy/log smoke, cleanup, and continuation scan are complete.
 
 ## Next Action
 
@@ -41,6 +42,6 @@ Objective: Keep the Spoonjoy autonomous queue durable and continue with the next
 - Main Storybook deploy log no longer contains `node 20` or `cloudflare/pages-action`; remaining log warnings are git default-branch hints, pnpm ignored-build-script warnings, `actions/download-artifact@v8` Buffer deprecation, and Wrangler Pages config/dirty-worktree warnings.
 - Storybook warning-cleanup PR #189 merged as `7632af57`, Production Deploy passed, and CI e2e passed, but the main Storybook deploy failed because the generated Pages wrapper had only `pages_build_output_dir` and Cloudflare Pages now requires top-level `name`. Hotfix branch `spoonjoy/storybook-pages-wrangler-name` adds `name: spoonjoy-storybook` to the generated wrapper and preflight contract with red/green regression evidence; local full coverage passed with 301 files, 5972 tests, and 100% coverage.
 - PR #190 (`spoonjoy/storybook-pages-wrangler-name`) merged as `31495c19`; main Storybook, Production Deploy, and CI passed, and Storybook Pages deploy completed. Terminal logs still showed controllable setup warnings: Storybook/Production/CI `pnpm/action-setup@v6` `PNPM_HOME` warnings and Production/CI checkout default-branch hints.
-- Follow-up branch `spoonjoy/workflow-warning-cleanup` removes explicit pnpm action versions so `packageManager: pnpm@10.28.1` owns the version, adds Git default-branch env to CI/Production/QA smoke, and extends deployment/QA preflight to enforce warning-clean CI/Production/QA smoke/Storybook setup. Local verification passed with touched preflight suites (`135` tests), targeted `scripts/deployment-preflight.ts` coverage at 100%, full coverage (`301` files, `5976` tests, 100%), install, deploy/QA preflight, typecheck, build, Storybook build, Ruby Psych parse, warning scan, and `git diff --check`.
+- Follow-up branch `spoonjoy/workflow-warning-cleanup` initially removed explicit pnpm action versions, but cold review plus live PR logs proved plain `pnpm/action-setup@v6` still emitted the hosted `PNPM_HOME` warning. The branch now removes `pnpm/action-setup@v6` entirely, uses `actions/setup-node@v6` plus Corepack activation for `pnpm@10.28.1`, adds Git default-branch env to CI/Production/QA smoke, and extends deployment/QA preflight to reject any reintroduced `pnpm/action-setup@`, missing jobs/steps, missing setup-node node 22, or missing Corepack activation across CI/Production/QA smoke/Storybook setup. Local verification passed with touched preflight suites (`135` tests), targeted `scripts/deployment-preflight.ts` coverage at 100%, full coverage (`301` files, `5976` tests, 100%), install with no warning matches, deploy/QA preflight, typecheck, build, Storybook build, Ruby Psych parse, warning scans, and `git diff --check`. Code commit `395bb608` pushed to PR #191.
 - Production Worker URL: `https://spoonjoy-v2.mendelow-studio.workers.dev`.
 - Production custom domain: `https://spoonjoy.app`.
