@@ -69,7 +69,6 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - Discover R2 cleanup keys from persisted `/photos/` URLs in `User.photoUrl`, `RecipeSpoon.photoUrl`, and `RecipeCover.imageUrl` / `stylizedImageUrl` / `sourceImageUrl`; delete only keys that pass a disposable-owner or generated-cover safety check.
 - Collect and persist the candidate R2 key list before deleting D1 rows so QA cleanup cannot erase the database evidence it needs to clean stored objects.
 - Preserve the existing exact-run image-cover smoke cleanup; the broader harness complements it for leftover QA residue.
-- Use sub-agent reviewer convergence for planning, doing, implementation, and merge readiness under the active no-human-gates mandate.
 
 ## Context / References
 - `BACKLOG.md` `SJ-044` names the remaining gap after `SJ-043`: broader environment-aware QA cleanup for disposable image objects and OAuth/API residue.
@@ -100,3 +99,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 04:51 Addressed Round 2 reviewer findings: added disposable fork-chain cleanup policy/tests and clarified that broad production mutation remains refused.
 - 2026-06-12 04:53 Addressed Round 3 reviewer findings: generalized cleanup blockers to all cross-boundary non-disposable references into disposable targets and set status to `NEEDS_REVIEW` during the reviewer gate.
 - 2026-06-12 04:55 Addressed Round 4 reviewer finding by removing runtime gate-policy prose from the planning artifact.
+- 2026-06-12 04:56 Addressed final narrow reviewer blocker by removing the remaining gate-policy sentence from Decisions Made.
