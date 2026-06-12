@@ -1627,6 +1627,9 @@ describe("Storybook deploy warning cleanup", () => {
     const pagesAction = validateDeploymentConfig(
       inputsWithStorybookWorkflow(validStorybookWorkflow().replace("cloudflare/wrangler-action@v4", "cloudflare/pages-action@v1")),
     );
+    const mixedCasePagesAction = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(validStorybookWorkflow().replace("cloudflare/wrangler-action@v4", "Cloudflare/pages-action@v1")),
+    );
     const uploadArtifact = validateDeploymentConfig(
       inputsWithStorybookWorkflow(
         validStorybookWorkflow().replace(
@@ -1642,12 +1645,42 @@ describe("Storybook deploy warning cleanup", () => {
         ),
       ),
     );
+    const mixedCaseUploadArtifact = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "      - name: Prepare Cloudflare Pages deploy directory",
+          [
+            "      - uses: Actions/upload-artifact@v7",
+            "        if: github.ref == 'refs/heads/main'",
+            "        with:",
+            "          name: storybook-static",
+            "          path: storybook-static",
+            "      - name: Prepare Cloudflare Pages deploy directory",
+          ].join("\n"),
+        ),
+      ),
+    );
     const downloadArtifact = validateDeploymentConfig(
       inputsWithStorybookWorkflow(
         validStorybookWorkflow().replace(
           "      - name: Deploy to Cloudflare Pages",
           [
             "      - uses: actions/download-artifact@v8",
+            "        if: github.ref == 'refs/heads/main'",
+            "        with:",
+            "          name: storybook-static",
+            "          path: storybook-static",
+            "      - name: Deploy to Cloudflare Pages",
+          ].join("\n"),
+        ),
+      ),
+    );
+    const mixedCaseDownloadArtifact = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "      - name: Deploy to Cloudflare Pages",
+          [
+            "      - uses: Actions/download-artifact@v8",
             "        if: github.ref == 'refs/heads/main'",
             "        with:",
             "          name: storybook-static",
@@ -1706,8 +1739,11 @@ describe("Storybook deploy warning cleanup", () => {
 
     for (const result of [
       pagesAction,
+      mixedCasePagesAction,
       uploadArtifact,
+      mixedCaseUploadArtifact,
       downloadArtifact,
+      mixedCaseDownloadArtifact,
       separateDeployJob,
       renamedDeployJob,
       quotedRenamedDeployJob,

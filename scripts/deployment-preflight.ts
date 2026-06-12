@@ -439,7 +439,7 @@ function stepIfEquals(lines: WorkflowLine[], stepStart: number, stepEnd: number,
 
 function stepUses(lines: WorkflowLine[], stepStart: number, stepEnd: number, action: string): boolean {
   const value = stepPropertyValue(lines, stepStart, stepEnd, "uses");
-  return typeof value === "string" && value.startsWith(action);
+  return typeof value === "string" && value.toLowerCase().startsWith(action.toLowerCase());
 }
 
 function stepHasId(lines: WorkflowLine[], stepStart: number, stepEnd: number, id: string): boolean {
@@ -655,7 +655,7 @@ function pnpmWorkspaceHasIgnoredBuildPolicy(pnpmWorkspace: string): boolean {
 
 function workflowHasStorybookDeployContract(workflow: string): boolean {
   const lines = workflowLines(workflow);
-  const activeText = lines.map((line) => line.text).join("\n");
+  const activeText = lines.map((line) => line.text).join("\n").toLowerCase();
   if (
     activeText.includes("cloudflare/pages-action@") ||
     activeText.includes("actions/upload-artifact@") ||
