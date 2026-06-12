@@ -21,14 +21,14 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - `spoonjoy/tasks/AUTOPILOT-STATE.md`: Current durable queue points to `SJ-044` as the active dogfood seed.
 
 ## Completion Criteria
-- [ ] A shared resolver defines and validates `local`, `qa`, and `production` script targets and is consumed by smoke/preflight/cleanup code.
-- [ ] Cleanup commands print resolved environment, base URL, D1 target, R2 target, and destructive-operation scope before any mutation.
-- [ ] Cleanup refuses ambiguous remote mutation and refuses broad production mutation; production cleanup remains read-first and narrow.
-- [ ] QA cleanup can remove disposable users, recipes, spoons, OAuth clients/codes/tokens, API credentials/idempotency keys, generated covers, and related QA R2 objects.
-- [ ] QA cleanup reports and refuses mutation when any non-disposable row still references disposable cleanup targets.
-- [ ] QA cleanup safely handles disposable recipe fork chains without mutating non-disposable fork attribution.
-- [ ] Smoke artifacts include environment, base URL, branch/commit, created record ids, cleanup result, and retained/deleted R2 keys where available.
-- [ ] Docs and preflight checks encode the explicit cleanup/smoke target contract.
+- [x] A shared resolver defines and validates `local`, `qa`, and `production` script targets and is consumed by smoke/preflight/cleanup code.
+- [x] Cleanup commands print resolved environment, base URL, D1 target, R2 target, and destructive-operation scope before any mutation.
+- [x] Cleanup refuses ambiguous remote mutation and refuses broad production mutation; production cleanup remains read-first and narrow.
+- [x] QA cleanup can remove disposable users, recipes, spoons, OAuth clients/codes/tokens, API credentials/idempotency keys, generated covers, and related QA R2 objects.
+- [x] QA cleanup reports and refuses mutation when any non-disposable row still references disposable cleanup targets.
+- [x] QA cleanup safely handles disposable recipe fork chains without mutating non-disposable fork attribution.
+- [x] Smoke artifacts include environment, base URL, branch/commit, created record ids, cleanup result, and retained/deleted R2 keys where available.
+- [x] Docs and preflight checks encode the explicit cleanup/smoke target contract.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
 - [ ] No warnings
@@ -147,7 +147,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Output**: Updated docs/scripts and green focused deployment preflight tests in `unit-6b-green.log`.
 **Acceptance**: Focused preflight/docs tests pass with no warnings.
 
-### ⬜ Unit 6c: Docs, Package Scripts, And Preflight — Coverage & Refactor
+### ✅ Unit 6c: Docs, Package Scripts, And Preflight — Coverage & Refactor
 **What**: Verify deployment preflight coverage remains 100% for modified code and docs assertions are precise enough to prevent ambiguous remote cleanup regression.
 **Output**: Targeted deployment preflight coverage output in `unit-6c-coverage.log`.
 **Acceptance**: Modified preflight code has 100% coverage and no warnings.
@@ -227,3 +227,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 07:17 Unit 5c complete: added git fallback/default report coverage and verified 100% coverage for `smoke-live-helpers.mjs`, `smoke-image-cover-live.mjs`, and `smoke-api-live.mjs`; build passed with evidence in `unit-5c-coverage.log` and `unit-5c-build.log`.
 - 2026-06-12 07:20 Unit 6a complete: added red tests for explicit cleanup package scripts, cleanup target docs, script coverage instrumentation, and `typecheck:scripts`/`tsconfig.scripts.json`; expected failures captured in `unit-6a-red.log`. Unit review skipped (reason: red-test unit; implementation review follows green unit).
 - 2026-06-12 07:25 Unit 6b complete: added explicit cleanup scripts, script typecheck config, coverage includes, deployment/QA preflight enforcement, and README/deployment cleanup target docs. Focused preflight tests, `typecheck:scripts`, and build passed with evidence in `unit-6b-green.log`, `unit-6b-typecheck-scripts.log`, and `unit-6b-build.log`.
+- 2026-06-12 07:38 Unit 6c complete: hardened QA preflight CLI testability, added branch coverage for generated config validation, migration parsing, R2 failure cleanup, and CLI entry handling; deployment/QA preflight coverage is 100% statements/branches/functions/lines and build passed with evidence in `unit-6c-coverage.log`, `unit-6c-qa-preflight-green.log`, and `unit-6c-build.log`.
