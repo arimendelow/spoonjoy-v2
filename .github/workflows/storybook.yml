@@ -57,16 +57,23 @@ jobs:
       deployments: write
     
     steps:
+      - uses: actions/checkout@v6
+
       - name: 📥 Download build artifact
         uses: actions/download-artifact@v8
         with:
           name: storybook-static
           path: storybook-static
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: '10.28.1'
       
       - name: 🚀 Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: spoonjoy-storybook
-          directory: storybook-static
+          command: pages deploy storybook-static --project-name=spoonjoy-storybook
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

@@ -72,6 +72,53 @@ function validQaImageCoverSmokeWorkflow(): string {
   ].join("\n");
 }
 
+function validStorybookWorkflow(): string {
+  return [
+    "name: Storybook",
+    "on:",
+    "  push:",
+    "    branches: [main]",
+    "  pull_request:",
+    "    branches: [main]",
+    "  workflow_dispatch:",
+    "jobs:",
+    "  build-storybook:",
+    "    steps:",
+    "      - uses: actions/checkout@v6",
+    "      - run: pnpm build-storybook",
+    "      - uses: actions/upload-artifact@v7",
+    "        if: github.ref == 'refs/heads/main'",
+    "        with:",
+    "          name: storybook-static",
+    "          path: storybook-static",
+    "  deploy-storybook:",
+    "    if: github.ref == 'refs/heads/main'",
+    "    needs: build-storybook",
+    "    permissions:",
+    "      contents: read",
+    "      deployments: write",
+    "    steps:",
+    "      - uses: actions/download-artifact@v8",
+    "        with:",
+    "          name: storybook-static",
+    "          path: storybook-static",
+    "      - uses: pnpm/action-setup@v6",
+    "        with:",
+    "          version: '10.28.1'",
+    "      - name: Deploy to Cloudflare Pages",
+    "        uses: cloudflare/wrangler-action@v4",
+    "        with:",
+    "          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+    "          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    "          command: pages deploy storybook-static --project-name=spoonjoy-storybook",
+    "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+  ].join("\n");
+}
+
+function inputsWithStorybookWorkflow(workflow: string): DeploymentPreflightInputs {
+  return { ...validInputs(), storybookWorkflow: workflow };
+}
+
 function validInputs(): DeploymentPreflightInputs {
   return {
     wrangler: {
@@ -150,6 +197,7 @@ function validInputs(): DeploymentPreflightInputs {
       "        run: pnpm run deploy:auto",
     ].join("\n"),
     qaImageCoverSmokeWorkflow: validQaImageCoverSmokeWorkflow(),
+    storybookWorkflow: validStorybookWorkflow(),
     cloudflareEnvDts: "DB?: D1Database; PHOTOS?: R2Bucket; SESSION_SECRET?: string; OPENAI_API_KEY?: string; GOOGLE_API_KEY?: string; GEMINI_API_KEY?: string; GEMINI_IMAGE_MODEL?: string; GEMINI_IMAGE_TIMEOUT_MS?: string; IMAGE_PROVIDER_PRIMARY?: string; IMAGE_PROVIDER_FALLBACKS?: string; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string; GITHUB_CLIENT_ID?: string; GITHUB_CLIENT_SECRET?: string; APPLE_CLIENT_ID?: string; APPLE_TEAM_ID?: string; APPLE_KEY_ID?: string; APPLE_PRIVATE_KEY?: string; VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_KEY?: string; VAPID_SUBJECT?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string; POSTHOG_DISABLED?: string;",
     readme: "pnpm run deploy:preflight wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY GOOGLE_API_KEY VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT GEMINI_API_KEY GEMINI_IMAGE_MODEL GEMINI_IMAGE_TIMEOUT_MS gemini-3.1-flash-image IMAGE_PROVIDER_PRIMARY IMAGE_PROVIDER_FALLBACKS VITE_POSTHOG_KEY VITE_POSTHOG_HOST VITE_POSTHOG_DISABLED POSTHOG_KEY POSTHOG_HOST POSTHOG_DISABLED server lifecycle telemetry docs/analytics-privacy.md",
     deploymentDoc: "pnpm run deploy:preflight smoke:api wrangler d1 migrations apply DB --remote wrangler r2 bucket create spoonjoy-photos wrangler secret put SESSION_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY OPENAI_API_KEY GOOGLE_API_KEY VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT GEMINI_API_KEY GEMINI_IMAGE_MODEL GEMINI_IMAGE_TIMEOUT_MS gemini-3.1-flash-image IMAGE_PROVIDER_PRIMARY IMAGE_PROVIDER_FALLBACKS wrangler secret put POSTHOG_KEY VITE_POSTHOG_KEY VITE_POSTHOG_HOST VITE_POSTHOG_DISABLED POSTHOG_KEY POSTHOG_HOST POSTHOG_DISABLED server lifecycle telemetry",
@@ -213,6 +261,24 @@ describe("deployment preflight", () => {
     }
   });
 
+  it("uses process.cwd as the default preflight root directory", async () => {
+    const originalSkip = process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+    process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = "1";
+    try {
+      const result = await runDeploymentPreflight();
+
+      expect(result.errors).toEqual([]);
+      expect(result.checks.map((item) => item.name)).toContain("Storybook deploy workflow");
+      expect(result.checks.map((item) => item.name)).toContain("remote D1 migrations");
+    } finally {
+      if (originalSkip === undefined) {
+        delete process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE;
+      } else {
+        process.env.SPOONJOY_PREFLIGHT_SKIP_REMOTE = originalSkip;
+      }
+    }
+  });
+
   it("flags missing production-critical bindings and docs", () => {
     const inputs = validInputs();
     inputs.wrangler.r2_buckets = [];
@@ -227,9 +293,37 @@ describe("deployment preflight", () => {
     );
   });
 
+  it("ignores malformed binding entries when valid production bindings are present", () => {
+    const inputs = validInputs();
+    inputs.wrangler.d1_databases = [
+      null,
+      "bad-binding",
+      { binding: "OTHER_DB", database_name: "other", database_id: "other-id" },
+      { binding: "DB", database_name: "spoonjoy", database_id: "database-id" },
+    ];
+    inputs.wrangler.r2_buckets = [
+      null,
+      { binding: "PHOTOS", bucket_name: "spoonjoy-photos" },
+    ];
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).not.toContain("D1 binding");
+    expect(result.errors.map((item) => item.name)).not.toContain("R2 photos binding");
+  });
+
   it("requires deploy:auto in REQUIRED_PACKAGE_SCRIPTS", () => {
     const inputs = validInputs();
     delete (inputs.packageJson.scripts as Record<string, string>)["deploy:auto"];
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("package scripts");
+  });
+
+  it("flags missing package scripts when package.json has no scripts object", () => {
+    const inputs = validInputs();
+    inputs.packageJson = {};
 
     const result = validateDeploymentConfig(inputs);
 
@@ -258,6 +352,58 @@ describe("deployment preflight", () => {
       "        env:",
       "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
       "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("rejects production deploy workflows without an on block", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("requires production push workflows to name the main branch explicitly", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("rejects production deploy workflows without jobs", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - main",
+      "  workflow_dispatch:",
     ].join("\n");
 
     const result = validateDeploymentConfig(inputs);
@@ -310,6 +456,77 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
   });
 
+  it("does not accept multiline branch names that merely contain main", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - not-main",
+      "      - feature/main",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("accepts deploy:auto from a block-style production workflow run step", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - main",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - name: Deploy",
+      "        run: |",
+      "          pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).not.toContain("production deploy workflow");
+  });
+
+  it("rejects a block-style production workflow run step that does not deploy", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - main",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - name: Deploy",
+      "        run: |",
+      "          echo not deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
   it("requires deploy:auto and Cloudflare credentials on a real deploy step", () => {
     const inputs = validInputs();
     inputs.productionDeployWorkflow = [
@@ -329,6 +546,48 @@ describe("deployment preflight", () => {
       "          NOT_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
       "      - name: mentions the other credential",
       "        run: echo CLOUDFLARE_ACCOUNT_ID",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("rejects a production deploy workflow whose deploy job has no steps", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - main",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    runs-on: ubuntu-latest",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("production deploy workflow");
+  });
+
+  it("ignores nested or malformed env lines when checking production deploy credentials", () => {
+    const inputs = validInputs();
+    inputs.productionDeployWorkflow = [
+      "on:",
+      "  push:",
+      "    branches:",
+      "      - main",
+      "  workflow_dispatch:",
+      "jobs:",
+      "  deploy:",
+      "    steps:",
+      "      - run: pnpm run deploy:auto",
+      "        env:",
+      "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+      "          nested:",
+      "            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "          - malformed-env-line",
     ].join("\n");
 
     const result = validateDeploymentConfig(inputs);
@@ -422,6 +681,18 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
   });
 
+  it("accepts QA image-cover block run steps followed by additional step properties", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow().replace(
+      "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"\n      - uses: actions/checkout@v6",
+      "          echo \"ready=true\" >> \"$GITHUB_OUTPUT\"\n        shell: bash\n      - uses: actions/checkout@v6",
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
+  });
+
   it("rejects QA image-cover workflows with mutation triggers or deploy commands", () => {
     const inputs = validInputs();
     inputs.qaImageCoverSmokeWorkflow = [
@@ -447,6 +718,18 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
   });
 
+  it("rejects QA image-cover workflows with deploy commands even when triggers are allowed", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow().replace(
+      "pnpm run smoke:qa:image-cover",
+      "pnpm exec wrangler deploy",
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
   it("rejects QA image-cover workflows missing credential and provider secret gates", () => {
     const inputs = validInputs();
     inputs.qaImageCoverSmokeWorkflow = [
@@ -460,6 +743,23 @@ describe("deployment preflight", () => {
       "      - run: pnpm install --frozen-lockfile",
       "      - run: pnpm prisma:generate",
       "      - run: pnpm run smoke:qa:image-cover",
+    ].join("\n");
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover workflows without job steps", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = [
+      "on:",
+      "  workflow_dispatch:",
+      "  schedule:",
+      "    - cron: \"17 10 * * *\"",
+      "jobs:",
+      "  smoke:",
+      "    runs-on: ubuntu-latest",
     ].join("\n");
 
     const result = validateDeploymentConfig(inputs);
@@ -550,6 +850,18 @@ describe("deployment preflight", () => {
     const result = validateDeploymentConfig(inputs);
 
     expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
+  it("ignores non-key trigger lines in QA image-cover workflow trigger parsing", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow().replace(
+      "  workflow_dispatch:",
+      "  - malformed-trigger\n  workflow_dispatch:",
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
   });
 
   it("rejects QA image-cover workflows with duplicate allowed triggers but missing workflow dispatch", () => {
@@ -680,6 +992,33 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
   });
 
+  it("rejects QA image-cover workflows whose artifact step omits the smoke artifact path", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow().replace(
+      "          path: qa-image-cover-smoke-artifacts/",
+      "          path: wrong-artifacts/",
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
+  it("rejects QA image-cover workflows whose artifact step has no with block", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow().replace(
+      [
+        "        with:",
+        "          path: qa-image-cover-smoke-artifacts/",
+      ].join("\n"),
+      "        name: missing-with-block",
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
   it("flags QA resources that alias production resources", () => {
     const inputs = validInputs();
     inputs.wrangler.env = {
@@ -716,6 +1055,29 @@ describe("deployment preflight", () => {
     const result = validateDeploymentConfig(inputs);
 
     expect(result.errors.map((item) => item.name)).toEqual(
+      expect.arrayContaining(["QA environment", "QA resource isolation"]),
+    );
+  });
+
+  it("flags non-array and malformed QA rate-limit bindings", () => {
+    const nonArrayInputs = validInputs();
+    const malformedInputs = validInputs();
+    const nonArrayEnv = nonArrayInputs.wrangler.env as Record<string, { ratelimits?: unknown }>;
+    const malformedEnv = malformedInputs.wrangler.env as Record<string, { ratelimits?: unknown[] }>;
+    nonArrayEnv.qa.ratelimits = "not-rate-limits";
+    malformedEnv.qa.ratelimits = [
+      null,
+      "bad-entry",
+      { name: "API_TOKEN_RATE_LIMITER", namespace_id: "2001" },
+    ];
+
+    const nonArrayResult = validateDeploymentConfig(nonArrayInputs);
+    const malformedResult = validateDeploymentConfig(malformedInputs);
+
+    expect(nonArrayResult.errors.map((item) => item.name)).toEqual(
+      expect.arrayContaining(["QA environment", "QA resource isolation"]),
+    );
+    expect(malformedResult.errors.map((item) => item.name)).toEqual(
       expect.arrayContaining(["QA environment", "QA resource isolation"]),
     );
   });
@@ -845,6 +1207,16 @@ describe("checkRemoteMigrations", () => {
     expect(check.message.toLowerCase()).toContain("parse");
   });
 
+  it("FAILS with a parse-error message when wrangler emits malformed JSON", async () => {
+    const runWrangler = vi.fn(async () => ({ stdout: "[malformed json", stderr: "", exitCode: 0 }));
+
+    const check = await checkRemoteMigrations({ runWrangler, env: {} });
+
+    expect(check.ok).toBe(false);
+    expect(check.severity).toBe("error");
+    expect(check.message).toContain("Could not parse wrangler JSON output");
+  });
+
   it("FAILS with a shape-error message when JSON is a top-level object instead of an array", async () => {
     const runWrangler = vi.fn(async () => ({
       stdout: '{"migrations":[]}',
@@ -899,6 +1271,20 @@ describe("checkRemoteMigrations", () => {
     expect(check.ok).toBe(false);
     expect(check.severity).toBe("error");
     expect(check.message).toContain("Internal error: database unavailable");
+  });
+
+  it("FAILS with stdout text when wrangler exits non-zero without stderr", async () => {
+    const runWrangler = vi.fn(async () => ({
+      stdout: "database unavailable on stdout",
+      stderr: "",
+      exitCode: 2,
+    }));
+
+    const check = await checkRemoteMigrations({ runWrangler, env: {} });
+
+    expect(check.ok).toBe(false);
+    expect(check.severity).toBe("error");
+    expect(check.message).toContain("database unavailable on stdout");
   });
 
   it("FAILS when the runWrangler promise rejects (spawn/binary error)", async () => {
@@ -1186,6 +1572,319 @@ describe("QA image-cover smoke workflow", () => {
 
     expect(result.errors.map((item) => item.name)).not.toContain("QA image-cover smoke workflow");
     expect(result.checks.find((item) => item.name === "QA image-cover smoke workflow")?.ok).toBe(true);
+  });
+});
+
+describe("Storybook deploy workflow", () => {
+  it("requires a Wrangler-action Storybook deploy workflow in preflight", () => {
+    const result = validateDeploymentConfig(inputsWithStorybookWorkflow(validStorybookWorkflow()));
+
+    expect(result.errors.map((item) => item.name)).not.toContain("Storybook deploy workflow");
+    expect(result.checks.find((item) => item.name === "Storybook deploy workflow")?.ok).toBe(true);
+  });
+
+  it("rejects deprecated Pages action deployments", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow()
+        .replace("cloudflare/wrangler-action@v4", "cloudflare/pages-action@v1")
+        .replace("command: pages deploy storybook-static --project-name=spoonjoy-storybook", "directory: storybook-static"),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("requires deployment permissions, main-branch deploy guard, and GitHub deployment token", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow()
+        .replace("      deployments: write\n", "")
+        .replace("    if: github.ref == 'refs/heads/main'\n", "")
+        .replace("          gitHubToken: ${{ secrets.GITHUB_TOKEN }}\n", ""),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows without deployments write permission", () => {
+    const inputs = inputsWithStorybookWorkflow(validStorybookWorkflow().replace("      deployments: write\n", ""));
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows without a push-to-main trigger", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace("  push:\n    branches: [main]\n", ""),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows without the deploy job", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace("  deploy-storybook:", "  preview-storybook:"),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows without the build job", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace("  build-storybook:", "  compile-storybook:"),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook build jobs without steps", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        "    steps:\n      - uses: actions/checkout@v6",
+        "    no_steps:\n      - uses: actions/checkout@v6",
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows without a build dependency or main ref guard", () => {
+    const missingNeeds = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(validStorybookWorkflow().replace("    needs: build-storybook\n", "")),
+    );
+    const missingIf = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "  deploy-storybook:\n    if: github.ref == 'refs/heads/main'\n    needs: build-storybook",
+          "  deploy-storybook:\n    needs: build-storybook",
+        ),
+      ),
+    );
+
+    expect(missingNeeds.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+    expect(missingIf.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows without deploy steps or artifact download", () => {
+    const missingSteps = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "    permissions:\n      contents: read\n      deployments: write\n    steps:",
+          "    permissions:\n      contents: read\n      deployments: write\n    no_steps:",
+        ),
+      ),
+    );
+    const missingDownload = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          [
+            "      - uses: actions/download-artifact@v8",
+            "        with:",
+            "          name: storybook-static",
+            "          path: storybook-static",
+          ].join("\n"),
+          [
+            "      - uses: actions/download-artifact@v8",
+            "        with:",
+            "          name: wrong-artifact",
+            "          path: storybook-static",
+          ].join("\n"),
+        ),
+      ),
+    );
+
+    expect(missingSteps.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+    expect(missingDownload.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook artifact steps without the expected with keys", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        [
+          "      - uses: actions/download-artifact@v8",
+          "        with:",
+          "          name: storybook-static",
+          "          path: storybook-static",
+        ].join("\n"),
+        [
+          "      - uses: actions/download-artifact@v8",
+          "        with:",
+          "          artifact: storybook-static",
+          "          path: storybook-static",
+        ].join("\n"),
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows that do not upload the built artifact", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        [
+          "      - uses: actions/upload-artifact@v7",
+          "        if: github.ref == 'refs/heads/main'",
+          "        with:",
+          "          name: storybook-static",
+          "          path: storybook-static",
+        ].join("\n"),
+        [
+          "      - uses: actions/upload-artifact@v7",
+          "        if: github.ref == 'refs/heads/main'",
+          "        with:",
+          "          name: docs-static",
+          "          path: storybook-static",
+        ].join("\n"),
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook deploy workflows that deploy before downloading the artifact", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        [
+          "      - uses: actions/download-artifact@v8",
+          "        with:",
+          "          name: storybook-static",
+          "          path: storybook-static",
+          "      - uses: pnpm/action-setup@v6",
+          "        with:",
+          "          version: '10.28.1'",
+          "      - name: Deploy to Cloudflare Pages",
+          "        uses: cloudflare/wrangler-action@v4",
+          "        with:",
+          "          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+          "          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+          "          command: pages deploy storybook-static --project-name=spoonjoy-storybook",
+          "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+        ].join("\n"),
+        [
+          "      - uses: pnpm/action-setup@v6",
+          "        with:",
+          "          version: '10.28.1'",
+          "      - name: Deploy to Cloudflare Pages",
+          "        uses: cloudflare/wrangler-action@v4",
+          "        with:",
+          "          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+          "          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+          "          command: pages deploy storybook-static --project-name=spoonjoy-storybook",
+          "          gitHubToken: ${{ secrets.GITHUB_TOKEN }}",
+          "      - uses: actions/download-artifact@v8",
+          "        with:",
+          "          name: storybook-static",
+          "          path: storybook-static",
+        ].join("\n"),
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("rejects Storybook artifact download steps without a with block", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        [
+          "      - uses: actions/download-artifact@v8",
+          "        with:",
+          "          name: storybook-static",
+          "          path: storybook-static",
+        ].join("\n"),
+        "      - uses: actions/download-artifact@v8",
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("requires pnpm setup before the Storybook Wrangler action can infer the package manager", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        [
+          "      - uses: pnpm/action-setup@v6",
+          "        with:",
+          "          version: '10.28.1'",
+        ].join("\n"),
+        "",
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("accepts quoted Storybook workflow scalar values", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow()
+        .replaceAll("name: storybook-static", "name: 'storybook-static'")
+        .replaceAll("path: storybook-static", 'path: "storybook-static"')
+        .replace("apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}", "apiToken: '${{ secrets.CLOUDFLARE_API_TOKEN }}'")
+        .replace("accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}", "accountId: '${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'")
+        .replace(
+          "command: pages deploy storybook-static --project-name=spoonjoy-storybook",
+          'command: "pages deploy storybook-static --project-name=spoonjoy-storybook"',
+        )
+        .replace("gitHubToken: ${{ secrets.GITHUB_TOKEN }}", "gitHubToken: '${{ secrets.GITHUB_TOKEN }}'"),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).not.toContain("Storybook deploy workflow");
+    expect(result.checks.find((item) => item.name === "Storybook deploy workflow")?.ok).toBe(true);
+  });
+
+  it("ignores nested Storybook with-block entries while reading scalar keys", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        [
+          "      - uses: actions/download-artifact@v8",
+          "        with:",
+          "          name: storybook-static",
+          "          path: storybook-static",
+        ].join("\n"),
+        [
+          "      - uses: actions/download-artifact@v8",
+          "        with:",
+          "          metadata:",
+          "            ignored: true",
+          "          name: storybook-static",
+          "          path: storybook-static",
+        ].join("\n"),
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).not.toContain("Storybook deploy workflow");
+  });
+
+  it("checks the current repository Storybook workflow", async () => {
+    const workflow = await readFile(`${process.cwd()}/.github/workflows/storybook.yml`, "utf8");
+    const result = validateDeploymentConfig(inputsWithStorybookWorkflow(workflow));
+
+    expect(result.errors.map((item) => item.name)).not.toContain("Storybook deploy workflow");
+    expect(result.checks.find((item) => item.name === "Storybook deploy workflow")?.ok).toBe(true);
   });
 });
 
