@@ -1662,8 +1662,23 @@ describe("Storybook deploy warning cleanup", () => {
         validStorybookWorkflow() + "\n  deploy-storybook:\n    if: github.ref == 'refs/heads/main'\n    needs: build-storybook\n    steps:\n      - run: echo deploy",
       ),
     );
+    const renamedDeployJob = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow() +
+          [
+            "",
+            "  other-deploy:",
+            "    if: github.ref == 'refs/heads/main'",
+            "    needs: build-storybook",
+            "    steps:",
+            "      - uses: cloudflare/wrangler-action@v4",
+            "        with:",
+            "          command: pages deploy storybook-static --project-name=spoonjoy-storybook",
+          ].join("\n"),
+      ),
+    );
 
-    for (const result of [pagesAction, uploadArtifact, downloadArtifact, separateDeployJob]) {
+    for (const result of [pagesAction, uploadArtifact, downloadArtifact, separateDeployJob, renamedDeployJob]) {
       expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     }
   });

@@ -661,7 +661,7 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
   if (!workflowHasStorybookGitDefaultBranchConfig(lines)) return false;
 
   const jobs = workflowJobBlocks(lines);
-  if (jobs.some(([jobStart]) => lines[jobStart].text === "deploy-storybook:")) return false;
+  if (jobs.length !== 1) return false;
 
   for (const [jobStart, jobEnd] of jobs) {
     if (lines[jobStart].text !== "build-storybook:") continue;
