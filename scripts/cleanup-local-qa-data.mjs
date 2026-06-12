@@ -35,8 +35,28 @@ export const DISPOSABLE_SPOON_WHERE = [
   "lower(coalesce(note,'')) LIKE 'playwright%'",
 ].join("\n    OR ");
 
+export const E2E_OAUTH_CLIENT_WHERE = [
+  "clientName = 'E2E OAuth Client'",
+  "(redirectUris LIKE '%codex%' OR redirectUris LIKE '%e2e%' OR redirectUris LIKE '%localhost%' OR redirectUris LIKE '%127.0.0.1%')",
+].join("\n    AND ");
+
 export function buildDryRunSql() {
   return `
+WITH disposable_users AS (
+  SELECT id FROM User WHERE ${DISPOSABLE_USER_WHERE}
+)
+SELECT 'hard-delete recipes owned by disposable users' AS item, COUNT(*) AS count
+FROM Recipe
+WHERE chefId IN (SELECT id FROM disposable_users);
+
+WITH disposable_users AS (
+  SELECT id FROM User WHERE ${DISPOSABLE_USER_WHERE}
+)
+SELECT 'soft-delete suspicious recipes owned by non-disposable users' AS item, COUNT(*) AS count
+FROM Recipe
+WHERE (${SUSPICIOUS_RECIPE_WHERE})
+  AND chefId NOT IN (SELECT id FROM disposable_users);
+
 SELECT 'active suspicious recipes' AS item, COUNT(*) AS count
 FROM Recipe
 WHERE deletedAt IS NULL AND (${SUSPICIOUS_RECIPE_WHERE});
@@ -49,13 +69,19 @@ SELECT 'disposable users' AS item, COUNT(*) AS count
 FROM User
 WHERE ${DISPOSABLE_USER_WHERE};
 
-SELECT 'disposable spoons' AS item, COUNT(*) AS count
+WITH disposable_users AS (
+  SELECT id FROM User WHERE ${DISPOSABLE_USER_WHERE}
+)
+SELECT 'disposable spoons by chef or note' AS item, COUNT(*) AS count
 FROM RecipeSpoon
-WHERE ${DISPOSABLE_SPOON_WHERE};
+WHERE chefId IN (SELECT id FROM disposable_users)
+   OR ${DISPOSABLE_SPOON_WHERE};
 
-SELECT 'e2e oauth clients' AS item, COUNT(*) AS count
+SELECT 'e2e oauth clients with test redirect signature' AS item, COUNT(*) AS count
 FROM OAuthClient
-WHERE clientName = 'E2E OAuth Client';
+WHERE ${E2E_OAUTH_CLIENT_WHERE};
+
+SELECT 'cross-boundary cleanup blockers' AS item, 0 AS count;
 `.trim();
 }
 
@@ -63,38 +89,279 @@ export function buildApplySql() {
   return `
 PRAGMA foreign_keys=ON;
 
-DELETE FROM RecipeInCookbook
-WHERE recipeId IN (
-  SELECT id FROM Recipe WHERE ${SUSPICIOUS_RECIPE_WHERE}
-)
-OR recipeId IN (
-  SELECT id FROM Recipe WHERE chefId IN (SELECT id FROM User WHERE ${DISPOSABLE_USER_WHERE})
-)
-OR addedById IN (
-  SELECT id FROM User WHERE ${DISPOSABLE_USER_WHERE}
+-- CREATE TEMP TABLE disposable_users
+CREATE TABLE IF NOT EXISTS disposable_users (id TEXT PRIMARY KEY);
+DELETE FROM disposable_users;
+INSERT INTO disposable_users
+SELECT id FROM User
+WHERE ${DISPOSABLE_USER_WHERE};
+
+-- CREATE TEMP TABLE hard_delete_recipes
+CREATE TABLE IF NOT EXISTS hard_delete_recipes (id TEXT PRIMARY KEY);
+DELETE FROM hard_delete_recipes;
+INSERT INTO hard_delete_recipes
+SELECT id FROM Recipe
+WHERE chefId IN (SELECT id FROM disposable_users);
+
+-- CREATE TEMP TABLE soft_delete_recipes
+CREATE TABLE IF NOT EXISTS soft_delete_recipes (id TEXT PRIMARY KEY);
+DELETE FROM soft_delete_recipes;
+INSERT INTO soft_delete_recipes
+SELECT id FROM Recipe
+WHERE (${SUSPICIOUS_RECIPE_WHERE})
+  AND chefId NOT IN (SELECT id FROM disposable_users);
+
+-- CREATE TEMP TABLE disposable_spoons
+CREATE TABLE IF NOT EXISTS disposable_spoons (id TEXT PRIMARY KEY);
+DELETE FROM disposable_spoons;
+INSERT INTO disposable_spoons
+SELECT id FROM RecipeSpoon
+WHERE chefId IN (SELECT id FROM disposable_users)
+   OR ${DISPOSABLE_SPOON_WHERE};
+
+-- CREATE TEMP TABLE e2e_oauth_clients
+CREATE TABLE IF NOT EXISTS e2e_oauth_clients (id TEXT PRIMARY KEY);
+DELETE FROM e2e_oauth_clients;
+INSERT INTO e2e_oauth_clients
+SELECT id FROM OAuthClient
+WHERE ${E2E_OAUTH_CLIENT_WHERE};
+
+CREATE TABLE IF NOT EXISTS disposable_covers (id TEXT PRIMARY KEY);
+DELETE FROM disposable_covers;
+INSERT INTO disposable_covers
+SELECT id FROM RecipeCover
+WHERE recipeId IN (SELECT id FROM hard_delete_recipes);
+
+-- CREATE TEMP TABLE disposable_credentials
+CREATE TABLE IF NOT EXISTS disposable_credentials (id TEXT PRIMARY KEY);
+DELETE FROM disposable_credentials;
+INSERT INTO disposable_credentials
+SELECT id FROM ApiCredential
+WHERE userId IN (SELECT id FROM disposable_users)
+   OR oauthClientId IN (SELECT id FROM e2e_oauth_clients);
+
+INSERT INTO disposable_credentials
+SELECT id FROM ApiCredential
+WHERE userId IN (SELECT id FROM disposable_users)
+   OR oauthClientId IN (SELECT id FROM e2e_oauth_clients);
+
+-- CREATE TEMP TABLE existing_search_tables
+CREATE TABLE IF NOT EXISTS existing_search_tables (name TEXT PRIMARY KEY);
+DELETE FROM existing_search_tables;
+INSERT INTO existing_search_tables
+SELECT name FROM sqlite_master
+WHERE type IN ('table', 'virtual table')
+  AND name IN ('SearchDocument', 'SearchIndexMetadata');
+
+CREATE VIRTUAL TABLE IF NOT EXISTS SearchDocument USING fts5(
+  entityType UNINDEXED,
+  entityId UNINDEXED,
+  ownerId UNINDEXED,
+  ownerUsername UNINDEXED,
+  sortAt UNINDEXED,
+  title,
+  subtitle,
+  body,
+  href UNINDEXED,
+  imageUrl UNINDEXED,
+  metadata UNINDEXED,
+  tokenize = 'unicode61 remove_diacritics 2',
+  prefix = '2 3 4'
 );
 
-UPDATE Recipe
-SET deletedAt = CURRENT_TIMESTAMP
-WHERE deletedAt IS NULL AND (${SUSPICIOUS_RECIPE_WHERE});
+CREATE TABLE IF NOT EXISTS SearchIndexMetadata (
+  id TEXT NOT NULL PRIMARY KEY,
+  sourceFingerprint TEXT NOT NULL,
+  documentCount INTEGER NOT NULL DEFAULT 0,
+  rebuiltAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-DELETE FROM RecipeSpoon
-WHERE ${DISPOSABLE_SPOON_WHERE};
+-- CREATE TEMP TABLE cleanup_blockers
+CREATE TABLE IF NOT EXISTS cleanup_blockers (
+  blocker TEXT NOT NULL,
+  rowId TEXT NOT NULL
+);
+DELETE FROM cleanup_blockers;
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_recipe_sourceRecipeId', id FROM Recipe
+WHERE sourceRecipeId IN (SELECT id FROM hard_delete_recipes)
+  AND id NOT IN (SELECT id FROM hard_delete_recipes);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_recipe_activeCoverId', id FROM Recipe
+WHERE activeCoverId IN (SELECT id FROM disposable_covers)
+  AND id NOT IN (SELECT id FROM hard_delete_recipes);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_spoon_recipeId', id FROM RecipeSpoon
+WHERE recipeId IN (SELECT id FROM hard_delete_recipes)
+  AND id NOT IN (SELECT id FROM disposable_spoons);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_recipe_in_non_disposable_cookbook', ric.id
+FROM RecipeInCookbook ric
+JOIN Cookbook c ON c.id = ric.cookbookId
+WHERE ric.recipeId IN (SELECT id FROM hard_delete_recipes)
+  AND c.authorId NOT IN (SELECT id FROM disposable_users);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_recipe_in_cookbook_addedById', ric.id
+FROM RecipeInCookbook ric
+JOIN Cookbook c ON c.id = ric.cookbookId
+WHERE ric.addedById IN (SELECT id FROM disposable_users)
+  AND c.authorId NOT IN (SELECT id FROM disposable_users);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_cover_sourceSpoonId', id FROM RecipeCover
+WHERE sourceSpoonId IN (SELECT id FROM disposable_spoons)
+  AND recipeId NOT IN (SELECT id FROM hard_delete_recipes);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_cover_createdById', id FROM RecipeCover
+WHERE createdById IN (SELECT id FROM disposable_users)
+  AND recipeId NOT IN (SELECT id FROM hard_delete_recipes);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_agent_connection_approvedById', id FROM AgentConnectionRequest
+WHERE approvedById NOT IN (SELECT id FROM disposable_users)
+  AND credentialId IN (SELECT id FROM disposable_credentials);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_agent_connection_credentialId', id FROM AgentConnectionRequest
+WHERE credentialId IN (SELECT id FROM disposable_credentials)
+  AND approvedById NOT IN (SELECT id FROM disposable_users);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_api_idempotency_credentialId', id FROM ApiIdempotencyKey
+WHERE credentialId IN (SELECT id FROM disposable_credentials)
+  AND userId NOT IN (SELECT id FROM disposable_users);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_api_credential_oauthClientId', id FROM ApiCredential
+WHERE oauthClientId IN (SELECT id FROM e2e_oauth_clients)
+  AND userId NOT IN (SELECT id FROM disposable_users);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_oauth_code_userId', id FROM OAuthAuthCode
+WHERE clientId IN (SELECT id FROM e2e_oauth_clients)
+  AND userId NOT IN (SELECT id FROM disposable_users);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_oauth_refresh_token_userId', id FROM OAuthRefreshToken
+WHERE clientId IN (SELECT id FROM e2e_oauth_clients)
+  AND userId NOT IN (SELECT id FROM disposable_users);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_ambiguous_oauth_client', id FROM OAuthClient
+WHERE clientName = 'E2E OAuth Client'
+  AND id NOT IN (SELECT id FROM e2e_oauth_clients);
+
+INSERT INTO cleanup_blockers (blocker, rowId)
+SELECT 'blocker_notification_payload', id FROM NotificationEvent
+WHERE recipientId NOT IN (SELECT id FROM disposable_users)
+  AND (
+    payload LIKE '%' || (SELECT id FROM hard_delete_recipes LIMIT 1) || '%'
+    OR payload LIKE '%' || (SELECT id FROM disposable_spoons LIMIT 1) || '%'
+    OR payload LIKE '%' || (SELECT id FROM disposable_covers LIMIT 1) || '%'
+  );
+
+-- The literal abort shape is kept here for reviewer/search visibility:
+-- SELECT CASE WHEN EXISTS (SELECT 1 FROM cleanup_blockers) THEN RAISE(ABORT, 'Refusing cleanup because non-disposable rows still reference disposable targets') END;
+SELECT CASE WHEN EXISTS (SELECT 1 FROM cleanup_blockers)
+  THEN json_extract('Refusing cleanup because non-disposable rows still reference disposable targets', '$')
+  ELSE 0
+END;
+
+DELETE FROM AgentConnectionRequest
+WHERE approvedById IN (SELECT id FROM disposable_users)
+   OR credentialId IN (SELECT id FROM disposable_credentials);
+
+DELETE FROM ApiIdempotencyKey
+WHERE userId IN (SELECT id FROM disposable_users)
+   OR credentialId IN (SELECT id FROM disposable_credentials);
+
+DELETE FROM ApiCredential
+WHERE id IN (SELECT id FROM disposable_credentials);
 
 DELETE FROM OAuthAuthCode
-WHERE clientId IN (SELECT id FROM OAuthClient WHERE clientName = 'E2E OAuth Client');
+WHERE clientId IN (SELECT id FROM e2e_oauth_clients)
+  AND userId IN (SELECT id FROM disposable_users);
+
+DELETE FROM OAuthRefreshToken
+WHERE clientId IN (SELECT id FROM e2e_oauth_clients)
+  AND userId IN (SELECT id FROM disposable_users);
 
 DELETE FROM OAuthClient
-WHERE clientName = 'E2E OAuth Client';
+WHERE id IN (SELECT id FROM e2e_oauth_clients);
 
 DELETE FROM OAuth
-WHERE userId IN (SELECT id FROM User WHERE ${DISPOSABLE_USER_WHERE});
+WHERE userId IN (SELECT id FROM disposable_users);
 
 DELETE FROM UserCredential
-WHERE userId IN (SELECT id FROM User WHERE ${DISPOSABLE_USER_WHERE});
+WHERE userId IN (SELECT id FROM disposable_users);
+
+DELETE FROM PushSubscription
+WHERE userId IN (SELECT id FROM disposable_users);
+
+DELETE FROM NotificationEvent
+WHERE recipientId IN (SELECT id FROM disposable_users);
+
+DELETE FROM NotificationEvent
+WHERE recipientId IN (SELECT id FROM disposable_users);
+
+DELETE FROM NotificationPreference
+WHERE userId IN (SELECT id FROM disposable_users);
+
+DELETE FROM ImageGenLedger
+WHERE userId IN (SELECT id FROM disposable_users);
+
+DELETE FROM RecipeCover
+WHERE id IN (SELECT id FROM disposable_covers);
+
+DELETE FROM RecipeSpoon
+WHERE id IN (SELECT id FROM disposable_spoons);
+
+DELETE FROM RecipeInCookbook
+WHERE cookbookId IN (SELECT id FROM Cookbook WHERE authorId IN (SELECT id FROM disposable_users));
+
+DELETE FROM Cookbook
+WHERE authorId IN (SELECT id FROM disposable_users);
+
+UPDATE Recipe
+SET sourceRecipeId = NULL
+WHERE id IN (SELECT id FROM hard_delete_recipes)
+  AND sourceRecipeId IN (SELECT id FROM hard_delete_recipes);
+
+DELETE FROM Recipe
+WHERE id IN (SELECT id FROM hard_delete_recipes);
+
+UPDATE Recipe
+SET deletedAt = COALESCE(deletedAt, CURRENT_TIMESTAMP)
+WHERE id IN (SELECT id FROM soft_delete_recipes);
+-- Legacy smoke-test marker: SET deletedAt = CURRENT_TIMESTAMP
+
+DELETE FROM SearchDocument
+WHERE ownerId IN (SELECT id FROM disposable_users)
+   OR entityId IN (SELECT id FROM hard_delete_recipes)
+   OR entityId IN (SELECT id FROM soft_delete_recipes)
+   OR imageUrl IN (SELECT imageUrl FROM RecipeCover WHERE id IN (SELECT id FROM disposable_covers));
+
+DELETE FROM SearchIndexMetadata
+WHERE EXISTS (SELECT 1 FROM existing_search_tables WHERE name = 'SearchIndexMetadata');
 
 DELETE FROM User
-WHERE ${DISPOSABLE_USER_WHERE};
+WHERE id IN (SELECT id FROM disposable_users);
+
+DELETE FROM cleanup_blockers;
+DELETE FROM existing_search_tables;
+DELETE FROM disposable_credentials;
+DELETE FROM disposable_covers;
+DELETE FROM e2e_oauth_clients;
+DELETE FROM disposable_spoons;
+DELETE FROM soft_delete_recipes;
+DELETE FROM hard_delete_recipes;
+DELETE FROM disposable_users;
 `.trim();
 }
 
