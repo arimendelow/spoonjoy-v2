@@ -1,6 +1,6 @@
 # Doing: Storybook Deploy Warning Cleanup
 
-**Status**: READY_FOR_REVIEW
+**Status**: IN_PROGRESS
 **Execution Mode**: direct
 **Created**: 2026-06-11 22:45
 **Planning**: ./2026-06-11-2225-planning-storybook-deploy-warning-cleanup.md
@@ -19,15 +19,15 @@ Remove the remaining controllable warnings from the Storybook build/deploy workf
 - Follow-up from PR #188 (`03f1a854`) terminal verification.
 
 ## Completion Criteria
-- [ ] `.github/workflows/storybook.yml` uses a single Storybook build job with main-only deploy steps after `pnpm build-storybook`.
-- [ ] Storybook workflow no longer uses `actions/upload-artifact@` or `actions/download-artifact@`.
-- [ ] Storybook deploy uses `cloudflare/wrangler-action@v4` from a generated clean Pages deploy directory, with `packageManager: npm` and command `pages deploy --project-name=spoonjoy-storybook --branch=${{ github.ref_name }} --commit-hash=${{ github.sha }} --commit-dirty=true`.
-- [ ] Generated Pages deploy directory contains a minimal `wrangler.json` with `pages_build_output_dir: storybook-static`.
-- [ ] `.gitignore` ignores the generated Storybook Pages deploy directory.
-- [ ] Main-only deploy behavior, Cloudflare token/account secrets, `deployments: write`, and `gitHubToken: ${{ secrets.GITHUB_TOKEN }}` are preserved.
-- [ ] Workflow-level Git config environment suppresses checkout default-branch hints.
-- [ ] Root `pnpm-workspace.yaml` encodes `allowBuilds: false` for the complete known pnpm ignored build dependency set: `@prisma/client`, `@prisma/engines`, `@swc/core`, `core-js`, `esbuild`, `prisma`, `protobufjs`, `sharp`, `unrs-resolver`, and `workerd`.
-- [ ] Deployment preflight rejects Storybook workflows that reintroduce artifact actions, repo-root Wrangler Pages deploy, missing clean deploy directory preparation, missing generated deploy-directory ignore rule, missing npm package manager, missing commit metadata, missing `--commit-dirty=true`, missing Git config env, or missing root `pnpm-workspace.yaml` `allowBuilds` config.
+- [x] `.github/workflows/storybook.yml` uses a single Storybook build job with main-only deploy steps after `pnpm build-storybook`.
+- [x] Storybook workflow no longer uses `actions/upload-artifact@` or `actions/download-artifact@`.
+- [x] Storybook deploy uses `cloudflare/wrangler-action@v4` from a generated clean Pages deploy directory, with `packageManager: npm` and command `pages deploy --project-name=spoonjoy-storybook --branch=${{ github.ref_name }} --commit-hash=${{ github.sha }} --commit-dirty=true`.
+- [x] Generated Pages deploy directory contains a minimal `wrangler.json` with `pages_build_output_dir: storybook-static`.
+- [x] `.gitignore` ignores the generated Storybook Pages deploy directory.
+- [x] Main-only deploy behavior, Cloudflare token/account secrets, `deployments: write`, and `gitHubToken: ${{ secrets.GITHUB_TOKEN }}` are preserved.
+- [x] Workflow-level Git config environment suppresses checkout default-branch hints.
+- [x] Root `pnpm-workspace.yaml` encodes `allowBuilds: false` for the complete known pnpm ignored build dependency set: `@prisma/client`, `@prisma/engines`, `@swc/core`, `core-js`, `esbuild`, `prisma`, `protobufjs`, `sharp`, `unrs-resolver`, and `workerd`.
+- [x] Deployment preflight rejects Storybook workflows that reintroduce artifact actions, repo-root Wrangler Pages deploy, missing clean deploy directory preparation, missing generated deploy-directory ignore rule, missing npm package manager, missing commit metadata, missing `--commit-dirty=true`, missing Git config env, or missing root `pnpm-workspace.yaml` `allowBuilds` config.
 - [ ] Local verification passes: focused red/green Storybook deploy warning-cleanup tests, targeted `scripts/deployment-preflight.ts` coverage at 100%, `pnpm install --frozen-lockfile`, `pnpm run deploy:preflight`, `pnpm run qa:preflight`, `pnpm run typecheck`, `pnpm run build`, `pnpm build-storybook`, Ruby Psych workflow parse, `git diff --check`, and full `pnpm run test:coverage`.
 - [ ] Merged `main` Storybook workflow passes and its log has no matches for `node 20`, `cloudflare/pages-action`, checkout default-branch hint text, `actions/download-artifact`, `actions/upload-artifact`, `Ignored build scripts`, `Pages now has wrangler.json support`, or `uncommitted changes`.
 - [ ] Production Deploy passes after merge and both production health endpoints return ok.
@@ -63,12 +63,12 @@ Remove the remaining controllable warnings from the Storybook build/deploy workf
 **Output**: Evidence saved in the progress log.
 **Acceptance**: Current warning strings and package names are recorded, temp-copy `pnpm-workspace.yaml` `allowBuilds: false` install probe emits no `Ignored build scripts` warning, and no tracked files are modified by research.
 
-### ⬜ Unit 1a: Warning-Clean Storybook Contract — Tests
+### ✅ Unit 1a: Warning-Clean Storybook Contract — Tests
 **What**: Extend `test/scripts/deployment-preflight.test.ts` and `test/scripts/qa-preflight.test.ts` with red tests requiring the warning-clean Storybook workflow contract, root `pnpm-workspace.yaml` config, `.gitignore` coverage, and QA static-config read path updates. Extend the deployment-preflight input shape as tests require.
 **Output**: Failing tests covering artifact-action reintroduction, missing clean deploy directory setup, missing `.gitignore` rule, repo-root Wrangler deploy, wrong package manager, missing commit metadata, missing `--commit-dirty=true`, missing Git config env, missing `allowBuilds: false` package entries, and QA preflight static-config propagation.
 **Acceptance**: `pnpm exec vitest run test/scripts/deployment-preflight.test.ts test/scripts/qa-preflight.test.ts -t "Storybook deploy warning cleanup|QA static config"` fails before implementation for the new contract gaps. This is a local TDD checkpoint only; do not commit or push the deliberately red state.
 
-### ⬜ Unit 1b: Warning-Clean Storybook Contract — Implementation
+### ✅ Unit 1b: Warning-Clean Storybook Contract — Implementation
 **What**: Update `.github/workflows/storybook.yml`, `.gitignore`, `pnpm-workspace.yaml`, `scripts/deployment-preflight.ts`, and `scripts/qa-preflight.ts` to satisfy the red tests.
 **Output**: Single-job Storybook workflow, ignored generated deploy wrapper directory, root pnpm workspace build-script decisions, and preflight validation for the warning-clean contract.
 **Acceptance**: Focused Storybook warning-cleanup and QA static-config tests pass, `pnpm install --frozen-lockfile` emits no `Ignored build scripts` warning, Ruby Psych parses `.github/workflows/storybook.yml` and `pnpm-workspace.yaml`, and `pnpm build-storybook` passes. Commit and push the paired 1a/1b green state as the first code commit.
@@ -97,3 +97,4 @@ Remove the remaining controllable warnings from the Storybook build/deploy workf
 - 2026-06-11 22:45 Created from approved planning doc.
 - 2026-06-11 22:58 Doing-doc review Round 1 found red-only commit/push risk and missing QA static-config test scope. Updated Unit 1a/1b so red tests stay local until the paired green commit, and added `test/scripts/qa-preflight.test.ts` coverage to the test unit.
 - 2026-06-11 23:03 Unit 0 complete: main Storybook run `27395969794` still shows checkout default-branch hints, `actions/upload-artifact@v7`, `actions/download-artifact@v8`, pnpm `Ignored build scripts`, Wrangler Pages `wrangler.json` support warning, and Wrangler dirty-worktree warning with `--commit-dirty=true` guidance. The ignored-build package names are `@prisma/client`, `@prisma/engines`, `@swc/core`, `core-js`, `esbuild`, `prisma`, `protobufjs`, `sharp`, `unrs-resolver`, and `workerd`. A temp repo copy with root `pnpm-workspace.yaml` `allowBuilds: false` entries for that package set ran `pnpm install --frozen-lockfile` with no `Ignored build scripts` warning; research left no tracked source files modified.
+- 2026-06-11 23:18 Units 1a/1b complete: red checkpoint `pnpm exec vitest run test/scripts/deployment-preflight.test.ts test/scripts/qa-preflight.test.ts -t "Storybook deploy warning cleanup|QA static config"` failed with 6 expected failures before implementation. Green verification passed after implementation: focused red command passed, full touched-file tests passed (`129` tests), `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run deploy:preflight` passed, `SPOONJOY_PREFLIGHT_SKIP_REMOTE=1 pnpm run qa:preflight` passed, Ruby Psych parsed `.github/workflows/storybook.yml` and `pnpm-workspace.yaml`, clean `pnpm install --frozen-lockfile` passed with no `Ignored build scripts` warning after removing stale generated `node_modules`, and `pnpm build-storybook` passed. Code commit `a934eb4f` pushed.
