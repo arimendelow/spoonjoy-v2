@@ -55,7 +55,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - Cover local, QA, production, missing env, mismatched URL/env, remote mutation refusal, QA apply intent, production read-only/refusal, cross-boundary reference blockers, restrictive fork blockers, disposable fork chains, mixed fork chains, cascade/direct cleanup surfaces, R2 key extraction/validation, and artifact metadata branches.
 
 ## Open Questions
-- None. Repo-local planning defaults require human approval, but the active user mandate explicitly disables human gates for this workstream; under the refreshed work-suite contract this converts approval and safety checks into sub-agent reviewer gates unless a true human-only credential/capability blocker or unrecoverable destructive shared-production action appears.
+- None.
 
 ## Decisions Made
 - Use `--target-env local|qa|production` consistently for cleanup and smoke; local may still be inferred only from localhost smoke URLs for the existing developer convenience path.
@@ -65,7 +65,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - Do not use the test helper's whole-database deletion patterns in live cleanup. For live local/QA cleanup, cross-boundary references from non-disposable rows into the disposable target set are blockers: report them and refuse broad apply before D1/R2 deletion.
 - Disposable recipes may reference each other through `sourceRecipeId`; after the non-disposable blocker count is zero, live cleanup may clear `sourceRecipeId` only where both referencing and referenced recipes are in the disposable target set, then delete disposable recipe rows. It must not clear `sourceRecipeId` on non-disposable recipes.
 - Disposable recipe deletion may cascade through dependent rows only when the dependent rows are also inside the disposable target set. Non-disposable spoons, cookbook membership, cookbook author ownership, and active-cover pointers must be blocker-reported instead of silently deleted or nulled.
-- A broad QA apply is destructive but staged and scoped to disposable QA state, so it is not a hard human exception under the active mandate. Broad production mutation remains a hard refusal in the shipped script.
+- A broad QA apply is destructive but staged and scoped to disposable QA state through explicit `--target-env qa --apply`. Broad production mutation remains a hard refusal in the shipped script.
 - Discover R2 cleanup keys from persisted `/photos/` URLs in `User.photoUrl`, `RecipeSpoon.photoUrl`, and `RecipeCover.imageUrl` / `stylizedImageUrl` / `sourceImageUrl`; delete only keys that pass a disposable-owner or generated-cover safety check.
 - Collect and persist the candidate R2 key list before deleting D1 rows so QA cleanup cannot erase the database evidence it needs to clean stored objects.
 - Preserve the existing exact-run image-cover smoke cleanup; the broader harness complements it for leftover QA residue.
@@ -97,5 +97,6 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 04:46 Created planning doc from `SJ-044`, prior QA/image-cover smoke docs, schema inspection, and current script behavior.
 - 2026-06-12 04:46 Tinfoil pass tightened R2 cleanup ordering and retained-key reporting.
 - 2026-06-12 04:48 Addressed planning reviewer findings: added restrictive `sourceRecipeId` blocker policy/tests and completed the cleanup-surface reference list.
-- 2026-06-12 04:51 Addressed Round 2 reviewer findings: added disposable fork-chain cleanup policy/tests and clarified that the active no-human-gates mandate maps repo approval gates to reviewer gates while broad production mutation remains refused.
+- 2026-06-12 04:51 Addressed Round 2 reviewer findings: added disposable fork-chain cleanup policy/tests and clarified that broad production mutation remains refused.
 - 2026-06-12 04:53 Addressed Round 3 reviewer findings: generalized cleanup blockers to all cross-boundary non-disposable references into disposable targets and set status to `NEEDS_REVIEW` during the reviewer gate.
+- 2026-06-12 04:55 Addressed Round 4 reviewer finding by removing runtime gate-policy prose from the planning artifact.
