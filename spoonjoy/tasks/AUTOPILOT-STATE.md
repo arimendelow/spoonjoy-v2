@@ -1,6 +1,6 @@
 # Autopilot State
 
-Updated: 2026-06-12 04:46 America/Los_Angeles
+Updated: 2026-06-12 04:58 America/Los_Angeles
 Branch: `spoonjoy/sj-044-cleanup-harness`
 Objective: Keep the Spoonjoy autonomous queue durable and continue with the next ready work after the completed QA/image-cover smoke run.
 
@@ -15,15 +15,16 @@ Objective: Keep the Spoonjoy autonomous queue durable and continue with the next
 - Last completed warning-cleanup doing doc: `spoonjoy/tasks/2026-06-11-2225-doing-storybook-deploy-warning-cleanup.md`
 - Last completed warning-cleanup PR: #191 (`spoonjoy/workflow-warning-cleanup`) merged as `3c1b15e40e6ddbc5c2070d4c83674d96e657b9ff`.
 - Current side-slice goal: execute `SJ-044` environment-aware smoke, cleanup, and preflight harness under work-suite autopilot/dogfood.
-- Active planning doc: `spoonjoy/tasks/2026-06-12-0446-planning-environment-aware-cleanup-harness.md`.
-- Current gate: planning reviewer gate in progress. Reviewer: Kierkegaard (`019ebba8-e2de-7dc0-bb77-97f79e172f3f`).
+- Active planning doc: `spoonjoy/tasks/2026-06-12-0446-planning-environment-aware-cleanup-harness.md` (approved after reviewer convergence).
+- Active doing doc: `spoonjoy/tasks/2026-06-12-0446-doing-environment-aware-cleanup-harness.md`.
+- Current gate: doing-doc reviewer pass chain in progress.
 - No human gates remain under the user's explicit no-human-gates mandate unless a true human-only credential/capability blocker or genuinely unrecoverable destructive shared-state action appears.
 - Work-suite continuation contract was hardened in `ouroboros-skills` PR #105, merged as `80496563`, then refreshed into local `.agents` / `.codex` installed skill roots. The active dogfood run is this Spoonjoy PR #191: no final/status response until PR merge, main deploy/log smoke, cleanup, and continuation scan are complete.
 
 ## Next Action
 
-1. Incorporate planning reviewer findings for `SJ-044`; if the reviewer converges, mark the planning doc approved.
-2. Convert the approved plan to a doing doc, run the mandatory work-suite review passes, then execute without human gates unless a true human-only credential/capability blocker or unrecoverable destructive shared-state action appears.
+1. Run mandatory doing-doc reviewer passes for granularity, validation, ambiguity, quality, Tinfoil Hat, and Stranger With Candy until convergence.
+2. Execute the approved doing doc with strict TDD, committing/pushing after each unit phase.
 3. Drive the branch through tests, PR, merge, auto-deploy verification, production smoke, cleanup, Slugger notification, and the durable continuation scan.
 
 ## Known External State
