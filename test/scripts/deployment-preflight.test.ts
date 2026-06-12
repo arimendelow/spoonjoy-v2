@@ -1870,6 +1870,14 @@ describe("Storybook deploy warning cleanup", () => {
         ),
       ),
     );
+    const extraRunDeployStepWithLineContinuation = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "      - name: Deploy to Cloudflare Pages",
+          "      - name: Legacy shell deploy\n        if: github.ref == 'refs/heads/main'\n        run: |\n          pnpm exec wrangler pages \\\n            deploy storybook-static --project-name=spoonjoy-storybook\n      - name: Deploy to Cloudflare Pages",
+        ),
+      ),
+    );
 
     for (const result of [
       missingWorkingDirectory,
@@ -1879,6 +1887,7 @@ describe("Storybook deploy warning cleanup", () => {
       duplicateCleanDeployStep,
       extraRunDeployStep,
       extraRunDeployStepWithShellWhitespace,
+      extraRunDeployStepWithLineContinuation,
     ]) {
       expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     }
