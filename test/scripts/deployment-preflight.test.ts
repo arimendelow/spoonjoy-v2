@@ -1677,8 +1677,42 @@ describe("Storybook deploy warning cleanup", () => {
           ].join("\n"),
       ),
     );
+    const quotedRenamedDeployJob = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow() +
+          [
+            "",
+            '  "other-deploy":',
+            "    if: github.ref == 'refs/heads/main'",
+            "    needs: build-storybook",
+            "    steps:",
+            "      - uses: cloudflare/wrangler-action@v4",
+          ].join("\n"),
+      ),
+    );
+    const singleQuotedRenamedDeployJob = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow() +
+          [
+            "",
+            "  'other-deploy':",
+            "    if: github.ref == 'refs/heads/main'",
+            "    needs: build-storybook",
+            "    steps:",
+            "      - uses: cloudflare/wrangler-action@v4",
+          ].join("\n"),
+      ),
+    );
 
-    for (const result of [pagesAction, uploadArtifact, downloadArtifact, separateDeployJob, renamedDeployJob]) {
+    for (const result of [
+      pagesAction,
+      uploadArtifact,
+      downloadArtifact,
+      separateDeployJob,
+      renamedDeployJob,
+      quotedRenamedDeployJob,
+      singleQuotedRenamedDeployJob,
+    ]) {
       expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     }
   });

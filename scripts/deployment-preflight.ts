@@ -272,9 +272,10 @@ function workflowJobBlocks(lines: WorkflowLine[]): Array<[number, number]> {
   if (jobsIndex === -1) return [];
   const jobsEnd = blockEnd(lines, jobsIndex);
   const jobIndent = lines[jobsIndex].indent + 2;
+  const jobKey = /^(?:[A-Za-z0-9_-]+|"[A-Za-z0-9_-]+"|'[A-Za-z0-9_-]+'):/;
   const blocks: Array<[number, number]> = [];
   for (let index = jobsIndex + 1; index < jobsEnd; index += 1) {
-    if (lines[index].indent === jobIndent && /^[A-Za-z0-9_-]+:/.test(lines[index].text)) {
+    if (lines[index].indent === jobIndent && jobKey.test(lines[index].text)) {
       blocks.push([index, blockEnd(lines, index)]);
     }
   }
