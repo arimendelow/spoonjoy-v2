@@ -1,6 +1,6 @@
 # Planning: Environment-Aware Cleanup Harness
 
-**Status**: NEEDS_REVIEW
+**Status**: approved
 **Created**: 2026-06-12 04:46 America/Los_Angeles
 
 ## Goal
@@ -100,3 +100,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 04:53 Addressed Round 3 reviewer findings: generalized cleanup blockers to all cross-boundary non-disposable references into disposable targets and set status to `NEEDS_REVIEW` during the reviewer gate.
 - 2026-06-12 04:55 Addressed Round 4 reviewer finding by removing runtime gate-policy prose from the planning artifact.
 - 2026-06-12 04:56 Addressed final narrow reviewer blocker by removing the remaining gate-policy sentence from Decisions Made.
+- 2026-06-12 04:57 Planning reviewer gate converged; status set to approved.
