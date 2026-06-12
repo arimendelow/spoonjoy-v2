@@ -20,6 +20,21 @@ function writableBuffer() {
   };
 }
 
+function expectInOrder(text: string, fragments: string[]) {
+  let cursor = -1;
+  for (const fragment of fragments) {
+    const next = text.indexOf(fragment, cursor + 1);
+    expect(next, `Expected ${JSON.stringify(fragment)} after index ${cursor}`).toBeGreaterThan(cursor);
+    cursor = next;
+  }
+}
+
+function expectAll(text: string, fragments: string[]) {
+  for (const fragment of fragments) {
+    expect(text).toContain(fragment);
+  }
+}
+
 afterEach(() => {
   process.argv = originalArgv;
   process.exitCode = originalExitCode;
@@ -357,5 +372,131 @@ describe("cleanup-local-qa-data", () => {
     cleanup.defaultCliErrorHandler("string failure");
     expect(errorSpy).toHaveBeenLastCalledWith("string failure");
     expect(process.exitCode).toBe(1);
+  });
+
+  it("dry-runs the full D1 disposable target surface with hard/soft split and OAuth redirect signature", () => {
+    const sql = buildDryRunSql();
+
+    expectAll(sql, [
+      "'hard-delete recipes owned by disposable users'",
+      "'soft-delete suspicious recipes owned by non-disposable users'",
+      "'disposable users'",
+      "'disposable spoons by chef or note'",
+      "'e2e oauth clients with test redirect signature'",
+      "'cross-boundary cleanup blockers'",
+      "clientName = 'E2E OAuth Client'",
+      "redirectUris LIKE '%codex%'",
+      "redirectUris LIKE '%e2e%'",
+      "redirectUris LIKE '%localhost%'",
+      "redirectUris LIKE '%127.0.0.1%'",
+      "chefId IN (SELECT id FROM disposable_users)",
+      "chefId NOT IN (SELECT id FROM disposable_users)",
+    ]);
+  });
+
+  it("applies cleanup from explicit disposable target snapshots before any mutation", () => {
+    const sql = buildApplySql();
+
+    expectInOrder(sql, [
+      "CREATE TEMP TABLE disposable_users",
+      "CREATE TEMP TABLE hard_delete_recipes",
+      "CREATE TEMP TABLE soft_delete_recipes",
+      "CREATE TEMP TABLE disposable_spoons",
+      "CREATE TEMP TABLE e2e_oauth_clients",
+      "CREATE TEMP TABLE disposable_credentials",
+      "CREATE TEMP TABLE cleanup_blockers",
+    ]);
+    expectAll(sql, [
+      "INSERT INTO disposable_credentials",
+      "ApiCredential",
+      "oauthClientId IN (SELECT id FROM e2e_oauth_clients)",
+      "clientName = 'E2E OAuth Client'",
+      "(redirectUris LIKE '%codex%' OR redirectUris LIKE '%e2e%' OR redirectUris LIKE '%localhost%' OR redirectUris LIKE '%127.0.0.1%')",
+    ]);
+  });
+
+  it("blocker-reports every non-disposable cross-boundary D1 reference before mutation", () => {
+    const sql = buildApplySql();
+
+    expectAll(sql, [
+      "blocker_recipe_sourceRecipeId",
+      "blocker_recipe_activeCoverId",
+      "blocker_spoon_recipeId",
+      "blocker_recipe_in_non_disposable_cookbook",
+      "blocker_recipe_in_cookbook_addedById",
+      "blocker_cover_sourceSpoonId",
+      "blocker_cover_createdById",
+      "blocker_agent_connection_approvedById",
+      "blocker_agent_connection_credentialId",
+      "blocker_api_idempotency_credentialId",
+      "blocker_api_credential_oauthClientId",
+      "blocker_oauth_code_userId",
+      "blocker_oauth_refresh_token_userId",
+      "blocker_notification_payload",
+      "blocker_ambiguous_oauth_client",
+      "SELECT CASE WHEN EXISTS (SELECT 1 FROM cleanup_blockers)",
+      "RAISE(ABORT, 'Refusing cleanup because non-disposable rows still reference disposable targets')",
+    ]);
+  });
+
+  it("orders credential, OAuth, cookbook, cover, spoon, recipe, user, and cascade cleanup safely", () => {
+    const sql = buildApplySql();
+
+    expectInOrder(sql, [
+      "INSERT INTO disposable_credentials",
+      "DELETE FROM AgentConnectionRequest",
+      "DELETE FROM ApiIdempotencyKey",
+      "DELETE FROM ApiCredential",
+      "DELETE FROM OAuthAuthCode",
+      "DELETE FROM OAuthRefreshToken",
+      "DELETE FROM OAuthClient",
+      "DELETE FROM RecipeCover",
+      "DELETE FROM RecipeSpoon",
+      "DELETE FROM RecipeInCookbook",
+      "DELETE FROM Cookbook",
+      "UPDATE Recipe\nSET sourceRecipeId = NULL",
+      "DELETE FROM Recipe\nWHERE id IN (SELECT id FROM hard_delete_recipes)",
+      "UPDATE Recipe\nSET deletedAt = COALESCE(deletedAt, CURRENT_TIMESTAMP)\nWHERE id IN (SELECT id FROM soft_delete_recipes)",
+      "DELETE FROM User\nWHERE id IN (SELECT id FROM disposable_users)",
+    ]);
+  });
+
+  it("clears recipe forks only inside the disposable hard-delete target set", () => {
+    const sql = buildApplySql();
+
+    expect(sql).toContain("UPDATE Recipe\nSET sourceRecipeId = NULL");
+    expect(sql).toContain("WHERE id IN (SELECT id FROM hard_delete_recipes)");
+    expect(sql).toContain("sourceRecipeId IN (SELECT id FROM hard_delete_recipes)");
+    expect(sql).not.toContain("SET sourceRecipeId = NULL\nWHERE sourceRecipeId IS NOT NULL;");
+  });
+
+  it("handles absent or present search tables without failing cleanup", () => {
+    const sql = buildApplySql();
+
+    expectAll(sql, [
+      "sqlite_master",
+      "SearchDocument",
+      "SearchIndexMetadata",
+      "CREATE TEMP TABLE existing_search_tables",
+      "DELETE FROM SearchDocument",
+      "ownerId IN (SELECT id FROM disposable_users)",
+      "entityId IN (SELECT id FROM hard_delete_recipes)",
+      "entityId IN (SELECT id FROM soft_delete_recipes)",
+      "imageUrl",
+      "DELETE FROM SearchIndexMetadata",
+    ]);
+  });
+
+  it("distinguishes direct disposable NotificationEvent cleanup from non-disposable payload blockers", () => {
+    const sql = buildApplySql();
+
+    expectAll(sql, [
+      "DELETE FROM NotificationEvent",
+      "userId IN (SELECT id FROM disposable_users)",
+      "payload LIKE '%' || (SELECT id FROM hard_delete_recipes",
+      "payload LIKE '%' || (SELECT id FROM disposable_spoons",
+      "payload LIKE '%' || (SELECT id FROM disposable_covers",
+      "blocker_notification_payload",
+    ]);
   });
 });
