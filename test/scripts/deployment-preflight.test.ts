@@ -102,6 +102,9 @@ function validStorybookWorkflow(): string {
     "        with:",
     "          name: storybook-static",
     "          path: storybook-static",
+    "      - uses: pnpm/action-setup@v6",
+    "        with:",
+    "          version: '10.28.1'",
     "      - name: Deploy to Cloudflare Pages",
     "        uses: cloudflare/wrangler-action@v4",
     "        with:",
@@ -1684,6 +1687,23 @@ describe("Storybook deploy workflow", () => {
           "          path: storybook-static",
         ].join("\n"),
         "      - uses: actions/download-artifact@v8",
+      ),
+    );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+  });
+
+  it("requires pnpm setup before the Storybook Wrangler action can infer the package manager", () => {
+    const inputs = inputsWithStorybookWorkflow(
+      validStorybookWorkflow().replace(
+        [
+          "      - uses: pnpm/action-setup@v6",
+          "        with:",
+          "          version: '10.28.1'",
+        ].join("\n"),
+        "",
       ),
     );
 

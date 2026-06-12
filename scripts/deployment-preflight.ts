@@ -600,7 +600,8 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
     if (!steps) return false;
 
     let downloadsStorybookArtifact = false;
-    let deploysWithWranglerV4 = false;
+    let pnpmSetupStep = -1;
+    let wranglerDeployStep = -1;
 
     for (const [stepStart, stepEnd] of stepBlocks(lines, steps[0], steps[1])) {
       if (
@@ -612,6 +613,13 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
       }
 
       if (
+        stepUses(lines, stepStart, stepEnd, "pnpm/action-setup@v6") &&
+        stepWithValue(lines, stepStart, stepEnd, "version") === "10.28.1"
+      ) {
+        pnpmSetupStep = stepStart;
+      }
+
+      if (
         stepUses(lines, stepStart, stepEnd, "cloudflare/wrangler-action@v4") &&
         stepWithValue(lines, stepStart, stepEnd, "apiToken") === "${{ secrets.CLOUDFLARE_API_TOKEN }}" &&
         stepWithValue(lines, stepStart, stepEnd, "accountId") === "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" &&
@@ -619,11 +627,11 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
           "pages deploy storybook-static --project-name=spoonjoy-storybook" &&
         stepWithValue(lines, stepStart, stepEnd, "gitHubToken") === "${{ secrets.GITHUB_TOKEN }}"
       ) {
-        deploysWithWranglerV4 = true;
+        wranglerDeployStep = stepStart;
       }
     }
 
-    return downloadsStorybookArtifact && deploysWithWranglerV4;
+    return downloadsStorybookArtifact && pnpmSetupStep >= 0 && wranglerDeployStep > pnpmSetupStep;
   }
 
   return false;
@@ -752,7 +760,7 @@ export function validateDeploymentConfig(inputs: DeploymentPreflightInputs): Dep
     check(
       "Storybook deploy workflow",
       workflowHasStorybookDeployContract(inputs.storybookWorkflow),
-      ".github/workflows/storybook.yml must deploy main-branch Storybook artifacts through cloudflare/wrangler-action@v4 with Cloudflare credentials, deployments: write, and GITHUB_TOKEN wiring."
+      ".github/workflows/storybook.yml must deploy main-branch Storybook artifacts through cloudflare/wrangler-action@v4 after setting up pnpm, with Cloudflare credentials, deployments: write, and GITHUB_TOKEN wiring."
     ),
     check(
       "Cloudflare Env typing",
