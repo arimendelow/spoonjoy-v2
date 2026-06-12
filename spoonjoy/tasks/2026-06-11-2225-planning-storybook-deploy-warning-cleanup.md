@@ -1,0 +1,81 @@
+# Planning: Storybook Deploy Warning Cleanup
+
+**Status**: NEEDS_REVIEW
+**Created**: 2026-06-11 22:25
+
+## Goal
+Remove the remaining controllable warnings from the Storybook build/deploy workflow after the Wrangler action migration, while preserving main-only Cloudflare Pages deployment and keeping PR Storybook validation intact.
+
+## Upstream Work Items
+- Follow-up from PR #188 (`03f1a854`) terminal verification.
+
+## Scope
+
+### In Scope
+- Update `.github/workflows/storybook.yml` so the main Storybook Pages deploy no longer depends on upload/download artifact actions.
+- Deploy from a generated clean Pages deploy directory with a minimal `wrangler.json` containing `pages_build_output_dir`, so Wrangler Pages does not inspect the app Worker `wrangler.json`.
+- Preserve main-only Storybook deployment, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `deployments: write`, and `GITHUB_TOKEN` wiring.
+- Pass explicit commit metadata and dirty-state intent to `wrangler pages deploy`.
+- Set workflow-level Git config environment to suppress checkout's default-branch hint.
+- Add pnpm approved build dependency configuration for the known packages whose install scripts the repo intentionally needs, so `pnpm install --frozen-lockfile` stops emitting ignored-build-script warnings.
+- Update deployment preflight and tests to enforce the warning-clean Storybook workflow contract.
+- Merge, wait for main Storybook/CI/Production Deploy, inspect Storybook logs for the targeted warning strings, smoke production health, smoke Storybook Pages, clean branch/PR state, and continue to `SJ-044` if no newer obvious blocker remains.
+
+### Out of Scope
+- Replacing `actions/checkout@v6`, `pnpm/action-setup@v6`, `actions/setup-node@v6`, or `cloudflare/wrangler-action@v4`.
+- Eliminating warning text from third-party actions that remains after the workflow no longer uses upload/download artifacts, no longer deploys from a dirty repo root, no longer triggers checkout default-branch hints, and no longer emits pnpm ignored-build-script warnings.
+- Changing the production Worker deploy workflow.
+- Changing the Cloudflare Pages project name or secrets.
+- Broad release-verifier automation; that remains covered by `SJ-048`.
+- Environment-aware smoke and cleanup harness work; that remains queued as `SJ-044`.
+
+## Completion Criteria
+- [ ] `.github/workflows/storybook.yml` uses a single Storybook build job with main-only deploy steps after `pnpm build-storybook`.
+- [ ] Storybook workflow no longer uses `actions/upload-artifact@` or `actions/download-artifact@`.
+- [ ] Storybook deploy uses `cloudflare/wrangler-action@v4` from a generated clean Pages deploy directory, with `packageManager: npm` and command `pages deploy --project-name=spoonjoy-storybook --branch=${{ github.ref_name }} --commit-hash=${{ github.sha }} --commit-dirty=false`.
+- [ ] Generated Pages deploy directory contains a minimal `wrangler.json` with `pages_build_output_dir: storybook-static`.
+- [ ] Main-only deploy behavior, Cloudflare token/account secrets, `deployments: write`, and `gitHubToken: ${{ secrets.GITHUB_TOKEN }}` are preserved.
+- [ ] Workflow-level Git config environment suppresses checkout default-branch hints.
+- [ ] `package.json`/lockfile encode the known approved pnpm build dependencies needed by Prisma, esbuild, sharp, and workerd.
+- [ ] Deployment preflight rejects Storybook workflows that reintroduce artifact actions, repo-root Wrangler Pages deploy, missing clean deploy directory preparation, missing npm package manager, missing commit metadata, missing Git config env, or missing approved build dependency config.
+- [ ] Local verification passes: focused red/green Storybook deploy warning-cleanup tests, targeted `scripts/deployment-preflight.ts` coverage at 100%, `pnpm install --frozen-lockfile`, `pnpm run deploy:preflight`, `pnpm run qa:preflight`, `pnpm run typecheck`, `pnpm run build`, `pnpm build-storybook`, Ruby Psych workflow parse, `git diff --check`, and full `pnpm run test:coverage`.
+- [ ] Merged `main` Storybook workflow passes and its log has no matches for `node 20`, `cloudflare/pages-action`, checkout default-branch hint text, `actions/download-artifact`, `actions/upload-artifact`, `Ignored build scripts`, `Pages now has wrangler.json support`, or `uncommitted changes`.
+- [ ] Production Deploy passes after merge and both production health endpoints return ok.
+- [ ] Storybook Pages returns HTTP 200 after merge.
+- [ ] No open PR, stale branch, or disposable QA residue remains from this slice.
+- [ ] `spoonjoy/tasks/AUTOPILOT-STATE.md` records `SJ-044` as the next queued seed.
+
+## Code Coverage Requirements
+**MANDATORY: 100% coverage on all new code.**
+- No coverage exclusions on new validation code
+- All parser branches covered
+- Error paths tested for each warning-regression shape
+- Edge cases: missing job, missing deploy directory prep, wrong working directory, wrong package manager, missing commit metadata, and artifact action reintroduction
+
+## Open Questions
+- None. The implementation can make conservative workflow choices and use reviewer gates for any ambiguity.
+
+## Decisions Made
+- Collapse Storybook build and deploy into one job to remove artifact upload/download actions and their `actions/download-artifact@v8` Buffer deprecation warning from the deploy path.
+- Generate a throwaway Pages deploy directory during the workflow instead of adding Storybook Pages fields to the app Worker `wrangler.json`.
+- Use `cloudflare/wrangler-action@v4` with `workingDirectory: storybook-pages-deploy` and `packageManager: npm` because a temp-dir probe showed `npm i wrangler@4.90.0` completed without warning output, while pnpm-based action install emitted deprecated-subdependency and ignored-build-script warnings.
+- Keep the existing app Worker `wrangler.json` unchanged.
+- Encode only known build-script packages that the repo already uses: `@prisma/client`, `@prisma/engines`, `esbuild`, `sharp`, and `workerd`.
+
+## Context / References
+- `.github/workflows/storybook.yml`
+- `scripts/deployment-preflight.ts`
+- `test/scripts/deployment-preflight.test.ts`
+- `package.json`
+- `pnpm-lock.yaml`
+- PR #188: `https://github.com/arimendelow/spoonjoy-v2/pull/188`
+- Main Storybook run `27395969794`
+- `cloudflare/wrangler-action@v4.0.0` `action.yml` supports `workingDirectory`, `packageManager`, `quiet`, `command`, and `gitHubToken`.
+- `wrangler pages deploy --help` supports `--project-name`, `--branch`, `--commit-hash`, `--commit-dirty`, `--no-bundle`, and optional positional directory.
+
+## Notes
+- Terminal verification for PR #188 showed the original Node 20 / deprecated Pages action warning was gone, but the Storybook log still contained controllable warnings: checkout default-branch hints, pnpm ignored-build-script warnings, `actions/download-artifact@v8` Buffer deprecation, Wrangler Pages config warning, and Wrangler dirty-worktree warning.
+- This slice should not claim every possible third-party warning is eliminated until the merged main Storybook log proves it. If a third-party action still emits a warning after the controlled sources are removed, capture it precisely and route the next smallest follow-up instead of hand-waving it away.
+
+## Progress Log
+- 2026-06-11 22:25 Created.
