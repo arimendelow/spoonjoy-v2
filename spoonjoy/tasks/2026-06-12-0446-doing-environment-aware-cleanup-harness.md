@@ -57,7 +57,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0: Setup/Research
+### ✅ Unit 0: Setup/Research
 **What**: Verify branch/worktree state, current script/test files, current local cleanup residue, and exact schema relationships that the cleanup harness must respect.
 **Output**: `unit-0-setup.log` with branch, status, current cleanup dry-run, and confirmation that these files were inspected: `scripts/smoke-live-helpers.mjs`, `scripts/smoke-live.mjs`, `scripts/smoke-api-live.mjs`, `scripts/smoke-image-cover-live.mjs`, `scripts/cleanup-local-qa-data.mjs`, `scripts/qa-preflight.ts`, `scripts/deployment-preflight.ts`, `test/helpers/cleanup.ts`, `test/scripts/cleanup-local-qa-data.test.ts`, `test/scripts/smoke-live-helpers.test.ts`, `test/scripts/deployment-preflight.test.ts`, `prisma/schema.prisma`, `package.json`, `README.md`, and `docs/deployment.md`.
 **Acceptance**: Branch is `spoonjoy/sj-044-cleanup-harness`; no unrelated dirty work is overwritten; cleanup starting state is recorded.
@@ -204,3 +204,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 ## Progress Log
 - 2026-06-12 04:58 Created from planning doc after reviewer convergence.
 - 2026-06-12 05:16 Doing-doc reviewer chain converged across granularity, validation, ambiguity, quality, Tinfoil Hat, and Stranger With Candy passes; status set to READY_FOR_EXECUTION.
+- 2026-06-12 05:23 Unit 0 complete: branch/status, cleanup dry-run counts, inspected files, and cleanup-sensitive schema relationships recorded in `unit-0-setup.log`. Unit review skipped (reason: setup/research evidence only; no code behavior changed).
