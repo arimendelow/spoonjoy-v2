@@ -1784,8 +1784,14 @@ describe("Storybook deploy warning cleanup", () => {
   });
 
   it("requires push-to-main trigger and workflow-level Git default-branch config", () => {
+    const missingOnBlock = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(validStorybookWorkflow().replace("on:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n  workflow_dispatch:\n", "")),
+    );
     const missingPushMain = validateDeploymentConfig(
       inputsWithStorybookWorkflow(validStorybookWorkflow().replace("  push:\n    branches: [main]\n", "")),
+    );
+    const missingPullRequestMain = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(validStorybookWorkflow().replace("  pull_request:\n    branches: [main]\n", "")),
     );
     const missingGitConfig = validateDeploymentConfig(
       inputsWithStorybookWorkflow(
@@ -1796,7 +1802,9 @@ describe("Storybook deploy warning cleanup", () => {
       ),
     );
 
+    expect(missingOnBlock.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     expect(missingPushMain.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
+    expect(missingPullRequestMain.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
     expect(missingGitConfig.errors.map((item) => item.name)).toContain("Storybook deploy workflow");
   });
 
@@ -1864,6 +1872,9 @@ describe("Storybook deploy warning cleanup", () => {
     );
     const wrongPackageManager = validateDeploymentConfig(
       inputsWithStorybookWorkflow(validStorybookWorkflow().replace("packageManager: npm", "packageManager: pnpm")),
+    );
+    const misleadingWranglerActionVersion = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(validStorybookWorkflow().replace("cloudflare/wrangler-action@v4", "cloudflare/wrangler-action@v40")),
     );
     const extraRepoRootDeployStep = validateDeploymentConfig(
       inputsWithStorybookWorkflow(
@@ -1969,6 +1980,7 @@ describe("Storybook deploy warning cleanup", () => {
       missingWorkingDirectory,
       wrongWorkingDirectory,
       wrongPackageManager,
+      misleadingWranglerActionVersion,
       extraRepoRootDeployStep,
       extraLegacyWranglerActionVersion,
       extraQuotedLegacyWranglerActionVersion,

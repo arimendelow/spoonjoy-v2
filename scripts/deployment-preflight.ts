@@ -244,16 +244,33 @@ function blockHasMainBranch(lines: WorkflowLine[], branchesStart: number, branch
   return false;
 }
 
+function workflowTriggerTargetsMain(lines: WorkflowLine[], onIndex: number, onEnd: number, trigger: string): boolean {
+  const triggerBlock = childBlock(lines, onIndex, onEnd, trigger);
+  if (!triggerBlock) return false;
+  const branches = childBlock(lines, triggerBlock[0], triggerBlock[1], "branches");
+  return branches ? blockHasMainBranch(lines, branches[0], branches[1]) : false;
+}
+
 function workflowDeploysPushesToMain(workflow: string): boolean {
   const lines = workflowLines(workflow);
   const onIndex = lines.findIndex((line) => line.indent === 0 && line.text === "on:");
   if (onIndex === -1) return false;
   const onEnd = blockEnd(lines, onIndex);
   const workflowDispatch = childBlock(lines, onIndex, onEnd, "workflow_dispatch");
-  const push = childBlock(lines, onIndex, onEnd, "push");
-  if (!workflowDispatch || !push) return false;
-  const branches = childBlock(lines, push[0], push[1], "branches");
-  return branches ? blockHasMainBranch(lines, branches[0], branches[1]) : false;
+  return Boolean(workflowDispatch) && workflowTriggerTargetsMain(lines, onIndex, onEnd, "push");
+}
+
+function workflowBuildsPullRequestsAndDeploysPushesToMain(workflow: string): boolean {
+  const lines = workflowLines(workflow);
+  const onIndex = lines.findIndex((line) => line.indent === 0 && line.text === "on:");
+  if (onIndex === -1) return false;
+  const onEnd = blockEnd(lines, onIndex);
+  const workflowDispatch = childBlock(lines, onIndex, onEnd, "workflow_dispatch");
+  return (
+    Boolean(workflowDispatch) &&
+    workflowTriggerTargetsMain(lines, onIndex, onEnd, "push") &&
+    workflowTriggerTargetsMain(lines, onIndex, onEnd, "pull_request")
+  );
 }
 
 function stepBlocks(lines: WorkflowLine[], stepsStart: number, stepsEnd: number): Array<[number, number]> {
@@ -442,6 +459,11 @@ function stepUses(lines: WorkflowLine[], stepStart: number, stepEnd: number, act
   return typeof value === "string" && value.toLowerCase().startsWith(action.toLowerCase());
 }
 
+function stepUsesExactly(lines: WorkflowLine[], stepStart: number, stepEnd: number, action: string): boolean {
+  const value = stepPropertyValue(lines, stepStart, stepEnd, "uses");
+  return typeof value === "string" && value.toLowerCase() === action.toLowerCase();
+}
+
 function stepHasId(lines: WorkflowLine[], stepStart: number, stepEnd: number, id: string): boolean {
   return stepPropertyValue(lines, stepStart, stepEnd, "id") === id;
 }
@@ -621,7 +643,7 @@ function storybookDeployPrepRunIsClean(run: string): boolean {
 
 function storybookWranglerDeployStepIsClean(lines: WorkflowLine[], stepStart: number, stepEnd: number): boolean {
   return (
-    stepUses(lines, stepStart, stepEnd, "cloudflare/wrangler-action@v4") &&
+    stepUsesExactly(lines, stepStart, stepEnd, "cloudflare/wrangler-action@v4") &&
     stepWithValue(lines, stepStart, stepEnd, "apiToken") === "${{ secrets.CLOUDFLARE_API_TOKEN }}" &&
     stepWithValue(lines, stepStart, stepEnd, "accountId") === "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" &&
     stepWithValue(lines, stepStart, stepEnd, "workingDirectory") === STORYBOOK_PAGES_DEPLOY_DIR &&
@@ -663,7 +685,7 @@ function workflowHasStorybookDeployContract(workflow: string): boolean {
   ) {
     return false;
   }
-  if (!workflowDeploysPushesToMain(workflow)) return false;
+  if (!workflowBuildsPullRequestsAndDeploysPushesToMain(workflow)) return false;
   if (!workflowHasStorybookGitDefaultBranchConfig(lines)) return false;
 
   const jobs = workflowJobBlocks(lines);
