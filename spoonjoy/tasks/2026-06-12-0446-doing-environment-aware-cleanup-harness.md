@@ -102,7 +102,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Output**: D1 cleanup implementation and green focused cleanup SQL tests in `unit-3b-green.log`.
 **Acceptance**: Unit 3a tests pass with no warnings; generated SQL contains no whole-database fork clearing and no production remote delete path.
 
-### ⬜ Unit 3c: D1 Disposable Cleanup And Blockers — Coverage & Refactor
+### ✅ Unit 3c: D1 Disposable Cleanup And Blockers — Coverage & Refactor
 **What**: Verify D1 cleanup helper coverage and add branches for blocker-count parsing and Wrangler D1 failure reporting.
 **Output**: Targeted coverage output in `unit-3c-coverage.log`.
 **Acceptance**: D1 cleanup new code reaches 100% coverage; focused tests remain green.
@@ -215,3 +215,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 06:29 Unit 2c complete: fixed Raman's target-output nit, added CLI default/help/no-output/error-path coverage, verified 100% coverage for `cleanup-local-qa-data.mjs`, and captured focused/build logs in `unit-2c-focused.log`, `unit-2c-coverage.log`, and `unit-2c-build.log`.
 - 2026-06-12 06:31 Unit 3a complete: added D1 cleanup SQL red tests for target snapshots, cross-boundary blockers, fork clearing, search cleanup, notification payload blockers, and safe mutation order; expected failures captured in `unit-3a-red.log`. Unit review skipped (reason: red-test unit; implementation review follows green unit).
 - 2026-06-12 06:39 Unit 3b complete: implemented D1 target snapshots, blocker table, safe mutation ordering, in-target fork clearing, search cleanup guards, and notification payload blockers. Focused tests/build passed, local dry-run initially caught D1 `CREATE TEMP TABLE` auth behavior, implementation was corrected to D1-compatible helper tables, local apply executed, and post-apply dry-run remained clean for disposable users/spoons/OAuth clients. Evidence: `unit-3b-green.log`, `unit-3b-build.log`, `unit-3b-local-dry-run.log`, `unit-3b-local-apply.log`, `unit-3b-local-post-apply-dry-run.log`.
+- 2026-06-12 06:41 Unit 3c complete: verified 100% coverage for `cleanup-local-qa-data.mjs` after D1 blocker cleanup changes and captured build output in `unit-3c-coverage.log` and `unit-3c-build.log`.
