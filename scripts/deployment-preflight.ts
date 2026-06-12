@@ -633,7 +633,7 @@ function storybookWranglerDeployStepIsClean(lines: WorkflowLine[], stepStart: nu
 
 function runTextIncludesPagesDeploy(runText: string): boolean {
   const joinedContinuations = runText.replace(/\\\s*\r?\n\s*/g, " ");
-  return /\bpages\s+deploy\b/.test(joinedContinuations);
+  return /(?:^|\s)["']?pages["']?\s+["']?deploy["']?(?:\s|$)/.test(joinedContinuations);
 }
 
 function gitignoreIgnoresStorybookPagesDeployDir(gitignore: string): boolean {

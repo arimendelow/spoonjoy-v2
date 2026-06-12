@@ -1904,6 +1904,14 @@ describe("Storybook deploy warning cleanup", () => {
         ),
       ),
     );
+    const extraRunDeployStepWithQuotedShellTokens = validateDeploymentConfig(
+      inputsWithStorybookWorkflow(
+        validStorybookWorkflow().replace(
+          "      - name: Deploy to Cloudflare Pages",
+          "      - name: Legacy shell deploy\n        if: github.ref == 'refs/heads/main'\n        run: pnpm exec wrangler \"pages\" 'deploy' storybook-static --project-name=spoonjoy-storybook\n      - name: Deploy to Cloudflare Pages",
+        ),
+      ),
+    );
     const extraRunDeployStepWithLineContinuation = validateDeploymentConfig(
       inputsWithStorybookWorkflow(
         validStorybookWorkflow().replace(
@@ -1931,6 +1939,7 @@ describe("Storybook deploy warning cleanup", () => {
       duplicateCleanDeployStep,
       extraRunDeployStep,
       extraRunDeployStepWithShellWhitespace,
+      extraRunDeployStepWithQuotedShellTokens,
       extraRunDeployStepWithLineContinuation,
       extraRunDeployStepWithFoldedScalar,
     ]) {
