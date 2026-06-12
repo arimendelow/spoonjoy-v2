@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 
 import * as cleanup from "../../scripts/cleanup-local-qa-data.mjs";
 
 const { buildApplySql, buildDryRunSql, wranglerLocalD1Args } = cleanup;
+
+const originalArgv = process.argv;
+const originalExitCode = process.exitCode;
 
 function writableBuffer() {
   let text = "";
@@ -16,6 +19,12 @@ function writableBuffer() {
     text: () => text,
   };
 }
+
+afterEach(() => {
+  process.argv = originalArgv;
+  process.exitCode = originalExitCode;
+  vi.restoreAllMocks();
+});
 
 describe("cleanup-local-qa-data", () => {
   it("dry-runs the disposable Spoonjoy QA data patterns", () => {
@@ -100,9 +109,25 @@ describe("cleanup-local-qa-data", () => {
     });
   });
 
+  it("can parse cleanup args from process argv by default", () => {
+    process.argv = ["node", "scripts/cleanup-local-qa-data.mjs", "--target-env", "local"];
+
+    expect(cleanup.parseCleanupArgs()).toMatchObject({
+      apply: false,
+      target: {
+        targetEnv: "local",
+      },
+    });
+  });
+
   it("rejects missing and invalid target env values", () => {
     expect(() => cleanup.parseCleanupArgs(["--target-env"])).toThrow(/Missing value for --target-env/);
     expect(() => cleanup.parseCleanupArgs(["--target-env", "staging"])).toThrow(/local, qa, or production/);
+    expect(() => cleanup.parseCleanupArgs(["--remote"])).toThrow(/Use --target-env qa or --target-env production/);
+    expect(() => cleanup.parseCleanupArgs(["--db"])).toThrow(/Missing value for --db/);
+    expect(() =>
+      cleanup.parseCleanupArgs(["--target-env", "qa", "--base-url", "https://spoonjoy.app"]),
+    ).toThrow(/QA target mismatch/);
   });
 
   it("formats the target summary printed before cleanup commands", () => {
@@ -152,6 +177,81 @@ describe("cleanup-local-qa-data", () => {
     );
   });
 
+  it("prints help without executing a cleanup command", async () => {
+    const stdout = writableBuffer();
+    const stderr = writableBuffer();
+    const runCommand = vi.fn(async () => ({ stdout: "[]", stderr: "" }));
+
+    await cleanup.runCleanupCli({
+      argv: ["--help"],
+      runCommand,
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    });
+
+    expect(stdout.text()).toContain("Usage: node scripts/cleanup-local-qa-data.mjs");
+    expect(stdout.text()).toContain("--target-env local|qa|production");
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it("prints help from default process argv/stdout options", async () => {
+    process.argv = ["node", "scripts/cleanup-local-qa-data.mjs", "--help"];
+    const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+    await cleanup.runCleanupCli();
+
+    expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining("--target-env local|qa|production"));
+  });
+
+  it("forwards Wrangler stderr from successful cleanup checks", async () => {
+    const stdout = writableBuffer();
+    const stderr = writableBuffer();
+    const runCommand = vi.fn(async () => ({ stdout: "[]", stderr: "wrangler note\n" }));
+
+    await cleanup.runCleanupCli({
+      argv: ["--target-env", "local"],
+      runCommand,
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    });
+
+    expect(stdout.text()).toContain("Dry run only");
+    expect(stderr.text()).toBe("wrangler note\n");
+  });
+
+  it("does not write stderr when Wrangler returns no stderr field", async () => {
+    const stdout = writableBuffer();
+    const stderr = writableBuffer();
+    const runCommand = vi.fn(async () => ({ stdout: "[]" }));
+
+    await cleanup.runCleanupCli({
+      argv: ["--target-env", "local"],
+      runCommand,
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    });
+
+    expect(stdout.text()).toContain("Dry run only");
+    expect(stderr.text()).toBe("");
+  });
+
+  it("does not write stdout or stderr when Wrangler returns no output fields", async () => {
+    const stdout = writableBuffer();
+    const stderr = writableBuffer();
+    const runCommand = vi.fn(async () => ({}));
+
+    await cleanup.runCleanupCli({
+      argv: ["--target-env", "local"],
+      runCommand,
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    });
+
+    expect(stdout.text()).toContain("Dry run only. Pass --apply to mutate local D1.");
+    expect(stdout.text()).not.toContain("[]");
+    expect(stderr.text()).toBe("");
+  });
+
   it("runs QA remote dry-run but refuses QA apply until D1/R2 safety is installed", async () => {
     const stdout = writableBuffer();
     const stderr = writableBuffer();
@@ -165,6 +265,8 @@ describe("cleanup-local-qa-data", () => {
     });
 
     expect(stdout.text()).toContain("Target environment: qa");
+    expect(stdout.text()).toContain("Remote QA apply is disabled until D1/R2 safety checks are installed");
+    expect(stdout.text()).not.toContain("mutate local D1");
     expect(runCommand).toHaveBeenLastCalledWith(
       "pnpm",
       ["exec", "wrangler", "d1", "execute", "DB", "--remote", "--env", "qa", "--command", buildDryRunSql()],
@@ -196,6 +298,8 @@ describe("cleanup-local-qa-data", () => {
 
     expect(stdout.text()).toContain("Target environment: production");
     expect(stdout.text()).toContain("Production cleanup is read-only for broad disposable sweeps.");
+    expect(stdout.text()).toContain("Production broad cleanup is read-only");
+    expect(stdout.text()).not.toContain("mutate local D1");
     expect(runCommand).toHaveBeenLastCalledWith(
       "pnpm",
       ["exec", "wrangler", "d1", "execute", "DB", "--remote", "--command", buildDryRunSql()],
@@ -211,5 +315,47 @@ describe("cleanup-local-qa-data", () => {
       }),
     ).rejects.toThrow(/Refusing broad production cleanup/);
     expect(runCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("detects CLI entrypoints and routes CLI errors", async () => {
+    const onError = vi.fn();
+    const runMain = vi.fn(async () => {
+      throw new Error("boom");
+    });
+
+    expect(cleanup.isCliEntry("file:///tmp/cleanup-local-qa-data.mjs", "/tmp/cleanup-local-qa-data.mjs")).toBe(true);
+    expect(cleanup.isCliEntry("file:///tmp/cleanup-local-qa-data.mjs", undefined)).toBe(false);
+    expect(
+      cleanup.runCliIfEntry({
+        moduleUrl: "file:///tmp/other.mjs",
+        argv1: "/tmp/cleanup-local-qa-data.mjs",
+        runMain,
+        onError,
+      }),
+    ).toBe(false);
+    expect(runMain).not.toHaveBeenCalled();
+
+    expect(
+      cleanup.runCliIfEntry({
+        moduleUrl: "file:///tmp/cleanup-local-qa-data.mjs",
+        argv1: "/tmp/cleanup-local-qa-data.mjs",
+        runMain,
+        onError,
+      }),
+    ).toBe(true);
+
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error)));
+  });
+
+  it("prints default CLI error output for Error and non-Error failures", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    cleanup.defaultCliErrorHandler(new Error("cleanup failed"));
+    expect(errorSpy).toHaveBeenLastCalledWith("cleanup failed");
+    expect(process.exitCode).toBe(1);
+
+    cleanup.defaultCliErrorHandler("string failure");
+    expect(errorSpy).toHaveBeenLastCalledWith("string failure");
+    expect(process.exitCode).toBe(1);
   });
 });

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { pathToFileURL } from "node:url";
 import {
   QA_BASE_URL,
   arg,
@@ -147,14 +148,23 @@ export function formatCleanupTargetSummary(target) {
   return scriptTargetSummary(target);
 }
 
-function printHelp(stdout = process.stdout) {
+function printHelp(stdout) {
   stdout.write(`Usage: node scripts/cleanup-local-qa-data.mjs [--target-env local|qa|production] [--apply] [--db DB]
 
 Dry-runs by default. Missing --target-env remains a backwards-compatible local
 dry-run. Local apply mutates only local disposable QA data. QA apply is disabled
 until D1/R2 safety checks are installed. Production broad cleanup is read-only
 and refuses --apply.
-`);
+  `);
+}
+
+function cleanupResultMessage(options) {
+  if (options.apply) return "Applied local QA cleanup.\n";
+  if (options.target.targetEnv === "local") return "Dry run only. Pass --apply to mutate local D1.\n";
+  if (options.target.targetEnv === "qa") {
+    return "Dry run only. Remote QA apply is disabled until D1/R2 safety checks are installed.\n";
+  }
+  return "Dry run only. Production broad cleanup is read-only.\n";
 }
 
 export async function runCleanupCli({
@@ -190,14 +200,29 @@ export async function runCleanupCli({
     maxBuffer: MAX_WRANGLER_BUFFER,
   });
 
-  stdout.write(options.apply ? "Applied local QA cleanup.\n" : "Dry run only. Pass --apply to mutate local D1.\n");
+  stdout.write(cleanupResultMessage(options));
   if (result.stdout) stdout.write(result.stdout);
   if (result.stderr) stderr.write(result.stderr);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runCleanupCli().catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
-  });
+export function isCliEntry(moduleUrl, argv1 = process.argv[1]) {
+  return typeof argv1 === "string" && moduleUrl === pathToFileURL(argv1).href;
 }
+
+export function defaultCliErrorHandler(error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}
+
+export function runCliIfEntry({
+  moduleUrl = import.meta.url,
+  argv1 = process.argv[1],
+  runMain = runCleanupCli,
+  onError = defaultCliErrorHandler,
+} = {}) {
+  if (!isCliEntry(moduleUrl, argv1)) return false;
+  runMain().catch(onError);
+  return true;
+}
+
+runCliIfEntry();
