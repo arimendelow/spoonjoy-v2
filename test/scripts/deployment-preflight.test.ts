@@ -596,6 +596,23 @@ describe("deployment preflight", () => {
     expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
   });
 
+  it("rejects QA image-cover workflows that echo provider gate commands instead of executing them", () => {
+    const inputs = validInputs();
+    inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow()
+      .replace(
+        '          secrets_json="$(pnpm exec wrangler secret list --env qa)"',
+        '          echo "secrets_json=\\"$(pnpm exec wrangler secret list --env qa)\\""',
+      )
+      .replace(
+        "          if ! printf '%s' \"$secrets_json\" | grep -Eq '\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\"'; then",
+        "          echo \"if ! printf '%s' \\\"$secrets_json\\\" | grep -Eq '\\\"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)\\\"'; then\"",
+      );
+
+    const result = validateDeploymentConfig(inputs);
+
+    expect(result.errors.map((item) => item.name)).toContain("QA image-cover smoke workflow");
+  });
+
   it("rejects QA image-cover workflows that set provider ready true after skip branches", () => {
     const inputs = validInputs();
     inputs.qaImageCoverSmokeWorkflow = validQaImageCoverSmokeWorkflow().replaceAll(

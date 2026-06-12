@@ -431,16 +431,9 @@ function cloudflareGateRunIsSafe(run: string): boolean {
 
 function qaProviderGateRunIsSafe(run: string): boolean {
   const commands = runCommandLines(run);
-  if (!commands.some((command) => command.includes("wrangler secret list --env qa"))) return false;
-  if (!commands.some((command) =>
-    command.includes("grep -Eq") &&
-    command.includes("OPENAI_API_KEY") &&
-    command.includes("GEMINI_API_KEY") &&
-    command.includes("GOOGLE_API_KEY")
-  )) {
-    return false;
-  }
   return includesOrdered(commands, [
+    'secrets_json="$(pnpm exec wrangler secret list --env qa)"',
+    `if ! printf '%s' "$secrets_json" | grep -Eq '"(OPENAI_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)"'; then`,
     'echo "ready=false" >> "$GITHUB_OUTPUT"',
     "exit 0",
     "fi",
