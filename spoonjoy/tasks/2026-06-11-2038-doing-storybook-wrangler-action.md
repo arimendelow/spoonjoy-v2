@@ -60,24 +60,24 @@ Remove the deprecated Cloudflare Pages GitHub Action from the Storybook deployme
 **Acceptance**: Existing workflow target is understood, `wrangler-action@v4` Node 24 evidence is recorded, and baseline `pnpm build-storybook` passes without leaving tracked changes.
 
 ### ⬜ Unit 1a: Workflow Migration — Tests
-**What**: Add or update a workflow validation test that fails while `.github/workflows/storybook.yml` still uses `cloudflare/pages-action@v1` or omits the required Wrangler action command.
-**Output**: Failing test coverage for the Storybook deploy workflow contract.
-**Acceptance**: Focused test command fails before the workflow migration.
+**What**: Extend `test/scripts/deployment-preflight.test.ts` with a Storybook deploy workflow contract that expects `validateDeploymentConfig` to check a `storybookWorkflow` input. The red tests must fail while `scripts/deployment-preflight.ts` does not read/check `.github/workflows/storybook.yml` and while the repo workflow still uses `cloudflare/pages-action@v1`.
+**Output**: Failing test coverage for the Storybook deploy workflow contract in `test/scripts/deployment-preflight.test.ts`.
+**Acceptance**: `pnpm exec vitest run test/scripts/deployment-preflight.test.ts -t "Storybook deploy workflow"` fails before the workflow migration.
 
 ### ⬜ Unit 1b: Workflow Migration — Implementation
-**What**: Replace the deploy step in `.github/workflows/storybook.yml` with `cloudflare/wrangler-action@v4` and command `pages deploy storybook-static --project-name=spoonjoy-storybook`, while preserving secret names, `deployments: write`, and main-branch-only deploy behavior.
-**Output**: Updated Storybook workflow.
-**Acceptance**: Focused workflow validation test passes, `pnpm build-storybook` passes, and workflow syntax is valid.
+**What**: Extend `scripts/deployment-preflight.ts` to read `.github/workflows/storybook.yml` and validate the Storybook deploy contract, then replace the deploy step in `.github/workflows/storybook.yml` with `cloudflare/wrangler-action@v4` and command `pages deploy storybook-static --project-name=spoonjoy-storybook`, while preserving `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `deployments: write`, `gitHubToken: ${{ secrets.GITHUB_TOKEN }}`, and main-branch-only deploy behavior.
+**Output**: Updated deployment preflight and Storybook workflow.
+**Acceptance**: `pnpm exec vitest run test/scripts/deployment-preflight.test.ts -t "Storybook deploy workflow"` passes, `pnpm build-storybook` passes, and `ruby -e 'require "psych"; Psych.parse_file(".github/workflows/storybook.yml")'` parses the workflow.
 
 ### ⬜ Unit 1c: Workflow Migration — Coverage & Refactor
-**What**: Run the relevant coverage/check suite for the workflow validation code and inspect for warnings or stale generated artifacts.
+**What**: Run `pnpm exec vitest run test/scripts/deployment-preflight.test.ts --coverage` plus `pnpm run deploy:preflight` for the workflow validation code and inspect for warnings or stale generated artifacts.
 **Output**: Passing verification evidence and any cleanup committed.
 **Acceptance**: New workflow validation logic has 100% coverage, `git diff --check` passes, and the branch is ready for reviewer/merge.
 
 ### ⬜ Unit 2: Merge/Deploy Verification
 **What**: Open the PR, run cold implementation review, merge after checks pass, wait for `main` Storybook workflow success, and clean the branch/PR state.
 **Output**: Merged PR, successful main Storybook run, clean local and remote branch state.
-**Acceptance**: `main` contains the migration, Storybook workflow passes on the merge commit, no open PR or stale `spoonjoy/storybook-wrangler-action` branch remains, and the continuation loop moves to `SJ-044`.
+**Acceptance**: `main` contains the migration, Storybook workflow passes on the merge commit, no open PR or stale `spoonjoy/storybook-wrangler-action` branch remains, and `spoonjoy/tasks/AUTOPILOT-STATE.md` records `SJ-044` as the next queued seed.
 
 ## Execution
 - **TDD strictly enforced**: tests → red → implement → green → refactor
@@ -90,3 +90,4 @@ Remove the deprecated Cloudflare Pages GitHub Action from the Storybook deployme
 
 ## Progress Log
 - 2026-06-11 20:44 Created from planning doc
+- 2026-06-11 20:48 Doing review Round 1 required exact validation files/commands and a concrete Storybook workflow syntax parse command.
