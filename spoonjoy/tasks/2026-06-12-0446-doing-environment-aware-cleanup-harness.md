@@ -67,7 +67,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Output**: Tests in `test/scripts/script-environment.test.ts`, `test/scripts/smoke-api-live.test.ts`, and `test/scripts/deployment-preflight.test.ts` plus red output in `unit-1a-red.log`.
 **Acceptance**: Tests fail for missing resolver behavior, not for test syntax/import errors.
 
-### ⬜ Unit 1b: Shared Environment Resolver — Implementation
+### ✅ Unit 1b: Shared Environment Resolver — Implementation
 **What**: Add runtime-compatible `scripts/script-environment.mjs`, refactor `scripts/smoke-live-helpers.mjs`, `scripts/smoke-api-live.mjs`, and `scripts/qa-preflight.ts` to consume it, and update `package.json` so `smoke:api` passes `--target-env production`. Keep smoke scripts runnable with plain `node` package scripts; do not make `.mjs` scripts import a `.ts` module.
 **Output**: Resolver module, updated imports/constants, and green focused resolver/smoke/preflight test output in `unit-1b-green.log`.
 **Acceptance**: Unit 1a tests plus existing smoke/API/preflight helper tests pass with no warnings.
@@ -206,3 +206,4 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 05:16 Doing-doc reviewer chain converged across granularity, validation, ambiguity, quality, Tinfoil Hat, and Stranger With Candy passes; status set to READY_FOR_EXECUTION.
 - 2026-06-12 05:23 Unit 0 complete: branch/status, cleanup dry-run counts, inspected files, and cleanup-sensitive schema relationships recorded in `unit-0-setup.log`. Unit review skipped (reason: setup/research evidence only; no code behavior changed).
 - 2026-06-12 06:13 Unit 1a complete: added resolver/API-smoke/package-script red tests and captured `unit-1a-red.log`; failures are missing resolver behavior, API target validation/metadata, and `smoke:api` package target contract. Unit review skipped (reason: red-test unit; implementation review follows green unit).
+- 2026-06-12 06:16 Unit 1b complete: implemented shared script target resolver, wired live/API smoke and QA preflight constants to it, updated `smoke:api` to explicit production target, and captured focused green tests plus build logs in `unit-1b-green.log` and `unit-1b-build.log`.
