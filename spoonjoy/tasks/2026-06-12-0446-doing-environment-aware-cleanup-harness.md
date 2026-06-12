@@ -127,7 +127,7 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 **Output**: Tests in `test/scripts/smoke-live-helpers.test.ts`, `test/scripts/smoke-image-cover-live.test.ts`, and `test/scripts/smoke-api-live.test.ts` plus red output in `unit-5a-red.log`.
 **Acceptance**: Tests fail on missing artifact metadata behavior, not on unrelated smoke setup.
 
-### ⬜ Unit 5b: Smoke Artifact Metadata — Implementation
+### ✅ Unit 5b: Smoke Artifact Metadata — Implementation
 **What**: Wire resolver metadata and git branch/commit detection into `scripts/smoke-live.mjs`, `scripts/smoke-api-live.mjs`, and helpers, without breaking existing exact-run cleanup or image-cover smoke cleanup.
 **Output**: Updated smoke artifact code and green focused smoke tests in `unit-5b-green.log`.
 **Acceptance**: Focused smoke helper/image-cover tests pass; report JSON keeps existing fields and adds the new metadata.
@@ -222,3 +222,5 @@ Make Spoonjoy smoke and cleanup scripts explicit about their target environment,
 - 2026-06-12 07:01 Unit 4c complete: added R2 planner/parser/delete-verification edge coverage and verified `scripts/cleanup-local-qa-data.mjs` at 100% statements, branches, functions, and lines; build passed with evidence in `unit-4c-coverage.log` and `unit-4c-build.log`.
 - 2026-06-12 07:10 Unit 4b review fix complete: Aquinas found a MAJOR absent-`SearchDocument` QA apply blocker and a MINOR blocker-visibility gap; fix split SearchDocument R2 blockers behind a table-existence probe, added D1 blocker-report preflight before apply, restored 100% cleanup coverage, and passed build/local dogfood. Evidence in `unit-4b-review.md` and `unit-4b-review-fix-*.log`; narrow re-review dispatched.
 - 2026-06-12 07:12 Unit 5a complete: added red tests for live smoke report environment/git/created/R2 metadata, image-cover retained R2 keys, and API smoke git metadata; expected failures captured in `unit-5a-red.log`. Unit review skipped (reason: red-test unit; implementation review follows green unit).
+- 2026-06-12 07:15 Unit 4b narrow re-review complete: Aquinas returned CONVERGED; verdict recorded in `unit-4b-review-round2.md`.
+- 2026-06-12 07:15 Unit 5b complete: added shared smoke report metadata builder, git metadata capture, live smoke environment/created/R2 artifact shape, API smoke git metadata, and image-cover retained R2 arrays. Focused tests/build passed with evidence in `unit-5b-green.log` and `unit-5b-build.log`.
